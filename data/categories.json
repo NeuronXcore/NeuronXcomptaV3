@@ -1,0 +1,142 @@
+[
+  {
+    "Cat\u00e9gorie": "URSSAF",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#1b12de"
+  },
+  {
+    "Cat\u00e9gorie": "Honoraires",
+    "Sous-cat\u00e9gorie": "Bloc",
+    "Couleur": "#5fd8ea"
+  },
+  {
+    "Cat\u00e9gorie": "Honoraires",
+    "Sous-cat\u00e9gorie": "Optam",
+    "Couleur": "#5fd8ea"
+  },
+  {
+    "Cat\u00e9gorie": "perso",
+    "Sous-cat\u00e9gorie": "Retrait CB",
+    "Couleur": "#c9de40"
+  },
+  {
+    "Cat\u00e9gorie": "repas",
+    "Sous-cat\u00e9gorie": "",
+    "Couleur": "#dde012"
+  },
+  {
+    "Cat\u00e9gorie": "Rempla\u00e7ant",
+    "Sous-cat\u00e9gorie": "",
+    "Couleur": "#e8b93f"
+  },
+  {
+    "Cat\u00e9gorie": "Fournitures",
+    "Sous-cat\u00e9gorie": "",
+    "Couleur": "#e8acad"
+  },
+  {
+    "Cat\u00e9gorie": "perso",
+    "Sous-cat\u00e9gorie": "virement",
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "V\u00e9hicule",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#e2b30f"
+  },
+  {
+    "Cat\u00e9gorie": "V\u00e9hicule",
+    "Sous-cat\u00e9gorie": "Loyer",
+    "Couleur": "#e8d919"
+  },
+  {
+    "Cat\u00e9gorie": "V\u00e9hicule",
+    "Sous-cat\u00e9gorie": "P\u00e9age",
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "V\u00e9hicule",
+    "Sous-cat\u00e9gorie": "Parking",
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "V\u00e9hicule",
+    "Sous-cat\u00e9gorie": "Essence",
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "V\u00e9hicule",
+    "Sous-cat\u00e9gorie": "Entretien",
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "Formations",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#132ad8"
+  },
+  {
+    "Cat\u00e9gorie": "Abonnements",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#97a1ef"
+  },
+  {
+    "Cat\u00e9gorie": "Mat\u00e9riel",
+    "Sous-cat\u00e9gorie": "Informatique",
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "Frais Bancaires",
+    "Sous-cat\u00e9gorie": "BNP",
+    "Couleur": "#3dce1e"
+  },
+  {
+    "Cat\u00e9gorie": "Frais Bancaires",
+    "Sous-cat\u00e9gorie": "CA",
+    "Couleur": "#1cc930"
+  },
+  {
+    "Cat\u00e9gorie": "Rempla\u00e7ant",
+    "Sous-cat\u00e9gorie": "Honoraires",
+    "Couleur": "#1cc930"
+  },
+  {
+    "Cat\u00e9gorie": "Rempla\u00e7ant",
+    "Sous-cat\u00e9gorie": "H\u00e9bergement",
+    "Couleur": "#1cc930"
+  },
+  {
+    "Cat\u00e9gorie": "CARMF",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#5335e0"
+  },
+  {
+    "Cat\u00e9gorie": "Telephone-Internet",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#e48f15"
+  },
+  {
+    "Cat\u00e9gorie": "Logiciel",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#e48f15"
+  },
+  {
+    "Cat\u00e9gorie": "Comptable",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#e48f15"
+  },
+  {
+    "Cat\u00e9gorie": "Poste",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "Ordre des M\u00e9decins",
+    "Sous-cat\u00e9gorie": null,
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Cat\u00e9gorie": "V\u00e9hicule",
+    "Sous-cat\u00e9gorie": "Assurance",
+    "Couleur": "#95A5A6"
+  }
+]
