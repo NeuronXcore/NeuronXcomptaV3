@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# ML models (binary, volumineux)
+data/ml/*.pkl
+data/ml/backups/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+data/logs/
+*.log
+
+# Données applicatives (fichiers utilisateur, pas dans le repo)
+data/imports/
+data/exports/
+data/reports/
+data/rapports/
+data/justificatifs/en_attente/
+data/justificatifs/traites/
+data/ocr/
+data/compta_analytique/
+
+# Garder la structure des dossiers
+!data/imports/.gitkeep
+!data/exports/.gitkeep
+!data/reports/.gitkeep
+!data/justificatifs/en_attente/.gitkeep
+!data/justificatifs/traites/.gitkeep
+!data/ml/.gitkeep
+!data/ocr/.gitkeep
+!data/logs/.gitkeep
+
+# OCR cache
+*.ocr.json
+
+# Settings utilisateur
+settings.json
+
+# Temp
+*.tmp
+*.bak
+
+# EasyOCR models (téléchargés automatiquement)
+~/.EasyOCR/
+
+# Coverage / tests
+.coverage
+htmlcov/
+.pytest_cache/
