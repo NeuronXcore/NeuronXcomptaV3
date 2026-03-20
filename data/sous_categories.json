@@ -1,0 +1,17 @@
+{
+    "Revenus": {
+        "Salaire": ["Fixe", "Variable", "Prime"],
+        "Prestations": ["Conseil", "Formation", "Développement"],
+        "Autres": ["Non spécifié"]
+    },
+    "Dépenses courantes": {
+        "Alimentation": ["Courses", "Restaurant", "Café"],
+        "Transports": ["Carburant", "Transport en commun", "Taxi"],
+        "Logement": ["Loyer", "Charges", "Entretien"],
+        "Autres": ["Non spécifié"]
+    },
+    "Dépenses exceptionnelles": {
+        "Voyages": ["Transport", "Hébergement", "Activités"],
+        "Autres": ["Non spécifié"]
+    }
+} 
