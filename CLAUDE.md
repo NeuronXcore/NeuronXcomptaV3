@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 12 pages are fully implemented with zero placeholders.
+NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 15 pages are fully implemented with zero placeholders.
 
 ## Architecture
 
@@ -39,14 +39,14 @@ neuronXcompta/
 │   ├── main.py                 # FastAPI entry point
 │   ├── core/config.py          # All paths, constants, MOIS_FR
 │   ├── models/                 # Pydantic schemas (6 files)
-│   ├── routers/                # API endpoints (10 routers)
-│   └── services/               # Business logic (10 services)
+│   ├── routers/                # API endpoints (13 routers)
+│   └── services/               # Business logic (12 services)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx             # All 12 routes
+│       ├── App.tsx             # All 15 routes
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
-│       ├── components/         # 25 .tsx components
-│       ├── hooks/              # 5 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports)
+│       ├── components/         # 28 .tsx components
+│       ├── hooks/              # 8 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useLettrage, useCloture)
 │       ├── types/index.ts      # All TypeScript interfaces
 │       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, formatFileTitle
 │       └── index.css           # Tailwind @theme with custom colors
@@ -59,7 +59,7 @@ neuronXcompta/
 
 | Router | Prefix | Key Endpoints |
 |--------|--------|---------------|
-| operations | `/api/operations` | GET /files, GET/PUT/DELETE /{filename}, POST /import, POST /{filename}/categorize |
+| operations | `/api/operations` | GET /files, GET/PUT/DELETE /{filename}, POST /import, POST /{filename}/categorize, GET /{filename}/has-pdf, GET /{filename}/pdf |
 | categories | `/api/categories` | GET, POST, PUT /{name}, DELETE /{name}, GET /{name}/subcategories |
 | ml | `/api/ml` | GET /model, POST /predict, POST /train, POST /rules, POST /backup, POST /restore/{name} |
 | analytics | `/api/analytics` | GET /dashboard, GET /summary, GET /trends, GET /anomalies |
@@ -68,6 +68,9 @@ neuronXcompta/
 | justificatifs | `/api/justificatifs` | GET /, GET /stats, POST /upload, POST /associate, POST /dissociate |
 | ocr | `/api/ocr` | GET /status, GET /history, POST /extract, POST /extract-upload |
 | exports | `/api/exports` | GET /periods, GET /list, POST /generate, GET /download/{filename} |
+| rapprochement | `/api/rapprochement` | POST /{filename}/auto, POST /{filename}/manual, DELETE /{filename}/{index}, GET /{filename}/stats |
+| lettrage | `/api/lettrage` | POST /{filename}/{index}, POST /{filename}/bulk, GET /{filename}/stats |
+| cloture | `/api/cloture` | GET /years, GET /{year} |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info |
 
 ## Frontend Routes
@@ -77,13 +80,15 @@ neuronXcompta/
 | `/` | HomePage | Quick actions dashboard |
 | `/dashboard` | DashboardPage | KPIs, charts, recent operations |
 | `/import` | ImportPage | PDF drag-drop import |
-| `/editor` | EditorPage | Inline operation editing with AI categorization |
+| `/editor` | EditorPage | Inline operation editing with AI categorization, lettrage toggle, PDF preview |
 | `/categories` | CategoriesPage | 4-tab category management |
 | `/reports` | ReportsPage | Report generation (CSV/PDF/Excel) + gallery |
 | `/visualization` | ComptaAnalytiquePage | Analytics, trends, anomalies, custom queries |
 | `/justificatifs` | JustificatifsPage | Upload, gallery, association, PDF preview drawer |
 | `/agent-ai` | AgentIAPage | ML model dashboard, rules, training, backups |
 | `/export` | ExportPage | Monthly ZIP export with calendar grid |
+| `/rapprochement` | RapprochementPage | Auto/manual bank-justificatif reconciliation |
+| `/cloture` | CloturePage | Annual calendar view of monthly accounting completeness |
 | `/ocr` | OcrPage | OCR test, history, EasyOCR status |
 | `/settings` | SettingsPage | 5-tab settings (general, theme, export, storage, system) |
 

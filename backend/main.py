@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories
-from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports
+from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture
 
 # Initialiser les répertoires
 ensure_directories()
@@ -58,6 +58,9 @@ app.include_router(queries.router)
 app.include_router(justificatifs.router)
 app.include_router(ocr.router)
 app.include_router(exports.router)
+app.include_router(rapprochement.router)
+app.include_router(lettrage.router)
+app.include_router(cloture.router)
 
 
 @app.get("/")

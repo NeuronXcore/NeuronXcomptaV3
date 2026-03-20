@@ -9,7 +9,11 @@ export interface Operation {
   'Lien justificatif'?: string
   Important?: boolean
   A_revoir?: boolean
+  lettre?: boolean
   Commentaire?: string
+  rapprochement_score?: number
+  rapprochement_mode?: 'auto' | 'manuel' | null
+  rapprochement_date?: string
 }
 
 export interface OperationFile {
@@ -271,4 +275,76 @@ export interface OperationSuggestion {
   categorie?: string
   score: number
   score_detail: string
+}
+
+// ─── Lettrage ───
+
+export interface LettrageStats {
+  total: number
+  lettrees: number
+  non_lettrees: number
+  taux: number
+}
+
+// ─── Clôture ───
+
+export interface MonthStatus {
+  mois: number
+  label: string
+  has_releve: boolean
+  filename?: string
+  nb_operations: number
+  nb_lettrees: number
+  taux_lettrage: number
+  nb_justificatifs_total: number
+  nb_justificatifs_ok: number
+  taux_justificatifs: number
+  statut: 'complet' | 'partiel' | 'manquant'
+}
+
+// ─── Rapprochement ───
+
+export interface ScoreDetail {
+  montant: number
+  date: number
+  fournisseur: number
+}
+
+export interface MatchScore {
+  total: number
+  detail: ScoreDetail
+  confidence_level: 'fort' | 'probable' | 'possible' | 'faible'
+}
+
+export interface RapprochementSuggestion {
+  justificatif_filename: string
+  operation_file: string
+  operation_index: number
+  operation_libelle: string
+  operation_date: string
+  operation_montant: number
+  score: MatchScore
+}
+
+export interface AutoRapprochementReport {
+  total_justificatifs_traites: number
+  associations_auto: number
+  suggestions_fortes: number
+  sans_correspondance: number
+  ran_at: string
+}
+
+export interface UnmatchedSummary {
+  operations_sans_justificatif: number
+  justificatifs_en_attente: number
+}
+
+export interface AutoLogEntry {
+  timestamp: string
+  action: string
+  justificatif: string
+  operation_file: string
+  operation_index: number
+  operation_libelle: string
+  score: number
 }

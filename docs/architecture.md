@@ -9,7 +9,7 @@
 │                                                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
 │  │ Components│  │  Hooks   │  │  Types   │              │
-│  │  (25 .tsx)│  │(TanStack)│  │(index.ts)│              │
+│  │  (28 .tsx)│  │(TanStack)│  │(index.ts)│              │
 │  └─────┬─────┘  └─────┬────┘  └──────────┘              │
 │        │              │                                  │
 │        └──────┬───────┘                                  │
@@ -26,7 +26,7 @@
 │                                                           │
 │  ┌────────────┐     ┌─────────────┐     ┌──────────────┐ │
 │  │  Routers   │ ──▶ │  Services   │ ──▶ │  Data (JSON) │ │
-│  │  (10 files)│     │  (10 files) │     │  data/       │ │
+│  │  (13 files)│     │  (12 files) │     │  data/       │ │
 │  └────────────┘     └─────────────┘     └──────────────┘ │
 │        │                   │                              │
 │  ┌─────▼──────┐     ┌─────▼──────┐                       │
@@ -70,6 +70,37 @@ Upload justificatif → justificatifs router → upload_justificatifs()
   → Suggestions améliorées (date OCR + montant OCR + fournisseur)
 ```
 
+### Rapprochement bancaire
+
+```
+Fichier opérations → rapprochement router → rapprochement_service
+  → Auto : score(date, montant, fournisseur OCR) pour chaque opération × justificatif
+  → Manuel : association directe opération ↔ justificatif
+  → Mise à jour champs : rapprochement_score, rapprochement_mode, rapprochement_date
+  → Dissociation : supprime lien justificatif + champs rapprochement
+```
+
+### Lettrage comptable
+
+```
+Fichier opérations → lettrage router → operation_service
+  → Toggle : inverse op["lettre"] (bool) pour une opération
+  → Bulk : applique lettre=true/false sur N indices
+  → Stats : total, lettrées, non_lettrées, taux
+```
+
+### Clôture comptable
+
+```
+Année → cloture router → cloture_service.get_annual_status(year)
+  → Pour chaque mois 1-12 :
+    → Identifie le fichier d'opérations (metadata month/year)
+    → Compte nb_operations, nb_lettrees, taux_lettrage
+    → Compte nb_justificatifs_total, nb_justificatifs_ok, taux_justificatifs
+    → Statut : complet (100% L + 100% J) | partiel (relevé chargé) | manquant
+  → Retourne tableau 12 mois avec statut et stats
+```
+
 ### Export comptable
 
 ```
@@ -87,8 +118,8 @@ Sélection mois → exports router → export_service.generate_export()
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Components** | UI et interactions | `src/components/` (25 fichiers) |
-| **Hooks** | Data fetching, cache, mutations | `src/hooks/` (5 fichiers) |
+| **Components** | UI et interactions | `src/components/` (28 fichiers) |
+| **Hooks** | Data fetching, cache, mutations | `src/hooks/` (8 fichiers) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -97,8 +128,8 @@ Sélection mois → exports router → export_service.generate_export()
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Routers** | Endpoints HTTP, validation | `backend/routers/` (10 fichiers) |
-| **Services** | Logique métier, I/O | `backend/services/` (10 fichiers) |
+| **Routers** | Endpoints HTTP, validation | `backend/routers/` (13 fichiers) |
+| **Services** | Logique métier, I/O | `backend/services/` (12 fichiers) |
 | **Models** | Schémas Pydantic | `backend/models/` (6 fichiers) |
 | **Config** | Chemins, constantes | `backend/core/config.py` |
 

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   useReactTable,
   getCoreRowModel,
@@ -15,12 +16,16 @@ import {
   Save, Bot, Plus, Trash2, Filter, Loader2, Check, Search,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
-  AlertTriangle, Star, Paperclip, X, Download, RotateCcw,
+  AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
+  CheckCircle2, Circle,
 } from 'lucide-react'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import { useOperationFiles, useOperations, useSaveOperations, useCategorizeOperations } from '@/hooks/useOperations'
+import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
+import { useOperationFiles, useOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
+import { useBatchHints } from '@/hooks/useRapprochement'
+import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
 import { formatCurrency, formatFileTitle, cn } from '@/lib/utils'
 import type { Operation, CategoryRaw } from '@/types'
 
@@ -102,6 +107,7 @@ function CheckboxCell({
 }
 
 export default function EditorPage() {
+  const [searchParams] = useSearchParams()
   const { data: files, isLoading: filesLoading } = useOperationFiles()
   const { data: categoriesData } = useCategories()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -122,16 +128,35 @@ export default function EditorPage() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [pageSize, setPageSize] = useState(50)
 
+  // PDF preview state
+  const { data: pdfStatus } = useHasPdf(selectedFile)
+  const [pdfDrawerOpen, setPdfDrawerOpen] = useState(false)
+
+  // Lettrage
+  const { data: lettrageStats } = useLettrageStats(selectedFile)
+  const toggleLettrageMutation = useToggleLettrage()
+  const bulkLettrageMutation = useBulkLettrage()
+
+  // Rapprochement state
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerOpIndex, setDrawerOpIndex] = useState<number | null>(null)
+  const { data: batchHints } = useBatchHints(selectedFile)
+
   const saveMutation = useSaveOperations()
   const categorizeMutation = useCategorizeOperations()
   const searchRef = useRef<HTMLInputElement>(null)
 
-  // Auto-select first file
+  // Auto-select file from query param or first file
   useEffect(() => {
-    if (files && files.length > 0 && !selectedFile) {
+    if (!files || files.length === 0) return
+    if (selectedFile) return
+    const fileParam = searchParams.get('file')
+    if (fileParam && files.some(f => f.filename === fileParam)) {
+      setSelectedFile(fileParam)
+    } else {
       setSelectedFile(files[0].filename)
     }
-  }, [files, selectedFile])
+  }, [files, selectedFile, searchParams])
 
   // Sync operations when loaded from API
   useEffect(() => {
@@ -437,17 +462,45 @@ export default function EditorPage() {
         )
       },
     },
-    // Justificatif
+    // Justificatif — interactive paperclip
     {
       accessorKey: 'Justificatif',
       header: () => <Paperclip size={14} className="mx-auto" />,
       size: 40,
-      cell: ({ row }) => (
-        <CheckboxCell
-          checked={row.original.Justificatif || false}
-          onChange={val => updateOperation(row.index, 'Justificatif', val)}
-        />
-      ),
+      cell: ({ row }) => {
+        const hasJustif = row.original.Justificatif || false
+        const hintScore = batchHints?.[String(row.index)]
+        const hasStrongHint = !hasJustif && hintScore != null && hintScore >= 0.75
+        return (
+          <div className="flex justify-center">
+            <button
+              onClick={() => {
+                setDrawerOpIndex(row.index)
+                setDrawerOpen(true)
+              }}
+              className="relative p-0.5 rounded hover:bg-surface-hover transition-colors"
+              title={
+                hasJustif
+                  ? `Associé${row.original.rapprochement_mode === 'auto' ? ' (auto)' : ''}`
+                  : hasStrongHint
+                    ? `Correspondance ${Math.round(hintScore! * 100)}%`
+                    : 'Aucun justificatif'
+              }
+            >
+              <Paperclip
+                size={14}
+                className={cn(
+                  hasJustif ? 'text-emerald-400' : 'text-text-muted/40',
+                  hasStrongHint && 'text-amber-400',
+                )}
+              />
+              {hasStrongHint && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+              )}
+            </button>
+          </div>
+        )
+      },
       enableSorting: false,
     },
     // Important
@@ -476,6 +529,34 @@ export default function EditorPage() {
           accentClass="accent-danger"
         />
       ),
+      enableSorting: false,
+    },
+    // Lettrée
+    {
+      accessorKey: 'lettre',
+      header: () => <CheckCircle2 size={14} className="mx-auto text-emerald-400" />,
+      size: 40,
+      cell: ({ row }) => {
+        const isLettre = row.original.lettre || false
+        return (
+          <div className="flex justify-center">
+            <button
+              onClick={() => {
+                if (selectedFile) {
+                  toggleLettrageMutation.mutate({ filename: selectedFile, index: row.index })
+                }
+              }}
+              className="p-0.5 rounded hover:bg-surface-hover transition-colors"
+              title={isLettre ? 'Lettrée' : 'Non lettrée'}
+            >
+              {isLettre
+                ? <CheckCircle2 size={14} className="text-emerald-400" />
+                : <Circle size={14} className="text-text-muted/30" />
+              }
+            </button>
+          </div>
+        )
+      },
       enableSorting: false,
     },
     // Commentaire
@@ -507,7 +588,8 @@ export default function EditorPage() {
         </button>
       ),
     },
-  ], [categoryNames, subcategoriesMap, categoryColors, updateOperation, deleteRow])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [categoryNames, subcategoriesMap, categoryColors, updateOperation, deleteRow, batchHints, selectedFile])
 
   // TanStack Table instance
   const table = useReactTable({
@@ -583,6 +665,30 @@ export default function EditorPage() {
               <Download size={15} />
             </button>
 
+            {/* Lettrage stats */}
+            {lettrageStats && selectedFile && (
+              <span className="text-xs font-mono text-text-muted px-2 py-2 bg-surface border border-border rounded-lg">
+                <CheckCircle2 size={12} className="inline mr-1 text-emerald-400" />
+                {lettrageStats.lettrees}/{lettrageStats.total} L
+              </span>
+            )}
+
+            {/* Tout lettrer */}
+            {lettrageStats && lettrageStats.non_lettrees > 0 && selectedFile && (
+              <button
+                onClick={() => {
+                  const indices = operations.map((_, i) => i)
+                  bulkLettrageMutation.mutate({ filename: selectedFile, indices, lettre: true })
+                }}
+                disabled={bulkLettrageMutation.isPending}
+                className="flex items-center gap-1.5 px-2.5 py-2 text-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+                title="Lettrer toutes les opérations"
+              >
+                <CheckCircle2 size={15} />
+                Tout L
+              </button>
+            )}
+
             {/* IA (vides) */}
             <button
               onClick={() => handleCategorize('empty_only')}
@@ -642,6 +748,22 @@ export default function EditorPage() {
             </option>
           ))}
         </select>
+
+        {/* PDF original */}
+        <button
+          onClick={() => setPdfDrawerOpen(true)}
+          disabled={!pdfStatus?.has_pdf}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-colors',
+            pdfStatus?.has_pdf
+              ? 'bg-surface border-border hover:bg-surface-hover text-text'
+              : 'bg-surface border-border text-text-muted/40 cursor-not-allowed'
+          )}
+          title={pdfStatus?.has_pdf ? 'Voir le relevé PDF original' : 'Pas de PDF source associé'}
+        >
+          <FileText size={15} />
+          <span className="hidden lg:inline">PDF</span>
+        </button>
 
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
@@ -812,6 +934,7 @@ export default function EditorPage() {
                       row.getIsSelected() ? 'bg-primary/5' : 'hover:bg-surface-hover',
                       row.original.Important ? 'border-l-2 border-l-warning' : '',
                       row.original.A_revoir ? 'border-l-2 border-l-danger' : '',
+                      row.original.lettre ? 'opacity-60' : '',
                     )}
                   >
                     {row.getVisibleCells().map(cell => {
@@ -906,6 +1029,42 @@ export default function EditorPage() {
           </button>
         </div>
       )}
+
+      {/* PDF Preview Drawer */}
+      {pdfDrawerOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setPdfDrawerOpen(false)} />
+          <div className="fixed right-0 top-0 h-full w-[700px] max-w-[90vw] bg-surface border-l border-border z-50 flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <FileText size={18} />
+                Relevé PDF original
+              </h2>
+              <button
+                onClick={() => setPdfDrawerOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <iframe
+              src={`/api/operations/${selectedFile}/pdf`}
+              className="flex-1 w-full"
+              title="Relevé PDF original"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Rapprochement Drawer */}
+      <RapprochementDrawer
+        open={drawerOpen}
+        onClose={() => { setDrawerOpen(false); setDrawerOpIndex(null) }}
+        mode="operation"
+        operationFile={selectedFile || undefined}
+        operationIndex={drawerOpIndex ?? undefined}
+        operation={drawerOpIndex !== null ? operations[drawerOpIndex] : undefined}
+      />
     </div>
   )
 }

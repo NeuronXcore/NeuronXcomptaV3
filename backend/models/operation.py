@@ -1,4 +1,5 @@
 """Schemas Pydantic pour les opérations."""
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -16,7 +17,11 @@ class Operation(BaseModel):
     Lien_justificatif: Optional[str] = Field(None, alias="Lien justificatif")
     Important: bool = False
     A_revoir: bool = False
+    lettre: bool = False
     Commentaire: Optional[str] = None
+    rapprochement_score: Optional[float] = None
+    rapprochement_mode: Optional[str] = None
+    rapprochement_date: Optional[str] = None
 
     model_config = {"populate_by_name": True}
 

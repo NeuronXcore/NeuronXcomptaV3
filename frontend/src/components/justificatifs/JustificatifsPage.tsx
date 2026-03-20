@@ -4,20 +4,22 @@ import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import JustificatifDrawer from './JustificatifDrawer'
+import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
 import {
   useJustificatifs,
   useJustificatifStats,
   useUploadJustificatifs,
   useDeleteJustificatif,
 } from '@/hooks/useJustificatifs'
+import { useBatchJustificatifScores } from '@/hooks/useRapprochement'
 import { cn, MOIS_FR } from '@/lib/utils'
 import {
   Upload, Clock, CheckCircle, FileText, Search,
-  Trash2, Eye, X, Loader2, AlertCircle,
+  Trash2, Eye, X, Loader2, AlertCircle, Link,
 } from 'lucide-react'
 import type { JustificatifInfo } from '@/types'
 
-type StatusFilter = 'all' | 'en_attente' | 'traites'
+type StatusFilter = 'all' | 'en_attente' | 'traites' | 'sans_correspondance' | 'correspondance_forte'
 type SortBy = 'date' | 'name' | 'size'
 
 export default function JustificatifsPage() {
@@ -34,11 +36,19 @@ export default function JustificatifsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedJustificatif, setSelectedJustificatif] = useState<JustificatifInfo | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [rapprochementDrawerOpen, setRapprochementDrawerOpen] = useState(false)
+  const [rapprochementFilename, setRapprochementFilename] = useState<string | null>(null)
 
   // Data
   const { data: stats } = useJustificatifStats()
+  const { data: batchScores } = useBatchJustificatifScores()
+
+  // Map special status filters to API status
+  const apiStatus = (statusFilter === 'sans_correspondance' || statusFilter === 'correspondance_forte')
+    ? 'en_attente' : statusFilter
+
   const { data: justificatifs, isLoading } = useJustificatifs({
-    status: statusFilter,
+    status: apiStatus,
     search,
     year,
     month,
@@ -77,6 +87,18 @@ export default function JustificatifsPage() {
       },
     })
   }
+
+  // Filter by rapprochement score for special filters
+  const filteredJustificatifs = (() => {
+    if (!justificatifs) return []
+    if (statusFilter === 'sans_correspondance') {
+      return justificatifs.filter(j => !batchScores?.[j.filename])
+    }
+    if (statusFilter === 'correspondance_forte') {
+      return justificatifs.filter(j => (batchScores?.[j.filename] ?? 0) >= 0.75)
+    }
+    return justificatifs
+  })()
 
   // Generate year options from current data
   const years = Array.from(
@@ -242,6 +264,8 @@ export default function JustificatifsPage() {
               ['all', 'Tous'],
               ['en_attente', 'En attente'],
               ['traites', 'Traités'],
+              ['sans_correspondance', 'Sans corresp.'],
+              ['correspondance_forte', 'Corresp. forte'],
             ] as [StatusFilter, string][]).map(([value, label]) => (
               <button
                 key={value}
@@ -262,7 +286,7 @@ export default function JustificatifsPage() {
         {/* Gallery */}
         {isLoading ? (
           <LoadingSpinner text="Chargement des justificatifs..." />
-        ) : !justificatifs || justificatifs.length === 0 ? (
+        ) : filteredJustificatifs.length === 0 ? (
           <div className="bg-surface rounded-xl border border-border p-12 text-center">
             <FileText size={40} className="mx-auto text-text-muted mb-3" />
             <p className="text-text-muted">Aucun justificatif trouvé</p>
@@ -277,86 +301,120 @@ export default function JustificatifsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {justificatifs.map(j => (
-              <div
-                key={j.filename}
-                className="bg-surface rounded-xl border border-border p-4 hover:border-primary/50 transition-colors group"
-              >
-                {/* Icon + Status */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <FileText size={20} className="text-primary" />
-                  </div>
-                  <span className={cn(
-                    'text-[10px] px-2 py-0.5 rounded-full font-medium',
-                    j.status === 'traites'
-                      ? 'bg-emerald-500/15 text-emerald-400'
-                      : 'bg-amber-500/15 text-amber-400'
-                  )}>
-                    {j.status === 'traites' ? 'Traité' : 'En attente'}
-                  </span>
-                </div>
+            {filteredJustificatifs.map(j => {
+              const matchScore = batchScores?.[j.filename]
+              const confidenceLevel = matchScore != null
+                ? matchScore >= 0.95 ? 'fort'
+                : matchScore >= 0.75 ? 'probable'
+                : matchScore >= 0.60 ? 'possible'
+                : null
+                : null
 
-                {/* Name */}
-                <p className="text-sm font-medium text-text truncate mb-1" title={j.original_name}>
-                  {j.original_name}
-                </p>
-
-                {/* Metadata */}
-                <div className="flex items-center gap-2 text-xs text-text-muted mb-3">
-                  <span>{j.date.slice(0, 10)}</span>
-                  <span>·</span>
-                  <span>{j.size_human}</span>
-                </div>
-
-                {/* Linked operation */}
-                {j.linked_operation && (
-                  <p className="text-[10px] text-primary truncate mb-2" title={j.linked_operation}>
-                    Lié : {j.linked_operation}
-                  </p>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleView(j)}
-                    className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-primary/10 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors"
-                  >
-                    <Eye size={12} />
-                    Voir
-                  </button>
-                  {deleteConfirm === j.filename ? (
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleDelete(j.filename)}
-                        className="px-2 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs hover:bg-red-500/30"
-                        disabled={deleteMutation.isPending}
-                      >
-                        {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Oui'}
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(null)}
-                        className="px-2 py-1.5 bg-surface-hover text-text-muted rounded-lg text-xs"
-                      >
-                        Non
-                      </button>
+              return (
+                <div
+                  key={j.filename}
+                  className="bg-surface rounded-xl border border-border p-4 hover:border-primary/50 transition-colors group"
+                >
+                  {/* Icon + Status */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <FileText size={20} className="text-primary" />
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => setDeleteConfirm(j.filename)}
-                      className="flex items-center justify-center px-2 py-1.5 text-text-muted hover:text-red-400 rounded-lg text-xs transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {confidenceLevel && j.status === 'en_attente' && (
+                        <span className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                          confidenceLevel === 'fort' || confidenceLevel === 'probable'
+                            ? 'bg-emerald-500/15 text-emerald-400'
+                            : 'bg-amber-500/15 text-amber-400'
+                        )}>
+                          {Math.round(matchScore! * 100)}%
+                        </span>
+                      )}
+                      <span className={cn(
+                        'text-[10px] px-2 py-0.5 rounded-full font-medium',
+                        j.status === 'traites'
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : 'bg-amber-500/15 text-amber-400'
+                      )}>
+                        {j.status === 'traites' ? 'Traité' : 'En attente'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Name */}
+                  <p className="text-sm font-medium text-text truncate mb-1" title={j.original_name}>
+                    {j.original_name}
+                  </p>
+
+                  {/* Metadata */}
+                  <div className="flex items-center gap-2 text-xs text-text-muted mb-3">
+                    <span>{j.date.slice(0, 10)}</span>
+                    <span>·</span>
+                    <span>{j.size_human}</span>
+                  </div>
+
+                  {/* Linked operation */}
+                  {j.linked_operation && (
+                    <p className="text-[10px] text-primary truncate mb-2" title={j.linked_operation}>
+                      Lié : {j.linked_operation}
+                    </p>
                   )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleView(j)}
+                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-primary/10 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors"
+                    >
+                      <Eye size={12} />
+                      Voir
+                    </button>
+                    {j.status === 'en_attente' && (
+                      <button
+                        onClick={() => {
+                          setRapprochementFilename(j.filename)
+                          setRapprochementDrawerOpen(true)
+                        }}
+                        className="flex items-center justify-center gap-1 px-2 py-1.5 bg-amber-500/10 text-amber-400 rounded-lg text-xs hover:bg-amber-500/20 transition-colors"
+                        title="Voir les correspondances"
+                      >
+                        <Link size={12} />
+                      </button>
+                    )}
+                    {deleteConfirm === j.filename ? (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleDelete(j.filename)}
+                          className="px-2 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs hover:bg-red-500/30"
+                          disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Oui'}
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          className="px-2 py-1.5 bg-surface-hover text-text-muted rounded-lg text-xs"
+                        >
+                          Non
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirm(j.filename)}
+                        className="flex items-center justify-center px-2 py-1.5 text-text-muted hover:text-red-400 rounded-lg text-xs transition-colors"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
 
-      {/* Drawer */}
+      {/* Justificatif Drawer */}
       <JustificatifDrawer
         open={drawerOpen}
         justificatif={selectedJustificatif}
@@ -368,6 +426,17 @@ export default function JustificatifsPage() {
           setDrawerOpen(false)
           setSelectedJustificatif(null)
         }}
+      />
+
+      {/* Rapprochement Drawer */}
+      <RapprochementDrawer
+        open={rapprochementDrawerOpen}
+        onClose={() => {
+          setRapprochementDrawerOpen(false)
+          setRapprochementFilename(null)
+        }}
+        mode="justificatif"
+        justificatifFilename={rapprochementFilename || undefined}
       />
     </div>
   )

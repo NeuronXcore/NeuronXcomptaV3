@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Upload, Pencil, Tags, BarChart3,
-  Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck, Home,
+  Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck, Home, GitCompareArrows, CalendarCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -14,8 +14,10 @@ const NAV_ITEMS = [
   { to: '/reports', label: 'Rapports', icon: FileText },
   { to: '/visualization', label: 'Compta Analytique', icon: BarChart3 },
   { to: '/justificatifs', label: 'Justificatifs', icon: Paperclip },
+  { to: '/rapprochement', label: 'Rapprochement', icon: GitCompareArrows },
   { to: '/agent-ai', label: 'Agent IA', icon: Bot },
   { to: '/export', label: 'Export Comptable', icon: PackageCheck },
+  { to: '/cloture', label: 'Clôture', icon: CalendarCheck },
   { to: '/ocr', label: 'OCR', icon: ScanLine },
   { to: '/settings', label: 'Paramètres', icon: Settings },
 ]

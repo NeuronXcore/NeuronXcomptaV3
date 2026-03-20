@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, FileText, Check, AlertCircle, Loader2,
   ArrowRight, Bot, Eye, EyeOff, RefreshCw, Trash2,
-  FileUp, Calendar, TrendingDown, TrendingUp,
+  FileUp, Calendar, TrendingDown, TrendingUp, X,
 } from 'lucide-react'
 import PageHeader from '@/components/shared/PageHeader'
 import { api } from '@/api/client'
@@ -23,6 +23,7 @@ export default function ImportPage() {
   const [result, setResult] = useState<ImportResult | null>(null)
   const [showPreview, setShowPreview] = useState(true)
   const [importHistory, setImportHistory] = useState<ImportResult[]>([])
+  const [pdfDrawerOpen, setPdfDrawerOpen] = useState(false)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
@@ -196,6 +197,13 @@ export default function ImportPage() {
                 {result.operations_count} opérations extraites et sauvegardées dans{' '}
                 <code className="bg-surface px-2 py-0.5 rounded text-xs font-mono">{result.filename}</code>
               </p>
+              <button
+                onClick={() => setPdfDrawerOpen(true)}
+                className="mt-2 flex items-center gap-1.5 text-sm text-primary hover:underline"
+              >
+                <Eye size={14} />
+                Consulter le PDF original
+              </button>
             </div>
           </div>
 
@@ -363,6 +371,32 @@ export default function ImportPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* PDF Preview Drawer */}
+      {pdfDrawerOpen && result && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setPdfDrawerOpen(false)} />
+          <div className="fixed right-0 top-0 h-full w-[700px] max-w-[90vw] bg-surface border-l border-border z-50 flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <FileText size={18} />
+                Relevé PDF original
+              </h2>
+              <button
+                onClick={() => setPdfDrawerOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <iframe
+              src={`/api/operations/${result.filename}/pdf`}
+              className="flex-1 w-full"
+              title="Relevé PDF original"
+            />
+          </div>
+        </>
       )}
 
       {/* Import history (when multiple imports in same session) */}

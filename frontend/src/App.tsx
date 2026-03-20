@@ -11,6 +11,8 @@ import AgentIAPage from '@/components/agent-ia/AgentIAPage'
 import JustificatifsPage from '@/components/justificatifs/JustificatifsPage'
 import OcrPage from '@/components/ocr/OcrPage'
 import ExportPage from '@/components/export/ExportPage'
+import RapprochementPage from '@/components/rapprochement/RapprochementPage'
+import CloturePage from '@/components/cloture/CloturePage'
 import SettingsPage from '@/components/settings/SettingsPage'
 
 export default function App() {
@@ -25,8 +27,10 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/visualization" element={<ComptaAnalytiquePage />} />
         <Route path="/justificatifs" element={<JustificatifsPage />} />
+        <Route path="/rapprochement" element={<RapprochementPage />} />
         <Route path="/agent-ai" element={<AgentIAPage />} />
         <Route path="/export" element={<ExportPage />} />
+        <Route path="/cloture" element={<CloturePage />} />
         <Route path="/ocr" element={<OcrPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

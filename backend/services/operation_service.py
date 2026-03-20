@@ -131,6 +131,21 @@ def delete_operation_file(filename: str) -> bool:
         return False
 
 
+def get_pdf_path(filename: str) -> Optional[Path]:
+    """Retourne le chemin du PDF source associé à un fichier d'opérations, ou None."""
+    # Extraire le hash du nom : operations_YYYYMMDD_HHMMSS_{hash}.json
+    parts = filename.replace(".json", "").split("_")
+    if len(parts) < 2:
+        return None
+    pdf_hash = parts[-1]
+    if pdf_hash == "manual":
+        return None
+    pdf_filepath = IMPORTS_DIR / f"pdf_{pdf_hash}.pdf"
+    if pdf_filepath.exists():
+        return pdf_filepath
+    return None
+
+
 def calculate_pdf_hash(pdf_bytes: bytes) -> str:
     """Calcule le hash SHA-256 d'un PDF."""
     return hashlib.sha256(pdf_bytes).hexdigest()
@@ -235,6 +250,42 @@ def extract_operations_from_pdf(pdf_bytes: bytes) -> list[dict]:
     except Exception as e:
         logger.error(f"Erreur extraction PDF: {e}")
         return []
+
+
+def toggle_lettrage(filename: str, index: int) -> bool:
+    """Inverse le flag lettre d'une opération. Retourne la nouvelle valeur."""
+    ops = load_operations(filename)
+    if index < 0 or index >= len(ops):
+        raise IndexError(f"Index {index} hors limites (0-{len(ops) - 1})")
+    ops[index]["lettre"] = not ops[index].get("lettre", False)
+    save_operations(ops, filename=filename)
+    return ops[index]["lettre"]
+
+
+def bulk_lettrage(filename: str, indices: list[int], lettre: bool) -> int:
+    """Applique lettre=val aux indices donnés. Retourne le nombre modifié."""
+    ops = load_operations(filename)
+    count = 0
+    for i in indices:
+        if 0 <= i < len(ops):
+            ops[i]["lettre"] = lettre
+            count += 1
+    if count > 0:
+        save_operations(ops, filename=filename)
+    return count
+
+
+def get_lettrage_stats(filename: str) -> dict:
+    """Retourne les statistiques de lettrage d'un fichier."""
+    ops = load_operations(filename)
+    total = len(ops)
+    lettrees = sum(1 for op in ops if op.get("lettre", False))
+    return {
+        "total": total,
+        "lettrees": lettrees,
+        "non_lettrees": total - lettrees,
+        "taux": lettrees / total if total > 0 else 0.0,
+    }
 
 
 def _categorize_simple(libelle: str) -> str:

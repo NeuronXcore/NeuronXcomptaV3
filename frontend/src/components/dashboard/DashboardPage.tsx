@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom'
 import { useDashboard } from '@/hooks/useApi'
+import { useUnmatched } from '@/hooks/useRapprochement'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import { formatCurrency, MOIS_FR } from '@/lib/utils'
-import { TrendingDown, TrendingUp, Wallet, Hash } from 'lucide-react'
+import { TrendingDown, TrendingUp, Wallet, Hash, Paperclip, Clock } from 'lucide-react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
@@ -16,7 +18,9 @@ const COLORS = [
 ]
 
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const { data, isLoading, error } = useDashboard()
+  const { data: unmatched } = useUnmatched()
 
   if (isLoading) return <LoadingSpinner text="Chargement du tableau de bord..." />
   if (error) return <p className="text-danger">Erreur: {error.message}</p>
@@ -54,6 +58,34 @@ export default function DashboardPage() {
           icon={<Hash size={20} />}
         />
       </div>
+
+      {/* Rapprochement metrics */}
+      {unmatched && (unmatched.operations_sans_justificatif > 0 || unmatched.justificatifs_en_attente > 0) && (
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div
+            onClick={() => navigate('/rapprochement')}
+            className="cursor-pointer hover:ring-1 hover:ring-primary/50 rounded-xl transition-all"
+          >
+            <MetricCard
+              title="Ops sans justificatif"
+              value={String(unmatched.operations_sans_justificatif)}
+              icon={<Paperclip size={20} />}
+              trend={unmatched.operations_sans_justificatif > 0 ? 'down' : undefined}
+            />
+          </div>
+          <div
+            onClick={() => navigate('/rapprochement')}
+            className="cursor-pointer hover:ring-1 hover:ring-primary/50 rounded-xl transition-all"
+          >
+            <MetricCard
+              title="Justificatifs en attente"
+              value={String(unmatched.justificatifs_en_attente)}
+              icon={<Clock size={20} />}
+              trend={unmatched.justificatifs_en_attente > 0 ? 'down' : undefined}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

@@ -1,9 +1,10 @@
 """Router pour les opérations bancaires."""
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from typing import Optional
 
-from backend.services import operation_service, ml_service
+from backend.services import operation_service, ml_service, rapprochement_service
 from backend.models.operation import CategorizeRequest
 
 router = APIRouter(prefix="/api/operations", tags=["operations"])
@@ -13,6 +14,29 @@ router = APIRouter(prefix="/api/operations", tags=["operations"])
 async def list_files():
     """Liste tous les fichiers d'opérations disponibles."""
     return operation_service.list_operation_files()
+
+
+@router.get("/{filename}/has-pdf")
+async def has_pdf(filename: str):
+    """Vérifie si le PDF source existe pour ce fichier d'opérations."""
+    pdf_path = operation_service.get_pdf_path(filename)
+    return {
+        "has_pdf": pdf_path is not None,
+        "pdf_filename": pdf_path.name if pdf_path else None,
+    }
+
+
+@router.get("/{filename}/pdf")
+async def get_pdf(filename: str):
+    """Sert le PDF source pour preview/téléchargement."""
+    pdf_path = operation_service.get_pdf_path(filename)
+    if not pdf_path:
+        raise HTTPException(status_code=404, detail="PDF source non trouvé")
+    return FileResponse(
+        str(pdf_path),
+        media_type="application/pdf",
+        filename=pdf_path.name,
+    )
 
 
 @router.get("/{filename}")
@@ -41,7 +65,7 @@ async def delete_operations(filename: str):
 
 
 @router.post("/import")
-async def import_pdf(file: UploadFile = File(...)):
+async def import_pdf(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
     """Importe un PDF bancaire : extraction + preview."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
@@ -64,6 +88,9 @@ async def import_pdf(file: UploadFile = File(...)):
     filename = operation_service.save_operations(
         operations, pdf_bytes=pdf_bytes, pdf_hash=pdf_hash
     )
+
+    # Déclencher le rapprochement auto en arrière-plan
+    background_tasks.add_task(rapprochement_service.run_auto_rapprochement)
 
     return {
         "filename": filename,

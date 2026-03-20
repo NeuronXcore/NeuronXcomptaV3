@@ -50,6 +50,14 @@ Importe un relevé bancaire PDF. Form-data avec champ `file`.
 ### `POST /{filename}/categorize`
 Catégorisation automatique IA de toutes les opérations du fichier.
 
+### `GET /{filename}/has-pdf`
+Vérifie si le relevé bancaire PDF original existe.
+
+**Réponse :** `{ "has_pdf": true }`
+
+### `GET /{filename}/pdf`
+Sert le fichier PDF original du relevé bancaire (FileResponse).
+
 ---
 
 ## Categories (`/api/categories`)
@@ -309,6 +317,115 @@ Télécharger un ZIP.
 
 ### `DELETE /{filename}`
 Supprimer un export.
+
+---
+
+## Rapprochement (`/api/rapprochement`)
+
+### `POST /{filename}/auto`
+Rapprochement automatique : associe les justificatifs aux opérations par scoring (date, montant, fournisseur OCR).
+
+**Réponse :**
+```json
+{
+  "matched": 12,
+  "total_operations": 86,
+  "details": [
+    {
+      "operation_index": 3,
+      "justificatif": "justificatif_20250520_facture.pdf",
+      "score": 0.87,
+      "mode": "auto"
+    }
+  ]
+}
+```
+
+### `POST /{filename}/manual`
+Association manuelle opération ↔ justificatif.
+
+**Body :** `{ "operation_index": 5, "justificatif_filename": "justificatif_xxx.pdf" }`
+
+### `DELETE /{filename}/{index}`
+Supprime le rapprochement d'une opération (dissociation).
+
+### `GET /{filename}/stats`
+Statistiques de rapprochement pour un fichier.
+
+**Réponse :**
+```json
+{
+  "total": 86,
+  "rapprochees": 42,
+  "non_rapprochees": 44,
+  "taux": 0.49
+}
+```
+
+---
+
+## Lettrage (`/api/lettrage`)
+
+### `POST /{filename}/{index}`
+Toggle le champ `lettre` (bool) d'une opération.
+
+**Réponse :** `{ "index": 5, "lettre": true }`
+
+### `POST /{filename}/bulk`
+Applique le lettrage sur plusieurs opérations.
+
+**Body :** `{ "indices": [0, 1, 5, 12], "lettre": true }`
+
+**Réponse :** `{ "count": 4, "lettre": true }`
+
+### `GET /{filename}/stats`
+Statistiques de lettrage pour un fichier.
+
+**Réponse :**
+```json
+{
+  "total": 86,
+  "lettrees": 42,
+  "non_lettrees": 44,
+  "taux": 0.49
+}
+```
+
+---
+
+## Clôture (`/api/cloture`)
+
+### `GET /years`
+Années disponibles (extraites des fichiers d'opérations).
+
+**Réponse :** `[2024, 2023]`
+
+### `GET /{year}`
+Statut annuel — 12 mois avec complétude lettrage et justificatifs.
+
+**Réponse :**
+```json
+[
+  {
+    "mois": 1,
+    "label": "Janvier",
+    "has_releve": true,
+    "filename": "operations_20250520_094452_d9faa5a9.json",
+    "nb_operations": 86,
+    "nb_lettrees": 42,
+    "taux_lettrage": 0.49,
+    "nb_justificatifs_total": 86,
+    "nb_justificatifs_ok": 38,
+    "taux_justificatifs": 0.44,
+    "statut": "partiel"
+  }
+]
+```
+
+Valeurs de `statut` :
+- `complet` : relevé + 100% lettrage + 100% justificatifs
+- `partiel` : relevé chargé mais incomplet
+- `manquant` : pas de relevé pour ce mois
 
 ---
 

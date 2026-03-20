@@ -29,6 +29,14 @@ export function useSaveOperations() {
   })
 }
 
+export function useHasPdf(filename: string | null) {
+  return useQuery<{ has_pdf: boolean; pdf_filename: string | null }>({
+    queryKey: ['has-pdf', filename],
+    queryFn: () => api.get(`/operations/${filename}/has-pdf`),
+    enabled: !!filename,
+  })
+}
+
 export function useCategorizeOperations() {
   const queryClient = useQueryClient()
   return useMutation({
