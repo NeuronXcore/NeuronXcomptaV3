@@ -1,0 +1,639 @@
+import { useState, useMemo } from 'react'
+import { useDashboard, useAnalyticsTrends, useAnalyticsAnomalies } from '@/hooks/useApi'
+import PageHeader from '@/components/shared/PageHeader'
+import MetricCard from '@/components/shared/MetricCard'
+import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import QueryDrawer from './QueryDrawer'
+import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
+import {
+  TrendingDown, TrendingUp, Wallet, Hash, Tags,
+  AlertTriangle, CheckCircle, ArrowUpDown, Search,
+} from 'lucide-react'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} from 'recharts'
+import type { TrendRecord, CategorySummary } from '@/types'
+
+const COLORS = [
+  '#811971', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
+  '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6',
+]
+
+type Granularity = 'month' | 'quarter'
+type EvolutionMode = 'aggregated' | 'category'
+type SortCol = 'Catégorie' | 'Débit' | 'Crédit' | 'Montant_Net' | 'Pourcentage_Dépenses' | 'Nombre_Opérations'
+type SortDir = 'asc' | 'desc'
+
+// Tooltip dark theme
+const tooltipStyle = {
+  backgroundColor: '#1e293b',
+  border: '1px solid #334155',
+  borderRadius: 8,
+  fontSize: '12px',
+  color: '#e2e8f0',
+}
+
+export default function ComptaAnalytiquePage() {
+  const { data: dashboard, isLoading: dashLoading, error: dashError } = useDashboard()
+  const { data: trends, isLoading: trendsLoading } = useAnalyticsTrends(0)
+  const [anomalyThreshold, setAnomalyThreshold] = useState(2.0)
+  const { data: anomalies, isLoading: anomaliesLoading } = useAnalyticsAnomalies(anomalyThreshold)
+
+  // Ventilation state
+  const [periodFilter, setPeriodFilter] = useState<string>('all')
+  const [sortCol, setSortCol] = useState<SortCol>('Débit')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  // Evolution state
+  const [granularity, setGranularity] = useState<Granularity>('month')
+  const [evolutionMode, setEvolutionMode] = useState<EvolutionMode>('aggregated')
+
+  // Query drawer
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Loading
+  if (dashLoading || trendsLoading) return <LoadingSpinner text="Chargement des données analytiques..." />
+  if (dashError) return <p className="text-danger p-8">Erreur: {dashError.message}</p>
+  if (!dashboard) return null
+
+  const { total_debit, total_credit, solde, nb_operations, category_summary } = dashboard
+
+  return (
+    <div>
+      <PageHeader
+        title="Compta Analytique"
+        description="Analyse détaillée de vos finances par catégorie, période et tendances"
+        actions={
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            <Search size={16} />
+            Requêtes
+          </button>
+        }
+      />
+
+      <div className="space-y-6">
+        {/* KPIs */}
+        <KPIRow
+          totalDebit={total_debit}
+          totalCredit={total_credit}
+          solde={solde}
+          nbOperations={nb_operations}
+          nbCategories={category_summary.length}
+        />
+
+        {/* Ventilation */}
+        <VentilationSection
+          categorySummary={category_summary}
+          trends={trends || []}
+          periodFilter={periodFilter}
+          setPeriodFilter={setPeriodFilter}
+          sortCol={sortCol}
+          setSortCol={setSortCol}
+          sortDir={sortDir}
+          setSortDir={setSortDir}
+        />
+
+        {/* Évolution temporelle */}
+        <EvolutionSection
+          trends={trends || []}
+          granularity={granularity}
+          setGranularity={setGranularity}
+          mode={evolutionMode}
+          setMode={setEvolutionMode}
+        />
+
+        {/* Anomalies */}
+        <AnomaliesSection
+          anomalies={anomalies || []}
+          loading={anomaliesLoading}
+          threshold={anomalyThreshold}
+          setThreshold={setAnomalyThreshold}
+        />
+      </div>
+
+      <QueryDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+    </div>
+  )
+}
+
+// ──────────── KPI Row ────────────
+
+function KPIRow({ totalDebit, totalCredit, solde, nbOperations, nbCategories }: {
+  totalDebit: number; totalCredit: number; solde: number; nbOperations: number; nbCategories: number
+}) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <MetricCard title="Total Dépenses" value={formatCurrency(totalDebit)} icon={<TrendingDown size={20} />} trend="down" />
+      <MetricCard title="Total Revenus" value={formatCurrency(totalCredit)} icon={<TrendingUp size={20} />} trend="up" />
+      <MetricCard title="Solde" value={formatCurrency(solde)} icon={<Wallet size={20} />} trend={solde >= 0 ? 'up' : 'down'} />
+      <MetricCard title="Opérations" value={nbOperations.toString()} icon={<Hash size={20} />} />
+      <MetricCard title="Catégories" value={nbCategories.toString()} icon={<Tags size={20} />} />
+    </div>
+  )
+}
+
+// ──────────── Ventilation Section ────────────
+
+function VentilationSection({ categorySummary, trends, periodFilter, setPeriodFilter, sortCol, setSortCol, sortDir, setSortDir }: {
+  categorySummary: CategorySummary[]
+  trends: TrendRecord[]
+  periodFilter: string
+  setPeriodFilter: (v: string) => void
+  sortCol: SortCol
+  setSortCol: (v: SortCol) => void
+  sortDir: SortDir
+  setSortDir: (v: SortDir) => void
+}) {
+  // Build data based on period filter
+  const filteredData = useMemo(() => {
+    if (periodFilter === 'all') return categorySummary
+
+    // Filter trends by period, then aggregate by category
+    let filteredTrends = trends
+    if (periodFilter.startsWith('T')) {
+      const q = parseInt(periodFilter[1])
+      const qMonths = Array.from({ length: 3 }, (_, i) => (q - 1) * 3 + i + 1)
+      filteredTrends = trends.filter(t => {
+        const m = parseInt(t.Mois.split('-')[1])
+        return qMonths.includes(m)
+      })
+    } else {
+      // Month index (0-based from MOIS_FR)
+      const monthIdx = parseInt(periodFilter)
+      filteredTrends = trends.filter(t => {
+        const m = parseInt(t.Mois.split('-')[1])
+        return m === monthIdx + 1
+      })
+    }
+
+    // Aggregate by category
+    const catMap = new Map<string, { debit: number; credit: number; count: number }>()
+    filteredTrends.forEach(t => {
+      const key = t['Catégorie']
+      const existing = catMap.get(key) || { debit: 0, credit: 0, count: 0 }
+      existing.debit += t['Débit']
+      existing.credit += t['Crédit']
+      existing.count++
+      catMap.set(key, existing)
+    })
+
+    const totalDebit = Array.from(catMap.values()).reduce((s, v) => s + v.debit, 0)
+
+    return Array.from(catMap.entries()).map(([cat, v]) => ({
+      'Catégorie': cat,
+      'Débit': v.debit,
+      'Crédit': v.credit,
+      Montant_Net: v.credit - v.debit,
+      Nombre_Opérations: v.count,
+      Pourcentage_Dépenses: totalDebit > 0 ? Number(((v.debit / totalDebit) * 100).toFixed(2)) : 0,
+    })) as CategorySummary[]
+  }, [categorySummary, trends, periodFilter])
+
+  // Sort
+  const sortedData = useMemo(() => {
+    return [...filteredData].sort((a, b) => {
+      const aVal = a[sortCol]
+      const bVal = b[sortCol]
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+      return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number)
+    })
+  }, [filteredData, sortCol, sortDir])
+
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+
+  const donutData = sortedData.filter(c => c['Débit'] > 0)
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Table */}
+      <div className="lg:col-span-2 bg-surface rounded-xl border border-border p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Ventilation par catégorie</h2>
+          <select
+            value={periodFilter}
+            onChange={e => setPeriodFilter(e.target.value)}
+            className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+          >
+            <option value="all">Toute l'année</option>
+            <option value="T1">T1 (Jan-Mar)</option>
+            <option value="T2">T2 (Avr-Jun)</option>
+            <option value="T3">T3 (Jul-Sep)</option>
+            <option value="T4">T4 (Oct-Déc)</option>
+            {MOIS_FR.map((m, i) => (
+              <option key={i} value={i.toString()}>{m}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-text-muted text-xs">
+                {([
+                  ['Catégorie', 'Catégorie'],
+                  ['Débit', 'Débit'],
+                  ['Crédit', 'Crédit'],
+                  ['Montant_Net', 'Net'],
+                  ['Pourcentage_Dépenses', '% Dép.'],
+                  ['Nombre_Opérations', 'Ops'],
+                ] as [SortCol, string][]).map(([col, label]) => (
+                  <th
+                    key={col}
+                    onClick={() => handleSort(col)}
+                    className={cn(
+                      'py-2.5 px-2 cursor-pointer hover:text-text transition-colors',
+                      col === 'Catégorie' ? 'text-left' : 'text-right'
+                    )}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {label}
+                      {sortCol === col && (
+                        <ArrowUpDown size={10} className="text-primary" />
+                      )}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedData.map((row, i) => (
+                <tr key={i} className="border-b border-border/30 hover:bg-surface-hover transition-colors">
+                  <td className="py-2 px-2">
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                      />
+                      {row['Catégorie']}
+                    </span>
+                  </td>
+                  <td className="py-2 px-2 text-right text-danger font-mono text-xs">
+                    {row['Débit'] > 0 ? formatCurrency(row['Débit']) : '—'}
+                  </td>
+                  <td className="py-2 px-2 text-right text-success font-mono text-xs">
+                    {row['Crédit'] > 0 ? formatCurrency(row['Crédit']) : '—'}
+                  </td>
+                  <td className={cn(
+                    'py-2 px-2 text-right font-mono text-xs',
+                    row.Montant_Net >= 0 ? 'text-success' : 'text-danger'
+                  )}>
+                    {formatCurrency(row.Montant_Net)}
+                  </td>
+                  <td className="py-2 px-2 text-right text-text-muted text-xs">
+                    {row.Pourcentage_Dépenses.toFixed(1)}%
+                  </td>
+                  <td className="py-2 px-2 text-right text-text-muted text-xs">
+                    {row.Nombre_Opérations}
+                  </td>
+                </tr>
+              ))}
+              {sortedData.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-text-muted">Aucune donnée pour cette période</td>
+                </tr>
+              )}
+            </tbody>
+            {sortedData.length > 0 && (
+              <tfoot>
+                <tr className="border-t-2 border-border font-semibold text-xs">
+                  <td className="py-2 px-2">Total</td>
+                  <td className="py-2 px-2 text-right text-danger font-mono">
+                    {formatCurrency(sortedData.reduce((s, r) => s + r['Débit'], 0))}
+                  </td>
+                  <td className="py-2 px-2 text-right text-success font-mono">
+                    {formatCurrency(sortedData.reduce((s, r) => s + r['Crédit'], 0))}
+                  </td>
+                  <td className="py-2 px-2 text-right font-mono">
+                    {formatCurrency(sortedData.reduce((s, r) => s + r.Montant_Net, 0))}
+                  </td>
+                  <td className="py-2 px-2 text-right">100%</td>
+                  <td className="py-2 px-2 text-right">
+                    {sortedData.reduce((s, r) => s + r.Nombre_Opérations, 0)}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+
+      {/* Donut */}
+      <div className="bg-surface rounded-xl border border-border p-5">
+        <h2 className="text-lg font-semibold mb-4">Répartition</h2>
+        {donutData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <PieChart>
+              <Pie
+                data={donutData}
+                dataKey="Débit"
+                nameKey="Catégorie"
+                cx="50%"
+                cy="50%"
+                innerRadius={55}
+                outerRadius={100}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                label={((props: any) => {
+                  const pct = ((props.percent as number) * 100).toFixed(0)
+                  return Number(pct) > 5 ? `${pct}%` : ''
+                }) as any}
+                labelLine={false}
+              >
+                {donutData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={(value) => formatCurrency(Number(value))}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: '11px' }}
+                iconSize={8}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <p className="text-text-muted text-center py-12">Aucune donnée</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ──────────── Evolution Section ────────────
+
+function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }: {
+  trends: TrendRecord[]
+  granularity: Granularity
+  setGranularity: (v: Granularity) => void
+  mode: EvolutionMode
+  setMode: (v: EvolutionMode) => void
+}) {
+  const { chartData, categories } = useMemo(() => {
+    if (!trends.length) return { chartData: [], categories: [] as string[] }
+
+    // Group by period
+    const periodKey = (mois: string) => {
+      if (granularity === 'quarter') {
+        const m = parseInt(mois.split('-')[1])
+        const q = Math.ceil(m / 3)
+        return `${mois.split('-')[0]}-T${q}`
+      }
+      return mois
+    }
+
+    if (mode === 'aggregated') {
+      const agg = new Map<string, { debit: number; credit: number }>()
+      trends.forEach(t => {
+        const key = periodKey(t.Mois)
+        const existing = agg.get(key) || { debit: 0, credit: 0 }
+        existing.debit += t['Débit']
+        existing.credit += t['Crédit']
+        agg.set(key, existing)
+      })
+      const data = Array.from(agg.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([period, v]) => ({
+          period,
+          'Dépenses': Number(v.debit.toFixed(2)),
+          'Revenus': Number(v.credit.toFixed(2)),
+        }))
+      return { chartData: data, categories: [] as string[] }
+    }
+
+    // Per-category mode
+    const allCats = [...new Set(trends.map(t => t['Catégorie']))]
+    // Top 10 by total debit
+    const catTotals = new Map<string, number>()
+    trends.forEach(t => {
+      catTotals.set(t['Catégorie'], (catTotals.get(t['Catégorie']) || 0) + t['Débit'])
+    })
+    const topCats = [...catTotals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([c]) => c)
+
+    // Pivot
+    const pivotMap = new Map<string, Record<string, number>>()
+    trends.forEach(t => {
+      if (!topCats.includes(t['Catégorie'])) return
+      const key = periodKey(t.Mois)
+      if (!pivotMap.has(key)) pivotMap.set(key, {})
+      const row = pivotMap.get(key)!
+      row[t['Catégorie']] = (row[t['Catégorie']] || 0) + t['Débit']
+    })
+
+    const data = Array.from(pivotMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([period, cats]) => ({ period, ...cats }))
+
+    return { chartData: data, categories: topCats }
+  }, [trends, granularity, mode])
+
+  return (
+    <div className="bg-surface rounded-xl border border-border p-5">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h2 className="text-lg font-semibold">Évolution temporelle</h2>
+        <div className="flex gap-2">
+          {/* Granularity */}
+          <div className="flex bg-background rounded-lg border border-border overflow-hidden">
+            {(['month', 'quarter'] as Granularity[]).map(g => (
+              <button
+                key={g}
+                onClick={() => setGranularity(g)}
+                className={cn(
+                  'px-3 py-1.5 text-xs transition-colors',
+                  granularity === g
+                    ? 'bg-primary text-white'
+                    : 'text-text-muted hover:text-text'
+                )}
+              >
+                {g === 'month' ? 'Mois' : 'Trimestre'}
+              </button>
+            ))}
+          </div>
+          {/* Mode */}
+          <div className="flex bg-background rounded-lg border border-border overflow-hidden">
+            {(['aggregated', 'category'] as EvolutionMode[]).map(m => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={cn(
+                  'px-3 py-1.5 text-xs transition-colors',
+                  mode === m
+                    ? 'bg-primary text-white'
+                    : 'text-text-muted hover:text-text'
+                )}
+              >
+                {m === 'aggregated' ? 'Agrégé' : 'Par catégorie'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {chartData.length > 0 ? (
+        <ResponsiveContainer width="100%" height={350}>
+          <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+            <XAxis
+              dataKey="period"
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
+              tickLine={false}
+              axisLine={{ stroke: '#334155' }}
+            />
+            <YAxis
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
+              tickLine={false}
+              axisLine={{ stroke: '#334155' }}
+              tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
+            />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(value: number) => formatCurrency(value)}
+            />
+            <Legend wrapperStyle={{ fontSize: '11px' }} iconSize={8} />
+
+            {mode === 'aggregated' ? (
+              <>
+                <Line type="monotone" dataKey="Dépenses" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="Revenus" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
+              </>
+            ) : (
+              categories.map((cat, i) => (
+                <Line
+                  key={cat}
+                  type="monotone"
+                  dataKey={cat}
+                  stroke={COLORS[i % COLORS.length]}
+                  strokeWidth={1.5}
+                  dot={{ r: 2 }}
+                />
+              ))
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <p className="text-text-muted text-center py-12">Aucune donnée de tendances</p>
+      )}
+    </div>
+  )
+}
+
+// ──────────── Anomalies Section ────────────
+
+function AnomaliesSection({ anomalies, loading, threshold, setThreshold }: {
+  anomalies: { Date: string; 'Libellé': string; 'Débit': number; 'Catégorie': string; Moyenne: number; 'Écart_Type': number; Pourcentage_Sup_Moyenne: number }[]
+  loading: boolean
+  threshold: number
+  setThreshold: (v: number) => void
+}) {
+  const sorted = useMemo(() =>
+    [...anomalies].sort((a, b) => b.Pourcentage_Sup_Moyenne - a.Pourcentage_Sup_Moyenne),
+    [anomalies]
+  )
+
+  const getSeverity = (pct: number) => {
+    if (pct >= 200) return { color: 'bg-red-500', label: 'Critique' }
+    if (pct >= 100) return { color: 'bg-amber-500', label: 'Élevé' }
+    return { color: 'bg-yellow-400', label: 'Modéré' }
+  }
+
+  return (
+    <div className="bg-surface rounded-xl border border-border p-5">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <AlertTriangle size={18} className="text-amber-400" />
+          Détection d'anomalies
+        </h2>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-muted">Seuil :</span>
+          <select
+            value={threshold}
+            onChange={e => setThreshold(Number(e.target.value))}
+            className="bg-background border border-border rounded-lg px-2 py-1 text-sm text-text focus:outline-none focus:border-primary"
+          >
+            {[1.0, 1.5, 2.0, 2.5, 3.0].map(t => (
+              <option key={t} value={t}>{t}x écart-type</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {loading ? (
+        <LoadingSpinner text="Analyse des anomalies..." />
+      ) : sorted.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-8 text-text-muted">
+          <CheckCircle size={32} className="text-emerald-400" />
+          <p className="text-sm">Aucune anomalie détectée avec ce seuil</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-text-muted text-xs">
+                <th className="text-left py-2.5 px-2">Sévérité</th>
+                <th className="text-left py-2.5 px-2">Date</th>
+                <th className="text-left py-2.5 px-2">Libellé</th>
+                <th className="text-left py-2.5 px-2">Catégorie</th>
+                <th className="text-right py-2.5 px-2">Débit</th>
+                <th className="text-right py-2.5 px-2">Moyenne cat.</th>
+                <th className="text-right py-2.5 px-2">% au-dessus</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((a, i) => {
+                const severity = getSeverity(a.Pourcentage_Sup_Moyenne)
+                return (
+                  <tr key={i} className="border-b border-border/30 hover:bg-surface-hover transition-colors">
+                    <td className="py-2 px-2">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={cn('w-2 h-2 rounded-full', severity.color)} />
+                        <span className="text-[10px] text-text-muted">{severity.label}</span>
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-text-muted text-xs">
+                      {typeof a.Date === 'string' ? a.Date.slice(0, 10) : ''}
+                    </td>
+                    <td className="py-2 px-2 max-w-[250px] truncate text-xs">{a['Libellé']}</td>
+                    <td className="py-2 px-2">
+                      <span className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] rounded-full">
+                        {a['Catégorie']}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-right text-danger font-mono text-xs">
+                      {formatCurrency(a['Débit'])}
+                    </td>
+                    <td className="py-2 px-2 text-right text-text-muted font-mono text-xs">
+                      {formatCurrency(a.Moyenne)}
+                    </td>
+                    <td className="py-2 px-2 text-right font-mono text-xs">
+                      <span className={cn(
+                        a.Pourcentage_Sup_Moyenne >= 200 ? 'text-red-400' :
+                        a.Pourcentage_Sup_Moyenne >= 100 ? 'text-amber-400' : 'text-yellow-400'
+                      )}>
+                        +{a.Pourcentage_Sup_Moyenne.toFixed(0)}%
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-text-muted/50 mt-2 text-right">
+            {sorted.length} anomalie(s) détectée(s)
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
