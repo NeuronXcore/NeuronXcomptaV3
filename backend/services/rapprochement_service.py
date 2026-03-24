@@ -182,6 +182,112 @@ def _get_operation_montant(op: dict) -> float:
 
 # ─── Méthodes publiques ───
 
+
+def _human_size(size_bytes: int) -> str:
+    """Convertit bytes en taille lisible."""
+    for unit in ("o", "Ko", "Mo", "Go"):
+        if abs(size_bytes) < 1024.0:
+            return f"{size_bytes:.0f} {unit}" if unit == "o" else f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} To"
+
+
+def get_filtered_suggestions(
+    operation_file: str,
+    operation_index: int,
+    montant_min: Optional[float] = None,
+    montant_max: Optional[float] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+) -> list:
+    """Suggestions filtrées de justificatifs pour une opération (drawer manuel)."""
+    ensure_directories()
+    try:
+        ops = operation_service.load_operations(operation_file)
+        if not (0 <= operation_index < len(ops)):
+            return []
+        operation = ops[operation_index]
+    except Exception:
+        return []
+
+    if not JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
+        return []
+
+    o_montant = _get_operation_montant(operation)
+    o_date = operation.get("Date", "")
+    o_libelle = operation.get("Libellé", "")
+
+    suggestions = []
+    for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
+        ocr_data = _load_ocr_data(pdf_path.name)
+        ocr_montant = ocr_data.get("best_amount")
+        ocr_date = ocr_data.get("best_date")
+        ocr_fournisseur = ocr_data.get("supplier")
+
+        # Appliquer les filtres — ne filtrer que si la donnée OCR existe
+        if montant_min is not None and ocr_montant is not None:
+            if ocr_montant < montant_min:
+                continue
+        if montant_max is not None and ocr_montant is not None:
+            if ocr_montant > montant_max:
+                continue
+
+        if date_from and ocr_date:
+            parsed_from = _parse_date(date_from)
+            parsed_ocr = _parse_date(ocr_date)
+            if parsed_from and parsed_ocr and parsed_ocr < parsed_from:
+                continue
+
+        if date_to and ocr_date:
+            parsed_to = _parse_date(date_to)
+            parsed_ocr = _parse_date(ocr_date)
+            if parsed_to and parsed_ocr and parsed_ocr > parsed_to:
+                continue
+
+        if search and ocr_fournisseur:
+            if search.lower() not in ocr_fournisseur.lower():
+                continue
+        elif search and not ocr_fournisseur:
+            # Pas de fournisseur OCR: on vérifie aussi dans le filename
+            if search.lower() not in pdf_path.name.lower():
+                continue
+
+        # Calculer le score de pertinence (formule simplifiée du prompt)
+        s_montant = 0.0
+        if ocr_montant is not None and o_montant > 0:
+            s_montant = max(0.0, 1.0 - abs(ocr_montant - o_montant) / max(o_montant, 1.0))
+
+        s_date = 0.0
+        if ocr_date and o_date:
+            p_ocr = _parse_date(ocr_date)
+            p_op = _parse_date(o_date)
+            if p_ocr and p_op:
+                days_diff = abs((p_ocr - p_op).days)
+                s_date = max(0.0, 1.0 - days_diff / 30.0)
+
+        s_fournisseur = 0.0
+        if ocr_fournisseur and o_libelle:
+            if ocr_fournisseur.lower() in o_libelle.lower():
+                s_fournisseur = 1.0
+
+        total = round(s_montant * 0.50 + s_date * 0.30 + s_fournisseur * 0.20, 4)
+
+        file_size = pdf_path.stat().st_size if pdf_path.exists() else 0
+
+        suggestions.append({
+            "filename": pdf_path.name,
+            "ocr_date": ocr_date or "",
+            "ocr_montant": ocr_montant,
+            "ocr_fournisseur": ocr_fournisseur or "",
+            "score": total,
+            "size_human": _human_size(file_size),
+        })
+
+    suggestions.sort(key=lambda s: s["score"], reverse=True)
+    return suggestions
+
+
 def get_suggestions_for_operation(
     operation_file: str,
     operation_index: int,

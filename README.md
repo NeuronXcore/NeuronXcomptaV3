@@ -15,11 +15,12 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Éditeur** | Édition inline des opérations, catégorisation IA en un clic |
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
 | **Rapports** | Génération PDF, CSV et Excel avec filtres avancés |
-| **Compta Analytique** | Tendances, anomalies, requêtes personnalisées avec presets |
-| **Justificatifs** | Upload, galerie, association aux opérations, suggestions automatiques |
+| **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, comparatif périodes, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
+| **Rapprochement** | Rapprochement auto + drawer manuel avec filtres, scores, preview PDF |
+| **Justificatifs** | Galerie, association aux opérations, suggestions automatiques (upload via page OCR) |
 | **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups |
 | **Export Comptable** | Archive ZIP mensuelle (opérations + relevé + justificatifs) |
-| **OCR** | Extraction de dates, montants et fournisseurs depuis les PDF (EasyOCR) |
+| **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique |
 | **Paramètres** | Thème, export, stockage, informations système |
 
 ---
@@ -105,7 +106,7 @@ neuronXcompta/
 │   │   ├── ocr.py
 │   │   ├── operation.py
 │   │   └── settings.py
-│   ├── routers/                # Endpoints API (10 fichiers)
+│   ├── routers/                # Endpoints API (14 fichiers)
 │   │   ├── operations.py
 │   │   ├── categories.py
 │   │   ├── ml.py
@@ -116,7 +117,7 @@ neuronXcompta/
 │   │   ├── justificatifs.py
 │   │   ├── ocr.py
 │   │   └── exports.py
-│   └── services/               # Logique métier (10 fichiers)
+│   └── services/               # Logique métier (13 fichiers)
 │       ├── operation_service.py
 │       ├── category_service.py
 │       ├── ml_service.py
@@ -126,17 +127,20 @@ neuronXcompta/
 │       ├── justificatif_service.py
 │       ├── ocr_service.py
 │       ├── export_service.py
-│       └── pdf_service.py
+│       ├── pdf_service.py
+│       ├── rapprochement_service.py
+│       ├── sandbox_service.py
+│       └── cloture_service.py
 ├── frontend/
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── src/
-│       ├── App.tsx             # Routes (12 pages)
+│       ├── App.tsx             # Routes (14 pages)
 │       ├── main.tsx            # Point d'entrée React
 │       ├── index.css           # Thème Tailwind
 │       ├── api/client.ts       # Client API
-│       ├── components/         # 25 composants React
-│       ├── hooks/              # 5 fichiers de hooks
+│       ├── components/         # 30+ composants React
+│       ├── hooks/              # 11 fichiers de hooks
 │       ├── types/index.ts      # Types TypeScript
 │       └── lib/utils.ts        # Utilitaires
 ├── data/                       # Données applicatives
@@ -171,6 +175,11 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `POST` | `/api/reports/generate` | Générer un rapport (CSV/PDF/Excel) |
 | `POST` | `/api/exports/generate` | Générer un export comptable ZIP |
 | `POST` | `/api/ocr/extract` | Extraction OCR d'un justificatif |
+| `POST` | `/api/ocr/batch-upload` | Upload batch + OCR de justificatifs |
+| `GET` | `/api/analytics/compare` | Comparatif entre 2 périodes |
+| `GET` | `/api/analytics/category-detail` | Drill-down catégorie |
+| `POST` | `/api/rapprochement/run-auto` | Rapprochement automatique |
+| `POST` | `/api/rapprochement/associate-manual` | Association manuelle |
 | `GET` | `/api/settings` | Charger les paramètres |
 | `PUT` | `/api/settings` | Sauvegarder les paramètres |
 

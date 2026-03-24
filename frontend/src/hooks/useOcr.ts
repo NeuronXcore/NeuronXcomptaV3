@@ -51,6 +51,35 @@ export function useExtractUpload() {
   })
 }
 
+export interface BatchUploadResult {
+  filename: string
+  original_name: string
+  success: boolean
+  ocr_success?: boolean
+  ocr_data?: {
+    best_amount: number | null
+    best_date: string | null
+    supplier: string | null
+  } | null
+  ocr_error?: string | null
+  error?: string
+}
+
+export function useBatchUploadOcr() {
+  const queryClient = useQueryClient()
+  return useMutation<BatchUploadResult[], Error, File[]>({
+    mutationFn: (files: File[]) => api.uploadMultiple('/ocr/batch-upload', files),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+      queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+      queryClient.invalidateQueries({ queryKey: ['ocr-status'] })
+      queryClient.invalidateQueries({ queryKey: ['rapprochement-unmatched'] })
+      queryClient.invalidateQueries({ queryKey: ['rapprochement-batch-just-scores'] })
+    },
+  })
+}
+
 export function useDeleteOcrCache() {
   const queryClient = useQueryClient()
   return useMutation<unknown, Error, string>({

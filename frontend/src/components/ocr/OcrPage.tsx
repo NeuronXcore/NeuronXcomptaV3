@@ -1,20 +1,26 @@
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
-import { useOcrStatus, useOcrHistory, useExtractOcr, useExtractUpload } from '@/hooks/useOcr'
+import {
+  useOcrStatus, useOcrHistory, useExtractOcr, useExtractUpload,
+  useBatchUploadOcr,
+} from '@/hooks/useOcr'
+import type { BatchUploadResult } from '@/hooks/useOcr'
 import { useJustificatifs } from '@/hooks/useJustificatifs'
 import { formatCurrency, cn } from '@/lib/utils'
 import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
+  ArrowRight, DollarSign, Calendar, User,
 } from 'lucide-react'
 import type { OCRResult, OCRHistoryItem } from '@/types'
 
-type Tab = 'test' | 'historique'
+type Tab = 'upload' | 'test' | 'historique'
 
 export default function OcrPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('test')
+  const [activeTab, setActiveTab] = useState<Tab>('upload')
   const { data: status } = useOcrStatus()
   const { data: history, isLoading: historyLoading } = useOcrHistory(30)
 
@@ -22,7 +28,7 @@ export default function OcrPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <PageHeader
         title="OCR - Reconnaissance Optique"
-        description="Extraction automatique de dates, montants et fournisseurs depuis les justificatifs PDF"
+        description="Point d'entrée des justificatifs : upload, extraction automatique des données"
       />
 
       {/* Metrics */}
@@ -54,6 +60,7 @@ export default function OcrPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-surface rounded-lg p-1 border border-border mb-6 w-fit">
         {([
+          { key: 'upload' as Tab, label: 'Upload & OCR', icon: Upload },
           { key: 'test' as Tab, label: 'Test Manuel', icon: ScanLine },
           { key: 'historique' as Tab, label: 'Historique', icon: Clock },
         ]).map(tab => (
@@ -73,10 +80,223 @@ export default function OcrPage() {
         ))}
       </div>
 
-      {activeTab === 'test' ? (
+      {activeTab === 'upload' ? (
+        <BatchUploadTab />
+      ) : activeTab === 'test' ? (
         <TestManuelTab />
       ) : (
         <HistoriqueTab history={history || []} isLoading={historyLoading} />
+      )}
+    </div>
+  )
+}
+
+
+// ──── Batch Upload Tab ────
+
+function BatchUploadTab() {
+  const navigate = useNavigate()
+  const batchUpload = useBatchUploadOcr()
+  const [results, setResults] = useState<BatchUploadResult[]>([])
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([])
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return
+    setDroppedFiles(acceptedFiles)
+    setResults([])
+    batchUpload.mutate(acceptedFiles, {
+      onSuccess: (data) => setResults(data),
+    })
+  }, [batchUpload])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'application/pdf': ['.pdf'] },
+    maxFiles: 50,
+    disabled: batchUpload.isPending,
+  })
+
+  const successCount = results.filter(r => r.success).length
+  const ocrSuccessCount = results.filter(r => r.ocr_success).length
+  const hasResults = results.length > 0
+
+  return (
+    <div className="space-y-6">
+      {/* Drop zone */}
+      {!batchUpload.isPending && !hasResults && (
+        <div
+          {...getRootProps()}
+          className={cn(
+            'border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors',
+            isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+          )}
+        >
+          <input {...getInputProps()} />
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <Upload size={28} className="text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-text font-medium">
+                Glissez vos justificatifs PDF ici
+              </p>
+              <p className="text-xs text-text-muted mt-1">
+                ou cliquez pour sélectionner — jusqu'à 50 fichiers
+              </p>
+            </div>
+            <p className="text-[10px] text-text-muted">
+              Les fichiers seront sauvegardés et analysés par OCR automatiquement
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Processing indicator */}
+      {batchUpload.isPending && (
+        <div className="bg-surface rounded-xl border border-border p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Loader2 size={20} className="text-primary animate-spin" />
+            <div>
+              <p className="text-sm font-medium text-text">Traitement OCR en cours...</p>
+              <p className="text-xs text-text-muted">
+                {droppedFiles.length} fichier(s) en cours d'analyse
+              </p>
+            </div>
+          </div>
+          <div className="w-full h-2 bg-background rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+          </div>
+          <div className="mt-4 space-y-1.5">
+            {droppedFiles.map((f, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs text-text-muted">
+                <Loader2 size={10} className="animate-spin text-primary" />
+                <span className="truncate">{f.name}</span>
+                <span className="text-[10px]">({(f.size / 1024).toFixed(0)} Ko)</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Error */}
+      {batchUpload.error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-500/10 text-red-400 rounded-lg text-sm">
+          <AlertCircle size={16} />
+          {batchUpload.error.message}
+        </div>
+      )}
+
+      {/* Results */}
+      {hasResults && (
+        <div className="space-y-4">
+          {/* Summary */}
+          <div className="bg-surface rounded-xl border border-border p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle size={18} className="text-emerald-400" />
+                <h3 className="text-sm font-semibold text-text">
+                  Traitement terminé
+                </h3>
+              </div>
+              <div className="flex items-center gap-4 text-xs">
+                <span className="text-text-muted">
+                  {successCount}/{results.length} uploadé(s)
+                </span>
+                <span className="text-emerald-400">
+                  {ocrSuccessCount} OCR réussi(s)
+                </span>
+              </div>
+            </div>
+
+            {/* File results list */}
+            <div className="space-y-2">
+              {results.map((r, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'rounded-lg border p-3',
+                    r.success && r.ocr_success
+                      ? 'border-emerald-500/30 bg-emerald-500/5'
+                      : r.success
+                        ? 'border-amber-500/30 bg-amber-500/5'
+                        : 'border-red-500/30 bg-red-500/5'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText size={14} className={cn(
+                        r.success && r.ocr_success ? 'text-emerald-400' :
+                        r.success ? 'text-amber-400' : 'text-red-400'
+                      )} />
+                      <span className="text-xs text-text truncate">{r.original_name}</span>
+                    </div>
+                    {r.success && r.ocr_success ? (
+                      <CheckCircle size={13} className="text-emerald-400 shrink-0" />
+                    ) : r.success ? (
+                      <AlertCircle size={13} className="text-amber-400 shrink-0" />
+                    ) : (
+                      <AlertCircle size={13} className="text-red-400 shrink-0" />
+                    )}
+                  </div>
+
+                  {r.success && r.ocr_data && (
+                    <div className="flex items-center gap-4 text-[10px] text-text-muted mt-1.5 ml-6">
+                      {r.ocr_data.best_date && (
+                        <span className="flex items-center gap-0.5">
+                          <Calendar size={9} />
+                          {r.ocr_data.best_date}
+                        </span>
+                      )}
+                      {r.ocr_data.best_amount != null && (
+                        <span className="flex items-center gap-0.5">
+                          <DollarSign size={9} />
+                          {formatCurrency(r.ocr_data.best_amount)}
+                        </span>
+                      )}
+                      {r.ocr_data.supplier && (
+                        <span className="flex items-center gap-0.5">
+                          <User size={9} />
+                          {r.ocr_data.supplier}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {r.ocr_error && (
+                    <p className="text-[10px] text-amber-400 mt-1 ml-6">{r.ocr_error}</p>
+                  )}
+                  {r.error && (
+                    <p className="text-[10px] text-red-400 mt-1 ml-6">{r.error}</p>
+                  )}
+
+                  {r.success && (
+                    <p className="text-[9px] text-text-muted mt-1 ml-6 opacity-60 truncate">
+                      {r.filename}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setResults([]); setDroppedFiles([]) }}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm border border-border rounded-lg text-text-muted hover:text-text hover:bg-surface transition-colors"
+            >
+              <Upload size={14} />
+              Nouveau batch
+            </button>
+            <button
+              onClick={() => navigate('/justificatifs')}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Voir dans Justificatifs
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

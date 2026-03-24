@@ -95,6 +95,10 @@ def save_operations(
         short_hash = pdf_hash[:8] if pdf_hash else "manual"
         filename = f"operations_{timestamp}_{short_hash}.json"
 
+    # Recalculer les alertes avant sauvegarde
+    from backend.services.alerte_service import refresh_alertes_fichier
+    refresh_alertes_fichier(operations)
+
     filepath = IMPORTS_DIR / filename
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(operations, f, ensure_ascii=False, indent=2, default=str)
@@ -129,6 +133,67 @@ def delete_operation_file(filename: str) -> bool:
     except Exception as e:
         logger.error(f"Erreur lors de la suppression: {e}")
         return False
+
+
+def delete_pdf_with_json(pdf_filename: str) -> bool:
+    """Supprime un PDF source et le fichier JSON d'opérations associé."""
+    ensure_directories()
+    pdf_path = IMPORTS_DIR / pdf_filename
+    if not pdf_path.exists():
+        return False
+
+    try:
+        # Extraire le hash du nom PDF (convention: pdf_{hash}.pdf)
+        pdf_stem = pdf_filename.replace(".pdf", "")
+        if not pdf_stem.startswith("pdf_"):
+            return False
+        pdf_hash = pdf_stem.replace("pdf_", "")
+
+        # Chercher le JSON correspondant (finit par _{hash}.json)
+        json_deleted = False
+        for json_file in IMPORTS_DIR.glob(f"*_{pdf_hash}.json"):
+            json_file.unlink()
+            json_deleted = True
+            logger.info(f"JSON supprimé: {json_file.name}")
+
+        pdf_path.unlink()
+        logger.info(f"PDF supprimé: {pdf_filename}")
+
+        return True
+    except Exception as e:
+        logger.error(f"Erreur lors de la suppression PDF+JSON: {e}")
+        return False
+
+
+def rename_file(old_filename: str, new_filename: str) -> dict:
+    """Renomme un fichier d'opérations JSON (et son PDF associé si présent)."""
+    from fastapi import HTTPException
+
+    ensure_directories()
+    old_path = IMPORTS_DIR / old_filename
+    new_path = IMPORTS_DIR / new_filename
+
+    if not old_path.exists():
+        raise HTTPException(status_code=404, detail="Fichier source introuvable")
+    if new_path.exists():
+        raise HTTPException(status_code=409, detail="Un fichier avec ce nom existe déjà")
+    if not new_filename.endswith(".json"):
+        raise HTTPException(status_code=422, detail="Le nouveau nom doit se terminer par .json")
+
+    old_path.rename(new_path)
+
+    # Renomme aussi le PDF associé si présent (convention: pdf_{hash}.pdf)
+    old_pdf = get_pdf_path(old_filename)
+    if old_pdf and old_pdf.exists():
+        # Extraire le nouveau hash du nouveau nom
+        new_stem_parts = new_filename.replace(".json", "").split("_")
+        new_hash = new_stem_parts[-1] if len(new_stem_parts) >= 2 else None
+        if new_hash and new_hash != "manual":
+            new_pdf = IMPORTS_DIR / f"pdf_{new_hash}.pdf"
+            if not new_pdf.exists():
+                old_pdf.rename(new_pdf)
+
+    return {"old_filename": old_filename, "new_filename": new_filename}
 
 
 def get_pdf_path(filename: str) -> Optional[Path]:

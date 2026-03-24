@@ -1,3 +1,16 @@
+export type AlerteType =
+  | 'justificatif_manquant'
+  | 'a_categoriser'
+  | 'montant_a_verifier'
+  | 'doublon_suspect'
+  | 'confiance_faible'
+
+export interface AlerteSummary {
+  total_en_attente: number
+  par_type: Record<AlerteType, number>
+  par_fichier: { filename: string; nb_alertes: number; nb_operations: number }[]
+}
+
 export interface Operation {
   Date: string
   'Libellé': string
@@ -14,6 +27,11 @@ export interface Operation {
   rapprochement_score?: number
   rapprochement_mode?: 'auto' | 'manuel' | null
   rapprochement_date?: string
+  alertes?: AlerteType[]
+  alertes_resolues?: AlerteType[]
+  compte_attente?: boolean
+  alerte_note?: string
+  _index?: number
 }
 
 export interface OperationFile {
@@ -347,4 +365,49 @@ export interface AutoLogEntry {
   operation_index: number
   operation_libelle: string
   score: number
+}
+
+// ─── Échéancier ───
+
+export interface Recurrence {
+  id: string
+  libelle_display: string
+  libelle_normalized: string
+  periodicite: 'hebdomadaire' | 'bi_mensuel' | 'mensuel' | 'trimestriel' | 'semestriel' | 'annuel'
+  montant_moyen: number
+  montant_std: number
+  derniere_occurrence: string
+  nb_occurrences: number
+  fiabilite: number
+  categorie?: string
+}
+
+export interface Echeance {
+  id: string
+  recurrence_id: string
+  date_prevue: string
+  date_min: string
+  date_max: string
+  libelle: string
+  montant_prevu: number
+  incertitude: number
+  periodicite: string
+  fiabilite: number
+  statut: 'prevu' | 'realise' | 'annule'
+  operation_liee?: string
+}
+
+export interface EcheancierStats {
+  total: number
+  par_periodicite: Record<string, number>
+  montant_mensuel_moyen: number
+  nb_alertes_decouvert: number
+}
+
+export interface SoldePrevisionnel {
+  date: string
+  solde: number
+  evenement: string
+  montant: number
+  alerte: boolean
 }

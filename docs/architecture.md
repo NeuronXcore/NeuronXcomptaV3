@@ -9,7 +9,7 @@
 │                                                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
 │  │ Components│  │  Hooks   │  │  Types   │              │
-│  │  (28 .tsx)│  │(TanStack)│  │(index.ts)│              │
+│  │  (30+.tsx)│  │(TanStack)│  │(index.ts)│              │
 │  └─────┬─────┘  └─────┬────┘  └──────────┘              │
 │        │              │                                  │
 │        └──────┬───────┘                                  │
@@ -26,7 +26,7 @@
 │                                                           │
 │  ┌────────────┐     ┌─────────────┐     ┌──────────────┐ │
 │  │  Routers   │ ──▶ │  Services   │ ──▶ │  Data (JSON) │ │
-│  │  (13 files)│     │  (12 files) │     │  data/       │ │
+│  │  (14 files)│     │  (13 files) │     │  data/       │ │
 │  └────────────┘     └─────────────┘     └──────────────┘ │
 │        │                   │                              │
 │  ┌─────▼──────┐     ┌─────▼──────┐                       │
@@ -38,6 +38,17 @@
 
 ## Flux de données
 
+### Pipeline comptable (sidebar)
+
+```
+SAISIE → TRAITEMENT → ANALYSE → CLÔTURE → OUTILS
+
+Importation      Justificatifs      Tableau de bord     Export Comptable    Agent IA
+Édition          Rapprochement      Compta Analytique   Clôture             Paramètres
+Catégories       Compte d'attente   Rapports
+OCR              Échéancier
+```
+
 ### Importation d'un relevé
 
 ```
@@ -46,6 +57,34 @@ PDF Upload → operations router → pdf_service.extract_operations_from_pdf()
   → Parsing tables pdfplumber
   → Sauvegarde JSON dans data/imports/
   → Réponse : opérations extraites
+```
+
+### Upload justificatifs (OCR = point d'entrée)
+
+```
+Batch PDFs → POST /api/ocr/batch-upload
+  → justificatif_service.upload_justificatifs() (sauvegarde en_attente/)
+  → ocr_service.extract_or_cached() pour chaque fichier (synchrone)
+  → Retour : résultats avec données OCR (montant, date, fournisseur)
+  → Page Justificatifs = galerie seule (pas d'upload)
+
+Alternative : Sandbox watchdog
+  → Dépôt dans data/justificatifs/sandbox/
+  → Auto-move vers en_attente/ + OCR + SSE notification
+```
+
+### Rapprochement bancaire
+
+```
+Rapprochement automatique : POST /rapprochement/run-auto
+  → Parcourt justificatifs en_attente avec OCR
+  → Score = 45% montant + 35% date + 20% fournisseur (Jaccard)
+  → Auto-associe si score >= 0.95 et match unique
+
+Rapprochement manuel : drawer avec filtres
+  → GET /{filename}/{index}/suggestions?search=&montant_min=...
+  → Score simplifié : 50% montant + 30% date + 20% fournisseur
+  → Sélection + preview PDF + association
 ```
 
 ### Catégorisation IA
@@ -69,6 +108,21 @@ Upload justificatif → justificatifs router → upload_justificatifs()
     → Cache : .ocr.json à côté du PDF
   → Suggestions améliorées (date OCR + montant OCR + fournisseur)
 ```
+
+### Sandbox Watchdog (OCR automatique par dépôt)
+
+```
+PDF déposé dans data/justificatifs/sandbox/
+  → watchdog (FileSystemEventHandler) détecte on_created
+  → Attente écriture complète (polling getsize, 500ms)
+  → shutil.move → data/justificatifs/en_attente/ (gestion doublons avec suffix timestamp)
+  → ocr_service.extract_or_cached() → .ocr.json
+  → Event SSE poussé via asyncio.Queue (thread-safe via loop.call_soon_threadsafe)
+  → Frontend : useSandbox hook (EventSource) → invalidation TanStack Query + toast
+```
+
+Au démarrage du backend, les PDF déjà présents dans sandbox/ sont traités automatiquement.
+Le watchdog est géré par le lifespan FastAPI (start/stop).
 
 ### Rapprochement bancaire
 
@@ -119,7 +173,7 @@ Sélection mois → exports router → export_service.generate_export()
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
 | **Components** | UI et interactions | `src/components/` (28 fichiers) |
-| **Hooks** | Data fetching, cache, mutations | `src/hooks/` (8 fichiers) |
+| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (9 fichiers) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -128,8 +182,8 @@ Sélection mois → exports router → export_service.generate_export()
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Routers** | Endpoints HTTP, validation | `backend/routers/` (13 fichiers) |
-| **Services** | Logique métier, I/O | `backend/services/` (12 fichiers) |
+| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (14 fichiers) |
+| **Services** | Logique métier, I/O, watchdog | `backend/services/` (13 fichiers) |
 | **Models** | Schémas Pydantic | `backend/models/` (6 fichiers) |
 | **Config** | Chemins, constantes | `backend/core/config.py` |
 
@@ -147,6 +201,7 @@ data/
 │   ├── en_attente/             # Justificatifs non associés
 │   │   ├── justificatif_YYYYMMDD_HHMMSS_nom.pdf
 │   │   └── justificatif_YYYYMMDD_HHMMSS_nom.ocr.json
+│   ├── sandbox/                # Dépôt auto → watchdog → OCR → en_attente
 │   └── traites/                # Justificatifs associés à une opération
 ├── ml/
 │   ├── model.json              # Règles (exact_matches, keywords)

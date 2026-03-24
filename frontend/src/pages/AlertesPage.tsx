@@ -1,0 +1,387 @@
+import { useState } from 'react'
+import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X } from 'lucide-react'
+import toast from 'react-hot-toast'
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from '@tanstack/react-table'
+import PageHeader from '@/components/shared/PageHeader'
+import MetricCard from '@/components/shared/MetricCard'
+import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import AlerteBadge from '@/components/AlerteBadge'
+import { useAlertesSummary, useAlertesFichier, useResolveAlerte, useRefreshAlertes } from '@/hooks/useAlertes'
+import { formatCurrency, formatDate, cn } from '@/lib/utils'
+import type { Operation, AlerteType } from '@/types'
+
+const ALERTE_PRIORITY: Record<AlerteType, number> = {
+  montant_a_verifier: 0,
+  justificatif_manquant: 1,
+  doublon_suspect: 2,
+  a_categoriser: 3,
+  confiance_faible: 4,
+}
+
+function alertePriority(op: Operation): number {
+  const alertes = op.alertes || []
+  if (alertes.length === 0) return 99
+  return Math.min(...alertes.map((a) => ALERTE_PRIORITY[a] ?? 5))
+}
+
+export default function AlertesPage() {
+  const { data: summary, isLoading: isSummaryLoading } = useAlertesSummary()
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const { data: operations, isLoading: isOpsLoading } = useAlertesFichier(selectedFile)
+  const resolveMutation = useResolveAlerte()
+  const refreshMutation = useRefreshAlertes()
+  const [drawerOp, setDrawerOp] = useState<Operation | null>(null)
+  const [sorting, setSorting] = useState<SortingState>([])
+
+  // Auto-select first file
+  if (!selectedFile && summary?.par_fichier && summary.par_fichier.length > 0) {
+    setSelectedFile(summary.par_fichier[0].filename)
+  }
+
+  const sortedOps = [...(operations || [])].sort((a, b) => alertePriority(a) - alertePriority(b))
+
+  const columns: ColumnDef<Operation>[] = [
+    {
+      accessorKey: 'Date',
+      header: 'Date',
+      size: 100,
+      cell: ({ getValue }) => formatDate(getValue() as string),
+    },
+    {
+      accessorKey: 'Libellé',
+      header: 'Libellé',
+      size: 300,
+    },
+    {
+      accessorKey: 'Débit',
+      header: 'Débit',
+      size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as number
+        return v ? formatCurrency(v) : ''
+      },
+    },
+    {
+      accessorKey: 'Crédit',
+      header: 'Crédit',
+      size: 110,
+      cell: ({ getValue }) => {
+        const v = getValue() as number
+        return v ? formatCurrency(v) : ''
+      },
+    },
+    {
+      id: 'alertes',
+      header: 'Alertes',
+      size: 200,
+      cell: ({ row }) => {
+        const alertes = row.original.alertes || []
+        if (alertes.length === 0) return null
+        return (
+          <div className="flex gap-1 flex-wrap">
+            {alertes.map((type) => (
+              <AlerteBadge key={type} type={type} size="sm" />
+            ))}
+          </div>
+        )
+      },
+      enableSorting: false,
+    },
+    {
+      id: 'actions',
+      header: '',
+      size: 50,
+      cell: ({ row }) => (
+        <button
+          onClick={() => setDrawerOp(row.original)}
+          className="p-1 text-text-muted hover:text-text"
+        >
+          <Eye size={16} />
+        </button>
+      ),
+      enableSorting: false,
+    },
+  ]
+
+  const table = useReactTable({
+    data: sortedOps,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  })
+
+  const handleRefresh = () => {
+    if (!selectedFile) return
+    refreshMutation.mutate(
+      { filename: selectedFile },
+      {
+        onSuccess: (data) => {
+          const res = data as { nb_alertes: number; nb_operations: number }
+          toast.success(`Recalcul terminé : ${res.nb_alertes} alerte(s) sur ${res.nb_operations} opérations`)
+        },
+        onError: () => toast.error('Erreur lors du recalcul'),
+      },
+    )
+  }
+
+  const handleResolve = (op: Operation, alerteType: AlerteType) => {
+    if (!selectedFile || op._index == null) return
+    resolveMutation.mutate(
+      { filename: selectedFile, index: op._index, alerte_type: alerteType },
+      {
+        onSuccess: (data) => {
+          toast.success('Alerte résolue')
+          const updated = data as Operation
+          if ((updated.alertes || []).length === 0) {
+            setDrawerOp(null)
+          } else {
+            setDrawerOp(updated)
+          }
+        },
+        onError: () => toast.error('Erreur lors de la résolution'),
+      },
+    )
+  }
+
+  if (isSummaryLoading) return <LoadingSpinner />
+
+  const parType = summary?.par_type || {
+    justificatif_manquant: 0,
+    a_categoriser: 0,
+    montant_a_verifier: 0,
+    doublon_suspect: 0,
+    confiance_faible: 0,
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <PageHeader
+        title="Compte d'attente"
+        description="Opérations nécessitant une action"
+        actions={
+          <button
+            onClick={handleRefresh}
+            disabled={!selectedFile || refreshMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={refreshMutation.isPending ? 'animate-spin' : ''} />
+            Rafraîchir
+          </button>
+        }
+      />
+
+      {/* MetricCards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <MetricCard
+          title="Total en attente"
+          value={String(summary?.total_en_attente ?? 0)}
+          icon={<AlertTriangle size={20} className="text-warning" />}
+        />
+        <MetricCard
+          title="Justif. manquants"
+          value={String(parType.justificatif_manquant)}
+          icon={<FileX size={20} className="text-orange-400" />}
+        />
+        <MetricCard
+          title="À catégoriser"
+          value={String(parType.a_categoriser)}
+          icon={<Tag size={20} className="text-yellow-400" />}
+        />
+        <MetricCard
+          title="Montants suspects"
+          value={String(parType.montant_a_verifier)}
+          icon={<AlertTriangle size={20} className="text-danger" />}
+        />
+        <MetricCard
+          title="Doublons"
+          value={String(parType.doublon_suspect)}
+          icon={<Copy size={20} className="text-purple-400" />}
+        />
+      </div>
+
+      {/* File selector */}
+      {summary?.par_fichier && summary.par_fichier.length > 0 && (
+        <div>
+          {summary.par_fichier.length <= 6 ? (
+            <div className="flex gap-2 flex-wrap">
+              {summary.par_fichier.map((f) => (
+                <button
+                  key={f.filename}
+                  onClick={() => setSelectedFile(f.filename)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-sm border transition-colors',
+                    selectedFile === f.filename
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-surface border-border text-text-muted hover:text-text hover:border-primary/50',
+                  )}
+                >
+                  {f.filename.replace('.json', '')}
+                  <span className="ml-2 text-xs opacity-75">({f.nb_alertes})</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <select
+              value={selectedFile || ''}
+              onChange={(e) => setSelectedFile(e.target.value)}
+              className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text"
+            >
+              {summary.par_fichier.map((f) => (
+                <option key={f.filename} value={f.filename}>
+                  {f.filename.replace('.json', '')} ({f.nb_alertes} alertes)
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {summary?.par_fichier?.length === 0 && (
+        <div className="text-center py-12 text-text-muted">
+          Aucune opération en compte d'attente
+        </div>
+      )}
+
+      {/* Operations table */}
+      {selectedFile && (
+        <div className="bg-surface rounded-xl border border-border overflow-hidden">
+          {isOpsLoading ? (
+            <div className="p-8">
+              <LoadingSpinner text="Chargement des opérations..." />
+            </div>
+          ) : sortedOps.length === 0 ? (
+            <div className="text-center py-8 text-text-muted">
+              Aucune alerte pour ce fichier
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id} className="border-b border-border">
+                      {headerGroup.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider"
+                          style={{ width: header.getSize() }}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="border-b border-border/50 hover:bg-surface-hover cursor-pointer transition-colors"
+                      onClick={() => setDrawerOp(row.original)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3 text-sm text-text">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Resolution drawer */}
+      {drawerOp && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setDrawerOp(null)}
+          />
+          <div className="fixed right-0 top-0 h-full w-[500px] bg-surface border-l border-border z-50 overflow-y-auto shadow-xl transform transition-transform">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-text">Détail de l'opération</h2>
+                <button onClick={() => setDrawerOp(null)} className="text-text-muted hover:text-text">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Operation detail */}
+              <div className="space-y-3 bg-background rounded-lg p-4">
+                <div className="flex justify-between">
+                  <span className="text-text-muted text-sm">Date</span>
+                  <span className="text-text text-sm">{formatDate(drawerOp.Date)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-text-muted text-sm">Libellé</span>
+                  <span className="text-text text-sm text-right max-w-[280px]">{drawerOp['Libellé']}</span>
+                </div>
+                {drawerOp['Débit'] ? (
+                  <div className="flex justify-between">
+                    <span className="text-text-muted text-sm">Débit</span>
+                    <span className="text-danger text-sm">{formatCurrency(drawerOp['Débit'])}</span>
+                  </div>
+                ) : null}
+                {drawerOp['Crédit'] ? (
+                  <div className="flex justify-between">
+                    <span className="text-text-muted text-sm">Crédit</span>
+                    <span className="text-success text-sm">{formatCurrency(drawerOp['Crédit'])}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between">
+                  <span className="text-text-muted text-sm">Catégorie</span>
+                  <span className="text-text text-sm">{drawerOp['Catégorie'] || '—'}</span>
+                </div>
+              </div>
+
+              {/* Active alerts */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-text">Alertes actives</h3>
+                {(drawerOp.alertes || []).map((type) => (
+                  <div
+                    key={type}
+                    className="flex items-center justify-between bg-background rounded-lg p-3"
+                  >
+                    <AlerteBadge type={type} size="md" />
+                    <button
+                      onClick={() => handleResolve(drawerOp, type)}
+                      disabled={resolveMutation.isPending}
+                      className="px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      Marquer résolue
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Resolved alerts */}
+              {drawerOp.alertes_resolues && drawerOp.alertes_resolues.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-text-muted">Alertes résolues</h3>
+                  <div className="flex gap-1 flex-wrap opacity-50">
+                    {drawerOp.alertes_resolues.map((type) => (
+                      <AlerteBadge key={type} type={type} size="sm" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}

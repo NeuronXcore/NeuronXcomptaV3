@@ -1,17 +1,21 @@
 import { useState, useMemo } from 'react'
-import { useDashboard, useAnalyticsTrends, useAnalyticsAnomalies } from '@/hooks/useApi'
+import { useDashboard, useAnalyticsTrends, useAnalyticsAnomalies, useOperationFiles } from '@/hooks/useApi'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import QueryDrawer from './QueryDrawer'
+import CategoryDetailDrawer from './CategoryDetailDrawer'
+import ComparatifSection from './ComparatifSection'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
   TrendingDown, TrendingUp, Wallet, Hash, Tags,
   AlertTriangle, CheckCircle, ArrowUpDown, Search,
+  Filter, ChevronRight,
 } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  BarChart, Bar,
 } from 'recharts'
 import type { TrendRecord, CategorySummary } from '@/types'
 
@@ -21,7 +25,7 @@ const COLORS = [
 ]
 
 type Granularity = 'month' | 'quarter'
-type EvolutionMode = 'aggregated' | 'category'
+type EvolutionMode = 'aggregated' | 'category' | 'stacked'
 type SortCol = 'Catégorie' | 'Débit' | 'Crédit' | 'Montant_Net' | 'Pourcentage_Dépenses' | 'Nombre_Opérations'
 type SortDir = 'asc' | 'desc'
 
@@ -35,13 +39,28 @@ const tooltipStyle = {
 }
 
 export default function ComptaAnalytiquePage() {
-  const { data: dashboard, isLoading: dashLoading, error: dashError } = useDashboard()
-  const { data: trends, isLoading: trendsLoading } = useAnalyticsTrends(0)
+  // Page mode
+  const [pageMode, setPageMode] = useState<'analyse' | 'comparatif'>('analyse')
+
+  // Global period filters
+  const [globalYear, setGlobalYear] = useState<number | null>(null)
+  const [globalQuarter, setGlobalQuarter] = useState<number | null>(null)
+  const [globalMonth, setGlobalMonth] = useState<number | null>(null)
+
+  // Available years from operation files
+  const { data: opFiles } = useOperationFiles()
+  const availableYears = useMemo(() => {
+    if (!opFiles) return []
+    return [...new Set(opFiles.map(f => f.year).filter(Boolean))].sort((a, b) => (b ?? 0) - (a ?? 0)) as number[]
+  }, [opFiles])
+
+  // All hooks use the global period filters
+  const { data: dashboard, isLoading: dashLoading, error: dashError } = useDashboard(globalYear, globalQuarter, globalMonth)
+  const { data: trends, isLoading: trendsLoading } = useAnalyticsTrends(0, globalYear, globalQuarter, globalMonth)
   const [anomalyThreshold, setAnomalyThreshold] = useState(2.0)
-  const { data: anomalies, isLoading: anomaliesLoading } = useAnalyticsAnomalies(anomalyThreshold)
+  const { data: anomalies, isLoading: anomaliesLoading } = useAnalyticsAnomalies(anomalyThreshold, globalYear, globalQuarter, globalMonth)
 
   // Ventilation state
-  const [periodFilter, setPeriodFilter] = useState<string>('all')
   const [sortCol, setSortCol] = useState<SortCol>('Débit')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -49,8 +68,9 @@ export default function ComptaAnalytiquePage() {
   const [granularity, setGranularity] = useState<Granularity>('month')
   const [evolutionMode, setEvolutionMode] = useState<EvolutionMode>('aggregated')
 
-  // Query drawer
+  // Drawers
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drillCategory, setDrillCategory] = useState<string | null>(null)
 
   // Loading
   if (dashLoading || trendsLoading) return <LoadingSpinner text="Chargement des données analytiques..." />
@@ -75,7 +95,95 @@ export default function ComptaAnalytiquePage() {
         }
       />
 
+      {/* Mode toggle */}
+      <div className="flex gap-1 bg-surface rounded-lg p-1 border border-border mb-6 w-fit">
+        <button
+          onClick={() => setPageMode('analyse')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-md text-sm transition-colors',
+            pageMode === 'analyse' ? 'bg-primary text-white' : 'text-text-muted hover:text-text'
+          )}
+        >
+          <Tags size={14} />
+          Analyse
+        </button>
+        <button
+          onClick={() => setPageMode('comparatif')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-md text-sm transition-colors',
+            pageMode === 'comparatif' ? 'bg-primary text-white' : 'text-text-muted hover:text-text'
+          )}
+        >
+          <ArrowUpDown size={14} />
+          Comparatif
+        </button>
+      </div>
+
+      {pageMode === 'comparatif' ? (
+        <ComparatifSection />
+      ) : (
       <div className="space-y-6">
+        {/* Global Period Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs text-text-muted">
+            <Filter size={14} />
+            Période :
+          </div>
+          <select
+            value={globalYear ?? ''}
+            onChange={e => {
+              const v = e.target.value ? Number(e.target.value) : null
+              setGlobalYear(v)
+              if (!v) { setGlobalQuarter(null); setGlobalMonth(null) }
+            }}
+            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary"
+          >
+            <option value="">Toutes les années</option>
+            {availableYears.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <select
+            value={globalQuarter ?? ''}
+            onChange={e => {
+              const v = e.target.value ? Number(e.target.value) : null
+              setGlobalQuarter(v)
+              if (v) setGlobalMonth(null)
+            }}
+            disabled={!globalYear}
+            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary disabled:opacity-40"
+          >
+            <option value="">Tous trimestres</option>
+            <option value="1">T1 (Jan-Mar)</option>
+            <option value="2">T2 (Avr-Jun)</option>
+            <option value="3">T3 (Jul-Sep)</option>
+            <option value="4">T4 (Oct-Déc)</option>
+          </select>
+          <select
+            value={globalMonth ?? ''}
+            onChange={e => {
+              const v = e.target.value ? Number(e.target.value) : null
+              setGlobalMonth(v)
+              if (v) setGlobalQuarter(null)
+            }}
+            disabled={!globalYear || globalQuarter !== null}
+            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary disabled:opacity-40"
+          >
+            <option value="">Tous les mois</option>
+            {MOIS_FR.map((m, i) => (
+              <option key={i} value={i + 1}>{m}</option>
+            ))}
+          </select>
+          {(globalYear || globalQuarter || globalMonth) && (
+            <button
+              onClick={() => { setGlobalYear(null); setGlobalQuarter(null); setGlobalMonth(null) }}
+              className="text-[10px] text-text-muted hover:text-text transition-colors"
+            >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+
         {/* KPIs */}
         <KPIRow
           totalDebit={total_debit}
@@ -89,12 +197,11 @@ export default function ComptaAnalytiquePage() {
         <VentilationSection
           categorySummary={category_summary}
           trends={trends || []}
-          periodFilter={periodFilter}
-          setPeriodFilter={setPeriodFilter}
           sortCol={sortCol}
           setSortCol={setSortCol}
           sortDir={sortDir}
           setSortDir={setSortDir}
+          onCategoryClick={(cat) => setDrillCategory(cat)}
         />
 
         {/* Évolution temporelle */}
@@ -115,7 +222,18 @@ export default function ComptaAnalytiquePage() {
         />
       </div>
 
+      )}
+
       <QueryDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      <CategoryDetailDrawer
+        isOpen={drillCategory !== null}
+        onClose={() => setDrillCategory(null)}
+        category={drillCategory}
+        year={globalYear}
+        quarter={globalQuarter}
+        month={globalMonth}
+      />
     </div>
   )
 }
@@ -138,64 +256,18 @@ function KPIRow({ totalDebit, totalCredit, solde, nbOperations, nbCategories }: 
 
 // ──────────── Ventilation Section ────────────
 
-function VentilationSection({ categorySummary, trends, periodFilter, setPeriodFilter, sortCol, setSortCol, sortDir, setSortDir }: {
+function VentilationSection({ categorySummary, trends, sortCol, setSortCol, sortDir, setSortDir, onCategoryClick }: {
   categorySummary: CategorySummary[]
   trends: TrendRecord[]
-  periodFilter: string
-  setPeriodFilter: (v: string) => void
   sortCol: SortCol
   setSortCol: (v: SortCol) => void
   sortDir: SortDir
   setSortDir: (v: SortDir) => void
+  onCategoryClick: (cat: string) => void
 }) {
-  // Build data based on period filter
-  const filteredData = useMemo(() => {
-    if (periodFilter === 'all') return categorySummary
-
-    // Filter trends by period, then aggregate by category
-    let filteredTrends = trends
-    if (periodFilter.startsWith('T')) {
-      const q = parseInt(periodFilter[1])
-      const qMonths = Array.from({ length: 3 }, (_, i) => (q - 1) * 3 + i + 1)
-      filteredTrends = trends.filter(t => {
-        const m = parseInt(t.Mois.split('-')[1])
-        return qMonths.includes(m)
-      })
-    } else {
-      // Month index (0-based from MOIS_FR)
-      const monthIdx = parseInt(periodFilter)
-      filteredTrends = trends.filter(t => {
-        const m = parseInt(t.Mois.split('-')[1])
-        return m === monthIdx + 1
-      })
-    }
-
-    // Aggregate by category
-    const catMap = new Map<string, { debit: number; credit: number; count: number }>()
-    filteredTrends.forEach(t => {
-      const key = t['Catégorie']
-      const existing = catMap.get(key) || { debit: 0, credit: 0, count: 0 }
-      existing.debit += t['Débit']
-      existing.credit += t['Crédit']
-      existing.count++
-      catMap.set(key, existing)
-    })
-
-    const totalDebit = Array.from(catMap.values()).reduce((s, v) => s + v.debit, 0)
-
-    return Array.from(catMap.entries()).map(([cat, v]) => ({
-      'Catégorie': cat,
-      'Débit': v.debit,
-      'Crédit': v.credit,
-      Montant_Net: v.credit - v.debit,
-      Nombre_Opérations: v.count,
-      Pourcentage_Dépenses: totalDebit > 0 ? Number(((v.debit / totalDebit) * 100).toFixed(2)) : 0,
-    })) as CategorySummary[]
-  }, [categorySummary, trends, periodFilter])
-
-  // Sort
+  // Sort (data already filtered by global period via the API)
   const sortedData = useMemo(() => {
-    return [...filteredData].sort((a, b) => {
+    return [...categorySummary].sort((a, b) => {
       const aVal = a[sortCol]
       const bVal = b[sortCol]
       if (typeof aVal === 'string' && typeof bVal === 'string') {
@@ -203,7 +275,7 @@ function VentilationSection({ categorySummary, trends, periodFilter, setPeriodFi
       }
       return sortDir === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number)
     })
-  }, [filteredData, sortCol, sortDir])
+  }, [categorySummary, sortCol, sortDir])
 
   const handleSort = (col: SortCol) => {
     if (sortCol === col) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
@@ -218,20 +290,7 @@ function VentilationSection({ categorySummary, trends, periodFilter, setPeriodFi
       <div className="lg:col-span-2 bg-surface rounded-xl border border-border p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Ventilation par catégorie</h2>
-          <select
-            value={periodFilter}
-            onChange={e => setPeriodFilter(e.target.value)}
-            className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-          >
-            <option value="all">Toute l'année</option>
-            <option value="T1">T1 (Jan-Mar)</option>
-            <option value="T2">T2 (Avr-Jun)</option>
-            <option value="T3">T3 (Jul-Sep)</option>
-            <option value="T4">T4 (Oct-Déc)</option>
-            {MOIS_FR.map((m, i) => (
-              <option key={i} value={i.toString()}>{m}</option>
-            ))}
-          </select>
+          <span className="text-[10px] text-text-muted">Cliquez une catégorie pour le détail</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -266,7 +325,11 @@ function VentilationSection({ categorySummary, trends, periodFilter, setPeriodFi
             </thead>
             <tbody>
               {sortedData.map((row, i) => (
-                <tr key={i} className="border-b border-border/30 hover:bg-surface-hover transition-colors">
+                <tr
+                  key={i}
+                  onClick={() => onCategoryClick(row['Catégorie'])}
+                  className="border-b border-border/30 hover:bg-surface-hover transition-colors cursor-pointer"
+                >
                   <td className="py-2 px-2">
                     <span className="inline-flex items-center gap-2">
                       <span
@@ -274,6 +337,7 @@ function VentilationSection({ categorySummary, trends, periodFilter, setPeriodFi
                         style={{ backgroundColor: COLORS[i % COLORS.length] }}
                       />
                       {row['Catégorie']}
+                      <ChevronRight size={10} className="text-text-muted" />
                     </span>
                   </td>
                   <td className="py-2 px-2 text-right text-danger font-mono text-xs">
@@ -391,6 +455,34 @@ function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }
       return mois
     }
 
+    if (mode === 'aggregated' || mode === 'stacked') {
+      // For stacked mode, we also need per-category data
+      if (mode === 'stacked') {
+        const allCats = [...new Set(trends.map(t => t['Catégorie']))]
+        const catTotals = new Map<string, number>()
+        trends.forEach(t => {
+          catTotals.set(t['Catégorie'], (catTotals.get(t['Catégorie']) || 0) + t['Débit'])
+        })
+        const topCats = [...catTotals.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10)
+          .map(([c]) => c)
+
+        const pivotMap = new Map<string, Record<string, number>>()
+        trends.forEach(t => {
+          if (!topCats.includes(t['Catégorie'])) return
+          const key = periodKey(t.Mois)
+          if (!pivotMap.has(key)) pivotMap.set(key, {})
+          const row = pivotMap.get(key)!
+          row[t['Catégorie']] = (row[t['Catégorie']] || 0) + t['Débit']
+        })
+        const data = Array.from(pivotMap.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([period, cats]) => ({ period, ...cats }))
+        return { chartData: data, categories: topCats }
+      }
+    }
+
     if (mode === 'aggregated') {
       const agg = new Map<string, { debit: number; credit: number }>()
       trends.forEach(t => {
@@ -463,7 +555,11 @@ function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }
           </div>
           {/* Mode */}
           <div className="flex bg-background rounded-lg border border-border overflow-hidden">
-            {(['aggregated', 'category'] as EvolutionMode[]).map(m => (
+            {([
+              ['aggregated', 'Agrégé'],
+              ['category', 'Par catégorie'],
+              ['stacked', 'Empilé'],
+            ] as [EvolutionMode, string][]).map(([m, label]) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
@@ -474,7 +570,7 @@ function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }
                     : 'text-text-muted hover:text-text'
                 )}
               >
-                {m === 'aggregated' ? 'Agrégé' : 'Par catégorie'}
+                {label}
               </button>
             ))}
           </div>
@@ -482,6 +578,38 @@ function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }
       </div>
 
       {chartData.length > 0 ? (
+        mode === 'stacked' ? (
+        <ResponsiveContainer width="100%" height={350}>
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+            <XAxis
+              dataKey="period"
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
+              tickLine={false}
+              axisLine={{ stroke: '#334155' }}
+            />
+            <YAxis
+              tick={{ fill: '#94a3b8', fontSize: 11 }}
+              tickLine={false}
+              axisLine={{ stroke: '#334155' }}
+              tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
+            />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(value: number) => formatCurrency(value)}
+            />
+            <Legend wrapperStyle={{ fontSize: '11px' }} iconSize={8} />
+            {categories.map((cat, i) => (
+              <Bar
+                key={cat}
+                dataKey={cat}
+                stackId="stack"
+                fill={COLORS[i % COLORS.length]}
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+        ) : (
         <ResponsiveContainer width="100%" height={350}>
           <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
@@ -522,6 +650,7 @@ function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }
             )}
           </LineChart>
         </ResponsiveContainer>
+        )
       ) : (
         <p className="text-text-muted text-center py-12">Aucune donnée de tendances</p>
       )}

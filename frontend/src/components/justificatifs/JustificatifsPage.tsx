@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -8,14 +8,15 @@ import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
 import {
   useJustificatifs,
   useJustificatifStats,
-  useUploadJustificatifs,
   useDeleteJustificatif,
 } from '@/hooks/useJustificatifs'
 import { useBatchJustificatifScores } from '@/hooks/useRapprochement'
+import { useSandbox } from '@/hooks/useSandbox'
+import toast from 'react-hot-toast'
 import { cn, MOIS_FR } from '@/lib/utils'
 import {
   Upload, Clock, CheckCircle, FileText, Search,
-  Trash2, Eye, X, Loader2, AlertCircle, Link,
+  Trash2, Eye, X, Loader2, AlertCircle, Link, ScanLine,
 } from 'lucide-react'
 import type { JustificatifInfo } from '@/types'
 
@@ -31,8 +32,9 @@ export default function JustificatifsPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
+  const navigate = useNavigate()
+
   // UI state
-  const [showUpload, setShowUpload] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedJustificatif, setSelectedJustificatif] = useState<JustificatifInfo | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -42,6 +44,19 @@ export default function JustificatifsPage() {
   // Data
   const { data: stats } = useJustificatifStats()
   const { data: batchScores } = useBatchJustificatifScores()
+
+  // Sandbox watchdog SSE
+  const { lastEvent, isConnected } = useSandbox()
+
+  useEffect(() => {
+    if (lastEvent) {
+      if (lastEvent.status === 'processed') {
+        toast.success(`Justificatif traité : ${lastEvent.filename}`)
+      } else if (lastEvent.status === 'error') {
+        toast.error(`Erreur OCR : ${lastEvent.filename}`)
+      }
+    }
+  }, [lastEvent])
 
   // Map special status filters to API status
   const apiStatus = (statusFilter === 'sans_correspondance' || statusFilter === 'correspondance_forte')
@@ -55,21 +70,7 @@ export default function JustificatifsPage() {
     sort_by: sortBy,
     sort_order: sortOrder,
   })
-  const uploadMutation = useUploadJustificatifs()
   const deleteMutation = useDeleteJustificatif()
-
-  // Upload handler
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      uploadMutation.mutate(acceptedFiles)
-    }
-  }, [uploadMutation])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
-    multiple: true,
-  })
 
   const handleView = (j: JustificatifInfo) => {
     setSelectedJustificatif(j)
@@ -109,24 +110,30 @@ export default function JustificatifsPage() {
     <div>
       <PageHeader
         title="Justificatifs"
-        description="Gestion et association des justificatifs comptables"
+        description="Galerie, prévisualisation et association des justificatifs comptables"
         actions={
           <button
-            onClick={() => setShowUpload(!showUpload)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-              showUpload
-                ? 'bg-primary/20 text-primary border border-primary'
-                : 'bg-primary text-white hover:bg-primary/90'
-            )}
+            onClick={() => navigate('/ocr')}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
           >
-            <Upload size={16} />
-            {showUpload ? 'Masquer Upload' : 'Upload'}
+            <ScanLine size={16} />
+            Ajouter via OCR
           </button>
         }
       />
 
       <div className="space-y-6">
+        {/* Sandbox status */}
+        {isConnected && (
+          <div className="flex items-center gap-2 text-xs text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-lg w-fit">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            Sandbox actif — dépôt auto surveillé
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <MetricCard
@@ -147,54 +154,6 @@ export default function JustificatifsPage() {
             icon={<FileText size={20} />}
           />
         </div>
-
-        {/* Upload Zone */}
-        {showUpload && (
-          <div
-            {...getRootProps()}
-            className={cn(
-              'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
-              isDragActive
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50 bg-surface'
-            )}
-          >
-            <input {...getInputProps()} />
-            {uploadMutation.isPending ? (
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 size={32} className="animate-spin text-primary" />
-                <p className="text-text-muted text-sm">Upload en cours...</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <Upload size={32} className="text-text-muted" />
-                <p className="text-text font-medium">
-                  {isDragActive ? 'Déposez vos fichiers ici' : 'Glissez vos PDF ici ou cliquez'}
-                </p>
-                <p className="text-text-muted text-xs">Formats acceptés : PDF (max 10 Mo par fichier)</p>
-              </div>
-            )}
-
-            {/* Upload results */}
-            {uploadMutation.isSuccess && uploadMutation.data && (
-              <div className="mt-4 space-y-1" onClick={e => e.stopPropagation()}>
-                {uploadMutation.data.map((r, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      'flex items-center gap-2 text-xs px-3 py-1.5 rounded',
-                      r.success ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
-                    )}
-                  >
-                    {r.success ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
-                    <span>{r.original_name}</span>
-                    {r.error && <span className="text-red-400">— {r.error}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
@@ -290,14 +249,12 @@ export default function JustificatifsPage() {
           <div className="bg-surface rounded-xl border border-border p-12 text-center">
             <FileText size={40} className="mx-auto text-text-muted mb-3" />
             <p className="text-text-muted">Aucun justificatif trouvé</p>
-            {!showUpload && (
-              <button
-                onClick={() => setShowUpload(true)}
-                className="mt-3 text-primary text-sm hover:underline"
-              >
-                Uploader des justificatifs
-              </button>
-            )}
+            <button
+              onClick={() => navigate('/ocr')}
+              className="mt-3 text-primary text-sm hover:underline"
+            >
+              Ajouter via la page OCR
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

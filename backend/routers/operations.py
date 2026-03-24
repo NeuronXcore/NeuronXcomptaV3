@@ -1,11 +1,18 @@
 """Router pour les opérations bancaires."""
 
+from __future__ import annotations
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from typing import Optional
 
 from backend.services import operation_service, ml_service, rapprochement_service
 from backend.models.operation import CategorizeRequest
+
+
+class RenameRequest(BaseModel):
+    new_filename: str
 
 router = APIRouter(prefix="/api/operations", tags=["operations"])
 
@@ -62,6 +69,21 @@ async def delete_operations(filename: str):
     if not success:
         raise HTTPException(status_code=404, detail="Fichier non trouvé")
     return {"deleted": filename}
+
+
+@router.delete("/pdf/{pdf_filename}")
+async def delete_pdf_file(pdf_filename: str):
+    """Supprime un PDF source et le JSON d'opérations associé (bidirectionnel)."""
+    success = operation_service.delete_pdf_with_json(pdf_filename)
+    if not success:
+        raise HTTPException(status_code=404, detail="PDF non trouvé")
+    return {"deleted": pdf_filename}
+
+
+@router.patch("/{filename}/rename")
+async def rename_operation_file(filename: str, body: RenameRequest):
+    """Renomme un fichier d'opérations JSON (et son PDF associé si présent)."""
+    return operation_service.rename_file(filename, body.new_filename)
 
 
 @router.post("/import")

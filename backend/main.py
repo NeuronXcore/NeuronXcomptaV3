@@ -4,13 +4,15 @@ Point d'entrée principal de l'API.
 """
 
 import logging
+from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories
-from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture
+from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, echeancier, sandbox, alertes
+from backend.services.sandbox_service import start_sandbox_watchdog, stop_sandbox_watchdog
 
 # Initialiser les répertoires
 ensure_directories()
@@ -26,11 +28,20 @@ file_handler.setFormatter(formatter)
 logging.getLogger().addHandler(file_handler)
 logging.getLogger().setLevel(logging.INFO)
 
+# Lifespan — démarrage/arrêt du sandbox watchdog
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_sandbox_watchdog()
+    yield
+    stop_sandbox_watchdog()
+
+
 # Créer l'app FastAPI
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
     description="API backend pour NeuronXcompta - Assistant Comptable IA",
+    lifespan=lifespan,
 )
 
 # CORS - autoriser le frontend React (Vite dev server)
@@ -61,6 +72,9 @@ app.include_router(exports.router)
 app.include_router(rapprochement.router)
 app.include_router(lettrage.router)
 app.include_router(cloture.router)
+app.include_router(echeancier.router)
+app.include_router(sandbox.router, prefix="/api/sandbox", tags=["sandbox"])
+app.include_router(alertes.router)
 
 
 @app.get("/")

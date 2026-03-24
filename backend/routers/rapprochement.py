@@ -52,6 +52,27 @@ def get_batch_justificatif_scores():
     return rapprochement_service.get_batch_justificatif_scores()
 
 
+@router.get("/{filename}/{index}/suggestions")
+def get_filtered_suggestions(
+    filename: str,
+    index: int,
+    montant_min: Optional[float] = None,
+    montant_max: Optional[float] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+):
+    """Suggestions filtrées de justificatifs pour une opération."""
+    return rapprochement_service.get_filtered_suggestions(
+        filename, index,
+        montant_min=montant_min,
+        montant_max=montant_max,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+    )
+
+
 class ManualAssociateRequest(BaseModel):
     justificatif_filename: str
     operation_file: str

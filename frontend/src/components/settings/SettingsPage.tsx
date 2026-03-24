@@ -5,13 +5,13 @@ import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import { useSettings } from '@/hooks/useApi'
 import { api } from '@/api/client'
-import { cn } from '@/lib/utils'
+import { cn, MOIS_FR } from '@/lib/utils'
 import type { AppSettings } from '@/types'
 import {
   Settings, Palette, FileText, HardDrive, Server, Save,
   Loader2, Check, Moon, Sun, Bell, BellOff, Eye,
   FolderOpen, Database, Paperclip, Brain, ScrollText,
-  Archive, Clock, Info, Monitor,
+  Archive, Clock, Info, Monitor, Pencil, Trash2, X, ChevronDown,
 } from 'lucide-react'
 
 type Tab = 'general' | 'theme' | 'export' | 'storage' | 'system'
@@ -434,7 +434,18 @@ function ExportTab() {
 
 // ──── Storage Tab ────
 
+interface OperationFile {
+  filename: string
+  count: number
+  total_debit?: number
+  total_credit?: number
+  month?: number
+  year?: number
+}
+
 function StorageTab() {
+  const queryClient = useQueryClient()
+
   const { data: diskSpace } = useQuery<DiskSpace>({
     queryKey: ['disk-space'],
     queryFn: () => api.get('/settings/disk-space'),
@@ -444,6 +455,56 @@ function StorageTab() {
     queryKey: ['data-stats'],
     queryFn: () => api.get('/settings/data-stats'),
   })
+
+  const { data: operationFiles = [] } = useQuery<OperationFile[]>({
+    queryKey: ['operation-files'],
+    queryFn: () => api.get('/operations/files'),
+  })
+
+  // Rename state
+  const [renamingFile, setRenamingFile] = useState<string | null>(null)
+  const [newName, setNewName] = useState('')
+
+  // Delete confirm state
+  const [deletingFile, setDeletingFile] = useState<string | null>(null)
+
+  const renameMutation = useMutation({
+    mutationFn: ({ filename, new_filename }: { filename: string; new_filename: string }) =>
+      api.patch(`/operations/${encodeURIComponent(filename)}/rename`, { new_filename }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['operation-files'] })
+      queryClient.invalidateQueries({ queryKey: ['data-stats'] })
+      setRenamingFile(null)
+      setNewName('')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (filename: string) =>
+      api.delete(`/operations/${encodeURIComponent(filename)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['operation-files'] })
+      queryClient.invalidateQueries({ queryKey: ['data-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['disk-space'] })
+      setDeletingFile(null)
+    },
+  })
+
+  const startRename = (filename: string) => {
+    setRenamingFile(filename)
+    setNewName(filename)
+    setDeletingFile(null)
+  }
+
+  const confirmRename = () => {
+    if (!renamingFile || !newName.trim()) return
+    const finalName = newName.endsWith('.json') ? newName : `${newName}.json`
+    renameMutation.mutate({ filename: renamingFile, new_filename: finalName })
+  }
+
+  const confirmDelete = (filename: string) => {
+    deleteMutation.mutate(filename)
+  }
 
   if (isLoading) return <LoadingSpinner text="Analyse du stockage..." />
 
@@ -539,6 +600,225 @@ function StorageTab() {
           })}
         </div>
       </div>
+
+      {/* Operation files management — grouped by year */}
+      <OperationFilesSection
+        operationFiles={operationFiles}
+        renamingFile={renamingFile}
+        newName={newName}
+        setNewName={setNewName}
+        deletingFile={deletingFile}
+        setDeletingFile={setDeletingFile}
+        startRename={startRename}
+        confirmRename={confirmRename}
+        confirmDelete={confirmDelete}
+        renameMutation={renameMutation}
+        deleteMutation={deleteMutation}
+        setRenamingFile={setRenamingFile}
+      />
+    </div>
+  )
+}
+
+
+// ──── Operation Files Section (accordion by year) ────
+
+function OperationFilesSection({
+  operationFiles,
+  renamingFile,
+  newName,
+  setNewName,
+  deletingFile,
+  setDeletingFile,
+  startRename,
+  confirmRename,
+  confirmDelete,
+  renameMutation,
+  deleteMutation,
+  setRenamingFile,
+}: {
+  operationFiles: OperationFile[]
+  renamingFile: string | null
+  newName: string
+  setNewName: (v: string) => void
+  deletingFile: string | null
+  setDeletingFile: (v: string | null) => void
+  startRename: (f: string) => void
+  confirmRename: () => void
+  confirmDelete: (f: string) => void
+  renameMutation: { isPending: boolean }
+  deleteMutation: { isPending: boolean }
+  setRenamingFile: (v: string | null) => void
+}) {
+  // Group files by year, sort years descending, months ascending within each year
+  const grouped = operationFiles.reduce<Record<number, OperationFile[]>>((acc, file) => {
+    const year = file.year ?? 0
+    if (!acc[year]) acc[year] = []
+    acc[year].push(file)
+    return acc
+  }, {})
+
+  const sortedYears = Object.keys(grouped)
+    .map(Number)
+    .sort((a, b) => b - a) // years descending
+
+  // Sort files within each year by month ascending (Jan=1 → Dec=12)
+  for (const year of sortedYears) {
+    grouped[year].sort((a, b) => (a.month ?? 99) - (b.month ?? 99))
+  }
+
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set())
+
+  // Open all years by default when data loads
+  useEffect(() => {
+    if (sortedYears.length > 0 && expandedYears.size === 0) {
+      setExpandedYears(new Set(sortedYears))
+    }
+  }, [sortedYears.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleYear = (year: number) => {
+    setExpandedYears(prev => {
+      const next = new Set(prev)
+      if (next.has(year)) next.delete(year)
+      else next.add(year)
+      return next
+    })
+  }
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border p-6">
+      <h3 className="font-semibold text-text flex items-center gap-2 mb-4">
+        <FolderOpen size={18} />
+        Fichiers d'opérations
+        <span className="text-xs text-text-muted font-normal ml-auto">
+          {operationFiles.length} fichier{operationFiles.length > 1 ? 's' : ''}
+        </span>
+      </h3>
+
+      {operationFiles.length === 0 ? (
+        <p className="text-sm text-text-muted text-center py-6">Aucun fichier d'opérations</p>
+      ) : (
+        <div className="space-y-3">
+          {sortedYears.map(year => {
+            const files = grouped[year]
+            const isExpanded = expandedYears.has(year)
+            const yearLabel = year === 0 ? 'Sans date' : String(year)
+
+            return (
+              <div key={year} className="rounded-xl border border-border overflow-hidden">
+                {/* Year header — clickable accordion toggle */}
+                <button
+                  onClick={() => toggleYear(year)}
+                  className="w-full flex items-center gap-3 px-4 py-3 bg-background hover:bg-surface-hover transition-colors"
+                >
+                  <ChevronDown
+                    size={16}
+                    className={cn(
+                      'text-text-muted transition-transform duration-200',
+                      isExpanded ? 'rotate-0' : '-rotate-90'
+                    )}
+                  />
+                  <span className="text-sm font-semibold text-text">{yearLabel}</span>
+                  <span className="text-xs text-text-muted ml-auto">
+                    {files.length} relevé{files.length > 1 ? 's' : ''}
+                  </span>
+                </button>
+
+                {/* Files list — collapsible */}
+                {isExpanded && (
+                  <div className="space-y-1 p-2">
+                    {files.map(file => {
+                      const title = file.month && file.year
+                        ? `Relevé ${MOIS_FR[file.month - 1]} ${file.year}`
+                        : file.filename.replace(/\.json$/, '').replace(/_/g, ' ')
+
+                      return (
+                        <div key={file.filename} className="bg-background rounded-lg p-3">
+                          {renamingFile === file.filename ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={newName}
+                                onChange={e => setNewName(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') confirmRename()
+                                  if (e.key === 'Escape') setRenamingFile(null)
+                                }}
+                                autoFocus
+                                className="flex-1 bg-surface border border-primary/50 rounded-lg px-3 py-1.5 text-sm font-mono text-text focus:outline-none focus:border-primary"
+                              />
+                              <button
+                                onClick={confirmRename}
+                                disabled={renameMutation.isPending}
+                                className="p-1.5 rounded-lg bg-success/20 text-success hover:bg-success/30 transition-colors"
+                                title="Confirmer"
+                              >
+                                <Check size={14} />
+                              </button>
+                              <button
+                                onClick={() => setRenamingFile(null)}
+                                className="p-1.5 rounded-lg bg-border/30 text-text-muted hover:bg-border/50 transition-colors"
+                                title="Annuler"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : deletingFile === file.filename ? (
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-danger">
+                                Supprimer <span className="font-medium">{title}</span> et son PDF associé ?
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => confirmDelete(file.filename)}
+                                  disabled={deleteMutation.isPending}
+                                  className="px-3 py-1.5 rounded-lg bg-danger text-white text-xs font-medium hover:bg-danger/80 transition-colors"
+                                >
+                                  {deleteMutation.isPending ? 'Suppression...' : 'Confirmer'}
+                                </button>
+                                <button
+                                  onClick={() => setDeletingFile(null)}
+                                  className="px-3 py-1.5 rounded-lg bg-border/30 text-text-muted text-xs hover:bg-border/50 transition-colors"
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-text truncate">{title}</p>
+                                <p className="text-[10px] text-text-muted font-mono truncate">{file.filename}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 ml-3">
+                                <span className="text-xs text-text-muted mr-2">{file.count} op.</span>
+                                <button
+                                  onClick={() => startRename(file.filename)}
+                                  className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                                  title="Renommer"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  onClick={() => { setDeletingFile(file.filename); setRenamingFile(null) }}
+                                  className="p-1.5 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                                  title="Supprimer"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

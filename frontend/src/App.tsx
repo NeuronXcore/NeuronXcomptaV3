@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import AppLayout from '@/components/layout/AppLayout'
-import HomePage from '@/components/dashboard/HomePage'
 import DashboardPage from '@/components/dashboard/DashboardPage'
 import ImportPage from '@/components/import/ImportPage'
 import EditorPage from '@/components/editor/EditorPage'
@@ -13,14 +13,26 @@ import OcrPage from '@/components/ocr/OcrPage'
 import ExportPage from '@/components/export/ExportPage'
 import RapprochementPage from '@/components/rapprochement/RapprochementPage'
 import CloturePage from '@/components/cloture/CloturePage'
+import EcheancierPage from '@/pages/EcheancierPage'
+import AlertesPage from '@/pages/AlertesPage'
 import SettingsPage from '@/components/settings/SettingsPage'
 
 export default function App() {
   return (
+    <>
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        style: {
+          background: 'var(--color-surface)',
+          color: 'var(--color-text)',
+          border: '1px solid var(--color-border)',
+        },
+      }}
+    />
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/" element={<DashboardPage />} />
         <Route path="/import" element={<ImportPage />} />
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
@@ -28,12 +40,15 @@ export default function App() {
         <Route path="/visualization" element={<ComptaAnalytiquePage />} />
         <Route path="/justificatifs" element={<JustificatifsPage />} />
         <Route path="/rapprochement" element={<RapprochementPage />} />
+        <Route path="/alertes" element={<AlertesPage />} />
         <Route path="/agent-ai" element={<AgentIAPage />} />
         <Route path="/export" element={<ExportPage />} />
         <Route path="/cloture" element={<CloturePage />} />
+        <Route path="/echeancier" element={<EcheancierPage />} />
         <Route path="/ocr" element={<OcrPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>
+    </>
   )
 }

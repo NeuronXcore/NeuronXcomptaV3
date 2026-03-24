@@ -164,6 +164,52 @@ Tendances mensuelles. `months=0` pour toutes les données.
 ### `GET /anomalies?threshold=2.0`
 Détection d'anomalies par écart-type.
 
+**Paramètres communs (dashboard, summary, trends, anomalies) :**
+- `year` (optional) : filtrer par année
+- `quarter` (optional) : filtrer par trimestre (1-4)
+- `month` (optional) : filtrer par mois (1-12)
+
+### `GET /category-detail?category=Matériel`
+Détail d'une catégorie : sous-catégories, évolution mensuelle, dernières opérations.
+
+**Paramètres :** `category` (required), `year`, `quarter`, `month` (optional)
+
+**Réponse :**
+```json
+{
+  "category": "Matériel",
+  "total_debit": 134194.51,
+  "total_credit": 0,
+  "nb_operations": 51,
+  "subcategories": [
+    { "name": "Consommables", "debit": 45000, "credit": 0, "count": 20 }
+  ],
+  "monthly_evolution": [
+    { "month": "2024-01", "debit": 12000, "credit": 0 }
+  ],
+  "operations": [
+    { "date": "2024-04-15", "libelle": "Fournisseur XYZ", "debit": 500, "credit": 0, "sous_categorie": "Consommables" }
+  ]
+}
+```
+
+### `GET /compare`
+Compare deux périodes avec KPIs et ventilation par catégorie.
+
+**Paramètres :** `year_a`, `quarter_a`, `month_a`, `year_b`, `quarter_b`, `month_b` (tous optional)
+
+**Réponse :**
+```json
+{
+  "period_a": { "total_debit": 210662, "total_credit": 140064, "solde": -70598, "nb_operations": 120 },
+  "period_b": { "total_debit": 79802, "total_credit": 98755, "solde": 18952, "nb_operations": 176 },
+  "delta": { "total_debit": -62.1, "total_credit": -29.5, "solde": -73.2, "nb_operations": 46.7 },
+  "categories": [
+    { "category": "Matériel", "a_debit": 30000, "b_debit": 42000, "delta_pct": 40.0, "a_ops": 15, "b_ops": 22 }
+  ]
+}
+```
+
 ---
 
 ## Reports (`/api/reports`)
@@ -282,6 +328,26 @@ Extraction manuelle. Body : `{ "filename": "justificatif_xxx.pdf" }`
 ### `POST /extract-upload`
 Upload + extraction ad-hoc (fichier non sauvegardé). Form-data : `file`.
 
+### `POST /batch-upload`
+Upload batch de justificatifs PDF + OCR synchrone. Form-data : `files` (multiple).
+
+**Réponse :**
+```json
+[
+  {
+    "filename": "justificatif_20240415_xxxx.pdf",
+    "original_name": "facture_fournisseur.pdf",
+    "success": true,
+    "ocr_success": true,
+    "ocr_data": {
+      "best_amount": 500.00,
+      "best_date": "2024-04-15",
+      "supplier": "Fournisseur XYZ"
+    }
+  }
+]
+```
+
 ### `DELETE /cache/{filename}`
 Supprimer le cache OCR.
 
@@ -322,44 +388,60 @@ Supprimer un export.
 
 ## Rapprochement (`/api/rapprochement`)
 
-### `POST /{filename}/auto`
-Rapprochement automatique : associe les justificatifs aux opérations par scoring (date, montant, fournisseur OCR).
+### `POST /run-auto`
+Rapprochement automatique : parcourt tous les justificatifs en attente, auto-associe ceux avec score >= 0.95 et match unique.
 
 **Réponse :**
 ```json
 {
-  "matched": 12,
-  "total_operations": 86,
-  "details": [
-    {
-      "operation_index": 3,
-      "justificatif": "justificatif_20250520_facture.pdf",
-      "score": 0.87,
-      "mode": "auto"
-    }
-  ]
+  "total_justificatifs_traites": 15,
+  "associations_auto": 8,
+  "suggestions_fortes": 3,
+  "sans_correspondance": 4,
+  "ran_at": "2024-04-15T10:30:00"
 }
 ```
 
-### `POST /{filename}/manual`
-Association manuelle opération ↔ justificatif.
+### `POST /associate-manual`
+Association manuelle opération ↔ justificatif avec métadonnées.
 
-**Body :** `{ "operation_index": 5, "justificatif_filename": "justificatif_xxx.pdf" }`
+**Body :** `{ "justificatif_filename": "...", "operation_file": "...", "operation_index": 5, "rapprochement_score": 0.75 }`
 
-### `DELETE /{filename}/{index}`
-Supprime le rapprochement d'une opération (dissociation).
+### `GET /unmatched`
+Compteurs : opérations sans justificatif / justificatifs en attente.
 
-### `GET /{filename}/stats`
-Statistiques de rapprochement pour un fichier.
+### `GET /log?limit=20`
+Dernières associations automatiques.
+
+### `GET /batch-hints/{filename}`
+Best scores par index pour un fichier d'opérations.
+
+### `GET /batch-justificatif-scores`
+Best score par justificatif en attente.
+
+### `GET /suggestions/operation/{file}/{index}`
+Suggestions de justificatifs pour une opération.
+
+### `GET /suggestions/justificatif/{filename}`
+Suggestions d'opérations pour un justificatif.
+
+### `GET /{filename}/{index}/suggestions`
+Suggestions filtrées pour le rapprochement manuel (drawer).
+
+**Paramètres :** `montant_min`, `montant_max`, `date_from`, `date_to`, `search` (tous optional)
 
 **Réponse :**
 ```json
-{
-  "total": 86,
-  "rapprochees": 42,
-  "non_rapprochees": 44,
-  "taux": 0.49
-}
+[
+  {
+    "filename": "justificatif_xxx.pdf",
+    "ocr_date": "2024-04-10",
+    "ocr_montant": 500.00,
+    "ocr_fournisseur": "Fournisseur XYZ",
+    "score": 0.85,
+    "size_human": "245.3 Ko"
+  }
+]
 ```
 
 ---
@@ -426,6 +508,41 @@ Valeurs de `statut` :
 - `complet` : relevé + 100% lettrage + 100% justificatifs
 - `partiel` : relevé chargé mais incomplet
 - `manquant` : pas de relevé pour ce mois
+
+---
+
+## Sandbox (`/api/sandbox`)
+
+### `GET /events`
+Stream SSE (Server-Sent Events) des événements sandbox. Se connecte et reste ouvert.
+
+**Content-Type :** `text/event-stream`
+
+**Événements :**
+- Connexion : `data: {"status": "connected", "timestamp": ""}`
+- Fichier traité : `data: {"filename": "facture.pdf", "status": "processed", "timestamp": "2024-11-20T14:30:00"}`
+- Erreur OCR : `data: {"filename": "facture.pdf", "status": "error", "timestamp": "..."}`
+- Keepalive (30s) : `: ping`
+
+### `GET /list`
+Liste les PDF actuellement dans le dossier sandbox (non encore traités).
+
+**Réponse :**
+```json
+[
+  {
+    "filename": "facture_novembre.pdf",
+    "size": 245760,
+    "size_human": "240.0 Ko",
+    "modified": "2024-11-20T14:30:00"
+  }
+]
+```
+
+### `DELETE /{filename}`
+Supprime un fichier du sandbox sans le traiter.
+
+**Réponse :** `{ "status": "deleted", "filename": "facture_novembre.pdf" }`
 
 ---
 

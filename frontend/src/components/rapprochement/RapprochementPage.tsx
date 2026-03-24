@@ -3,6 +3,7 @@ import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementDrawer from './RapprochementDrawer'
+import RapprochementManuelDrawer from './RapprochementManuelDrawer'
 import {
   useUnmatched,
   useRunAutoRapprochement,
@@ -14,7 +15,7 @@ import { useOperationFiles, useOperations } from '@/hooks/useOperations'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
   Paperclip, Clock, Zap, History, Link, Loader2, Check,
-  AlertCircle, X, ChevronRight, FileText,
+  AlertCircle, X, ChevronRight, FileText, Search,
 } from 'lucide-react'
 import type { Operation, AutoRapprochementReport, RapprochementSuggestion } from '@/types'
 
@@ -27,6 +28,15 @@ export default function RapprochementPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [selectedOpIndex, setSelectedOpIndex] = useState<number | null>(null)
   const [selectedOp, setSelectedOp] = useState<Operation | null>(null)
+
+  // Drawer rapprochement manuel
+  const [drawerOp, setDrawerOp] = useState<{
+    index: number
+    date: string
+    libelle: string
+    debit: number
+    credit: number
+  } | null>(null)
 
   // UI state
   const [showAutoReport, setShowAutoReport] = useState(false)
@@ -187,22 +197,39 @@ export default function RapprochementPage() {
             ) : (
               <div className="divide-y divide-border/30">
                 {unmatchedOps.map(({ op, idx }) => (
-                  <button
+                  <div
                     key={idx}
                     onClick={() => {
                       setSelectedOpIndex(idx)
                       setSelectedOp(op)
                     }}
                     className={cn(
-                      'w-full text-left px-4 py-2.5 transition-colors',
+                      'w-full text-left px-4 py-2.5 transition-colors cursor-pointer',
                       selectedOpIndex === idx
                         ? 'bg-primary/10 border-l-2 border-l-primary'
                         : 'hover:bg-surface-hover'
                     )}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <p className="text-xs text-text truncate flex-1">{op['Libellé']}</p>
-                      <ChevronRight size={12} className="text-text-muted shrink-0 ml-2" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDrawerOp({
+                            index: idx,
+                            date: op.Date || '',
+                            libelle: op['Libellé'] || '',
+                            debit: op['Débit'] || 0,
+                            credit: op['Crédit'] || 0,
+                          })
+                        }}
+                        className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors shrink-0"
+                        title="Rapprochement manuel"
+                      >
+                        <Search size={10} />
+                        Associer
+                      </button>
+                      <ChevronRight size={12} className="text-text-muted shrink-0" />
                     </div>
                     <div className="flex items-center gap-3 text-[10px] text-text-muted mt-0.5">
                       <span>{op.Date?.slice(0, 10)}</span>
@@ -214,7 +241,7 @@ export default function RapprochementPage() {
                       )}
                       {op['Catégorie'] && <span className="text-primary">{op['Catégorie']}</span>}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -330,6 +357,14 @@ export default function RapprochementPage() {
       {showLogDrawer && (
         <LogDrawer onClose={() => setShowLogDrawer(false)} />
       )}
+
+      {/* Rapprochement manuel drawer */}
+      <RapprochementManuelDrawer
+        isOpen={drawerOp !== null}
+        onClose={() => setDrawerOp(null)}
+        filename={selectedFile}
+        operation={drawerOp}
+      />
     </div>
   )
 }

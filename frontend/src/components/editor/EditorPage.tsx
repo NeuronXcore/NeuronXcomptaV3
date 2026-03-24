@@ -27,6 +27,7 @@ import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
 import { formatCurrency, formatFileTitle, cn } from '@/lib/utils'
+import AlerteBadge from '@/components/AlerteBadge'
 import type { Operation, CategoryRaw } from '@/types'
 
 // Editable cell component
@@ -571,6 +572,24 @@ export default function EditorPage() {
           placeholder="..."
         />
       ),
+      enableSorting: false,
+    },
+    // Alertes
+    {
+      id: 'alertes',
+      header: 'Alertes',
+      size: 120,
+      cell: ({ row }) => {
+        const alertes = row.original.alertes || []
+        if (alertes.length === 0) return null
+        return (
+          <div className="flex gap-1 flex-wrap">
+            {alertes.map((type) => (
+              <AlerteBadge key={type} type={type} size="sm" />
+            ))}
+          </div>
+        )
+      },
       enableSorting: false,
     },
     // Delete
