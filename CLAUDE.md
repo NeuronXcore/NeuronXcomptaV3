@@ -8,10 +8,19 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 
 - **Backend**: FastAPI (Python 3.9+), runs on port 8000
 - **Frontend**: React 19 + Vite + TypeScript + TailwindCSS 4, runs on port 5173
-- **Data**: JSON file storage in `data/` directory
+- **Data**: JSON file storage in `data/` directory. Imports split: `data/imports/operations/` (JSON) and `data/imports/releves/` (PDF). Auto-migration at startup.
 - **ML**: Rules-based + scikit-learn categorization, pickle models in `data/ml/`
 - **OCR**: EasyOCR with pdf2image, cache `.ocr.json` alongside PDFs. OCR page is the primary entry point for justificatif uploads (batch upload + immediate OCR).
 - **Sandbox Watchdog**: `watchdog` library monitors `data/justificatifs/sandbox/`, auto-OCR + SSE notifications
+
+## PDF Import Pipeline
+
+- **Extraction**: `operation_service.extract_operations_from_pdf()` uses pdfplumber + regex
+- **Dates**: Extracted as `DD/MM/YY` or `DD/MM/YYYY`, converted to `YYYY-MM-DD` (required by HTML `input type="date"`)
+- **Amounts**: Simple pattern `\d+[,.]\d{2}` tried first (avoids false thousands grouping), last match used (amount is rightmost on line)
+- **Exclusion filter**: Lines containing SOLDE, TOTAL, etc. are skipped (balance lines, not operations)
+- **Categorization at import**: Only basic keyword matching (`_categorize_simple()`). ML categorization requires manual trigger via "IA (vides)" / "IA (tout)" buttons in EditorPage
+- **Deduplication**: SHA-256 hash of PDF content, first 8 chars in filenames
 
 ## Critical Constraints
 
@@ -51,7 +60,10 @@ neuronXcompta/
 │       ├── types/index.ts      # All TypeScript interfaces
 │       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, formatFileTitle
 │       └── index.css           # Tailwind @theme with custom colors
-├── data/                       # JSON storage (imports, exports, ml, justificatifs, logs)
+├── data/
+│   ├── imports/
+│   │   ├── operations/         # JSON operation files
+│   │   └── releves/            # PDF bank statements
 ├── settings.json               # App settings
 └── docs/                       # Documentation
 ```
@@ -93,7 +105,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 |-------|-----------|-------------|
 | `/` | DashboardPage | KPIs, charts, recent operations (anciennement Accueil + Dashboard fusionnés) |
 | `/import` | ImportPage | PDF drag-drop import |
-| `/editor` | EditorPage | Inline operation editing with AI categorization, lettrage toggle, PDF preview |
+| `/editor` | EditorPage | Inline editing, AI categorization (boutons "IA vides"/"IA tout"), colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert), PDF preview |
 | `/categories` | CategoriesPage | 4-tab category management |
 | `/reports` | ReportsPage | Report generation (CSV/PDF/Excel) + gallery |
 | `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie, comparatif périodes, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |

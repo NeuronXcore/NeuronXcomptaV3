@@ -15,7 +15,7 @@ from typing import Optional
 import pandas as pd
 
 from backend.core.config import (
-    IMPORTS_DIR, RAPPORTS_DIR, REPORTS_DIR, MOIS_FR, ensure_directories,
+    RAPPORTS_DIR, REPORTS_DIR, MOIS_FR, ensure_directories,
 )
 from backend.services.operation_service import load_operations
 

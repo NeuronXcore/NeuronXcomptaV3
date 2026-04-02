@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from backend.core.config import IMPORTS_DIR, ensure_directories
+from backend.core.config import IMPORTS_OPERATIONS_DIR, ensure_directories
 from backend.models.alerte import ResolveAlerteBody
 from backend.services import alerte_service, operation_service
 
@@ -33,10 +33,10 @@ async def get_alertes_summary():
     par_fichier = []
     total_en_attente = 0
 
-    if not IMPORTS_DIR.exists():
+    if not IMPORTS_OPERATIONS_DIR.exists():
         return {"total_en_attente": 0, "par_type": par_type, "par_fichier": []}
 
-    for f in sorted(IMPORTS_DIR.iterdir(), reverse=True):
+    for f in sorted(IMPORTS_OPERATIONS_DIR.iterdir(), reverse=True):
         if f.suffix != ".json":
             continue
         try:

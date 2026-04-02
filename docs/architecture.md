@@ -55,7 +55,7 @@ OCR              Échéancier
 PDF Upload → operations router → pdf_service.extract_operations_from_pdf()
   → Détection doublons (hash MD5)
   → Parsing tables pdfplumber
-  → Sauvegarde JSON dans data/imports/
+  → Sauvegarde JSON dans data/imports/operations/, PDF dans data/imports/releves/
   → Réponse : opérations extraites
 ```
 
@@ -191,9 +191,11 @@ Sélection mois → exports router → export_service.generate_export()
 
 ```
 data/
-├── imports/                    # Fichiers JSON d'opérations
-│   ├── operations_YYYYMMDD_HHMMSS_HASH.json
-│   └── pdf_HASH.pdf           # Relevé bancaire original
+├── imports/
+│   ├── operations/             # Fichiers JSON d'opérations
+│   │   └── operations_YYYYMMDD_HHMMSS_HASH.json
+│   └── releves/                # Relevés bancaires originaux (PDF)
+│       └── pdf_HASH.pdf
 ├── exports/                    # Archives ZIP mensuelles
 ├── reports/                    # Rapports générés (CSV/PDF/XLSX)
 ├── rapports/                   # Rapports legacy

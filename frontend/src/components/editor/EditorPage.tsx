@@ -466,7 +466,7 @@ export default function EditorPage() {
     // Justificatif — interactive paperclip
     {
       accessorKey: 'Justificatif',
-      header: () => <Paperclip size={14} className="mx-auto" />,
+      header: () => <Paperclip size={14} className="mx-auto" title="Justificatif" />,
       size: 40,
       cell: ({ row }) => {
         const hasJustif = row.original.Justificatif || false
@@ -507,7 +507,7 @@ export default function EditorPage() {
     // Important
     {
       accessorKey: 'Important',
-      header: () => <Star size={14} className="mx-auto text-warning" />,
+      header: () => <Star size={14} className="mx-auto text-warning" title="Important" />,
       size: 40,
       cell: ({ row }) => (
         <CheckboxCell
@@ -521,7 +521,7 @@ export default function EditorPage() {
     // A_revoir
     {
       accessorKey: 'A_revoir',
-      header: () => <AlertTriangle size={14} className="mx-auto text-danger" />,
+      header: () => <AlertTriangle size={14} className="mx-auto text-danger" title="À revoir" />,
       size: 40,
       cell: ({ row }) => (
         <CheckboxCell
@@ -535,7 +535,7 @@ export default function EditorPage() {
     // Lettrée
     {
       accessorKey: 'lettre',
-      header: () => <CheckCircle2 size={14} className="mx-auto text-emerald-400" />,
+      header: () => <CheckCircle2 size={14} className="mx-auto text-emerald-400" title="Pointée" />,
       size: 40,
       cell: ({ row }) => {
         const isLettre = row.original.lettre || false

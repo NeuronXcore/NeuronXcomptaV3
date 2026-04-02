@@ -11,8 +11,8 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | Module | Description |
 |--------|-------------|
 | **Tableau de bord** | KPIs financiers, graphiques d'évolution, opérations récentes |
-| **Importation** | Upload de relevés bancaires PDF, extraction automatique des opérations |
-| **Éditeur** | Édition inline des opérations, catégorisation IA en un clic |
+| **Importation** | Upload de relevés bancaires PDF, extraction automatique des opérations (dates YYYY-MM-DD, filtrage soldes/totaux) |
+| **Éditeur** | Édition inline, catégorisation IA (vides/tout), colonnes : Justificatif, Important, À revoir, Pointée |
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
 | **Rapports** | Génération PDF, CSV et Excel avec filtres avancés |
 | **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, comparatif périodes, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
@@ -46,6 +46,7 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 
 ### Stockage
 - Fichiers JSON dans `data/` (opérations, catégories, paramètres)
+- Imports séparés : `data/imports/operations/` (JSON) et `data/imports/releves/` (PDF)
 - Modèles ML en pickle (`data/ml/`)
 - Cache OCR en `.ocr.json`
 - Justificatifs PDF dans `data/justificatifs/`
@@ -144,7 +145,9 @@ neuronXcompta/
 │       ├── types/index.ts      # Types TypeScript
 │       └── lib/utils.ts        # Utilitaires
 ├── data/                       # Données applicatives
-│   ├── imports/                # Relevés bancaires importés
+│   ├── imports/
+│   │   ├── operations/         # Fichiers JSON d'opérations
+│   │   └── releves/            # Relevés bancaires PDF
 │   ├── exports/                # Archives ZIP générées
 │   ├── reports/                # Rapports générés
 │   ├── justificatifs/          # Justificatifs PDF

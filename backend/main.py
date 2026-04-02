@@ -10,12 +10,13 @@ from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories
+from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
 from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, echeancier, sandbox, alertes
 from backend.services.sandbox_service import start_sandbox_watchdog, stop_sandbox_watchdog
 
-# Initialiser les répertoires
+# Initialiser les répertoires et migrer les fichiers existants
 ensure_directories()
+migrate_imports_directory()
 
 # Configurer le logging
 log_file = LOGS_DIR / "app.log"

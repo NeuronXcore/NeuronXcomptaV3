@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Optional, List
 
 from backend.core.config import (
-    IMPORTS_DIR, EXPORTS_DIR, RAPPORTS_DIR, REPORTS_DIR,
+    IMPORTS_RELEVES_DIR, EXPORTS_DIR, RAPPORTS_DIR, REPORTS_DIR,
     JUSTIFICATIFS_TRAITES_DIR, MOIS_FR, ensure_directories,
 )
 from backend.services import operation_service, report_service
@@ -421,7 +421,7 @@ def _find_bank_statement(operation_filename: str) -> Optional[Path]:
     match = re.search(r"operations_\d{8}_\d{6}_([a-f0-9]+)\.json", operation_filename)
     if match:
         file_id = match.group(1)
-        pdf_path = IMPORTS_DIR / f"pdf_{file_id}.pdf"
+        pdf_path = IMPORTS_RELEVES_DIR / f"pdf_{file_id}.pdf"
         if pdf_path.exists():
             return pdf_path
     return None

@@ -37,7 +37,8 @@ data/logs/
 *.log
 
 # Données applicatives (fichiers utilisateur, pas dans le repo)
-data/imports/
+data/imports/releves/
+data/imports/operations/
 data/exports/
 data/reports/
 data/rapports/
@@ -47,7 +48,8 @@ data/ocr/
 data/compta_analytique/
 
 # Garder la structure des dossiers
-!data/imports/.gitkeep
+!data/imports/releves/.gitkeep
+!data/imports/operations/.gitkeep
 !data/exports/.gitkeep
 !data/reports/.gitkeep
 !data/justificatifs/en_attente/.gitkeep

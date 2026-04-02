@@ -11,6 +11,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Répertoire des données
 DATA_DIR = BASE_DIR / "data"
 IMPORTS_DIR = DATA_DIR / "imports"
+IMPORTS_RELEVES_DIR = IMPORTS_DIR / "releves"
+IMPORTS_OPERATIONS_DIR = IMPORTS_DIR / "operations"
 EXPORTS_DIR = DATA_DIR / "exports"
 REPORTS_DIR = DATA_DIR / "reports"
 RAPPORTS_DIR = DATA_DIR / "rapports"
@@ -63,10 +65,28 @@ MOIS_FR = [
 def ensure_directories():
     """Crée tous les répertoires nécessaires s'ils n'existent pas."""
     dirs = [
-        DATA_DIR, IMPORTS_DIR, EXPORTS_DIR, REPORTS_DIR, RAPPORTS_DIR,
+        DATA_DIR, IMPORTS_DIR, IMPORTS_RELEVES_DIR, IMPORTS_OPERATIONS_DIR,
+        EXPORTS_DIR, REPORTS_DIR, RAPPORTS_DIR,
         LOGS_DIR, JUSTIFICATIFS_DIR, JUSTIFICATIFS_EN_ATTENTE_DIR,
         JUSTIFICATIFS_TRAITES_DIR, JUSTIFICATIFS_TEMP_DIR, JUSTIFICATIFS_SANDBOX_DIR,
         ML_DIR, ML_BACKUPS_DIR, COMPTA_ANALYTIQUE_DIR, OCR_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
+
+
+def migrate_imports_directory():
+    """Déplace les fichiers existants de data/imports/ vers les sous-dossiers releves/ et operations/."""
+    import shutil
+    ensure_directories()
+    for f in IMPORTS_DIR.iterdir():
+        if f.is_dir() or f.name.startswith("."):
+            continue
+        if f.suffix == ".json":
+            dest = IMPORTS_OPERATIONS_DIR / f.name
+            if not dest.exists():
+                shutil.move(str(f), str(dest))
+        elif f.suffix == ".pdf":
+            dest = IMPORTS_RELEVES_DIR / f.name
+            if not dest.exists():
+                shutil.move(str(f), str(dest))

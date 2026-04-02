@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 
 from backend.core.config import (
-    SETTINGS_FILE, DATA_DIR, IMPORTS_DIR, EXPORTS_DIR,
+    SETTINGS_FILE, DATA_DIR, IMPORTS_OPERATIONS_DIR, IMPORTS_RELEVES_DIR, EXPORTS_DIR,
     REPORTS_DIR, RAPPORTS_DIR, LOGS_DIR,
     JUSTIFICATIFS_DIR, JUSTIFICATIFS_EN_ATTENTE_DIR,
     JUSTIFICATIFS_TRAITES_DIR, ML_DIR,
@@ -71,7 +71,13 @@ async def get_data_stats():
         }
 
     return {
-        "imports": folder_stats(IMPORTS_DIR),
+        "imports": {
+            "count": folder_stats(IMPORTS_OPERATIONS_DIR)["count"] + folder_stats(IMPORTS_RELEVES_DIR)["count"],
+            "size": folder_stats(IMPORTS_OPERATIONS_DIR)["size"] + folder_stats(IMPORTS_RELEVES_DIR)["size"],
+            "size_human": _format_size(
+                folder_stats(IMPORTS_OPERATIONS_DIR)["size"] + folder_stats(IMPORTS_RELEVES_DIR)["size"]
+            ),
+        },
         "exports": folder_stats(EXPORTS_DIR),
         "reports": {
             "count": folder_stats(REPORTS_DIR)["count"] + folder_stats(RAPPORTS_DIR)["count"],
