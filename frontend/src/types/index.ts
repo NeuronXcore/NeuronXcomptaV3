@@ -8,7 +8,7 @@ export type AlerteType =
 export interface AlerteSummary {
   total_en_attente: number
   par_type: Record<AlerteType, number>
-  par_fichier: { filename: string; nb_alertes: number; nb_operations: number }[]
+  par_fichier: { filename: string; nb_alertes: number; nb_operations: number; month?: number; year?: number }[]
 }
 
 export interface Operation {

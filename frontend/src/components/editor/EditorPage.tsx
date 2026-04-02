@@ -26,7 +26,7 @@ import { useOperationFiles, useOperations, useSaveOperations, useCategorizeOpera
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
-import { formatCurrency, formatFileTitle, cn } from '@/lib/utils'
+import { formatCurrency, formatFileTitle, cn, MOIS_FR } from '@/lib/utils'
 import AlerteBadge from '@/components/AlerteBadge'
 import type { Operation, CategoryRaw } from '@/types'
 
@@ -112,7 +112,23 @@ export default function EditorPage() {
   const { data: files, isLoading: filesLoading } = useOperationFiles()
   const { data: categoriesData } = useCategories()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
   const { data: rawOperations, isLoading: opsLoading } = useOperations(selectedFile)
+
+  // Années et mois disponibles pour le sélecteur en cascade
+  const availableYears = useMemo(() => {
+    if (!files) return []
+    const years = [...new Set(files.filter(f => f.year).map(f => f.year!))]
+    return years.sort((a, b) => a - b)
+  }, [files])
+
+  const monthsForYear = useMemo(() => {
+    if (!files || !selectedYear) return []
+    return files
+      .filter(f => f.year === selectedYear)
+      .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
+  }, [files, selectedYear])
 
   const [operations, setOperations] = useState<Operation[]>([])
   const [hasChanges, setHasChanges] = useState(false)
@@ -147,17 +163,44 @@ export default function EditorPage() {
   const categorizeMutation = useCategorizeOperations()
   const searchRef = useRef<HTMLInputElement>(null)
 
-  // Auto-select file from query param or first file
+  // Auto-select year/month/file from query param or last available
   useEffect(() => {
     if (!files || files.length === 0) return
     if (selectedFile) return
+
+    // URL param ?file=xxx → pré-sélectionner année + mois + fichier
     const fileParam = searchParams.get('file')
-    if (fileParam && files.some(f => f.filename === fileParam)) {
-      setSelectedFile(fileParam)
-    } else {
+    if (fileParam) {
+      const match = files.find(f => f.filename === fileParam)
+      if (match) {
+        setSelectedYear(match.year ?? null)
+        setSelectedMonth(match.month ?? null)
+        setSelectedFile(match.filename)
+        return
+      }
+    }
+
+    // Auto-sélection : dernière année, dernier mois
+    const years = [...new Set(files.filter(f => f.year).map(f => f.year!))]
+    if (years.length > 0) {
+      const maxYear = Math.max(...years)
+      setSelectedYear(maxYear)
+      const monthsOfYear = files
+        .filter(f => f.year === maxYear)
+        .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
+      if (monthsOfYear.length > 0) {
+        const last = monthsOfYear[monthsOfYear.length - 1]
+        setSelectedMonth(last.month ?? null)
+        setSelectedFile(last.filename)
+      }
+    } else if (files.length > 0) {
+      // Fallback : fichiers sans year/month
       setSelectedFile(files[0].filename)
     }
-  }, [files, selectedFile, searchParams])
+  }, [files, searchParams])
+
+  // Ref pour éviter la boucle de catégorisation auto
+  const lastAutoCategorizedFile = useRef<string | null>(null)
 
   // Sync operations when loaded from API
   useEffect(() => {
@@ -168,6 +211,27 @@ export default function EditorPage() {
       setRowSelection({})
     }
   }, [rawOperations])
+
+  // Auto-catégorisation IA au chargement d'un fichier (vides uniquement)
+  useEffect(() => {
+    if (!selectedFile || !rawOperations || rawOperations.length === 0) return
+    if (lastAutoCategorizedFile.current === selectedFile) return
+
+    // Vérifier s'il y a des opérations sans catégorie
+    const hasEmpty = rawOperations.some(
+      op => !op['Catégorie'] || op['Catégorie'] === '' || op['Catégorie'] === 'Autres'
+    )
+    if (!hasEmpty) {
+      lastAutoCategorizedFile.current = selectedFile
+      return
+    }
+
+    lastAutoCategorizedFile.current = selectedFile
+    categorizeMutation.mutate(
+      { filename: selectedFile, mode: 'empty_only' },
+      { onSuccess: () => setHasChanges(false) }
+    )
+  }, [selectedFile, rawOperations])
 
   // Category lists
   const categoryNames = useMemo(() => {
@@ -708,24 +772,14 @@ export default function EditorPage() {
               </button>
             )}
 
-            {/* IA (vides) */}
-            <button
-              onClick={() => handleCategorize('empty_only')}
-              disabled={!selectedFile || categorizeMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover disabled:opacity-50 transition-colors"
-            >
-              <Bot size={15} />
-              {categorizeMutation.isPending ? 'IA...' : 'IA (vides)'}
-            </button>
-
-            {/* IA (tout) */}
+            {/* Recatégoriser IA (force toutes les lignes) */}
             <button
               onClick={() => handleCategorize('all')}
               disabled={!selectedFile || categorizeMutation.isPending}
               className="flex items-center gap-1.5 px-3 py-2 text-sm bg-primary/10 text-primary border border-primary/30 rounded-lg hover:bg-primary/20 disabled:opacity-50 transition-colors"
             >
               <Bot size={15} />
-              IA (tout)
+              {categorizeMutation.isPending ? 'IA...' : 'Recatégoriser IA'}
             </button>
 
             {/* Save */}
@@ -751,19 +805,51 @@ export default function EditorPage() {
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-3">
-        {/* File selector */}
+        {/* Year selector */}
         <select
-          value={selectedFile || ''}
+          value={selectedYear ?? ''}
           onChange={e => {
-            setSelectedFile(e.target.value || null)
+            const yr = e.target.value ? Number(e.target.value) : null
+            setSelectedYear(yr)
+            setSelectedMonth(null)
+            setSelectedFile(null)
             setRowSelection({})
+            // Auto-sélectionner le premier mois de l'année
+            if (yr && files) {
+              const first = files.filter(f => f.year === yr).sort((a, b) => (a.month ?? 0) - (b.month ?? 0))[0]
+              if (first) {
+                setSelectedMonth(first.month ?? null)
+                setSelectedFile(first.filename)
+              }
+            }
           }}
-          className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text flex-1 max-w-xs"
+          className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text w-28"
         >
-          <option value="">Sélectionner un fichier...</option>
-          {files?.map(f => (
+          <option value="">Année...</option>
+          {availableYears.map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+
+        {/* Month selector */}
+        <select
+          value={selectedFile ?? ''}
+          onChange={e => {
+            const fname = e.target.value || null
+            setSelectedFile(fname)
+            setRowSelection({})
+            if (fname && files) {
+              const match = files.find(f => f.filename === fname)
+              if (match) setSelectedMonth(match.month ?? null)
+            }
+          }}
+          disabled={!selectedYear}
+          className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text flex-1 max-w-xs disabled:opacity-50"
+        >
+          <option value="">Mois...</option>
+          {monthsForYear.map(f => (
             <option key={f.filename} value={f.filename}>
-              {formatFileTitle(f)} ({f.count} ops)
+              {MOIS_FR[(f.month ?? 1) - 1]} ({f.count} ops)
             </option>
           ))}
         </select>

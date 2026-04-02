@@ -62,15 +62,22 @@ PDF Upload → operations router → pdf_service.extract_operations_from_pdf()
 ### Upload justificatifs (OCR = point d'entrée)
 
 ```
-Batch PDFs → POST /api/ocr/batch-upload
-  → justificatif_service.upload_justificatifs() (sauvegarde en_attente/)
+Batch PDF/JPG/PNG → POST /api/ocr/batch-upload
+  → Si image (JPG/PNG) : _convert_image_to_pdf() via Pillow → bytes PDF
+  → justificatif_service.upload_justificatifs() (validation magic bytes, sauvegarde en_attente/)
   → ocr_service.extract_or_cached() pour chaque fichier (synchrone)
   → Retour : résultats avec données OCR (montant, date, fournisseur)
   → Page Justificatifs = galerie seule (pas d'upload)
 
 Alternative : Sandbox watchdog
-  → Dépôt dans data/justificatifs/sandbox/
-  → Auto-move vers en_attente/ + OCR + SSE notification
+  → Dépôt PDF/JPG/PNG dans data/justificatifs/sandbox/
+  → Si image : conversion PDF + écriture en_attente/ + suppression image
+  → Si PDF : shutil.move vers en_attente/
+  → OCR + SSE notification
+
+Formats acceptés : PDF, JPG, JPEG, PNG (config.ALLOWED_JUSTIFICATIF_EXTENSIONS)
+Validation : magic bytes (config.MAGIC_BYTES), limite 10 Mo
+Images converties en PDF à l'intake, original non conservé
 ```
 
 ### Rapprochement bancaire
@@ -95,6 +102,12 @@ Libellé → ml router → ml_service.predict_category()
   2. Mots-clés (model.json → keywords)
   3. Scikit-learn (sklearn_model.pkl + vectorizer.pkl)
   → Score de confiance + risque d'hallucination
+
+Auto-catégorisation (EditorPage) :
+  → Au chargement d'un fichier, useEffect déclenche POST /{filename}/categorize (mode: empty_only)
+  → Seules les opérations sans catégorie ou "Autres" sont traitées
+  → useRef anti-boucle empêche le re-déclenchement (lastAutoCategorizedFile)
+  → Bouton "Recatégoriser IA" : force mode "all" (recatégorise toutes les lignes)
 ```
 
 ### OCR automatique
@@ -112,16 +125,18 @@ Upload justificatif → justificatifs router → upload_justificatifs()
 ### Sandbox Watchdog (OCR automatique par dépôt)
 
 ```
-PDF déposé dans data/justificatifs/sandbox/
+Fichier (PDF/JPG/PNG) déposé dans data/justificatifs/sandbox/
   → watchdog (FileSystemEventHandler) détecte on_created
+  → Filtre : extension dans ALLOWED_JUSTIFICATIF_EXTENSIONS
   → Attente écriture complète (polling getsize, 500ms)
-  → shutil.move → data/justificatifs/en_attente/ (gestion doublons avec suffix timestamp)
+  → Si image : _convert_image_to_pdf() → écriture PDF en_attente/ → suppression image
+  → Si PDF : shutil.move → data/justificatifs/en_attente/ (gestion doublons avec suffix timestamp)
   → ocr_service.extract_or_cached() → .ocr.json
   → Event SSE poussé via asyncio.Queue (thread-safe via loop.call_soon_threadsafe)
   → Frontend : useSandbox hook (EventSource) → invalidation TanStack Query + toast
 ```
 
-Au démarrage du backend, les PDF déjà présents dans sandbox/ sont traités automatiquement.
+Au démarrage du backend, les fichiers (PDF/JPG/PNG) déjà présents dans sandbox/ sont traités automatiquement.
 Le watchdog est géré par le lifespan FastAPI (start/stop).
 
 ### Rapprochement bancaire
@@ -173,7 +188,7 @@ Sélection mois → exports router → export_service.generate_export()
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
 | **Components** | UI et interactions | `src/components/` (28 fichiers) |
-| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (9 fichiers) |
+| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (11 fichiers) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -244,5 +259,5 @@ Paramètres globaux du QueryClient :
 
 - **CORS** : Autorisé uniquement depuis `localhost:5173` et `localhost:3000`
 - **Validation** : Pydantic côté backend, TypeScript côté frontend
-- **Upload** : Vérification magic bytes PDF (`%PDF-`), limite 10 Mo
+- **Upload** : Vérification magic bytes multi-format (PDF `%PDF-`, JPEG `\xff\xd8\xff`, PNG `\x89PNG`), limite 10 Mo, conversion image→PDF via Pillow
 - **Sanitization** : NaN/Inf remplacés par 0 dans les opérations

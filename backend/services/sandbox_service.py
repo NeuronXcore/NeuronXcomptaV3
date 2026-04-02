@@ -18,9 +18,12 @@ from typing import Optional
 from backend.core.config import (
     JUSTIFICATIFS_EN_ATTENTE_DIR,
     JUSTIFICATIFS_SANDBOX_DIR,
+    ALLOWED_JUSTIFICATIF_EXTENSIONS,
+    IMAGE_EXTENSIONS,
     ensure_directories,
 )
 from backend.services import ocr_service
+from backend.services.justificatif_service import _convert_image_to_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +79,8 @@ def _push_event(filename: str, status: str = "processed") -> None:
         logger.warning("Event loop non disponible, event SSE perdu pour %s", filename)
 
 
-def _process_pdf(filepath: Path) -> None:
-    """Traite un PDF : move vers en_attente + OCR + event SSE."""
+def _process_file(filepath: Path) -> None:
+    """Traite un fichier (PDF ou image) : convertir si image, move vers en_attente + OCR + event SSE."""
     filename = filepath.name
     logger.info("Sandbox: traitement de %s", filename)
 
@@ -87,10 +90,21 @@ def _process_pdf(filepath: Path) -> None:
             logger.warning("Sandbox: timeout en attente d'écriture pour %s", filename)
             return
 
-        # Déplacer vers en_attente (gestion doublons)
-        dest = _resolve_destination(filename)
-        shutil.move(str(filepath), str(dest))
-        logger.info("Sandbox: %s déplacé vers %s", filename, dest.name)
+        ext = filepath.suffix.lower()
+
+        if ext in IMAGE_EXTENSIONS:
+            # Convertir image → PDF
+            image_bytes = filepath.read_bytes()
+            pdf_bytes = _convert_image_to_pdf(image_bytes)
+            dest = _resolve_destination(filepath.stem + ".pdf")
+            dest.write_bytes(pdf_bytes)
+            filepath.unlink()
+            logger.info("Sandbox: %s converti en PDF → %s", filename, dest.name)
+        else:
+            # PDF : déplacer directement
+            dest = _resolve_destination(filename)
+            shutil.move(str(filepath), str(dest))
+            logger.info("Sandbox: %s déplacé vers %s", filename, dest.name)
 
         # Lancer l'OCR
         try:
@@ -110,25 +124,27 @@ def _process_pdf(filepath: Path) -> None:
 
 
 def process_existing_files() -> None:
-    """Traite les PDF déjà présents dans sandbox/ au démarrage."""
+    """Traite les fichiers (PDF/images) déjà présents dans sandbox/ au démarrage."""
     ensure_directories()
     if not JUSTIFICATIFS_SANDBOX_DIR.exists():
         return
-    pdfs = sorted(JUSTIFICATIFS_SANDBOX_DIR.glob("*.pdf"), key=lambda p: p.stat().st_mtime)
-    # Aussi .PDF
-    pdfs += sorted(JUSTIFICATIFS_SANDBOX_DIR.glob("*.PDF"), key=lambda p: p.stat().st_mtime)
+    all_files: list[Path] = []
+    for ext in ALLOWED_JUSTIFICATIF_EXTENSIONS:
+        all_files.extend(JUSTIFICATIFS_SANDBOX_DIR.glob(f"*{ext}"))
+        all_files.extend(JUSTIFICATIFS_SANDBOX_DIR.glob(f"*{ext.upper()}"))
+    all_files.sort(key=lambda p: p.stat().st_mtime)
     # Dédupliquer (cas où glob est case-insensitive sur macOS)
-    seen = set()
-    unique_pdfs = []
-    for p in pdfs:
+    seen: set[str] = set()
+    unique_files: list[Path] = []
+    for p in all_files:
         if p.name not in seen:
             seen.add(p.name)
-            unique_pdfs.append(p)
+            unique_files.append(p)
 
-    if unique_pdfs:
-        logger.info("Sandbox: %d PDF existant(s) à traiter au démarrage", len(unique_pdfs))
-    for pdf in unique_pdfs:
-        _process_pdf(pdf)
+    if unique_files:
+        logger.info("Sandbox: %d fichier(s) existant(s) à traiter au démarrage", len(unique_files))
+    for f in unique_files:
+        _process_file(f)
 
 
 class _SandboxHandler:
@@ -143,12 +159,12 @@ class _SandboxHandler:
 
     def on_created(self, event) -> None:
         src_path = Path(event.src_path)
-        if src_path.suffix.lower() != ".pdf":
+        if src_path.suffix.lower() not in ALLOWED_JUSTIFICATIF_EXTENSIONS:
             return
         logger.info("Sandbox: nouveau fichier détecté: %s", src_path.name)
         # Traiter dans un thread séparé pour ne pas bloquer le watchdog
         thread = threading.Thread(
-            target=_process_pdf,
+            target=_process_file,
             args=(src_path,),
             daemon=True,
         )
@@ -222,7 +238,7 @@ def list_sandbox_files() -> list:
 
     files = []
     for f in sorted(JUSTIFICATIFS_SANDBOX_DIR.iterdir()):
-        if f.suffix.lower() == ".pdf" and f.is_file():
+        if f.suffix.lower() in ALLOWED_JUSTIFICATIF_EXTENSIONS and f.is_file():
             stat = f.stat()
             size = stat.st_size
             if size < 1024:

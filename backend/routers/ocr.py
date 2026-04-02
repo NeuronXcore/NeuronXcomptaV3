@@ -2,13 +2,19 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 
 from backend.models.ocr import OCRExtractRequest
 from backend.services import ocr_service, justificatif_service
-from backend.core.config import JUSTIFICATIFS_TEMP_DIR, ensure_directories
+from backend.core.config import (
+    JUSTIFICATIFS_TEMP_DIR,
+    ALLOWED_JUSTIFICATIF_EXTENSIONS,
+    IMAGE_EXTENSIONS,
+    ensure_directories,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +65,13 @@ async def batch_upload(files: List[UploadFile] = File(...)):
     for upload_file in files:
         if not upload_file.filename:
             continue
-        if not upload_file.filename.lower().endswith(".pdf"):
+        if Path(upload_file.filename).suffix.lower() not in ALLOWED_JUSTIFICATIF_EXTENSIONS:
             continue
         content = await upload_file.read()
         files_data.append((upload_file.filename, content))
 
     if not files_data:
-        raise HTTPException(status_code=400, detail="Aucun fichier PDF fourni")
+        raise HTTPException(status_code=400, detail="Aucun fichier valide fourni (PDF, JPG, PNG)")
 
     # 1. Save all files as justificatifs (en_attente/)
     upload_results = justificatif_service.upload_justificatifs(files_data)
@@ -117,15 +123,23 @@ async def batch_upload(files: List[UploadFile] = File(...)):
 @router.post("/extract-upload")
 async def extract_upload(file: UploadFile = File(...)):
     """Upload un fichier pour test OCR ad-hoc (non sauvegardé dans justificatifs)."""
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+    if not file.filename or Path(file.filename).suffix.lower() not in ALLOWED_JUSTIFICATIF_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Formats acceptés : PDF, JPG, PNG")
 
     content = await file.read()
     if len(content) < 100:
         raise HTTPException(status_code=400, detail="Fichier trop petit")
 
+    # Convertir image → PDF si nécessaire
+    ext = Path(file.filename).suffix.lower()
+    if ext in IMAGE_EXTENSIONS:
+        try:
+            content = justificatif_service._convert_image_to_pdf(content)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Erreur conversion image : {e}")
+
     ensure_directories()
-    temp_path = JUSTIFICATIFS_TEMP_DIR / f"ocr_test_{file.filename}"
+    temp_path = JUSTIFICATIFS_TEMP_DIR / f"ocr_test_{Path(file.filename).stem}.pdf"
 
     try:
         with open(temp_path, "wb") as f:

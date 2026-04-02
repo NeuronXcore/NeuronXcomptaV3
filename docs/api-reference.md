@@ -9,7 +9,7 @@ Documentation Swagger : `http://localhost:8000/docs`
 ## Operations (`/api/operations`)
 
 ### `GET /files`
-Liste tous les fichiers d'opérations importés.
+Liste tous les fichiers d'opérations importés, triés en ordre chronologique (année, mois).
 
 **Réponse :**
 ```json
@@ -48,7 +48,7 @@ Importe un relevé bancaire PDF. Form-data avec champ `file`.
 ```
 
 ### `POST /{filename}/categorize`
-Catégorisation automatique IA de toutes les opérations du fichier.
+Catégorisation automatique IA des opérations du fichier. Body : `{ "mode": "empty_only" }` (défaut, ne remplit que les vides) ou `{ "mode": "all" }` (recatégorise tout). Déclenché automatiquement par EditorPage au chargement (mode empty_only).
 
 ### `GET /{filename}/has-pdf`
 Vérifie si le relevé bancaire PDF original existe.
@@ -281,7 +281,7 @@ Liste avec filtres.
 Statistiques (en_attente, traites, total).
 
 ### `POST /upload`
-Upload multi-fichiers PDF. Form-data : champ `files` (multiple).
+Upload multi-fichiers PDF/JPG/PNG. Form-data : champ `files` (multiple). Les images sont automatiquement converties en PDF.
 
 ### `GET /{filename}/preview`
 Sert le PDF pour iframe.
@@ -326,10 +326,10 @@ Résultat OCR caché pour un justificatif.
 Extraction manuelle. Body : `{ "filename": "justificatif_xxx.pdf" }`
 
 ### `POST /extract-upload`
-Upload + extraction ad-hoc (fichier non sauvegardé). Form-data : `file`.
+Upload + extraction ad-hoc (fichier non sauvegardé). Accepte PDF/JPG/PNG. Form-data : `file`. Les images sont converties en PDF avant OCR.
 
 ### `POST /batch-upload`
-Upload batch de justificatifs PDF + OCR synchrone. Form-data : `files` (multiple).
+Upload batch de justificatifs PDF/JPG/PNG + OCR synchrone. Form-data : `files` (multiple). Les images sont converties en PDF à l'intake.
 
 **Réponse :**
 ```json
@@ -525,7 +525,7 @@ Stream SSE (Server-Sent Events) des événements sandbox. Se connecte et reste o
 - Keepalive (30s) : `: ping`
 
 ### `GET /list`
-Liste les PDF actuellement dans le dossier sandbox (non encore traités).
+Liste les fichiers (PDF/JPG/PNG) actuellement dans le dossier sandbox (non encore traités).
 
 **Réponse :**
 ```json
@@ -543,6 +543,39 @@ Liste les PDF actuellement dans le dossier sandbox (non encore traités).
 Supprime un fichier du sandbox sans le traiter.
 
 **Réponse :** `{ "status": "deleted", "filename": "facture_novembre.pdf" }`
+
+---
+
+## Alertes / Compte d'attente (`/api/alertes`)
+
+### `GET /summary`
+Résumé global des alertes, trié chronologiquement.
+
+**Réponse :**
+```json
+{
+  "total_en_attente": 1200,
+  "par_type": {
+    "justificatif_manquant": 400,
+    "a_categoriser": 300,
+    "montant_a_verifier": 200,
+    "doublon_suspect": 150,
+    "confiance_faible": 150
+  },
+  "par_fichier": [
+    { "filename": "operations_xxx.json", "nb_alertes": 54, "nb_operations": 54, "month": 3, "year": 2024 }
+  ]
+}
+```
+
+### `GET /{filename}`
+Opérations en compte d'attente pour un fichier (celles avec `compte_attente: true`).
+
+### `POST /{filename}/{index}/resolve`
+Résout une alerte. Body : `{ "alerte_type": "justificatif_manquant", "note": "..." }`
+
+### `POST /{filename}/refresh`
+Recalcule les alertes pour un fichier. Retourne `{ "nb_alertes": 18, "nb_operations": 54 }`.
 
 ---
 

@@ -111,7 +111,11 @@ function BatchUploadTab() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+    },
     maxFiles: 50,
     disabled: batchUpload.isPending,
   })
@@ -138,7 +142,7 @@ function BatchUploadTab() {
             </div>
             <div>
               <p className="text-sm text-text font-medium">
-                Glissez vos justificatifs PDF ici
+                Glissez vos justificatifs ici (PDF, JPG, PNG)
               </p>
               <p className="text-xs text-text-muted mt-1">
                 ou cliquez pour sélectionner — jusqu'à 50 fichiers
@@ -327,7 +331,11 @@ function TestManuelTab() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+    },
     maxFiles: 1,
     disabled: extractUpload.isPending,
   })
@@ -355,7 +363,7 @@ function TestManuelTab() {
             )}
           >
             <Upload size={13} className="inline mr-1.5" />
-            Upload PDF
+            Upload fichier
           </button>
           <button
             onClick={() => { setMode('existing'); setResult(null) }}
@@ -388,7 +396,7 @@ function TestManuelTab() {
             ) : (
               <div className="flex flex-col items-center gap-3">
                 <Upload size={32} className="text-text-muted" />
-                <p className="text-sm text-text">Glissez un PDF ici ou cliquez pour sélectionner</p>
+                <p className="text-sm text-text">Glissez un fichier ici (PDF, JPG, PNG) ou cliquez pour sélectionner</p>
                 <p className="text-xs text-text-muted">Test OCR ad-hoc (non sauvegardé)</p>
               </div>
             )}

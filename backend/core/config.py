@@ -2,6 +2,7 @@
 Configuration unifiée pour NeuronXcompta backend.
 Regroupe config/constants.py et modules/constants.py de V2.
 """
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -41,6 +42,16 @@ SETTINGS_FILE = BASE_DIR / "settings.json"
 # Constantes d'application
 APP_NAME = "NeuronXcompta"
 APP_VERSION = "3.0.0"
+
+# Validation justificatifs (extensions & magic bytes)
+ALLOWED_JUSTIFICATIF_EXTENSIONS: set[str] = {".pdf", ".jpg", ".jpeg", ".png"}
+IMAGE_EXTENSIONS: set[str] = {".jpg", ".jpeg", ".png"}
+MAGIC_BYTES: dict[str, bytes] = {
+    ".pdf": b"%PDF-",
+    ".jpg": b"\xff\xd8\xff",
+    ".jpeg": b"\xff\xd8\xff",
+    ".png": b"\x89PNG",
+}
 
 # Catégories par défaut
 DEFAULT_CATEGORIES = {

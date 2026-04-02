@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
@@ -14,7 +14,7 @@ import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import AlerteBadge from '@/components/AlerteBadge'
 import { useAlertesSummary, useAlertesFichier, useResolveAlerte, useRefreshAlertes } from '@/hooks/useAlertes'
-import { formatCurrency, formatDate, cn } from '@/lib/utils'
+import { formatCurrency, formatDate, cn, MOIS_FR } from '@/lib/utils'
 import type { Operation, AlerteType } from '@/types'
 
 const ALERTE_PRIORITY: Record<AlerteType, number> = {
@@ -34,20 +34,55 @@ function alertePriority(op: Operation): number {
 export default function AlertesPage() {
   const { data: summary, isLoading: isSummaryLoading } = useAlertesSummary()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const { data: operations, isLoading: isOpsLoading } = useAlertesFichier(selectedFile)
   const resolveMutation = useResolveAlerte()
   const refreshMutation = useRefreshAlertes()
   const [drawerOp, setDrawerOp] = useState<Operation | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
 
-  // Auto-select first file
-  if (!selectedFile && summary?.par_fichier && summary.par_fichier.length > 0) {
-    setSelectedFile(summary.par_fichier[0].filename)
-  }
+  const hasAutoSelected = useRef(false)
 
-  const sortedOps = [...(operations || [])].sort((a, b) => alertePriority(a) - alertePriority(b))
+  // Années et fichiers filtrés par année
+  const availableYears = useMemo(() => {
+    if (!summary?.par_fichier) return []
+    const years = [...new Set(summary.par_fichier.filter(f => f.year).map(f => f.year!))]
+    return years.sort((a, b) => a - b)
+  }, [summary])
 
-  const columns: ColumnDef<Operation>[] = [
+  const filesForYear = useMemo(() => {
+    if (!summary?.par_fichier || !selectedYear) return []
+    return summary.par_fichier
+      .filter(f => f.year === selectedYear)
+      .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
+  }, [summary, selectedYear])
+
+  // Auto-sélection une seule fois au premier chargement
+  useEffect(() => {
+    if (hasAutoSelected.current) return
+    if (!summary?.par_fichier || summary.par_fichier.length === 0) return
+
+    hasAutoSelected.current = true
+
+    const years = [...new Set(summary.par_fichier.filter(f => f.year).map(f => f.year!))]
+    if (years.length > 0) {
+      const maxYear = Math.max(...years)
+      setSelectedYear(maxYear)
+      const firstOfYear = summary.par_fichier
+        .filter(f => f.year === maxYear)
+        .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))[0]
+      if (firstOfYear) setSelectedFile(firstOfYear.filename)
+    } else if (summary.par_fichier.length > 0) {
+      setSelectedFile(summary.par_fichier[0].filename)
+    }
+  }, [summary])
+
+  const sortedOps = useMemo(
+    () => [...(operations || [])].sort((a, b) => alertePriority(a) - alertePriority(b)),
+    [operations]
+  )
+
+  const columns = useMemo<ColumnDef<Operation>[]>(() => [
     {
       accessorKey: 'Date',
       header: 'Date',
@@ -100,7 +135,7 @@ export default function AlertesPage() {
       size: 50,
       cell: ({ row }) => (
         <button
-          onClick={() => setDrawerOp(row.original)}
+          onClick={(e) => { e.stopPropagation(); setDrawerOp(row.original) }}
           className="p-1 text-text-muted hover:text-text"
         >
           <Eye size={16} />
@@ -108,7 +143,7 @@ export default function AlertesPage() {
       ),
       enableSorting: false,
     },
-  ]
+  ], [])
 
   const table = useReactTable({
     data: sortedOps,
@@ -208,12 +243,36 @@ export default function AlertesPage() {
         />
       </div>
 
-      {/* File selector */}
+      {/* File selector — Année + Mois */}
       {summary?.par_fichier && summary.par_fichier.length > 0 && (
-        <div>
-          {summary.par_fichier.length <= 6 ? (
+        <div className="flex items-center gap-3">
+          {/* Year selector */}
+          <select
+            value={selectedYear ?? ''}
+            onChange={(e) => {
+              const yr = e.target.value ? Number(e.target.value) : null
+              setSelectedYear(yr)
+              setSelectedFile(null)
+              // Auto-sélectionner le premier mois de l'année
+              if (yr && summary?.par_fichier) {
+                const first = summary.par_fichier
+                  .filter(f => f.year === yr)
+                  .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))[0]
+                if (first) setSelectedFile(first.filename)
+              }
+            }}
+            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text w-28"
+          >
+            <option value="">Année...</option>
+            {availableYears.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+
+          {/* Month buttons */}
+          {filesForYear.length > 0 && (
             <div className="flex gap-2 flex-wrap">
-              {summary.par_fichier.map((f) => (
+              {filesForYear.map((f) => (
                 <button
                   key={f.filename}
                   onClick={() => setSelectedFile(f.filename)}
@@ -224,23 +283,11 @@ export default function AlertesPage() {
                       : 'bg-surface border-border text-text-muted hover:text-text hover:border-primary/50',
                   )}
                 >
-                  {f.filename.replace('.json', '')}
+                  {MOIS_FR[(f.month ?? 1) - 1]}
                   <span className="ml-2 text-xs opacity-75">({f.nb_alertes})</span>
                 </button>
               ))}
             </div>
-          ) : (
-            <select
-              value={selectedFile || ''}
-              onChange={(e) => setSelectedFile(e.target.value)}
-              className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text"
-            >
-              {summary.par_fichier.map((f) => (
-                <option key={f.filename} value={f.filename}>
-                  {f.filename.replace('.json', '')} ({f.nb_alertes} alertes)
-                </option>
-              ))}
-            </select>
           )}
         </div>
       )}

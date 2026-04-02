@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 14 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes PDFs dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications.
+NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 14 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications.
 
 ## Architecture
 
@@ -10,8 +10,9 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Frontend**: React 19 + Vite + TypeScript + TailwindCSS 4, runs on port 5173
 - **Data**: JSON file storage in `data/` directory. Imports split: `data/imports/operations/` (JSON) and `data/imports/releves/` (PDF). Auto-migration at startup.
 - **ML**: Rules-based + scikit-learn categorization, pickle models in `data/ml/`
-- **OCR**: EasyOCR with pdf2image, cache `.ocr.json` alongside PDFs. OCR page is the primary entry point for justificatif uploads (batch upload + immediate OCR).
-- **Sandbox Watchdog**: `watchdog` library monitors `data/justificatifs/sandbox/`, auto-OCR + SSE notifications
+- **OCR**: EasyOCR with pdf2image, cache `.ocr.json` alongside PDFs. OCR page is the primary entry point for justificatif uploads (batch upload PDF/JPG/PNG + immediate OCR).
+- **Sandbox Watchdog**: `watchdog` library monitors `data/justificatifs/sandbox/` for PDF/JPG/PNG, auto-converts images to PDF, auto-OCR + SSE notifications
+- **Image Support**: JPG/JPEG/PNG justificatifs are converted to PDF at intake via Pillow (`_convert_image_to_pdf()`). Only PDF is stored. Constants in `config.py`: `ALLOWED_JUSTIFICATIF_EXTENSIONS`, `IMAGE_EXTENSIONS`, `MAGIC_BYTES`.
 
 ## PDF Import Pipeline
 
@@ -19,7 +20,7 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Dates**: Extracted as `DD/MM/YY` or `DD/MM/YYYY`, converted to `YYYY-MM-DD` (required by HTML `input type="date"`)
 - **Amounts**: Simple pattern `\d+[,.]\d{2}` tried first (avoids false thousands grouping), last match used (amount is rightmost on line)
 - **Exclusion filter**: Lines containing SOLDE, TOTAL, etc. are skipped (balance lines, not operations)
-- **Categorization at import**: Only basic keyword matching (`_categorize_simple()`). ML categorization requires manual trigger via "IA (vides)" / "IA (tout)" buttons in EditorPage
+- **Categorization at import**: Basic keyword matching (`_categorize_simple()`) at PDF import. Full ML categorization (rules + sklearn) runs **automatically** when a file is loaded in EditorPage (empty categories only). Manual "Recatégoriser IA" button available to force re-categorize all lines.
 - **Deduplication**: SHA-256 hash of PDF content, first 8 chars in filenames
 
 ## Critical Constraints
@@ -47,7 +48,7 @@ npm run dev
 neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
-│   ├── core/config.py          # All paths, constants, MOIS_FR
+│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES
 │   ├── models/                 # Pydantic schemas (6 files)
 │   ├── routers/                # API endpoints (14 routers)
 │   └── services/               # Business logic (13 services)
@@ -96,6 +97,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | rapprochement | `/api/rapprochement` | POST /run-auto, POST /associate-manual, GET /unmatched, GET /{filename}/{index}/suggestions, GET /batch-hints/{filename} |
 | lettrage | `/api/lettrage` | POST /{filename}/{index}, POST /{filename}/bulk, GET /{filename}/stats |
 | cloture | `/api/cloture` | GET /years, GET /{year} |
+| alertes | `/api/alertes` | GET /summary, GET /{filename}, POST /{filename}/{index}/resolve, POST /{filename}/refresh |
 | sandbox | `/api/sandbox` | GET /events (SSE), GET /list, DELETE /{filename} |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info |
 
@@ -105,7 +107,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 |-------|-----------|-------------|
 | `/` | DashboardPage | KPIs, charts, recent operations (anciennement Accueil + Dashboard fusionnés) |
 | `/import` | ImportPage | PDF drag-drop import |
-| `/editor` | EditorPage | Inline editing, AI categorization (boutons "IA vides"/"IA tout"), colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert), PDF preview |
+| `/editor` | EditorPage | Inline editing, **auto-catégorisation IA au chargement** (vides), bouton "Recatégoriser IA" (tout), **sélecteur année → mois en cascade**, colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert), PDF preview |
 | `/categories` | CategoriesPage | 4-tab category management |
 | `/reports` | ReportsPage | Report generation (CSV/PDF/Excel) + gallery |
 | `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie, comparatif périodes, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
@@ -113,9 +115,9 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | `/agent-ai` | AgentIAPage | ML model dashboard, rules, training, backups |
 | `/export` | ExportPage | Monthly ZIP export with calendar grid |
 | `/rapprochement` | RapprochementPage | Auto/manual bank-justificatif reconciliation avec drawer rapprochement manuel (filtres, scores, preview PDF) |
-| `/alertes` | AlertesPage | Compte d'attente avec badge alertes |
+| `/alertes` | AlertesPage | Compte d'attente avec badge alertes, **sélecteur année + boutons mois** |
 | `/cloture` | CloturePage | Annual calendar view of monthly accounting completeness |
-| `/ocr` | OcrPage | Point d'entrée justificatifs : batch upload + OCR, test manuel, historique (3 onglets) |
+| `/ocr` | OcrPage | Point d'entrée justificatifs : batch upload **PDF/JPG/PNG** + OCR, test manuel, historique (3 onglets) |
 | `/echeancier` | EcheancierPage | Échéancier des opérations récurrentes |
 | `/settings` | SettingsPage | 5-tab settings (general, theme, export, storage, system) |
 
@@ -144,6 +146,9 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - **SSE**: Use `StreamingResponse` with `text/event-stream`, send initial `data: {"status":"connected"}` to flush the connection
 - **Toasts**: Use `react-hot-toast` (`toast.success()`, `toast.error()`) — `<Toaster />` is in `App.tsx`
 - **Sidebar sections**: Utilise `NAV_SECTIONS` avec labels de section discrets (uppercase, text-[10px])
+- **File selectors**: EditorPage et AlertesPage utilisent un sélecteur en cascade **année → mois** (pas de dropdown unique surchargé). Fichiers triés chronologiquement. `availableYears` et `monthsForYear` via `useMemo`.
+- **Auto-categorization**: EditorPage déclenche automatiquement `categorizeMutation` (mode `empty_only`) au chargement d'un fichier via `useEffect` + `useRef` anti-boucle.
+- **Image upload**: Justificatifs acceptent PDF/JPG/PNG. Images converties en PDF à l'intake via `_convert_image_to_pdf()` (Pillow). Validation magic bytes multi-format.
 
 ## Dependencies
 

@@ -4,6 +4,7 @@ Upload, galerie, association aux opérations, suggestions automatiques.
 """
 from __future__ import annotations
 
+import io
 import json
 import logging
 import re
@@ -12,10 +13,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
+from PIL import Image
+
 from backend.core.config import (
     JUSTIFICATIFS_DIR,
     JUSTIFICATIFS_EN_ATTENTE_DIR,
     JUSTIFICATIFS_TRAITES_DIR,
+    ALLOWED_JUSTIFICATIF_EXTENSIONS,
+    IMAGE_EXTENSIONS,
+    MAGIC_BYTES,
     ensure_directories,
 )
 from backend.services import operation_service
@@ -172,6 +178,18 @@ def get_stats() -> dict:
     }
 
 
+# ─── Conversion image → PDF ───
+
+def _convert_image_to_pdf(image_bytes: bytes) -> bytes:
+    """Convertit des bytes image (JPG/PNG) en bytes PDF via Pillow."""
+    img = Image.open(io.BytesIO(image_bytes))
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    pdf_buffer = io.BytesIO()
+    img.save(pdf_buffer, format="PDF", resolution=150.0)
+    return pdf_buffer.getvalue()
+
+
 # ─── Upload ───
 
 def upload_justificatifs(files_data: list) -> list:
@@ -184,14 +202,28 @@ def upload_justificatifs(files_data: list) -> list:
 
     for original_filename, file_bytes in files_data:
         try:
-            # Valider PDF (magic bytes)
-            if not file_bytes[:5] == b"%PDF-":
+            ext = Path(original_filename).suffix.lower()
+
+            # Valider l'extension
+            if ext not in ALLOWED_JUSTIFICATIF_EXTENSIONS:
                 results.append({
                     "filename": "",
                     "original_name": original_filename,
                     "size": len(file_bytes),
                     "success": False,
-                    "error": "Le fichier n'est pas un PDF valide",
+                    "error": "Format non supporté. Acceptés : PDF, JPG, PNG",
+                })
+                continue
+
+            # Valider les magic bytes
+            expected_magic = MAGIC_BYTES.get(ext, b"")
+            if expected_magic and not file_bytes[:len(expected_magic)] == expected_magic:
+                results.append({
+                    "filename": "",
+                    "original_name": original_filename,
+                    "size": len(file_bytes),
+                    "success": False,
+                    "error": "Le contenu du fichier ne correspond pas à son extension",
                 })
                 continue
 
@@ -206,12 +238,24 @@ def upload_justificatifs(files_data: list) -> list:
                 })
                 continue
 
-            # Nettoyer le nom de fichier
-            clean_name = re.sub(r"[^\w\.\-]", "_", original_filename)
+            # Convertir image → PDF si nécessaire
+            if ext in IMAGE_EXTENSIONS:
+                try:
+                    file_bytes = _convert_image_to_pdf(file_bytes)
+                except Exception as e:
+                    results.append({
+                        "filename": "",
+                        "original_name": original_filename,
+                        "size": 0,
+                        "success": False,
+                        "error": f"Erreur conversion image : {e}",
+                    })
+                    continue
+
+            # Nettoyer le nom de fichier (stem uniquement, toujours .pdf)
+            clean_stem = re.sub(r"[^\w\-]", "_", Path(original_filename).stem)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            new_filename = f"justificatif_{timestamp}_{clean_name}"
-            if not new_filename.lower().endswith(".pdf"):
-                new_filename += ".pdf"
+            new_filename = f"justificatif_{timestamp}_{clean_stem}.pdf"
 
             filepath = JUSTIFICATIFS_EN_ATTENTE_DIR / new_filename
             with open(filepath, "wb") as f:

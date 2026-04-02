@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Optional
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from backend.core.config import IMPORTS_OPERATIONS_DIR, ensure_directories
@@ -56,11 +57,30 @@ async def get_alertes_summary():
                         par_type[a] += 1
 
         if nb_alertes > 0:
-            par_fichier.append({
+            entry: dict = {
                 "filename": f.name,
                 "nb_alertes": nb_alertes,
                 "nb_operations": len(operations),
-            })
+            }
+            # Extraire mois/année depuis les dates des opérations
+            try:
+                dates = pd.to_datetime(
+                    pd.Series([op.get("Date", "") for op in operations]),
+                    errors="coerce",
+                ).dropna()
+                if not dates.empty:
+                    month_mode = dates.dt.month.mode()
+                    year_mode = dates.dt.year.mode()
+                    if len(month_mode) > 0:
+                        entry["month"] = int(month_mode.iloc[0])
+                    if len(year_mode) > 0:
+                        entry["year"] = int(year_mode.iloc[0])
+            except Exception:
+                pass
+            par_fichier.append(entry)
+
+    # Tri chronologique
+    par_fichier.sort(key=lambda e: (e.get("year", 0), e.get("month", 0)))
 
     return {
         "total_en_attente": total_en_attente,

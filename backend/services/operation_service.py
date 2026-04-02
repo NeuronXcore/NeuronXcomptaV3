@@ -54,6 +54,8 @@ def list_operation_files() -> list[dict]:
             except Exception as e:
                 logger.warning(f"Impossible de lire {f.name}: {e}")
                 files.append({"filename": f.name, "count": 0})
+    # Tri chronologique par année puis mois (janvier → décembre)
+    files.sort(key=lambda m: (m.get("year", 0), m.get("month", 0)))
     return files
 
 
