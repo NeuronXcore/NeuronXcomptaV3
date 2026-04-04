@@ -26,6 +26,12 @@ JUSTIFICATIFS_SANDBOX_DIR = JUSTIFICATIFS_DIR / "sandbox"
 COMPTA_ANALYTIQUE_DIR = DATA_DIR / "compta_analytique"
 OCR_DIR = DATA_DIR / "ocr"
 
+# GED (Gestion Électronique de Documents)
+GED_DIR = DATA_DIR / "ged"
+GED_METADATA_FILE = GED_DIR / "ged_metadata.json"
+GED_POSTES_FILE = GED_DIR / "ged_postes.json"
+GED_THUMBNAILS_DIR = GED_DIR / "thumbnails"
+
 # Fichiers ML
 ML_DIR = DATA_DIR / "ml"
 ML_BACKUPS_DIR = ML_DIR / "backups"
@@ -81,6 +87,7 @@ def ensure_directories():
         LOGS_DIR, JUSTIFICATIFS_DIR, JUSTIFICATIFS_EN_ATTENTE_DIR,
         JUSTIFICATIFS_TRAITES_DIR, JUSTIFICATIFS_TEMP_DIR, JUSTIFICATIFS_SANDBOX_DIR,
         ML_DIR, ML_BACKUPS_DIR, COMPTA_ANALYTIQUE_DIR, OCR_DIR,
+        GED_DIR, GED_THUMBNAILS_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)

@@ -412,3 +412,81 @@ export interface SoldePrevisionnel {
   montant: number
   alerte: boolean
 }
+
+// ─── GED ───
+
+export interface PosteComptable {
+  id: string
+  label: string
+  deductible_pct: number // 0-100
+  categories_associees: string[]
+  notes: string
+  is_system: boolean
+}
+
+export interface PostesConfig {
+  version: number
+  exercice: number
+  postes: PosteComptable[]
+}
+
+export interface GedDocument {
+  doc_id: string
+  type: 'releve' | 'justificatif' | 'rapport' | 'document_libre'
+  year: number | null
+  month: number | null
+  poste_comptable: string | null
+  montant_brut: number | null
+  deductible_pct_override: number | null
+  tags: string[]
+  notes: string
+  added_at: string
+  original_name: string | null
+  ocr_file: string | null
+}
+
+export interface GedTreeNode {
+  id: string
+  label: string
+  count: number
+  children: GedTreeNode[]
+  icon?: string
+}
+
+export interface GedTreeResponse {
+  by_type: GedTreeNode[]
+  by_year: GedTreeNode[]
+}
+
+export interface GedSearchResult {
+  doc_id: string
+  document: GedDocument
+  match_context: string
+  score: number
+}
+
+export interface GedStats {
+  total_documents: number
+  total_brut: number
+  total_deductible: number
+  disk_size_human: string
+  par_poste: Array<{
+    poste_id: string
+    poste_label: string
+    deductible_pct: number
+    nb_docs: number
+    total_brut: number
+    total_deductible: number
+  }>
+}
+
+export interface GedFilters {
+  type?: string
+  year?: number
+  month?: number
+  poste_comptable?: string
+  tags?: string[]
+  search?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}

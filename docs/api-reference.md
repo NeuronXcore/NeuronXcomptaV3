@@ -582,6 +582,103 @@ Recalcule les alertes pour un fichier. Retourne `{ "nb_alertes": 18, "nb_operati
 
 ---
 
+## GED (`/api/ged`)
+
+### `GET /tree`
+Arborescence complète. Scanne les sources (relevés, justificatifs, rapports, documents libres) puis construit deux vues.
+
+**Réponse :**
+```json
+{
+  "by_type": [
+    { "id": "releves", "label": "Relevés bancaires", "count": 26, "icon": "FileText", "children": [...] },
+    { "id": "justificatifs", "label": "Justificatifs", "count": 0, "icon": "Receipt", "children": [...] },
+    { "id": "rapports", "label": "Rapports", "count": 0, "icon": "BarChart3", "children": [...] },
+    { "id": "documents-libres", "label": "Documents libres", "count": 0, "icon": "FolderOpen", "children": [...] }
+  ],
+  "by_year": [
+    { "id": "year-2025", "label": "2025", "count": 12, "icon": "Calendar", "children": [
+      { "id": "year-2025-releve", "label": "Relevés", "count": 12, "icon": "FileText", "children": [...] }
+    ]}
+  ]
+}
+```
+
+### `GET /documents?type=&year=&month=&poste_comptable=&tags=&search=&sort_by=added_at&sort_order=desc`
+Liste filtrée des documents indexés. Tags séparés par virgule.
+
+### `POST /upload`
+Upload document libre. Form-data : `file` + `metadata_json` (JSON string avec type, year, month, poste_comptable, tags, notes). Images (JPG/PNG) converties en PDF.
+
+### `PATCH /documents/{doc_id:path}`
+Modifier les métadonnées d'un document.
+
+**Body :**
+```json
+{
+  "poste_comptable": "vehicule",
+  "tags": ["fiscal", "2025"],
+  "notes": "Facture carburant",
+  "montant_brut": 85.50,
+  "deductible_pct_override": 70
+}
+```
+
+### `DELETE /documents/{doc_id:path}`
+Supprime un document libre uniquement. Refuse pour relevés/justificatifs/rapports.
+
+### `GET /documents/{doc_id:path}/preview`
+Sert le fichier (PDF, CSV, XLSX) via FileResponse.
+
+### `GET /documents/{doc_id:path}/thumbnail`
+Thumbnail PNG de la première page du PDF (200px de large). Généré à la demande via pdf2image, caché dans `data/ged/thumbnails/`. 404 si non-PDF.
+
+### `POST /documents/{doc_id:path}/open-native`
+Ouvre le fichier dans l'application macOS par défaut (Aperçu pour les PDF) via `subprocess.Popen(["open", path])`.
+
+**Réponse :** `{ "status": "opened" }`
+
+### `GET /search?q=...`
+Recherche full-text (min 2 chars) dans noms de fichiers, tags, notes, contenu OCR. Retourne max 50 résultats triés par score.
+
+### `GET /stats`
+Statistiques globales par poste comptable.
+
+**Réponse :**
+```json
+{
+  "total_documents": 26,
+  "total_brut": 5000.00,
+  "total_deductible": 3500.00,
+  "disk_size_human": "7.3 Mo",
+  "par_poste": [
+    { "poste_id": "vehicule", "poste_label": "Véhicule", "deductible_pct": 70, "nb_docs": 3, "total_brut": 1200, "total_deductible": 840 }
+  ]
+}
+```
+
+### `GET /postes`
+Liste des postes comptables avec % de déductibilité (16 postes par défaut).
+
+### `PUT /postes`
+Sauvegarder tous les postes. Body : `PostesConfig` (version, exercice, postes[]).
+
+### `POST /postes`
+Ajouter un poste custom. Body : objet poste.
+
+### `DELETE /postes/{id}`
+Supprimer un poste custom (pas les postes système).
+
+### `POST /bulk-tag`
+Tagger plusieurs documents. Body : `{ "doc_ids": [...], "tags": [...] }`
+
+### `POST /scan`
+Force un re-scan des sources. Utile après import/OCR.
+
+**Réponse :** `{ "success": true, "total_documents": 26 }`
+
+---
+
 ## Settings (`/api/settings`)
 
 ### `GET /`

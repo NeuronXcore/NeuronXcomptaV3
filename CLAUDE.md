@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 14 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications.
+NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 15 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking.
 
 ## Architecture
 
@@ -13,6 +13,7 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **OCR**: EasyOCR with pdf2image, cache `.ocr.json` alongside PDFs. OCR page is the primary entry point for justificatif uploads (batch upload PDF/JPG/PNG + immediate OCR).
 - **Sandbox Watchdog**: `watchdog` library monitors `data/justificatifs/sandbox/` for PDF/JPG/PNG, auto-converts images to PDF, auto-OCR + SSE notifications
 - **Image Support**: JPG/JPEG/PNG justificatifs are converted to PDF at intake via Pillow (`_convert_image_to_pdf()`). Only PDF is stored. Constants in `config.py`: `ALLOWED_JUSTIFICATIF_EXTENSIONS`, `IMAGE_EXTENSIONS`, `MAGIC_BYTES`.
+- **GED**: Document library indexing existing files (relevés, justificatifs, rapports) without duplication. Supports free document uploads in `data/ged/{year}/{month}/`. Each document linked to a *poste comptable* with configurable deductibility % (slider 0-100, step 5). Metadata stored in `data/ged/ged_metadata.json`, postes in `data/ged/ged_postes.json`. PDF thumbnails cached in `data/ged/thumbnails/` via pdf2image. Dual tree view (by year / by type).
 
 ## PDF Import Pipeline
 
@@ -48,16 +49,16 @@ npm run dev
 neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
-│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES
-│   ├── models/                 # Pydantic schemas (6 files)
-│   ├── routers/                # API endpoints (14 routers)
-│   └── services/               # Business logic (13 services)
+│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR
+│   ├── models/                 # Pydantic schemas (7 files, incl. ged.py)
+│   ├── routers/                # API endpoints (15 routers, incl. ged.py)
+│   └── services/               # Business logic (14 services, incl. ged_service.py)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx             # All 14 routes (Accueil fusionné avec Dashboard)
+│       ├── App.tsx             # All 15 routes (Accueil fusionné avec Dashboard)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
-│       ├── components/         # 30+ .tsx components
-│       ├── hooks/              # 11 hook files (useApi, useOperations [incl. useYearOperations], useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes)
+│       ├── components/         # 40+ .tsx components (incl. components/ged/ — 11 files)
+│       ├── hooks/              # 12 hook files (useApi, useOperations [incl. useYearOperations], useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed)
 │       ├── types/index.ts      # All TypeScript interfaces
 │       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, formatFileTitle
 │       └── index.css           # Tailwind @theme with custom colors
@@ -65,6 +66,11 @@ neuronXcompta/
 │   ├── imports/
 │   │   ├── operations/         # JSON operation files
 │   │   └── releves/            # PDF bank statements
+│   ├── ged/
+│   │   ├── ged_metadata.json   # GED document index
+│   │   ├── ged_postes.json     # Postes comptables config
+│   │   ├── thumbnails/         # PDF thumbnail cache (PNG)
+│   │   └── {year}/{month}/     # Free document uploads
 ├── settings.json               # App settings
 └── docs/                       # Documentation
 ```
@@ -79,6 +85,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | **TRAITEMENT** | Justificatifs, Rapprochement, Compte d'attente, Échéancier |
 | **ANALYSE** | Tableau de bord, Compta Analytique, Rapports |
 | **CLÔTURE** | Export Comptable, Clôture |
+| **DOCUMENTS** | Bibliothèque (GED) |
 | **OUTILS** | Agent IA, Paramètres |
 
 ## Backend API Endpoints
@@ -99,6 +106,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | cloture | `/api/cloture` | GET /years, GET /{year} |
 | alertes | `/api/alertes` | GET /summary, GET /{filename}, POST /{filename}/{index}/resolve, POST /{filename}/refresh |
 | sandbox | `/api/sandbox` | GET /events (SSE), GET /list, DELETE /{filename} |
+| ged | `/api/ged` | GET /tree, GET /documents, POST /upload, PATCH /documents/{doc_id}, DELETE /documents/{doc_id}, GET /documents/{doc_id}/preview, GET /documents/{doc_id}/thumbnail, POST /documents/{doc_id}/open-native, GET /search, GET /stats, GET/PUT/POST/DELETE /postes, POST /bulk-tag, POST /scan |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info |
 
 ## Frontend Routes
@@ -119,6 +127,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | `/cloture` | CloturePage | Annual calendar view of monthly accounting completeness |
 | `/ocr` | OcrPage | Point d'entrée justificatifs : batch upload **PDF/JPG/PNG** + OCR, test manuel, historique (3 onglets) |
 | `/echeancier` | EcheancierPage | Échéancier des opérations récurrentes |
+| `/ged` | GedPage | **Bibliothèque GED** : split layout (arbre 260px + contenu), **double vue arbre (par année / par type)**, grille thumbnails PDF ou liste tableau, drawer preview PDF redimensionnable (400-1200px) + section fiscalité (poste comptable, montant brut, % déductible, montant déductible calculé), drawer postes comptables avec **sliders % déductibilité** (0-100, step 5, couleur dynamique vert/orange/rouge), upload documents libres (drag-drop), recherche full-text (noms + OCR), ouverture native macOS (Aperçu) |
 | `/settings` | SettingsPage | 5-tab settings (general, theme, export, storage, system) |
 
 ## Key Components
@@ -134,13 +143,15 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - `RapprochementDrawer` — 600px, suggestions auto avec scores de confiance
 - `JustificatifDrawer` — preview PDF + infos justificatif
 - `QueryDrawer` — constructeur de requêtes personnalisées avec résultats
+- `GedDocumentDrawer` — 400-1200px **redimensionnable** (poignée drag bord gauche), preview PDF + fiscalité + tags/notes
+- `GedPostesDrawer` — 600px, liste postes avec sliders déductibilité, stats par poste
 
 ## Patterns to Follow
 
 - **Hooks**: Use TanStack Query (`useQuery`, `useMutation`, `useQueryClient`) for all API calls
 - **Styling**: Tailwind classes only, use `cn()` for conditional classes
 - **Icons**: Lucide React (already installed)
-- **Drawers**: Fixed panel with `translateX` transition + backdrop, 600-800px wide
+- **Drawers**: Fixed panel with `translateX` transition + backdrop, 600-800px wide. GedDocumentDrawer is **resizable** (mousedown drag on left edge, min 400px, max 1200px)
 - **Forms**: Controlled components with `useState`, mutations with `onSuccess` invalidation
 - **Backend services**: Always call `ensure_directories()` at start, use `from __future__ import annotations`
 - **SSE**: Use `StreamingResponse` with `text/event-stream`, send initial `data: {"status":"connected"}` to flush the connection
@@ -152,6 +163,9 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - **Comparatif recettes/dépenses**: ComparatifSection sépare les catégories en 2 groupes (recettes si credit > debit, dépenses sinon). 2 graphiques côte à côte avec légendes dynamiques (périodes sélectionnées). 2 tableaux avec colonnes adaptées (Crédit A/B pour recettes, Débit A/B pour dépenses). Delta badges inversés pour les revenus (hausse = vert). Clic catégorie → CategoryDetailDrawer.
 - **Auto-categorization**: EditorPage déclenche automatiquement `categorizeMutation` (mode `empty_only`) au chargement d'un fichier via `useEffect` + `useRef` anti-boucle.
 - **Image upload**: Justificatifs acceptent PDF/JPG/PNG. Images converties en PDF à l'intake via `_convert_image_to_pdf()` (Pillow). Validation magic bytes multi-format.
+- **GED dual tree**: `build_tree()` returns `{"by_type": [...], "by_year": [...]}`. Frontend tabs switch between views. Node IDs encode type/year/month for filter derivation (`year-{y}-{type}-{m}` for by_year, `releve-{y}-{m}` for by_type).
+- **GED postes comptables**: 16 postes par défaut (loyer-cabinet, véhicule, téléphone, etc.). Slider 0-100 step 5 avec couleur dynamique (vert/orange/rouge). Postes system non supprimables, custom ajoutables. Stats par poste (nb docs, total brut, total déduit).
+- **GED thumbnails**: pdf2image + poppler → PNG 200px de large, cache `data/ged/thumbnails/{md5}.png`. Régénéré si PDF source plus récent. Fallback icône générique si non-PDF ou échec.
 
 ## Dependencies
 

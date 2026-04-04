@@ -26,7 +26,7 @@
 │                                                           │
 │  ┌────────────┐     ┌─────────────┐     ┌──────────────┐ │
 │  │  Routers   │ ──▶ │  Services   │ ──▶ │  Data (JSON) │ │
-│  │  (14 files)│     │  (13 files) │     │  data/       │ │
+│  │  (15 files)│     │  (14 files) │     │  data/       │ │
 │  └────────────┘     └─────────────┘     └──────────────┘ │
 │        │                   │                              │
 │  ┌─────▼──────┐     ┌─────▼──────┐                       │
@@ -41,10 +41,10 @@
 ### Pipeline comptable (sidebar)
 
 ```
-SAISIE → TRAITEMENT → ANALYSE → CLÔTURE → OUTILS
+SAISIE → TRAITEMENT → ANALYSE → CLÔTURE → DOCUMENTS → OUTILS
 
-Importation      Justificatifs      Tableau de bord     Export Comptable    Agent IA
-Édition          Rapprochement      Compta Analytique   Clôture             Paramètres
+Importation      Justificatifs      Tableau de bord     Export Comptable    Bibliothèque    Agent IA
+Édition          Rapprochement      Compta Analytique   Clôture             (GED)           Paramètres
 Catégories       Compte d'attente   Rapports
 OCR              Échéancier
 ```
@@ -208,14 +208,43 @@ Sélection mois → exports router → export_service.generate_export()
   → Package ZIP → data/exports/
 ```
 
+### GED (Gestion Électronique de Documents)
+
+```
+Page Bibliothèque (/ged) → GedPage (split layout)
+  ├─ Arbre gauche (260px) : double vue (onglets "Par année" / "Par type")
+  │   → GET /api/ged/tree → { by_type: [...], by_year: [...] }
+  │   → scan_all_sources() indexe : relevés, justificatifs, rapports, docs libres
+  │   → Aucune duplication : métadonnées dans ged_metadata.json, fichiers restent en place
+  │
+  ├─ Contenu droit : grille thumbnails (5-6 cols) ou tableau liste
+  │   → Thumbnails : GET /api/ged/documents/{id}/thumbnail → pdf2image (1ère page, 200px)
+  │   → Cache : data/ged/thumbnails/{md5}.png (régénéré si PDF plus récent)
+  │
+  ├─ Drawer document (redimensionnable 400-1200px, poignée drag bord gauche)
+  │   → Preview PDF (iframe) + section Fiscalité
+  │   → Poste comptable (select) → % déductible hérité ou surchargé
+  │   → Montant déductible = montant_brut × effective_pct / 100
+  │   → Bouton "Ouvrir dans Aperçu" → POST /open-native → subprocess.Popen(["open", path])
+  │
+  ├─ Drawer postes comptables (600px)
+  │   → 16 postes par défaut (loyer, véhicule, téléphone, etc.)
+  │   → Slider input[type=range] 0-100 step 5, couleur dynamique (vert/orange/rouge)
+  │   → Stats par poste : nb docs, total brut, total déduit
+  │
+  └─ Upload documents libres → data/ged/{year}/{month}/
+      → Images (JPG/PNG) converties en PDF à l'intake
+      → Recherche full-text : noms fichiers + tags + notes + contenu .ocr.json
+```
+
 ## Couches applicatives
 
 ### Frontend
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Components** | UI et interactions | `src/components/` (30+ fichiers) |
-| **Hooks** | Data fetching, cache, mutations, SSE, useYearOperations | `src/hooks/` (11 fichiers) |
+| **Components** | UI et interactions | `src/components/` (40+ fichiers, incl. `ged/` 11 fichiers) |
+| **Hooks** | Data fetching, cache, mutations, SSE, useYearOperations, useGed | `src/hooks/` (12 fichiers) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -224,9 +253,9 @@ Sélection mois → exports router → export_service.generate_export()
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (14 fichiers) |
-| **Services** | Logique métier, I/O, watchdog | `backend/services/` (13 fichiers) |
-| **Models** | Schémas Pydantic | `backend/models/` (6 fichiers) |
+| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (15 fichiers, incl. ged.py) |
+| **Services** | Logique métier, I/O, watchdog, GED | `backend/services/` (14 fichiers, incl. ged_service.py) |
+| **Models** | Schémas Pydantic | `backend/models/` (7 fichiers, incl. ged.py) |
 | **Config** | Chemins, constantes | `backend/core/config.py` |
 
 ## Stockage des données
@@ -253,6 +282,12 @@ data/
 │   ├── vectorizer.pkl          # TF-IDF vectorizer
 │   ├── training_examples.json  # Exemples d'entraînement
 │   └── backups/                # Sauvegardes horodatées
+├── ged/
+│   ├── ged_metadata.json       # Index des documents GED (chemins, types, postes, tags)
+│   ├── ged_postes.json         # Postes comptables avec % déductibilité
+│   ├── thumbnails/             # Cache thumbnails PNG (pdf2image, 200px)
+│   │   └── {md5_doc_id}.png
+│   └── {year}/{month}/         # Documents libres uploadés
 ├── compta_analytique/          # Presets de requêtes
 ├── logs/                       # Logs applicatifs (rotation 10 Mo)
 └── ocr/                        # Cache OCR global

@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Upload, Pencil, Tags, BarChart3,
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   GitCompareArrows, CalendarCheck, CalendarClock, AlertTriangle,
+  Library,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -39,6 +40,12 @@ const NAV_SECTIONS = [
     items: [
       { to: '/export', label: 'Export Comptable', icon: PackageCheck },
       { to: '/cloture', label: 'Clôture', icon: CalendarCheck },
+    ],
+  },
+  {
+    label: 'Documents',
+    items: [
+      { to: '/ged', label: 'Bibliothèque', icon: Library },
     ],
   },
   {
