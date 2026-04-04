@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 15 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking.
+NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 16 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking. Includes a Dotations aux Amortissements module with registre des immobilisations, moteur de calcul linéaire/dégressif, et détection automatique des opérations candidates.
 
 ## Architecture
 
@@ -13,6 +13,7 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **OCR**: EasyOCR with pdf2image, cache `.ocr.json` alongside PDFs. OCR page is the primary entry point for justificatif uploads (batch upload PDF/JPG/PNG + immediate OCR).
 - **Sandbox Watchdog**: `watchdog` library monitors `data/justificatifs/sandbox/` for PDF/JPG/PNG, auto-converts images to PDF, auto-OCR + SSE notifications
 - **Image Support**: JPG/JPEG/PNG justificatifs are converted to PDF at intake via Pillow (`_convert_image_to_pdf()`). Only PDF is stored. Constants in `config.py`: `ALLOWED_JUSTIFICATIF_EXTENSIONS`, `IMAGE_EXTENSIONS`, `MAGIC_BYTES`.
+- **Amortissements**: Registre des immobilisations avec calcul automatique des dotations (linéaire/dégressif), détection des opérations candidates (montant > seuil + catégorie éligible), plafonds véhicules CO2, gestion cessions/sorties. Données dans `data/amortissements/`. Moteur de calcul dupliqué Python/TypeScript.
 - **GED**: Document library indexing existing files (relevés, justificatifs, rapports) without duplication. Supports free document uploads in `data/ged/{year}/{month}/`. Each document linked to a *poste comptable* with configurable deductibility % (slider 0-100, step 5). Metadata stored in `data/ged/ged_metadata.json`, postes in `data/ged/ged_postes.json`. PDF thumbnails cached in `data/ged/thumbnails/` via pdf2image. Dual tree view (by year / by type).
 
 ## PDF Import Pipeline
@@ -49,16 +50,17 @@ npm run dev
 neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
-│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR
-│   ├── models/                 # Pydantic schemas (7 files, incl. ged.py)
-│   ├── routers/                # API endpoints (15 routers, incl. ged.py)
-│   └── services/               # Business logic (14 services, incl. ged_service.py)
+│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR
+│   ├── models/                 # Pydantic schemas (10 files, incl. ged.py, report.py, analytics.py, amortissement.py)
+│   ├── routers/                # API endpoints (17 routers, incl. ged.py, amortissements.py)
+│   └── services/               # Business logic (16 services, incl. ged_service.py, amortissement_service.py)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx             # All 15 routes (Accueil fusionné avec Dashboard)
+│       ├── App.tsx             # All 16 routes (Accueil fusionné avec Dashboard)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
-│       ├── components/         # 40+ .tsx components (incl. components/ged/ — 11 files)
-│       ├── hooks/              # 12 hook files (useApi, useOperations [incl. useYearOperations], useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed)
+│       ├── components/         # 60+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/)
+│       ├── hooks/              # 14 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements)
+│       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
 │       ├── types/index.ts      # All TypeScript interfaces
 │       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, formatFileTitle
 │       └── index.css           # Tailwind @theme with custom colors
@@ -66,6 +68,9 @@ neuronXcompta/
 │   ├── imports/
 │   │   ├── operations/         # JSON operation files
 │   │   └── releves/            # PDF bank statements
+│   ├── amortissements/
+│   │   ├── immobilisations.json  # Registre des immobilisations
+│   │   └── config.json           # Seuil, durées par défaut, catégories éligibles
 │   ├── ged/
 │   │   ├── ged_metadata.json   # GED document index
 │   │   ├── ged_postes.json     # Postes comptables config
@@ -84,7 +89,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | **SAISIE** | Importation, Édition, Catégories, OCR |
 | **TRAITEMENT** | Justificatifs, Rapprochement, Compte d'attente, Échéancier |
 | **ANALYSE** | Tableau de bord, Compta Analytique, Rapports |
-| **CLÔTURE** | Export Comptable, Clôture |
+| **CLÔTURE** | Export Comptable, Clôture, Amortissements |
 | **DOCUMENTS** | Bibliothèque (GED) |
 | **OUTILS** | Agent IA, Paramètres |
 
@@ -95,8 +100,8 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | operations | `/api/operations` | GET /files, GET/PUT/DELETE /{filename}, POST /import, POST /{filename}/categorize, GET /{filename}/has-pdf, GET /{filename}/pdf |
 | categories | `/api/categories` | GET, POST, PUT /{name}, DELETE /{name}, GET /{name}/subcategories |
 | ml | `/api/ml` | GET /model, POST /predict, POST /train, POST /rules, POST /backup, POST /restore/{name} |
-| analytics | `/api/analytics` | GET /dashboard, GET /summary, GET /trends, GET /anomalies, GET /category-detail, GET /compare |
-| reports | `/api/reports` | GET /gallery, POST /generate, GET /download/{filename}, DELETE /{filename} |
+| analytics | `/api/analytics` | GET /dashboard, GET /summary, GET /trends, GET /anomalies, GET /category-detail, GET /compare, GET /year-overview |
+| reports | `/api/reports` | GET /gallery, GET /tree, GET /templates, GET /pending, POST /generate, POST /{filename}/regenerate, POST /{filename}/favorite, POST /compare, PUT /{filename}, GET /preview/{filename}, GET /download/{filename}, DELETE /{filename} |
 | queries | `/api/queries` | POST /query, GET/POST/DELETE /queries |
 | justificatifs | `/api/justificatifs` | GET /, GET /stats, POST /upload, POST /associate, POST /dissociate |
 | ocr | `/api/ocr` | GET /status, GET /history, POST /extract, POST /extract-upload, POST /batch-upload |
@@ -106,6 +111,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | cloture | `/api/cloture` | GET /years, GET /{year} |
 | alertes | `/api/alertes` | GET /summary, GET /{filename}, POST /{filename}/{index}/resolve, POST /{filename}/refresh |
 | sandbox | `/api/sandbox` | GET /events (SSE), GET /list, DELETE /{filename} |
+| amortissements | `/api/amortissements` | GET /, GET /kpis, POST /, PATCH /{id}, DELETE /{id}, GET /dotations/{year}, GET /projections, GET /candidates, POST /candidates/immobiliser, POST /candidates/ignore, POST /cession/{id}, GET/PUT /config |
 | ged | `/api/ged` | GET /tree, GET /documents, POST /upload, PATCH /documents/{doc_id}, DELETE /documents/{doc_id}, GET /documents/{doc_id}/preview, GET /documents/{doc_id}/thumbnail, POST /documents/{doc_id}/open-native, GET /search, GET /stats, GET/PUT/POST/DELETE /postes, POST /bulk-tag, POST /scan |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info |
 
@@ -113,11 +119,11 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/` | DashboardPage | KPIs, charts, recent operations (anciennement Accueil + Dashboard fusionnés) |
+| `/` | DashboardPage | **Cockpit exercice comptable V2** : sélecteur année, jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports), 4 cartes KPI avec sparkline BNC et delta N-1, grille 12 mois cliquables avec 6 badges d'état + expansion (montants + actions contextuelles), alertes pondérées triées par impact, échéances fiscales (URSSAF/CARMF/ODM), bar chart recettes vs dépenses (Recharts), feed activité récente |
 | `/import` | ImportPage | PDF drag-drop import |
 | `/editor` | EditorPage | Inline editing, **auto-catégorisation IA au chargement** (vides), bouton "Recatégoriser IA" (tout), **sélecteur année → mois en cascade** avec option **"Toute l'année"** (lecture seule, charge N fichiers en parallèle via `useYearOperations`), **filtres catégorie + sous-catégorie** en cascade, colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert), PDF preview |
 | `/categories` | CategoriesPage | 4-tab category management |
-| `/reports` | ReportsPage | Report generation (CSV/PDF/Excel) + gallery |
+| `/reports` | ReportsPage | **Rapports V2** : 2 onglets (Générer avec templates rapides + filtres avancés, Bibliothèque avec triple vue arbre par année/catégorie/format), favoris épinglés, comparaison side-by-side de 2 rapports (drawer delta), rappels dans le dashboard, formats PDF (EUR, ligne totaux)/CSV (`;` FR)/Excel (formules SUM), déduplication, index JSON, preview drawer 800px avec édition titre/description |
 | `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie (drawer sous-catégories), **comparatif périodes avec séparation recettes/dépenses** (2 graphiques, 2 tableaux, delta badges inversés pour revenus, clic catégorie → drawer), tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | `/justificatifs` | JustificatifsPage | Galerie, association, PDF preview drawer, sandbox SSE badge (upload retiré — passe par OCR) |
 | `/agent-ai` | AgentIAPage | ML model dashboard, rules, training, backups |
@@ -127,6 +133,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | `/cloture` | CloturePage | Annual calendar view of monthly accounting completeness |
 | `/ocr` | OcrPage | Point d'entrée justificatifs : batch upload **PDF/JPG/PNG** + OCR, test manuel, historique (3 onglets) |
 | `/echeancier` | EcheancierPage | Échéancier des opérations récurrentes |
+| `/amortissements` | AmortissementsPage | Registre immobilisations (4 onglets : registre, tableau annuel, synthèse par poste, candidates), drawers (immobilisation avec aperçu tableau temps réel, config seuils/durées, cession avec calcul plus/moins-value), détection auto des opérations candidates (montant > seuil), moteur calcul linéaire/dégressif, plafonds véhicules CO2 |
 | `/ged` | GedPage | **Bibliothèque GED** : split layout (arbre 260px + contenu), **double vue arbre (par année / par type)**, grille thumbnails PDF ou liste tableau, drawer preview PDF redimensionnable (400-1200px) + section fiscalité (poste comptable, montant brut, % déductible, montant déductible calculé), drawer postes comptables avec **sliders % déductibilité** (0-100, step 5, couleur dynamique vert/orange/rouge), upload documents libres (drag-drop), recherche full-text (noms + OCR), ouverture native macOS (Aperçu) |
 | `/settings` | SettingsPage | 5-tab settings (general, theme, export, storage, system) |
 
@@ -145,6 +152,11 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - `QueryDrawer` — constructeur de requêtes personnalisées avec résultats
 - `GedDocumentDrawer` — 400-1200px **redimensionnable** (poignée drag bord gauche), preview PDF + fiscalité + tags/notes
 - `GedPostesDrawer` — 600px, liste postes avec sliders déductibilité, stats par poste
+- `ReportPreviewDrawer` — 800px, preview PDF iframe + metadata + édition titre/description + re-génération + suppression
+- `ReportCompareDrawer` — 700px, comparaison side-by-side de 2 rapports avec deltas montants/ops/%
+- `ImmobilisationDrawer` — 650px, création/édition immobilisation, aperçu tableau temps réel (moteur TS), section véhicule conditionnelle
+- `ConfigAmortissementsDrawer` — 500px, seuil, durées par défaut, catégories éligibles, plafonds véhicules
+- `CessionDrawer` — 500px, sortie d'actif avec calcul plus/moins-value et régime fiscal
 
 ## Patterns to Follow
 
@@ -166,6 +178,10 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - **GED dual tree**: `build_tree()` returns `{"by_type": [...], "by_year": [...]}`. Frontend tabs switch between views. Node IDs encode type/year/month for filter derivation (`year-{y}-{type}-{m}` for by_year, `releve-{y}-{m}` for by_type).
 - **GED postes comptables**: 16 postes par défaut (loyer-cabinet, véhicule, téléphone, etc.). Slider 0-100 step 5 avec couleur dynamique (vert/orange/rouge). Postes system non supprimables, custom ajoutables. Stats par poste (nb docs, total brut, total déduit).
 - **GED thumbnails**: pdf2image + poppler → PNG 200px de large, cache `data/ged/thumbnails/{md5}.png`. Régénéré si PDF source plus récent. Fallback icône générique si non-PDF ou échec.
+- **Reports V2**: Index JSON (`reports_index.json`), réconciliation au boot, 3 templates prédéfinis (BNC annuel, Ventilation charges, Récapitulatif social), format EUR (`1 234,56 €`), déduplication, triple vue arbre (année/catégorie/format), favoris, comparaison, rappels dans le dashboard.
+- **Amortissement engine**: Moteur de calcul dupliqué backend Python (`amortissement_service.py`) et frontend TypeScript (`lib/amortissement-engine.ts`). Résultats identiques. Linéaire (pro rata temporis année 1, complément dernière année) et dégressif (bascule en linéaire quand linéaire > dégressif).
+- **Candidate detection**: Détection automatique des opérations > seuil (500€ par défaut) dans les catégories immobilisables. Champs `immobilisation_id`, `immobilisation_ignored` sur l'opération.
+- **Plafonds véhicules**: Base amortissable plafonnée selon classe CO2 (30000/20300/18300/9900€). Quote-part pro appliquée ensuite.
 
 ## Dependencies
 

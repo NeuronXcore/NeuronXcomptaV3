@@ -1,211 +1,98 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useDashboard } from '@/hooks/useApi'
-import { useUnmatched } from '@/hooks/useRapprochement'
+import { useYearOverview } from '@/hooks/useApi'
+import { useClotureYears } from '@/hooks/useCloture'
 import PageHeader from '@/components/shared/PageHeader'
-import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import { formatCurrency, MOIS_FR } from '@/lib/utils'
-import { TrendingDown, TrendingUp, Wallet, Hash, Paperclip, Clock } from 'lucide-react'
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
-  BarChart, Bar,
-} from 'recharts'
-
-const COLORS = [
-  '#811971', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
-  '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6',
-]
+import YearSelector from './YearSelector'
+import ProgressionGauge from './ProgressionGauge'
+import KpiCards from './KpiCards'
+import MonthsGrid from './MonthsGrid'
+import AlertesSection from './AlertesSection'
+import FiscalDeadlines from './FiscalDeadlines'
+import RevenueChart from './RevenueChart'
+import ActivityFeed from './ActivityFeed'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { data, isLoading, error } = useDashboard()
-  const { data: unmatched } = useUnmatched()
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [expandedMonth, setExpandedMonth] = useState<number | null>(null)
 
-  if (isLoading) return <LoadingSpinner text="Chargement du tableau de bord..." />
+  const { data: years } = useClotureYears()
+  const { data, isLoading, error } = useYearOverview(selectedYear)
+
+  if (isLoading) return <LoadingSpinner text="Chargement du cockpit..." />
   if (error) return <p className="text-danger">Erreur: {error.message}</p>
   if (!data) return null
 
-  const { total_debit, total_credit, solde, nb_operations, category_summary, recent_operations, monthly_evolution } = data
+  const handleToggleMonth = (m: number) => {
+    setExpandedMonth(prev => prev === m ? null : m)
+  }
+
+  // Ensure current year is in the list
+  const allYears = [...new Set([...(years ?? []), selectedYear])].sort((a, b) => b - a)
 
   return (
-    <div>
-      <PageHeader title="Tableau de bord" description="Vue d'ensemble de vos finances" />
+    <div className="space-y-6">
+      <PageHeader
+        title="Exercice comptable"
+        description={`Cockpit ${selectedYear} — ${data.kpis.nb_mois_actifs} mois actifs, ${data.kpis.nb_operations} opérations`}
+        actions={
+          <YearSelector year={selectedYear} years={allYears} onChange={setSelectedYear} />
+        }
+      />
 
-      {/* Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <MetricCard
-          title="Total Débits"
-          value={formatCurrency(total_debit)}
-          icon={<TrendingDown size={20} />}
-          trend="down"
-        />
-        <MetricCard
-          title="Total Crédits"
-          value={formatCurrency(total_credit)}
-          icon={<TrendingUp size={20} />}
-          trend="up"
-        />
-        <MetricCard
-          title="Solde"
-          value={formatCurrency(solde)}
-          icon={<Wallet size={20} />}
-          trend={solde >= 0 ? 'up' : 'down'}
-        />
-        <MetricCard
-          title="Opérations"
-          value={nb_operations.toString()}
-          icon={<Hash size={20} />}
+      {/* Progression gauge */}
+      <ProgressionGauge progression={data.progression} />
+
+      {/* KPI cards */}
+      <KpiCards kpis={data.kpis} delta={data.delta_n1} />
+
+      {/* Months grid */}
+      <div>
+        <h3 className="text-sm font-semibold text-text mb-3">Mois de l'exercice</h3>
+        <MonthsGrid
+          mois={data.mois}
+          year={selectedYear}
+          expandedMonth={expandedMonth}
+          onToggle={handleToggleMonth}
         />
       </div>
 
-      {/* Rapprochement metrics */}
-      {unmatched && (unmatched.operations_sans_justificatif > 0 || unmatched.justificatifs_en_attente > 0) && (
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div
-            onClick={() => navigate('/rapprochement')}
-            className="cursor-pointer hover:ring-1 hover:ring-primary/50 rounded-xl transition-all"
-          >
-            <MetricCard
-              title="Ops sans justificatif"
-              value={String(unmatched.operations_sans_justificatif)}
-              icon={<Paperclip size={20} />}
-              trend={unmatched.operations_sans_justificatif > 0 ? 'down' : undefined}
-            />
-          </div>
-          <div
-            onClick={() => navigate('/rapprochement')}
-            className="cursor-pointer hover:ring-1 hover:ring-primary/50 rounded-xl transition-all"
-          >
-            <MetricCard
-              title="Justificatifs en attente"
-              value={String(unmatched.justificatifs_en_attente)}
-              icon={<Clock size={20} />}
-              trend={unmatched.justificatifs_en_attente > 0 ? 'down' : undefined}
-            />
+      {/* Alertes */}
+      {data.alertes.length > 0 && (
+        <AlertesSection alertes={data.alertes} year={selectedYear} />
+      )}
+
+      {/* Pending reports */}
+      {data.pending_reports && data.pending_reports.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-text mb-2">Rapports à générer</h3>
+          <div className="flex flex-wrap gap-2">
+            {data.pending_reports.map((pr: { type: string; period: string; message: string; month?: number; quarter?: number }, i: number) => (
+              <button
+                key={`${pr.type}-${i}`}
+                onClick={() => navigate('/reports')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-400 text-xs hover:bg-amber-500/20 transition-colors"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                {pr.period}
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Evolution chart */}
-        <div className="lg:col-span-2 bg-surface rounded-xl border border-border p-5">
-          <h2 className="text-lg font-semibold mb-4">Évolution mensuelle</h2>
-          {monthly_evolution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={monthly_evolution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="Mois" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                  labelStyle={{ color: '#f1f5f9' }}
-                />
-                <Area type="monotone" dataKey="Crédit" stroke="#22c55e" fill="#22c55e" fillOpacity={0.1} name="Crédits" />
-                <Area type="monotone" dataKey="Débit" stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} name="Débits" />
-                <Area type="monotone" dataKey="Solde_Cumule" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} name="Solde cumulé" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-text-muted text-center py-12">Aucune donnée disponible</p>
-          )}
-        </div>
-
-        {/* Category pie chart */}
-        <div className="bg-surface rounded-xl border border-border p-5">
-          <h2 className="text-lg font-semibold mb-4">Répartition par catégorie</h2>
-          {category_summary.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={category_summary.filter(c => c['Débit'] > 0)}
-                  dataKey="Débit"
-                  nameKey="Catégorie"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  label={((props: any) => `${props.name ?? ''} ${(((props.percent as number) ?? 0) * 100).toFixed(0)}%`) as any}
-                  labelLine={false}
-                >
-                  {category_summary.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                  formatter={(value) => formatCurrency(Number(value))}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-text-muted text-center py-12">Aucune donnée</p>
-          )}
-        </div>
+      {/* Fiscal deadlines */}
+      <div>
+        <h3 className="text-sm font-semibold text-text mb-2">Échéances fiscales</h3>
+        <FiscalDeadlines />
       </div>
 
-      {/* Category bar chart */}
-      {category_summary.length > 0 && (
-        <div className="bg-surface rounded-xl border border-border p-5 mb-8">
-          <h2 className="text-lg font-semibold mb-4">Débits par catégorie</h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={category_summary.filter(c => c['Débit'] > 0).sort((a, b) => b['Débit'] - a['Débit'])}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="Catégorie" tick={{ fill: '#94a3b8', fontSize: 11 }} angle={-30} textAnchor="end" height={60} />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 8 }}
-                formatter={(value) => formatCurrency(Number(value))}
-              />
-              <Bar dataKey="Débit" fill="#811971" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Recent operations */}
-      <div className="bg-surface rounded-xl border border-border p-5">
-        <h2 className="text-lg font-semibold mb-4">Opérations récentes</h2>
-        {recent_operations.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-text-muted">
-                  <th className="text-left py-3 px-2">Date</th>
-                  <th className="text-left py-3 px-2">Libellé</th>
-                  <th className="text-right py-3 px-2">Débit</th>
-                  <th className="text-right py-3 px-2">Crédit</th>
-                  <th className="text-left py-3 px-2">Catégorie</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent_operations.slice(0, 15).map((op, i) => (
-                  <tr key={i} className="border-b border-border/50 hover:bg-surface-hover transition-colors">
-                    <td className="py-2.5 px-2 text-text-muted">{op.Date?.slice(0, 10) ?? ''}</td>
-                    <td className="py-2.5 px-2 max-w-[300px] truncate">{op['Libellé']}</td>
-                    <td className="py-2.5 px-2 text-right text-danger">
-                      {op['Débit'] > 0 ? formatCurrency(op['Débit']) : ''}
-                    </td>
-                    <td className="py-2.5 px-2 text-right text-success">
-                      {op['Crédit'] > 0 ? formatCurrency(op['Crédit']) : ''}
-                    </td>
-                    <td className="py-2.5 px-2">
-                      <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full">
-                        {op['Catégorie'] || 'Non catégorisé'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-text-muted text-center py-8">
-            Aucune opération. Importez un relevé PDF pour commencer.
-          </p>
-        )}
+      {/* Bottom row: chart + activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RevenueChart mois={data.mois} />
+        <ActivityFeed activites={data.activite_recente} />
       </div>
     </div>
   )

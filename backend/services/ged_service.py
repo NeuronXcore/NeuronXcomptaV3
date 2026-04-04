@@ -555,6 +555,26 @@ def _resolve_poste_for_doc(doc: dict, postes_map: dict[str, dict]) -> Optional[s
     return None
 
 
+# ─── Distinct types ───
+
+DEFAULT_DOCUMENT_TYPES: set[str] = {
+    "relevé", "justificatif", "rapport", "contrat", "courrier fiscal",
+    "courrier social", "attestation", "devis", "divers",
+}
+
+
+def get_distinct_types() -> list[str]:
+    """Retourne tous les types de documents uniques déjà utilisés, triés alphabétiquement."""
+    metadata = load_metadata()
+    types: set[str] = set()
+    for doc in metadata.get("documents", {}).values():
+        doc_type = doc.get("type", "").strip()
+        if doc_type:
+            types.add(doc_type)
+    types.update(DEFAULT_DOCUMENT_TYPES)
+    return sorted(types)
+
+
 # ─── Document listing ───
 
 def get_documents(
@@ -639,6 +659,8 @@ def upload_document(file_content: bytes, filename: str, request: dict) -> dict:
         "year": year,
         "month": month,
         "poste_comptable": request.get("poste_comptable"),
+        "categorie": request.get("categorie"),
+        "sous_categorie": request.get("sous_categorie"),
         "montant_brut": None,
         "deductible_pct_override": None,
         "tags": request.get("tags", []),
@@ -648,12 +670,28 @@ def upload_document(file_content: bytes, filename: str, request: dict) -> dict:
         "ocr_file": None,
     }
 
+    # OCR automatique (PDF uniquement, les images ont été converties en PDF)
+    ocr_result = None
+    if dest.suffix.lower() == ".pdf":
+        try:
+            from backend.services.ocr_service import extract_or_cached
+            ocr_result = extract_or_cached(dest)
+            ocr_json_path = dest.with_suffix(".ocr.json")
+            if ocr_json_path.exists():
+                doc["ocr_file"] = _relative_path(ocr_json_path)
+        except Exception as e:
+            logger.warning(f"GED: OCR échoué pour {doc_id}: {e}")
+
     metadata = load_metadata()
     metadata["documents"][doc_id] = doc
     save_metadata(metadata)
 
-    logger.info(f"GED: document uploadé → {doc_id}")
-    return doc
+    logger.info(f"GED: document uploadé → {doc_id} (OCR: {'OK' if ocr_result else 'non'})")
+    return {
+        **doc,
+        "ocr_success": ocr_result is not None,
+        "ocr_data": ocr_result,
+    }
 
 
 def update_document(doc_id: str, updates: dict) -> dict:
@@ -663,7 +701,7 @@ def update_document(doc_id: str, updates: dict) -> dict:
         raise ValueError(f"Document non trouvé: {doc_id}")
 
     doc = docs[doc_id]
-    for key in ["poste_comptable", "tags", "notes", "montant_brut", "deductible_pct_override"]:
+    for key in ["poste_comptable", "categorie", "sous_categorie", "tags", "notes", "montant_brut", "deductible_pct_override"]:
         if key in updates and updates[key] is not None:
             doc[key] = updates[key]
 

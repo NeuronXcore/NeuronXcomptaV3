@@ -25,6 +25,8 @@ class GedDocument(BaseModel):
     year: Optional[int] = None
     month: Optional[int] = None
     poste_comptable: Optional[str] = None  # id du poste
+    categorie: Optional[str] = None  # catégorie comptable
+    sous_categorie: Optional[str] = None  # sous-catégorie comptable
     montant_brut: Optional[float] = None
     deductible_pct_override: Optional[int] = None  # surcharge du % poste, null = hérite
     tags: list[str] = []
@@ -52,12 +54,16 @@ class GedUploadRequest(BaseModel):
     year: Optional[int] = None
     month: Optional[int] = None
     poste_comptable: Optional[str] = None
+    categorie: Optional[str] = None
+    sous_categorie: Optional[str] = None
     tags: list[str] = []
     notes: str = ""
 
 
 class GedDocumentUpdate(BaseModel):
     poste_comptable: Optional[str] = None
+    categorie: Optional[str] = None
+    sous_categorie: Optional[str] = None
     tags: Optional[list[str]] = None
     notes: Optional[str] = None
     montant_brut: Optional[float] = None

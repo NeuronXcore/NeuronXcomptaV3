@@ -284,3 +284,254 @@ def compare_periods(ops_a: list[dict], ops_b: list[dict]) -> dict:
         "delta": delta,
         "categories": categories,
     }
+
+
+# ─── Year Overview (Dashboard V2) ───
+
+def get_year_overview(year: int) -> dict:
+    """Cockpit annuel : mois, KPIs, alertes, progression, activité."""
+    from backend.core.config import (
+        MOIS_FR, EXPORTS_DIR, IMPORTS_OPERATIONS_DIR,
+        JUSTIFICATIFS_TRAITES_DIR, ensure_directories,
+    )
+    from backend.services import operation_service, cloture_service
+    import os
+
+    ensure_directories()
+
+    # a) Données mensuelles
+    annual_status = cloture_service.get_annual_status(year)
+    files = operation_service.list_operation_files()
+    files_by_month: dict[int, list[dict]] = {}
+    for f in files:
+        if f.get("year") == year and f.get("month"):
+            files_by_month.setdefault(f["month"], []).append(f)
+
+    now = datetime.now()
+    current_month = now.month if year == now.year else (12 if year < now.year else 0)
+
+    mois_data = []
+    for m_status in annual_status:
+        m = m_status["mois"]
+        month_files = files_by_month.get(m, [])
+
+        # Charger les opérations pour calculer taux_categorisation et taux_rapprochement
+        all_ops: list[dict] = []
+        for mf in month_files:
+            try:
+                ops = operation_service.load_operations(mf["filename"])
+                all_ops.extend(ops)
+            except Exception:
+                pass
+
+        nb = len(all_ops)
+        nb_categorised = sum(
+            1 for op in all_ops
+            if op.get("Catégorie") and op["Catégorie"] not in ("", "Autres")
+        ) if nb > 0 else 0
+        nb_debit_ops = sum(1 for op in all_ops if op.get("Débit", 0) > 0)
+        nb_rapproches = sum(
+            1 for op in all_ops
+            if op.get("Débit", 0) > 0 and op.get("Justificatif", False)
+        )
+
+        taux_cat = nb_categorised / nb if nb > 0 else 0.0
+        taux_rapp = nb_rapproches / nb_debit_ops if nb_debit_ops > 0 else 0.0
+
+        total_credit = sum(op.get("Crédit", 0) for op in all_ops)
+        total_debit = sum(op.get("Débit", 0) for op in all_ops)
+
+        # Export exists?
+        has_export = False
+        if EXPORTS_DIR.exists():
+            has_export = len(list(EXPORTS_DIR.glob(f"export_{year}_{m:02d}_*"))) > 0
+
+        mois_data.append({
+            "mois": m,
+            "label": MOIS_FR[m - 1].capitalize(),
+            "has_releve": m_status["has_releve"],
+            "nb_operations": m_status["nb_operations"],
+            "taux_lettrage": m_status["taux_lettrage"],
+            "taux_justificatifs": m_status["taux_justificatifs"],
+            "taux_categorisation": round(taux_cat, 4),
+            "taux_rapprochement": round(taux_rapp, 4),
+            "has_export": has_export,
+            "total_credit": round(total_credit, 2),
+            "total_debit": round(total_debit, 2),
+            "filename": m_status.get("filename"),
+        })
+
+    # b) KPIs annuels
+    total_recettes = sum(m["total_credit"] for m in mois_data)
+    total_charges = sum(m["total_debit"] for m in mois_data)
+    bnc_estime = total_recettes - total_charges
+    nb_operations = sum(m["nb_operations"] for m in mois_data)
+    nb_mois_actifs = sum(1 for m in mois_data if m["nb_operations"] > 0)
+    bnc_mensuel = [m["total_credit"] - m["total_debit"] for m in mois_data]
+
+    kpis = {
+        "total_recettes": round(total_recettes, 2),
+        "total_charges": round(total_charges, 2),
+        "bnc_estime": round(bnc_estime, 2),
+        "nb_operations": nb_operations,
+        "nb_mois_actifs": nb_mois_actifs,
+        "bnc_mensuel": [round(v, 2) for v in bnc_mensuel],
+    }
+
+    # c) Delta N-1
+    delta_n1 = None
+    prev_year = year - 1
+    prev_files = [f for f in files if f.get("year") == prev_year]
+    if prev_files:
+        prev_credit = 0.0
+        prev_debit = 0.0
+        for pf in prev_files:
+            try:
+                ops = operation_service.load_operations(pf["filename"])
+                prev_credit += sum(op.get("Crédit", 0) for op in ops)
+                prev_debit += sum(op.get("Débit", 0) for op in ops)
+            except Exception:
+                pass
+        prev_bnc = prev_credit - prev_debit
+        delta_n1 = {
+            "prev_total_recettes": round(prev_credit, 2),
+            "prev_total_charges": round(prev_debit, 2),
+            "prev_bnc": round(prev_bnc, 2),
+            "delta_recettes_pct": round((total_recettes - prev_credit) / prev_credit * 100, 1) if prev_credit else 0,
+            "delta_charges_pct": round((total_charges - prev_debit) / prev_debit * 100, 1) if prev_debit else 0,
+            "delta_bnc_pct": round((bnc_estime - prev_bnc) / abs(prev_bnc) * 100, 1) if prev_bnc else 0,
+        }
+
+    # d) Alertes pondérées
+    alertes = []
+    for md in mois_data:
+        m = md["mois"]
+        if m > current_month:
+            continue  # pas d'alerte pour les mois futurs
+
+        if not md["has_releve"]:
+            alertes.append({
+                "type": "releve_manquant", "mois": m, "year": year,
+                "impact": 100, "message": "Relevé bancaire manquant",
+                "detail": f"{md['label']} — aucun relevé importé",
+                "count": 0,
+            })
+            continue  # pas d'autres alertes sans relevé
+
+        if md["taux_lettrage"] >= 1.0 and md["taux_justificatifs"] >= 1.0 and not md["has_export"]:
+            alertes.append({
+                "type": "export_manquant", "mois": m, "year": year,
+                "impact": 80, "message": "Export comptable manquant",
+                "detail": f"{md['label']} — mois complet, export non généré",
+                "count": 0,
+            })
+
+        if md["taux_justificatifs"] < 1.0:
+            nb_manquants = md["nb_operations"] - int(md["nb_operations"] * md["taux_justificatifs"])
+            alertes.append({
+                "type": "justificatifs_manquants", "mois": m, "year": year,
+                "impact": min(99, 55 + nb_manquants), "message": "Justificatifs manquants",
+                "detail": f"{md['label']} — {nb_manquants} justificatif(s) manquant(s)",
+                "count": nb_manquants,
+            })
+
+        if md["taux_categorisation"] < 1.0:
+            nb_non_cat = md["nb_operations"] - int(md["nb_operations"] * md["taux_categorisation"])
+            alertes.append({
+                "type": "categorisation_incomplete", "mois": m, "year": year,
+                "impact": 40, "message": "Catégorisation incomplète",
+                "detail": f"{md['label']} — {nb_non_cat} opération(s) non catégorisée(s)",
+                "count": nb_non_cat,
+            })
+
+        if md["taux_lettrage"] < 1.0:
+            nb_non_let = md["nb_operations"] - int(md["nb_operations"] * md["taux_lettrage"])
+            alertes.append({
+                "type": "lettrage_incomplet", "mois": m, "year": year,
+                "impact": 25, "message": "Lettrage incomplet",
+                "detail": f"{md['label']} — {nb_non_let} opération(s) non lettrée(s)",
+                "count": nb_non_let,
+            })
+
+    alertes.sort(key=lambda a: a["impact"], reverse=True)
+    alertes = alertes[:10]
+
+    # e) Progression globale
+    mois_actifs = [m for m in mois_data if m["nb_operations"] > 0]
+    nb_active = len(mois_actifs) or 1
+
+    criteres = {
+        "releves": sum(1 for m in mois_data if m["has_releve"]) / 12 * 100,
+        "categorisation": sum(m["taux_categorisation"] for m in mois_actifs) / nb_active * 100 if mois_actifs else 0,
+        "lettrage": sum(m["taux_lettrage"] for m in mois_actifs) / nb_active * 100 if mois_actifs else 0,
+        "justificatifs": sum(m["taux_justificatifs"] for m in mois_actifs) / nb_active * 100 if mois_actifs else 0,
+        "rapprochement": sum(m["taux_rapprochement"] for m in mois_actifs) / nb_active * 100 if mois_actifs else 0,
+        "exports": sum(1 for m in mois_data if m["has_export"]) / 12 * 100,
+    }
+    progression_globale = sum(criteres.values()) / len(criteres) if criteres else 0
+
+    progression = {
+        "globale": round(progression_globale, 1),
+        "criteres": {k: round(v, 1) for k, v in criteres.items()},
+    }
+
+    # f) Activité récente
+    activite = []
+    # Imports
+    if IMPORTS_OPERATIONS_DIR.exists():
+        for f in sorted(IMPORTS_OPERATIONS_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)[:5]:
+            if f.suffix == ".json":
+                stat = f.stat()
+                activite.append({
+                    "type": "import",
+                    "message": f"Import relevé — {f.name}",
+                    "timestamp": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "detail": f.name,
+                })
+
+    # Exports
+    if EXPORTS_DIR.exists():
+        for f in sorted(EXPORTS_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)[:3]:
+            if f.suffix == ".zip":
+                stat = f.stat()
+                activite.append({
+                    "type": "export",
+                    "message": f"Export comptable — {f.name}",
+                    "timestamp": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "detail": f.name,
+                })
+
+    # Justificatifs rapprochés
+    if JUSTIFICATIFS_TRAITES_DIR.exists():
+        for f in sorted(JUSTIFICATIFS_TRAITES_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)[:3]:
+            if f.suffix == ".pdf":
+                stat = f.stat()
+                activite.append({
+                    "type": "rapprochement",
+                    "message": f"Justificatif rapproché — {f.name}",
+                    "timestamp": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "detail": f.name,
+                })
+
+    activite.sort(key=lambda a: a["timestamp"], reverse=True)
+    activite = activite[:10]
+
+    return {
+        "year": year,
+        "mois": mois_data,
+        "kpis": kpis,
+        "delta_n1": delta_n1,
+        "alertes": alertes,
+        "progression": progression,
+        "activite_recente": activite,
+        "pending_reports": _get_pending_reports_safe(year),
+    }
+
+
+def _get_pending_reports_safe(year: int) -> list[dict]:
+    """Get pending reports, return empty list on error."""
+    try:
+        from backend.services.report_service import get_pending_reports
+        return get_pending_reports(year)
+    except Exception:
+        return []

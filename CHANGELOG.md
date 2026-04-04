@@ -8,6 +8,39 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-05)
+- **Module Amortissements** : registre des immobilisations, calcul dotations linéaire/dégressif avec pro rata temporis, détection auto candidates (montant > 500€ + catégorie éligible), plafonds véhicules CO2 (4 classes), gestion cessions avec calcul plus/moins-value et régime fiscal (court/long terme), moteur de calcul dupliqué Python/TypeScript
+  - Page `/amortissements` avec 4 onglets (Registre, Tableau annuel, Synthèse par poste, Candidates)
+  - 3 drawers : ImmobilisationDrawer (650px, aperçu tableau temps réel), ConfigAmortissementsDrawer (500px), CessionDrawer (500px)
+  - `backend/services/amortissement_service.py` : CRUD, moteur calcul, détection, cession, KPIs
+  - `backend/routers/amortissements.py` : 15 endpoints sous `/api/amortissements`
+  - `frontend/src/lib/amortissement-engine.ts` : moteur TS identique au Python
+  - `frontend/src/hooks/useAmortissements.ts` : 14 hooks (7 queries + 7 mutations)
+- **Rapports V2** : refonte complète du module rapports
+  - Index JSON (`reports_index.json`) avec réconciliation au boot
+  - 3 templates prédéfinis (BNC annuel, Ventilation charges, Récapitulatif social)
+  - Format EUR (`1 234,56 €`) dans les PDF, CSV séparateur `;` + virgule décimale, Excel formules SUM
+  - Déduplication à la génération (même filtres+format = remplacement)
+  - Bibliothèque avec triple vue arbre (par année / par catégorie / par format)
+  - Rapports favoris (étoile, tri en premier)
+  - Comparaison de 2 rapports (drawer delta montants/ops/%)
+  - Rappels dans le dashboard (rapports mensuels/trimestriels non générés)
+  - Preview drawer 800px avec édition titre/description inline
+  - 12 endpoints sous `/api/reports`
+- **Dashboard V2 — Cockpit exercice comptable** : refonte complète de la page d'accueil
+  - Sélecteur année + actions rapides (Importer, OCR, Rapprocher)
+  - Jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports)
+  - 4 cartes KPI avec sparkline BNC mensuel et delta N-1
+  - Grille 12 mois cliquables avec 6 badges d'état + expansion (montants + actions contextuelles)
+  - Alertes pondérées triées par impact (100=relevé manquant, 80=export, 55+=justificatifs, 40=catégorisation, 25=lettrage)
+  - Échéances fiscales (URSSAF/CARMF/ODM) avec countdown J-XX
+  - Bar chart recettes vs dépenses (Recharts)
+  - Feed activité récente avec timestamps relatifs
+  - `GET /api/analytics/year-overview` : endpoint agrégé unique
+- **GED — Type libre + OCR auto** : champ type remplacé par autocomplétion libre (datalist HTML), OCR automatique à l'upload via `extract_or_cached()`, preview conditionnel image/PDF
+- **GED — Catégorie/sous-catégorie** : ajout sélecteurs catégorie → sous-catégorie en cascade dans l'upload et le drawer metadata (en plus du poste comptable existant)
+- **Module GED (Bibliothèque Documents)** : indexation documents existants sans duplication, upload documents libres, postes comptables avec % déductibilité (slider 0-100), thumbnails PDF, double vue arbre (par année / par type), drawer redimensionnable (400-1200px), recherche full-text, ouverture native macOS
+
 ### Added (2026-04-04)
 - **Compta Analytique — Comparatif recettes/depenses** : separation automatique des categories en 2 groupes (recettes si credit > debit, depenses sinon), 2 graphiques cote a cote, 2 tableaux avec colonnes adaptees (Credit A/B ou Debit A/B), delta badges inverses pour revenus, legendes dynamiques avec periodes selectionnees
 - **Compta Analytique — Clic categorie en mode Comparatif** : clic sur une categorie ouvre le CategoryDetailDrawer (sous-categories, evolution mensuelle, operations) — desormais connecte au comparatif en plus du mode Analyse

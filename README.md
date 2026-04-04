@@ -10,17 +10,19 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 
 | Module | Description |
 |--------|-------------|
-| **Tableau de bord** | KPIs financiers, graphiques d'évolution, opérations récentes |
+| **Tableau de bord** | **Cockpit exercice V2** : jauge segmentée 6 critères, KPIs avec sparkline BNC, grille 12 mois cliquables avec badges d'état, alertes pondérées, échéances fiscales, rappels rapports, bar chart recettes/dépenses |
 | **Importation** | Upload de relevés bancaires PDF, extraction automatique des opérations (dates YYYY-MM-DD, filtrage soldes/totaux) |
 | **Éditeur** | Édition inline, catégorisation IA (vides/tout), **vue année complète** (lecture seule), **filtres catégorie + sous-catégorie**, colonnes : Justificatif, Important, À revoir, Pointée |
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
-| **Rapports** | Génération PDF, CSV et Excel avec filtres avancés |
+| **Rapports** | Génération PDF/CSV/Excel, 3 templates, bibliothèque triple vue (année/catégorie/format), favoris, comparaison, format EUR, déduplication |
 | **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, **comparatif périodes avec séparation recettes/dépenses**, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | **Rapprochement** | Rapprochement auto + drawer manuel avec filtres, scores, preview PDF |
 | **Justificatifs** | Galerie, association aux opérations, suggestions automatiques (upload via page OCR) |
 | **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups |
 | **Export Comptable** | Archive ZIP mensuelle (opérations + relevé + justificatifs) |
 | **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique |
+| **GED** | Bibliothèque documentaire : double vue arbre (année/type), thumbnails PDF, postes comptables avec % déductibilité, upload documents libres, recherche full-text, OCR auto |
+| **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |
 | **Paramètres** | Thème, export, stockage, informations système |
 
 ---
@@ -101,13 +103,18 @@ neuronXcompta/
 │   ├── requirements.txt        # Dépendances Python
 │   ├── core/
 │   │   └── config.py           # Configuration centralisée
-│   ├── models/                 # Schémas Pydantic
+│   ├── models/                 # Schémas Pydantic (10 fichiers)
 │   │   ├── category.py
 │   │   ├── justificatif.py
 │   │   ├── ocr.py
 │   │   ├── operation.py
-│   │   └── settings.py
-│   ├── routers/                # Endpoints API (14 fichiers)
+│   │   ├── settings.py
+│   │   ├── ged.py
+│   │   ├── report.py
+│   │   ├── analytics.py
+│   │   ├── amortissement.py
+│   │   └── ...
+│   ├── routers/                # Endpoints API (17 fichiers)
 │   │   ├── operations.py
 │   │   ├── categories.py
 │   │   ├── ml.py
@@ -117,8 +124,11 @@ neuronXcompta/
 │   │   ├── queries.py
 │   │   ├── justificatifs.py
 │   │   ├── ocr.py
-│   │   └── exports.py
-│   └── services/               # Logique métier (13 fichiers)
+│   │   ├── exports.py
+│   │   ├── ged.py
+│   │   ├── amortissements.py
+│   │   └── ...
+│   └── services/               # Logique métier (16 fichiers)
 │       ├── operation_service.py
 │       ├── category_service.py
 │       ├── ml_service.py
@@ -136,12 +146,12 @@ neuronXcompta/
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── src/
-│       ├── App.tsx             # Routes (14 pages)
+│       ├── App.tsx             # Routes (16 pages)
 │       ├── main.tsx            # Point d'entrée React
 │       ├── index.css           # Thème Tailwind
 │       ├── api/client.ts       # Client API
-│       ├── components/         # 30+ composants React
-│       ├── hooks/              # 11 fichiers de hooks
+│       ├── components/         # 60+ composants React
+│       ├── hooks/              # 14 fichiers de hooks
 │       ├── types/index.ts      # Types TypeScript
 │       └── lib/utils.ts        # Utilitaires
 ├── data/                       # Données applicatives
@@ -153,6 +163,13 @@ neuronXcompta/
 │   ├── justificatifs/          # Justificatifs PDF
 │   │   ├── en_attente/
 │   │   └── traites/
+│   ├── ged/                    # Bibliothèque GED
+│   │   ├── ged_metadata.json
+│   │   ├── ged_postes.json
+│   │   └── thumbnails/
+│   ├── amortissements/         # Registre immobilisations
+│   │   ├── immobilisations.json
+│   │   └── config.json
 │   ├── ml/                     # Modèles ML
 │   └── logs/                   # Logs applicatifs
 ├── settings.json               # Configuration utilisateur
@@ -184,6 +201,14 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `POST` | `/api/rapprochement/run-auto` | Rapprochement automatique |
 | `POST` | `/api/rapprochement/associate-manual` | Association manuelle |
 | `GET` | `/api/settings` | Charger les paramètres |
+| `GET` | `/api/analytics/year-overview` | Cockpit annuel (mois, KPIs, alertes, progression) |
+| `GET` | `/api/reports/tree` | Arbre triple vue (année/catégorie/format) |
+| `GET` | `/api/reports/templates` | Templates de rapports prédéfinis |
+| `GET` | `/api/ged/tree` | Arbre GED (par année / par type) |
+| `GET` | `/api/ged/documents` | Documents indexés avec filtres |
+| `GET` | `/api/amortissements` | Registre des immobilisations |
+| `GET` | `/api/amortissements/kpis` | KPIs amortissements |
+| `GET` | `/api/amortissements/candidates` | Opérations candidates à immobiliser |
 | `PUT` | `/api/settings` | Sauvegarder les paramètres |
 
 ---

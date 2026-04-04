@@ -1,51 +1,167 @@
 """
-Service pour la génération de rapports.
-Refactoré depuis utils/report_generation.py de V2.
+Service pour la génération de rapports V2.
+Index JSON, templates, format EUR, déduplication, réconciliation.
 """
+from __future__ import annotations
 
 import csv
 import hashlib
 import io
 import json
 import logging
+import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import pandas as pd
-
 from backend.core.config import (
-    RAPPORTS_DIR, REPORTS_DIR, MOIS_FR, ensure_directories,
+    RAPPORTS_DIR, REPORTS_DIR, REPORTS_INDEX, ASSETS_DIR,
+    MOIS_FR, ensure_directories,
 )
-from backend.services.operation_service import load_operations
+from backend.services.operation_service import list_operation_files, load_operations
 
 logger = logging.getLogger(__name__)
 
+# ─── Templates prédéfinis ───
 
-def list_report_files() -> list[dict]:
-    """Liste tous les rapports générés."""
+REPORT_TEMPLATES: list[dict] = [
+    {
+        "id": "bnc_annuel",
+        "label": "Récapitulatif annuel BNC",
+        "description": "Toutes les opérations de l'année — recettes et dépenses",
+        "icon": "FileText",
+        "format": "pdf",
+        "filters": {"type": "all"},
+    },
+    {
+        "id": "ventilation_charges",
+        "label": "Ventilation des charges",
+        "description": "Dépenses par catégorie et sous-catégorie",
+        "icon": "PieChart",
+        "format": "excel",
+        "filters": {"type": "debit"},
+    },
+    {
+        "id": "recapitulatif_social",
+        "label": "Récapitulatif social",
+        "description": "Charges URSSAF, CARMF, ODM sur l'année",
+        "icon": "Shield",
+        "format": "pdf",
+        "filters": {"categories": ["Charges sociales"], "type": "debit"},
+    },
+]
+
+
+def get_templates() -> list[dict]:
+    return REPORT_TEMPLATES
+
+
+# ─── Index JSON ───
+
+def _load_index() -> dict:
+    if REPORTS_INDEX.exists():
+        try:
+            with open(REPORTS_INDEX, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Erreur chargement index rapports: {e}")
+    return {"version": 1, "reports": []}
+
+
+def _save_index(index: dict) -> None:
     ensure_directories()
-    reports = []
+    with open(REPORTS_INDEX, "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, indent=2, default=str)
+
+
+def reconcile_index() -> None:
+    """Réconcilie l'index avec le filesystem."""
+    ensure_directories()
+    index = _load_index()
+    reports = index.get("reports", [])
+
+    # Map existant
+    existing_files: set[str] = set()
     for d in [RAPPORTS_DIR, REPORTS_DIR]:
-        if not d.exists():
-            continue
-        for f in sorted(d.iterdir(), reverse=True):
-            if f.suffix in (".pdf", ".csv", ".xlsx"):
-                stat = f.stat()
+        if d.exists():
+            for f in d.iterdir():
+                if f.suffix in (".pdf", ".csv", ".xlsx"):
+                    existing_files.add(f.name)
+
+    # Supprimer les entrées sans fichier
+    before = len(reports)
+    reports = [r for r in reports if r["filename"] in existing_files]
+    removed = before - len(reports)
+
+    # Indexer les fichiers non référencés
+    indexed_files = {r["filename"] for r in reports}
+    added = 0
+    for fname in existing_files:
+        if fname not in indexed_files:
+            path = _find_report_path(fname)
+            if path:
+                stat = path.stat()
+                ext = path.suffix[1:].lower()
+                fmt = "excel" if ext == "xlsx" else ext
                 reports.append({
-                    "filename": f.name,
-                    "format": f.suffix[1:].upper(),
-                    "size": stat.st_size,
-                    "size_human": _format_size(stat.st_size),
-                    "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "path": str(f),
-                    "directory": d.name,
+                    "filename": fname,
+                    "title": _clean_filename_title(fname),
+                    "description": None,
+                    "format": fmt,
+                    "generated_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "filters": {},
+                    "template_id": None,
+                    "nb_operations": 0,
+                    "total_debit": 0,
+                    "total_credit": 0,
+                    "file_size": stat.st_size,
+                    "file_size_human": _format_size(stat.st_size),
+                    "year": None,
+                    "quarter": None,
+                    "month": None,
                 })
+                added += 1
+
+    index["reports"] = reports
+    _save_index(index)
+    if removed or added:
+        logger.info(f"Reports index reconciled: {removed} removed, {added} added")
+
+
+def _clean_filename_title(filename: str) -> str:
+    stem = Path(filename).stem
+    stem = re.sub(r"_\d{8}_\d{6}$", "", stem)  # remove timestamp suffix
+    stem = re.sub(r"_[a-f0-9]{8}$", "", stem)   # remove hash suffix
+    return stem.replace("_", " ").replace("rapport ", "").title()
+
+
+# ─── Gallery ───
+
+def get_all_reports() -> list[dict]:
+    index = _load_index()
+    reports = index.get("reports", [])
+    reports.sort(key=lambda r: r.get("generated_at", ""), reverse=True)
     return reports
 
 
+def get_gallery() -> dict:
+    reports = get_all_reports()
+    years = sorted(set(r.get("year") for r in reports if r.get("year")), reverse=True)
+    return {
+        "reports": reports,
+        "available_years": years,
+        "total_count": len(reports),
+    }
+
+
+# ─── CRUD ───
+
 def get_report_path(filename: str) -> Optional[Path]:
-    """Retourne le chemin absolu d'un rapport."""
+    return _find_report_path(filename)
+
+
+def _find_report_path(filename: str) -> Optional[Path]:
     for d in [RAPPORTS_DIR, REPORTS_DIR]:
         path = d / filename
         if path.exists():
@@ -54,445 +170,656 @@ def get_report_path(filename: str) -> Optional[Path]:
 
 
 def delete_report(filename: str) -> bool:
-    """Supprime un rapport."""
-    path = get_report_path(filename)
+    path = _find_report_path(filename)
     if path:
         path.unlink()
-        return True
-    return False
+    # Remove from index
+    index = _load_index()
+    index["reports"] = [r for r in index["reports"] if r["filename"] != filename]
+    _save_index(index)
+    return path is not None
 
 
-def generate_report(
-    source_files: list[str],
-    format: str = "csv",
-    filters: Optional[dict] = None,
-    title: Optional[str] = None,
-) -> dict:
-    """
-    Génère un rapport à partir des fichiers d'opérations sélectionnés.
+def update_report_metadata(filename: str, updates: dict) -> Optional[dict]:
+    index = _load_index()
+    for r in index["reports"]:
+        if r["filename"] == filename:
+            if updates.get("title") is not None:
+                r["title"] = updates["title"]
+            if updates.get("description") is not None:
+                r["description"] = updates["description"]
+            _save_index(index)
+            return r
+    return None
 
-    Args:
-        source_files: Liste de noms de fichiers JSON à inclure
-        format: "csv", "pdf", ou "xlsx"
-        filters: Filtres optionnels (category, date_from, date_to, important, a_revoir, etc.)
-        title: Titre personnalisé du rapport
 
-    Returns:
-        dict avec filename, path, operations_count, etc.
-    """
+# ─── Generation ───
+
+def _slugify(text: str, max_len: int = 40) -> str:
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^\w\s-]", "", text.lower())
+    text = re.sub(r"[\s-]+", "_", text).strip("_")
+    return text[:max_len]
+
+
+def _format_eur(amount: float) -> str:
+    if amount == 0:
+        return "—"
+    formatted = f"{abs(amount):,.2f}".replace(",", " ").replace(".", ",")
+    sign = "-" if amount < 0 else ""
+    return f"{sign}{formatted} €"
+
+
+def _generate_title(filters: dict, template_id: Optional[str] = None) -> str:
+    # Period
+    year = filters.get("year")
+    quarter = filters.get("quarter")
+    month = filters.get("month")
+    date_from = filters.get("date_from")
+    date_to = filters.get("date_to")
+
+    if year and month and 1 <= month <= 12:
+        period = f"{MOIS_FR[month - 1].capitalize()} {year}"
+    elif year and quarter:
+        period = f"T{quarter} {year}"
+    elif year:
+        period = str(year)
+    elif date_from and date_to:
+        period = f"{date_from} au {date_to}"
+    else:
+        period = "Toutes périodes"
+
+    # Template
+    if template_id:
+        for t in REPORT_TEMPLATES:
+            if t["id"] == template_id:
+                return f"{t['label']} — {period}"
+
+    # Categories
+    cats = filters.get("categories")
+    if cats and len(cats) == 1:
+        return f"{cats[0]} — {period}"
+    elif cats and len(cats) > 1:
+        return f"{len(cats)} catégories — {period}"
+    else:
+        return f"Toutes catégories — {period}"
+
+
+def _dedup_key(filters: dict, fmt: str) -> tuple:
+    return (
+        filters.get("year"),
+        filters.get("quarter"),
+        filters.get("month"),
+        filters.get("date_from"),
+        filters.get("date_to"),
+        tuple(sorted(filters.get("categories") or [])),
+        fmt,
+    )
+
+
+def generate_report(request: dict) -> dict:
+    """Génère un rapport V2 avec index, déduplication, format EUR."""
     ensure_directories()
 
-    # 1. Charger et combiner les opérations
-    all_operations = []
-    for fname in source_files:
+    fmt = request.get("format", "pdf")
+    filters = request.get("filters", {})
+    template_id = request.get("template_id")
+    title = request.get("title") or _generate_title(filters, template_id)
+    description = request.get("description")
+
+    # Load operations
+    year = filters.get("year")
+    quarter = filters.get("quarter")
+    month = filters.get("month")
+
+    files = list_operation_files()
+    if year:
+        files = [f for f in files if f.get("year") == year]
+    if month:
+        files = [f for f in files if f.get("month") == month]
+    if quarter:
+        q_start = (quarter - 1) * 3 + 1
+        files = [f for f in files if q_start <= (f.get("month") or 0) <= q_start + 2]
+
+    all_ops: list[dict] = []
+    for f in files:
         try:
-            ops = load_operations(fname)
-            all_operations.extend(ops)
-        except FileNotFoundError:
-            logger.warning(f"Fichier {fname} non trouvé, ignoré")
+            ops = load_operations(f["filename"])
+            all_ops.extend(ops)
+        except Exception:
+            continue
 
-    if not all_operations:
-        raise ValueError("Aucune opération trouvée dans les fichiers sélectionnés")
+    if not all_ops:
+        # If no year filter, load all
+        if not year:
+            for f in list_operation_files():
+                try:
+                    ops = load_operations(f["filename"])
+                    all_ops.extend(ops)
+                except Exception:
+                    continue
 
-    # 2. Appliquer les filtres
-    filtered = _apply_filters(all_operations, filters or {})
+    # Apply filters
+    filtered = _apply_filters(all_ops, filters)
 
     if not filtered:
         raise ValueError("Aucune opération après application des filtres")
 
-    # 3. Générer le rapport selon le format
+    # Deduplication check
+    replaced = None
+    key = _dedup_key(filters, fmt)
+    index = _load_index()
+    for existing in index["reports"]:
+        existing_key = _dedup_key(existing.get("filters", {}), existing.get("format", ""))
+        if existing_key == key:
+            replaced = existing["filename"]
+            old_path = _find_report_path(replaced)
+            if old_path and old_path.exists():
+                old_path.unlink()
+            index["reports"] = [r for r in index["reports"] if r["filename"] != replaced]
+            break
+
+    # Generate file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    period = _detect_period(filtered)
-    hash_src = hashlib.md5("_".join(source_files).encode()).hexdigest()[:8]
+    slug = _slugify(title)
+    ext = {"pdf": ".pdf", "csv": ".csv", "excel": ".xlsx"}.get(fmt, ".pdf")
+    filename = f"rapport_{slug}_{timestamp}{ext}"
+    filepath = REPORTS_DIR / filename
 
-    if format == "csv":
-        filename = f"rapport_{hash_src}_{period}_{timestamp}.csv"
-        filepath = RAPPORTS_DIR / filename
-        _generate_csv(filtered, filepath, title)
-    elif format == "pdf":
-        filename = f"rapport_{hash_src}_{period}_{timestamp}.pdf"
-        filepath = RAPPORTS_DIR / filename
-        _generate_pdf(filtered, filepath, title, period)
-    elif format == "xlsx":
-        filename = f"rapport_{hash_src}_{period}_{timestamp}.xlsx"
-        filepath = RAPPORTS_DIR / filename
-        _generate_excel(filtered, filepath, title)
+    if fmt == "csv":
+        _generate_csv_v2(filtered, filepath, title)
+    elif fmt == "pdf":
+        _generate_pdf_v2(filtered, filepath, title, filters)
+    elif fmt == "excel":
+        _generate_excel_v2(filtered, filepath, title)
     else:
-        raise ValueError(f"Format non supporté: {format}")
+        raise ValueError(f"Format non supporté: {fmt}")
 
-    # 4. Stats du rapport
+    # Stats
     total_debit = sum(op.get("Débit", 0) for op in filtered)
     total_credit = sum(op.get("Crédit", 0) for op in filtered)
-    categorized = sum(1 for op in filtered if op.get("Catégorie") and op.get("Catégorie") != "Autres")
+    stat = filepath.stat()
 
-    return {
+    # Add to index
+    meta = {
         "filename": filename,
-        "format": format.upper(),
-        "operations_count": len(filtered),
-        "total_debit": total_debit,
-        "total_credit": total_credit,
-        "solde": total_credit - total_debit,
-        "categorized": categorized,
-        "period": period,
-        "size": filepath.stat().st_size,
-        "size_human": _format_size(filepath.stat().st_size),
-        "created": datetime.now().isoformat(),
+        "title": title,
+        "description": description,
+        "format": fmt,
+        "generated_at": datetime.now().isoformat(),
+        "filters": filters,
+        "template_id": template_id,
+        "nb_operations": len(filtered),
+        "total_debit": round(total_debit, 2),
+        "total_credit": round(total_credit, 2),
+        "file_size": stat.st_size,
+        "file_size_human": _format_size(stat.st_size),
+        "year": year,
+        "quarter": quarter,
+        "month": month,
     }
+    index["reports"].append(meta)
+    _save_index(index)
 
+    result = {**meta, "replaced": replaced}
+    return result
+
+
+def regenerate_report(filename: str) -> dict:
+    """Régénère un rapport existant en gardant titre et description."""
+    index = _load_index()
+    existing = None
+    for r in index["reports"]:
+        if r["filename"] == filename:
+            existing = r
+            break
+    if not existing:
+        raise ValueError(f"Rapport non trouvé: {filename}")
+
+    # Regenerate with same params
+    request = {
+        "format": existing["format"],
+        "title": existing["title"],
+        "description": existing.get("description"),
+        "filters": existing.get("filters", {}),
+        "template_id": existing.get("template_id"),
+    }
+    # Remove old entry to avoid dedup removing itself
+    index["reports"] = [r for r in index["reports"] if r["filename"] != filename]
+    _save_index(index)
+    # Delete old file
+    old_path = _find_report_path(filename)
+    if old_path and old_path.exists():
+        old_path.unlink()
+
+    return generate_report(request)
+
+
+# ─── Filters ───
 
 def _apply_filters(operations: list[dict], filters: dict) -> list[dict]:
-    """Applique les filtres sur les opérations."""
     result = operations
 
-    # Filtre par catégorie
-    if filters.get("category"):
-        result = [op for op in result if op.get("Catégorie") == filters["category"]]
+    cats = filters.get("categories")
+    if cats:
+        result = [op for op in result if op.get("Catégorie") in cats]
 
-    # Filtre par sous-catégorie
-    if filters.get("subcategory"):
-        result = [op for op in result if op.get("Sous-catégorie") == filters["subcategory"]]
+    subcats = filters.get("subcategories")
+    if subcats:
+        result = [op for op in result if op.get("Sous-catégorie") in subcats]
 
-    # Filtre par date
     if filters.get("date_from"):
-        date_from = filters["date_from"]
-        result = [op for op in result if (op.get("Date", "") or "") >= date_from]
-
+        result = [op for op in result if (op.get("Date") or "") >= filters["date_from"]]
     if filters.get("date_to"):
-        date_to = filters["date_to"]
-        result = [op for op in result if (op.get("Date", "") or "") <= date_to]
+        result = [op for op in result if (op.get("Date") or "") <= filters["date_to"]]
 
-    # Filtre opérations importantes
+    op_type = filters.get("type")
+    if op_type == "debit":
+        result = [op for op in result if op.get("Débit", 0) > 0]
+    elif op_type == "credit":
+        result = [op for op in result if op.get("Crédit", 0) > 0]
+
     if filters.get("important_only"):
         result = [op for op in result if op.get("Important")]
 
-    # Filtre à revoir
-    if filters.get("a_revoir_only"):
-        result = [op for op in result if op.get("A_revoir")]
-
-    # Filtre avec justificatif
-    if filters.get("with_justificatif"):
-        result = [op for op in result if op.get("Justificatif")]
-
-    # Filtre montant minimum
     if filters.get("min_amount"):
-        min_amt = float(filters["min_amount"])
-        result = [op for op in result if max(op.get("Débit", 0), op.get("Crédit", 0)) >= min_amt]
+        min_a = float(filters["min_amount"])
+        result = [op for op in result if max(op.get("Débit", 0), op.get("Crédit", 0)) >= min_a]
+    if filters.get("max_amount"):
+        max_a = float(filters["max_amount"])
+        result = [op for op in result if max(op.get("Débit", 0), op.get("Crédit", 0)) <= max_a]
 
     return result
 
 
-def _detect_period(operations: list[dict]) -> str:
-    """Détecte la période couverte par les opérations."""
-    dates = []
-    for op in operations:
-        d = op.get("Date", "")
-        if d:
-            dates.append(d)
-    if not dates:
-        return "sans_date"
+# ─── CSV Generation ───
 
-    dates.sort()
-    first = dates[0]
-    last = dates[-1]
-
-    # Essayer d'extraire mois/année
-    try:
-        parts = first.replace("-", "/").split("/")
-        if len(parts) >= 3:
-            if len(parts[0]) == 4:  # YYYY-MM-DD
-                month = int(parts[1])
-                year = parts[0]
-            else:  # DD/MM/YYYY
-                month = int(parts[1])
-                year = parts[2]
-            month_name = MOIS_FR[month - 1] if 1 <= month <= 12 else str(month)
-            return f"{month_name}_{year}"
-    except (ValueError, IndexError):
-        pass
-
-    return f"{first}_to_{last}"
-
-
-def _generate_csv(operations: list[dict], filepath: Path, title: Optional[str] = None):
-    """Génère un rapport CSV."""
-    columns = [
-        "Date", "Libellé", "Débit", "Crédit", "Catégorie",
-        "Sous-catégorie", "Justificatif", "Important", "A_revoir", "Commentaire"
-    ]
-
+def _generate_csv_v2(operations: list[dict], filepath: Path, title: str):
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
-        # BOM pour Excel
-        writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
-
-        # Titre en commentaire
-        if title:
-            f.write(f"# {title}\n")
-            f.write(f"# Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}\n")
-            f.write(f"# {len(operations)} opérations\n")
-
-        writer.writeheader()
+        f.write(f"Date;Libellé;Catégorie;Sous-catégorie;Débit;Crédit\n")
         for op in operations:
-            row = {}
-            for col in columns:
-                val = op.get(col, "")
-                if isinstance(val, bool):
-                    val = "Oui" if val else "Non"
-                row[col] = val
-            writer.writerow(row)
+            date = op.get("Date", "")
+            lib = str(op.get("Libellé", "")).replace(";", ",")
+            cat = str(op.get("Catégorie", ""))
+            scat = str(op.get("Sous-catégorie", ""))
+            debit = f"{op.get('Débit', 0):.2f}".replace(".", ",") if op.get("Débit", 0) else ""
+            credit = f"{op.get('Crédit', 0):.2f}".replace(".", ",") if op.get("Crédit", 0) else ""
+            f.write(f"{date};{lib};{cat};{scat};{debit};{credit}\n")
 
-        # Totaux
-        total_debit = sum(op.get("Débit", 0) for op in operations)
-        total_credit = sum(op.get("Crédit", 0) for op in operations)
-        f.write(f"\n# Total Débits: {total_debit:.2f} EUR\n")
-        f.write(f"# Total Crédits: {total_credit:.2f} EUR\n")
-        f.write(f"# Solde: {total_credit - total_debit:.2f} EUR\n")
+        total_d = sum(op.get("Débit", 0) for op in operations)
+        total_c = sum(op.get("Crédit", 0) for op in operations)
+        f.write(f";TOTAUX;;;{total_d:.2f};{total_c:.2f}\n".replace(".", ","))
 
 
-def _generate_pdf(operations: list[dict], filepath: Path, title: Optional[str] = None, period: str = ""):
-    """Génère un rapport PDF avec ReportLab."""
+# ─── PDF Generation ───
+
+def _generate_pdf_v2(operations: list[dict], filepath: Path, title: str, filters: dict):
     try:
         from reportlab.lib import colors
+        from reportlab.lib.colors import HexColor
         from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.units import cm
+        from reportlab.lib.units import cm, mm
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     except ImportError:
-        raise RuntimeError("reportlab n'est pas installé. Installez-le avec: pip install reportlab")
+        raise RuntimeError("reportlab non installé")
+
+    PRIMARY = HexColor("#811971")
 
     doc = SimpleDocTemplate(
-        str(filepath),
-        pagesize=landscape(A4),
-        leftMargin=1.5 * cm,
-        rightMargin=1.5 * cm,
-        topMargin=1.5 * cm,
-        bottomMargin=1.5 * cm,
+        str(filepath), pagesize=landscape(A4),
+        leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+        topMargin=2 * cm, bottomMargin=1.5 * cm,
     )
 
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "ReportTitle",
-        parent=styles["Heading1"],
-        fontSize=16,
-        spaceAfter=12,
-        textColor=colors.HexColor("#333333"),
-    )
-    subtitle_style = ParagraphStyle(
-        "ReportSubtitle",
-        parent=styles["Normal"],
-        fontSize=10,
-        spaceAfter=6,
-        textColor=colors.HexColor("#666666"),
-    )
-    small_style = ParagraphStyle(
-        "Small",
-        parent=styles["Normal"],
-        fontSize=7,
-        leading=9,
-    )
+    title_style = ParagraphStyle("RTitle", parent=styles["Heading1"], fontSize=14,
+                                  spaceAfter=4, textColor=PRIMARY)
+    subtitle_style = ParagraphStyle("RSub", parent=styles["Normal"], fontSize=8,
+                                     textColor=HexColor("#888888"), spaceAfter=8)
+    small_style = ParagraphStyle("RSmall", parent=styles["Normal"], fontSize=7, leading=9)
 
     elements = []
 
-    # Titre
-    report_title = title or f"Rapport - {period.replace('_', ' ').title()}"
-    elements.append(Paragraph(report_title, title_style))
+    # Header
+    elements.append(Paragraph(title, title_style))
+    filter_desc = _describe_filters(filters)
     elements.append(Paragraph(
-        f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')} | {len(operations)} opérations",
-        subtitle_style,
+        f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')} | {len(operations)} opérations | {filter_desc}",
+        subtitle_style
     ))
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 8))
 
-    # Résumé financier
-    total_debit = sum(op.get("Débit", 0) for op in operations)
-    total_credit = sum(op.get("Crédit", 0) for op in operations)
-    solde = total_credit - total_debit
-
-    summary_data = [
-        ["Total Crédits", f"{total_credit:,.2f} EUR"],
-        ["Total Débits", f"{total_debit:,.2f} EUR"],
-        ["Solde", f"{solde:,.2f} EUR"],
-    ]
-    summary_table = Table(summary_data, colWidths=[4 * cm, 5 * cm])
-    summary_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f0f0f0")),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    elements.append(summary_table)
-    elements.append(Spacer(1, 16))
-
-    # Tableau des opérations
-    headers = ["Date", "Libellé", "Débit", "Crédit", "Catégorie", "Sous-cat."]
+    # Table
+    headers = ["Date", "Libellé", "Catégorie", "Sous-catégorie", "Débit", "Crédit"]
     table_data = [headers]
 
-    for op in operations[:200]:  # Limiter à 200 pour le PDF
+    for op in operations[:500]:
+        debit = op.get("Débit", 0)
+        credit = op.get("Crédit", 0)
         row = [
             str(op.get("Date", "")),
             Paragraph(str(op.get("Libellé", ""))[:80], small_style),
-            f"{op.get('Débit', 0):.2f}" if op.get("Débit", 0) > 0 else "",
-            f"{op.get('Crédit', 0):.2f}" if op.get("Crédit", 0) > 0 else "",
             str(op.get("Catégorie", "")),
             str(op.get("Sous-catégorie", "")),
+            _format_eur(debit) if debit else "",
+            _format_eur(credit) if credit else "",
         ]
         table_data.append(row)
 
-    col_widths = [2.5 * cm, 10 * cm, 2.5 * cm, 2.5 * cm, 3.5 * cm, 3 * cm]
-    ops_table = Table(table_data, colWidths=col_widths, repeatRows=1)
-    ops_table.setStyle(TableStyle([
+    # Totals row
+    total_d = sum(op.get("Débit", 0) for op in operations)
+    total_c = sum(op.get("Crédit", 0) for op in operations)
+    table_data.append(["", "TOTAUX", "", "", _format_eur(total_d), _format_eur(total_c)])
+
+    col_widths = [2.2 * cm, 9 * cm, 3.5 * cm, 3.5 * cm, 3 * cm, 3 * cm]
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+
+    n_rows = len(table_data)
+    style_cmds = [
         # Header
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#811971")),
+        ("BACKGROUND", (0, 0), (-1, 0), PRIMARY),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTSIZE", (0, 0), (-1, 0), 8),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
         # Body
         ("FONTSIZE", (0, 1), (-1, -1), 7),
-        ("ALIGN", (2, 1), (3, -1), "RIGHT"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f9f9f9")]),
+        ("ALIGN", (4, 1), (5, -1), "RIGHT"),
+        ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dddddd")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, HexColor("#f5f5f5")]),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    elements.append(ops_table)
+        # Totals row
+        ("BACKGROUND", (0, n_rows - 1), (-1, n_rows - 1), HexColor("#f0e8ef")),
+        ("FONTNAME", (0, n_rows - 1), (-1, n_rows - 1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, n_rows - 1), (-1, n_rows - 1), 8),
+        ("LINEABOVE", (0, n_rows - 1), (-1, n_rows - 1), 1.5, PRIMARY),
+    ]
+    table.setStyle(TableStyle(style_cmds))
+    elements.append(table)
 
-    if len(operations) > 200:
+    if len(operations) > 500:
         elements.append(Spacer(1, 8))
         elements.append(Paragraph(
-            f"Note: Seules les 200 premières opérations sur {len(operations)} sont affichées.",
-            subtitle_style,
+            f"Note : seules les 500 premières opérations sur {len(operations)} sont affichées.",
+            subtitle_style
         ))
 
     doc.build(elements)
 
 
-def _generate_excel(operations: list[dict], filepath: Path, title: Optional[str] = None):
-    """Génère un rapport Excel multi-feuilles."""
+def _describe_filters(filters: dict) -> str:
+    parts = []
+    if filters.get("categories"):
+        parts.append(", ".join(filters["categories"]))
+    if filters.get("type") == "debit":
+        parts.append("Dépenses")
+    elif filters.get("type") == "credit":
+        parts.append("Recettes")
+    return " | ".join(parts) if parts else "Tous"
+
+
+# ─── Excel Generation ───
+
+def _generate_excel_v2(operations: list[dict], filepath: Path, title: str):
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
     except ImportError:
-        raise RuntimeError("openpyxl n'est pas installé. Installez-le avec: pip install openpyxl")
+        raise RuntimeError("openpyxl non installé")
 
     wb = openpyxl.Workbook()
-
-    # ─── Feuille 1: Opérations ────────────────
     ws = wb.active
     ws.title = "Opérations"
 
     header_font = Font(bold=True, color="FFFFFF", size=10)
     header_fill = PatternFill(start_color="811971", end_color="811971", fill_type="solid")
-    thin_border = Border(
-        left=Side(style="thin", color="DDDDDD"),
-        right=Side(style="thin", color="DDDDDD"),
-        top=Side(style="thin", color="DDDDDD"),
-        bottom=Side(style="thin", color="DDDDDD"),
+    total_fill = PatternFill(start_color="F0E8EF", end_color="F0E8EF", fill_type="solid")
+    border = Border(
+        left=Side(style="thin", color="DDDDDD"), right=Side(style="thin", color="DDDDDD"),
+        top=Side(style="thin", color="DDDDDD"), bottom=Side(style="thin", color="DDDDDD"),
     )
 
-    columns = ["Date", "Libellé", "Débit", "Crédit", "Catégorie", "Sous-catégorie",
-               "Justificatif", "Important", "A_revoir", "Commentaire"]
+    columns = ["Date", "Libellé", "Catégorie", "Sous-catégorie", "Débit", "Crédit"]
 
-    # Header
-    for col_idx, col_name in enumerate(columns, 1):
-        cell = ws.cell(row=1, column=col_idx, value=col_name)
+    for ci, name in enumerate(columns, 1):
+        cell = ws.cell(row=1, column=ci, value=name)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
-        cell.border = thin_border
+        cell.border = border
 
-    # Data
-    for row_idx, op in enumerate(operations, 2):
-        for col_idx, col_name in enumerate(columns, 1):
-            val = op.get(col_name, "")
-            if isinstance(val, bool):
-                val = "Oui" if val else "Non"
-            cell = ws.cell(row=row_idx, column=col_idx, value=val)
-            cell.border = thin_border
-            if col_name in ("Débit", "Crédit"):
-                cell.number_format = '#,##0.00'
+    for ri, op in enumerate(operations, 2):
+        for ci, col in enumerate(columns, 1):
+            val = op.get(col, "")
+            if col in ("Débit", "Crédit"):
+                val = val if val else 0
+            cell = ws.cell(row=ri, column=ci, value=val)
+            cell.border = border
+            if col in ("Débit", "Crédit"):
+                cell.number_format = '#,##0.00 €'
                 cell.alignment = Alignment(horizontal="right")
 
-    # Adjust column widths
-    col_widths = [12, 45, 12, 12, 18, 18, 12, 10, 10, 25]
-    for i, w in enumerate(col_widths, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    # Totals row
+    n = len(operations) + 2
+    ws.cell(row=n, column=2, value="TOTAUX").font = Font(bold=True)
+    for ci in (5, 6):
+        col_letter = openpyxl.utils.get_column_letter(ci)
+        cell = ws.cell(row=n, column=ci, value=f"=SUM({col_letter}2:{col_letter}{n - 1})")
+        cell.font = Font(bold=True)
+        cell.fill = total_fill
+        cell.number_format = '#,##0.00 €'
+        cell.border = border
 
-    # Freeze header
+    widths = [12, 40, 18, 18, 14, 14]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
     ws.freeze_panes = "A2"
 
-    # ─── Feuille 2: Analyse par catégorie ────────────────
-    ws2 = wb.create_sheet("Analyse par catégorie")
+    # Sheet 2: Category summary (if > 10 ops)
+    if len(operations) > 10:
+        ws2 = wb.create_sheet("Résumé")
+        cat_stats: dict[str, dict] = {}
+        for op in operations:
+            cat = op.get("Catégorie", "Non catégorisé") or "Non catégorisé"
+            if cat not in cat_stats:
+                cat_stats[cat] = {"debit": 0, "credit": 0, "count": 0}
+            cat_stats[cat]["debit"] += op.get("Débit", 0)
+            cat_stats[cat]["credit"] += op.get("Crédit", 0)
+            cat_stats[cat]["count"] += 1
 
-    # Calculer les stats par catégorie
-    cat_stats = {}
-    for op in operations:
-        cat = op.get("Catégorie", "Non catégorisé") or "Non catégorisé"
-        if cat not in cat_stats:
-            cat_stats[cat] = {"debit": 0, "credit": 0, "count": 0}
-        cat_stats[cat]["debit"] += op.get("Débit", 0)
-        cat_stats[cat]["credit"] += op.get("Crédit", 0)
-        cat_stats[cat]["count"] += 1
+        h2 = ["Catégorie", "Nb ops", "Total Débit", "Total Crédit", "Solde"]
+        for ci, name in enumerate(h2, 1):
+            cell = ws2.cell(row=1, column=ci, value=name)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
 
-    total_expenses = sum(v["debit"] for v in cat_stats.values())
+        for ri, (cat, s) in enumerate(sorted(cat_stats.items()), 2):
+            vals = [cat, s["count"], s["debit"], s["credit"], s["credit"] - s["debit"]]
+            for ci, v in enumerate(vals, 1):
+                cell = ws2.cell(row=ri, column=ci, value=v)
+                cell.border = border
+                if ci >= 3:
+                    cell.number_format = '#,##0.00 €'
 
-    headers2 = ["Catégorie", "Nb Opérations", "Débits", "Crédits", "Montant Net", "% Dépenses"]
-    for col_idx, name in enumerate(headers2, 1):
-        cell = ws2.cell(row=1, column=col_idx, value=name)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
-        cell.border = thin_border
-
-    for row_idx, (cat, stats) in enumerate(sorted(cat_stats.items()), 2):
-        net = stats["credit"] - stats["debit"]
-        pct = (stats["debit"] / total_expenses * 100) if total_expenses > 0 else 0
-        values = [cat, stats["count"], stats["debit"], stats["credit"], net, round(pct, 1)]
-        for col_idx, val in enumerate(values, 1):
-            cell = ws2.cell(row=row_idx, column=col_idx, value=val)
-            cell.border = thin_border
-            if col_idx in (3, 4, 5):
-                cell.number_format = '#,##0.00'
-
-    col_widths2 = [25, 15, 15, 15, 15, 15]
-    for i, w in enumerate(col_widths2, 1):
-        ws2.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
-    ws2.freeze_panes = "A2"
-
-    # ─── Feuille 3: Résumé ────────────────
-    ws3 = wb.create_sheet("Résumé")
-
-    total_debit = sum(op.get("Débit", 0) for op in operations)
-    total_credit = sum(op.get("Crédit", 0) for op in operations)
-
-    summary_data = [
-        ("Rapport", title or "Rapport NeuronXcompta"),
-        ("Date de génération", datetime.now().strftime("%d/%m/%Y %H:%M")),
-        ("Nombre d'opérations", len(operations)),
-        ("Total Débits", total_debit),
-        ("Total Crédits", total_credit),
-        ("Solde", total_credit - total_debit),
-        ("Catégories utilisées", len(cat_stats)),
-    ]
-
-    for row_idx, (label, value) in enumerate(summary_data, 1):
-        cell_label = ws3.cell(row=row_idx, column=1, value=label)
-        cell_label.font = Font(bold=True)
-        cell_val = ws3.cell(row=row_idx, column=2, value=value)
-        if isinstance(value, float):
-            cell_val.number_format = '#,##0.00'
-
-    ws3.column_dimensions["A"].width = 25
-    ws3.column_dimensions["B"].width = 30
+        for i, w in enumerate([25, 10, 15, 15, 15], 1):
+            ws2.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+        ws2.freeze_panes = "A2"
 
     wb.save(str(filepath))
 
 
+# ─── Helpers ───
+
 def _format_size(size_bytes: int) -> str:
-    """Formate la taille en bytes lisible."""
     if size_bytes < 1024:
-        return f"{size_bytes} B"
+        return f"{size_bytes} o"
     elif size_bytes < 1024 * 1024:
-        return f"{size_bytes / 1024:.1f} KB"
+        return f"{size_bytes / 1024:.1f} Ko"
     else:
-        return f"{size_bytes / (1024 * 1024):.1f} MB"
+        return f"{size_bytes / (1024 * 1024):.1f} Mo"
+
+
+# ─── Favorites ───
+
+def toggle_favorite(filename: str) -> Optional[dict]:
+    index = _load_index()
+    for r in index["reports"]:
+        if r["filename"] == filename:
+            r["favorite"] = not r.get("favorite", False)
+            _save_index(index)
+            return r
+    return None
+
+
+# ─── Report Tree (triple vue) ───
+
+def get_report_tree() -> dict:
+    """Construit un arbre triple vue : by_year, by_category, by_format."""
+    reports = get_all_reports()
+
+    # By year
+    by_year_map: dict[int, list[dict]] = {}
+    no_year: list[dict] = []
+    for r in reports:
+        y = r.get("year")
+        if y:
+            by_year_map.setdefault(y, []).append(r)
+        else:
+            no_year.append(r)
+
+    by_year = []
+    for y in sorted(by_year_map.keys(), reverse=True):
+        children = []
+        # Group by quarter/month
+        by_month: dict[int, int] = {}
+        for r in by_year_map[y]:
+            m = r.get("month") or 0
+            by_month[m] = by_month.get(m, 0) + 1
+        for m in sorted(by_month.keys()):
+            label = MOIS_FR[m - 1].capitalize() if 1 <= m <= 12 else "Général"
+            children.append({"id": f"year-{y}-{m}", "label": label, "count": by_month[m], "children": []})
+        by_year.append({"id": f"year-{y}", "label": str(y), "count": len(by_year_map[y]), "children": children, "icon": "Calendar"})
+    if no_year:
+        by_year.append({"id": "year-none", "label": "Non daté", "count": len(no_year), "children": []})
+
+    # By category
+    by_cat_map: dict[str, int] = {}
+    no_cat = 0
+    for r in reports:
+        cats = (r.get("filters") or {}).get("categories")
+        if cats:
+            for c in cats:
+                by_cat_map[c] = by_cat_map.get(c, 0) + 1
+        else:
+            no_cat += 1
+
+    by_category = []
+    for cat in sorted(by_cat_map.keys()):
+        by_category.append({"id": f"cat-{cat}", "label": cat, "count": by_cat_map[cat], "children": [], "icon": "Tag"})
+    if no_cat:
+        by_category.append({"id": "cat-none", "label": "Toutes catégories", "count": no_cat, "children": []})
+
+    # By format
+    by_fmt_map: dict[str, int] = {}
+    for r in reports:
+        fmt = r.get("format", "pdf")
+        by_fmt_map[fmt] = by_fmt_map.get(fmt, 0) + 1
+
+    fmt_icons = {"pdf": "FileText", "csv": "Sheet", "excel": "Table2"}
+    by_format = []
+    for fmt in ["pdf", "csv", "excel"]:
+        if fmt in by_fmt_map:
+            by_format.append({"id": f"fmt-{fmt}", "label": fmt.upper(), "count": by_fmt_map[fmt], "children": [], "icon": fmt_icons.get(fmt, "FileText")})
+
+    return {"by_year": by_year, "by_category": by_category, "by_format": by_format}
+
+
+# ─── Pending Reports (rappels) ───
+
+def get_pending_reports(year: int) -> list[dict]:
+    """Retourne les rapports mensuels manquants pour les mois passés."""
+    now = datetime.now()
+    current_month = now.month if year == now.year else (12 if year < now.year else 0)
+
+    reports = get_all_reports()
+    generated_months: set[int] = set()
+    for r in reports:
+        if r.get("year") == year and r.get("month"):
+            generated_months.add(r["month"])
+
+    pending = []
+    for m in range(1, current_month + 1):
+        if m not in generated_months:
+            label = MOIS_FR[m - 1].capitalize()
+            pending.append({
+                "type": "mensuel",
+                "period": f"{label} {year}",
+                "message": f"Rapport {label} {year} non généré",
+                "year": year,
+                "month": m,
+                "quarter": None,
+            })
+
+    # Check quarterly
+    generated_quarters: set[int] = set()
+    for r in reports:
+        if r.get("year") == year and r.get("quarter"):
+            generated_quarters.add(r["quarter"])
+
+    current_q = (current_month - 1) // 3 + 1
+    for q in range(1, current_q + 1):
+        q_end_month = q * 3
+        if q_end_month <= current_month and q not in generated_quarters:
+            pending.append({
+                "type": "trimestriel",
+                "period": f"T{q} {year}",
+                "message": f"Rapport trimestriel T{q} {year} non généré",
+                "year": year,
+                "month": None,
+                "quarter": q,
+            })
+
+    return pending
+
+
+# ─── Compare Reports ───
+
+def compare_reports(filename_a: str, filename_b: str) -> dict:
+    """Compare deux rapports et retourne les deltas."""
+    index = _load_index()
+    report_a = None
+    report_b = None
+    for r in index["reports"]:
+        if r["filename"] == filename_a:
+            report_a = r
+        if r["filename"] == filename_b:
+            report_b = r
+
+    if not report_a or not report_b:
+        raise ValueError("Un ou plusieurs rapports introuvables")
+
+    delta_debit = report_a["total_debit"] - report_b["total_debit"]
+    delta_credit = report_a["total_credit"] - report_b["total_credit"]
+    delta_ops = report_a["nb_operations"] - report_b["nb_operations"]
+    delta_debit_pct = (delta_debit / report_b["total_debit"] * 100) if report_b["total_debit"] else 0
+    delta_credit_pct = (delta_credit / report_b["total_credit"] * 100) if report_b["total_credit"] else 0
+
+    return {
+        "report_a": report_a,
+        "report_b": report_b,
+        "delta_debit": round(delta_debit, 2),
+        "delta_credit": round(delta_credit, 2),
+        "delta_ops": delta_ops,
+        "delta_debit_pct": round(delta_debit_pct, 1),
+        "delta_credit_pct": round(delta_credit_pct, 1),
+    }
+
+
+# Legacy compatibility
+def list_report_files() -> list[dict]:
+    """Legacy: liste tous les rapports (compatible avec l'ancien code)."""
+    return get_all_reports()

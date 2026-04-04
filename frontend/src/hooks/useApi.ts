@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { DashboardData, OperationFile, CategoryGroup, CategoryRaw, AppSettings, MLModelInfo, MLModelFull, TrainingExample, TrendRecord, AnomalyRecord } from '@/types'
+import type { DashboardData, OperationFile, CategoryGroup, CategoryRaw, AppSettings, MLModelInfo, MLModelFull, TrainingExample, TrendRecord, AnomalyRecord, YearOverviewResponse } from '@/types'
 
 function _periodParams(year?: number | null, quarter?: number | null, month?: number | null): string {
   const params = new URLSearchParams()
@@ -16,6 +16,13 @@ export function useDashboard(year?: number | null, quarter?: number | null, mont
   return useQuery<DashboardData>({
     queryKey: ['dashboard', year ?? 'all', quarter ?? 'all', month ?? 'all'],
     queryFn: () => api.get(`/analytics/dashboard${qs}`),
+  })
+}
+
+export function useYearOverview(year: number) {
+  return useQuery<YearOverviewResponse>({
+    queryKey: ['year-overview', year],
+    queryFn: () => api.get(`/analytics/year-overview?year=${year}`),
   })
 }
 

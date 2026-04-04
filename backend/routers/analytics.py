@@ -125,3 +125,14 @@ async def compare_periods(
     ops_a = _load_all_ops(year_a, quarter_a, month_a)
     ops_b = _load_all_ops(year_b, quarter_b, month_b)
     return analytics_service.compare_periods(ops_a, ops_b)
+
+
+@router.get("/year-overview")
+async def get_year_overview(
+    year: Optional[int] = Query(None, description="Année (défaut = année courante)"),
+):
+    """Cockpit annuel : mois, KPIs, alertes, progression, activité."""
+    from datetime import datetime
+    if year is None:
+        year = datetime.now().year
+    return analytics_service.get_year_overview(year)

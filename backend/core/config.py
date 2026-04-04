@@ -16,7 +16,9 @@ IMPORTS_RELEVES_DIR = IMPORTS_DIR / "releves"
 IMPORTS_OPERATIONS_DIR = IMPORTS_DIR / "operations"
 EXPORTS_DIR = DATA_DIR / "exports"
 REPORTS_DIR = DATA_DIR / "reports"
+REPORTS_INDEX = REPORTS_DIR / "reports_index.json"
 RAPPORTS_DIR = DATA_DIR / "rapports"
+ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 LOGS_DIR = DATA_DIR / "logs"
 JUSTIFICATIFS_DIR = DATA_DIR / "justificatifs"
 JUSTIFICATIFS_EN_ATTENTE_DIR = JUSTIFICATIFS_DIR / "en_attente"
@@ -31,6 +33,44 @@ GED_DIR = DATA_DIR / "ged"
 GED_METADATA_FILE = GED_DIR / "ged_metadata.json"
 GED_POSTES_FILE = GED_DIR / "ged_postes.json"
 GED_THUMBNAILS_DIR = GED_DIR / "thumbnails"
+
+# Amortissements
+AMORTISSEMENTS_DIR = DATA_DIR / "amortissements"
+
+SEUIL_IMMOBILISATION = 500  # € TTC
+
+CATEGORIES_IMMOBILISABLES = [
+    "Matériel", "Informatique", "Véhicule", "Mobilier", "Travaux"
+]
+
+SOUS_CATEGORIES_EXCLUES_IMMO = [
+    "Carburant", "Entretien", "Assurance", "Consommables",
+    "Péage", "Parking", "Location", "Leasing", "Loyer"
+]
+
+DUREES_AMORTISSEMENT_DEFAUT: dict[str, int] = {
+    "materiel-medical": 5,
+    "informatique": 3,
+    "vehicule": 5,
+    "mobilier": 10,
+    "telephone": 3,
+    "travaux": 10,
+    "logiciel": 1,
+    "materiel": 5,
+}
+
+PLAFONDS_VEHICULE: list[dict] = [
+    {"label": "Électrique (≤ 20g CO2)", "co2_max": 20, "plafond": 30000},
+    {"label": "Hybride (20-50g CO2)", "co2_max": 50, "plafond": 20300},
+    {"label": "Standard (50-130g CO2)", "co2_max": 130, "plafond": 18300},
+    {"label": "Polluant (> 130g CO2)", "co2_max": 9999, "plafond": 9900},
+]
+
+COEFFICIENTS_DEGRESSIF: dict[int, float] = {
+    3: 1.25, 4: 1.25,
+    5: 1.75, 6: 1.75,
+    7: 2.25, 8: 2.25, 9: 2.25, 10: 2.25,
+}
 
 # Fichiers ML
 ML_DIR = DATA_DIR / "ml"
@@ -88,6 +128,7 @@ def ensure_directories():
         JUSTIFICATIFS_TRAITES_DIR, JUSTIFICATIFS_TEMP_DIR, JUSTIFICATIFS_SANDBOX_DIR,
         ML_DIR, ML_BACKUPS_DIR, COMPTA_ANALYTIQUE_DIR, OCR_DIR,
         GED_DIR, GED_THUMBNAILS_DIR,
+        AMORTISSEMENTS_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)

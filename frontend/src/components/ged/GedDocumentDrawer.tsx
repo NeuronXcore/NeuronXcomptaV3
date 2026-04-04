@@ -91,6 +91,8 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
       docId,
       updates: {
         poste_comptable: localDoc.poste_comptable,
+        categorie: localDoc.categorie,
+        sous_categorie: localDoc.sous_categorie,
         tags: localDoc.tags,
         notes: localDoc.notes,
         montant_brut: localDoc.montant_brut,
@@ -150,10 +152,14 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* PDF Preview */}
+          {/* Preview (PDF or image) */}
           {docId && (
             <div className="rounded-lg border border-border overflow-hidden bg-white">
-              <iframe src={previewUrl} className="w-full h-[45vh]" title="Preview" />
+              {name.match(/\.(jpg|jpeg|png)$/i) ? (
+                <img src={previewUrl} alt={name} className="w-full h-auto max-h-[45vh] object-contain" />
+              ) : (
+                <iframe src={previewUrl} className="w-full h-[45vh]" title="Preview" />
+              )}
             </div>
           )}
 

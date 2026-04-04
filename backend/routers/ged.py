@@ -114,6 +114,14 @@ async def open_native(doc_id: str):
     return {"status": "opened"}
 
 
+# ─── Types ───
+
+@router.get("/types")
+async def get_document_types():
+    """Retourne les types de documents distincts pour l'autocomplétion."""
+    return ged_service.get_distinct_types()
+
+
 # ─── Search ───
 
 @router.get("/search")

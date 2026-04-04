@@ -215,35 +215,60 @@ Compare deux périodes avec KPIs et ventilation par catégorie.
 
 ---
 
-## Reports (`/api/reports`)
+## Reports V2 (`/api/reports`)
 
 ### `GET /gallery`
-Liste les rapports générés.
+Liste complète des rapports avec années disponibles et nombre total.
+
+### `GET /tree`
+Arbre triple vue : `{ by_year: [...], by_category: [...], by_format: [...] }`.
+
+### `GET /templates`
+3 templates prédéfinis (BNC annuel, Ventilation charges, Récapitulatif social).
+
+### `GET /pending?year=2025`
+Rapports mensuels/trimestriels non générés pour les mois passés (rappels dashboard).
 
 ### `POST /generate`
-Générer un rapport.
+Générer un rapport avec déduplication (même filtres+format = remplacement).
 
 **Body :**
 ```json
 {
-  "source_files": ["operations_xxx.json"],
   "format": "pdf",
-  "title": "Rapport Novembre 2024",
+  "title": "Santé — Novembre 2024",
   "filters": {
-    "category": "Santé",
-    "date_from": "2024-11-01",
-    "date_to": "2024-11-30",
-    "important_only": false,
-    "min_amount": 50
-  }
+    "categories": ["Santé"],
+    "year": 2024,
+    "month": 11,
+    "type": "debit"
+  },
+  "template_id": null
 }
 ```
+
+**Réponse :** inclut `replaced: "ancien_filename.pdf"` si déduplication.
+
+### `POST /{filename}/regenerate`
+Re-génère un rapport existant (même titre/description, données actualisées).
+
+### `POST /{filename}/favorite`
+Toggle le favori d'un rapport.
+
+### `POST /compare`
+Compare 2 rapports. Body : `{ "filename_a": "...", "filename_b": "..." }`. Retourne deltas montants, ops, %.
+
+### `PUT /{filename}`
+Éditer titre et/ou description. Body : `{ "title": "...", "description": "..." }`
+
+### `GET /preview/{filename}`
+Sert le fichier avec `Content-Disposition: inline` pour preview iframe.
 
 ### `GET /download/{filename}`
 Télécharger un rapport.
 
 ### `DELETE /{filename}`
-Supprimer un rapport.
+Supprime le fichier + l'entrée dans l'index.
 
 ---
 
@@ -676,6 +701,68 @@ Tagger plusieurs documents. Body : `{ "doc_ids": [...], "tags": [...] }`
 Force un re-scan des sources. Utile après import/OCR.
 
 **Réponse :** `{ "success": true, "total_documents": 26 }`
+
+---
+
+## Amortissements (`/api/amortissements`)
+
+### `GET /`
+Liste des immobilisations avec champs calculés (`avancement_pct`, `vnc_actuelle`).
+
+**Query params :** `statut` (en_cours/amorti/sorti), `poste`, `year`
+
+### `GET /kpis?year=2025`
+KPIs : nb actives/amorties/sorties, nb candidates, dotation exercice, total VNC, ventilation par poste.
+
+### `GET /{immo_id}`
+Détail d'une immobilisation avec tableau d'amortissement complet calculé.
+
+### `POST /`
+Créer une immobilisation. Body : `ImmobilisationCreate`.
+
+### `PATCH /{immo_id}`
+Modifier une immobilisation. Auto-update statut si date_sortie renseignée ou VNC = 0.
+
+### `DELETE /{immo_id}`
+Supprimer une immobilisation du registre.
+
+### `GET /dotations/{year}`
+Dotations de l'exercice : total brut, total déductible, détail par immobilisation.
+
+### `GET /projections?years=5`
+Projections des dotations sur N années à partir de l'année courante.
+
+### `GET /tableau/{immo_id}`
+Tableau d'amortissement seul (sans metadata de l'immobilisation).
+
+### `GET /candidates`
+Opérations candidates à l'immobilisation : montant > seuil, catégorie éligible, pas déjà immobilisées/ignorées.
+
+### `POST /candidates/immobiliser`
+Crée l'immobilisation + lie l'opération source (change catégorie à "Immobilisations"). Body : `ImmobilisationCreate` avec `operation_source`.
+
+### `POST /candidates/ignore`
+Marque l'opération comme ignorée (`immobilisation_ignored: true`). Body : `{ "filename": "...", "index": 5 }`
+
+### `POST /cession/{immo_id}`
+Sortie d'actif : calcule VNC à la date de sortie, plus/moins-value, régime fiscal (court/long terme). Met à jour l'immobilisation avec statut "sorti". Body : `{ "date_sortie": "2025-06-15", "motif_sortie": "cession", "prix_cession": 5000 }`
+
+**Réponse :**
+```json
+{
+  "vnc_sortie": 3400.00,
+  "plus_value": 1600.00,
+  "moins_value": null,
+  "duree_detention_mois": 36,
+  "regime": "long_terme"
+}
+```
+
+### `GET /config`
+Configuration : seuil, durées par défaut, catégories éligibles, sous-catégories exclues.
+
+### `PUT /config`
+Sauvegarder la configuration. Body : `AmortissementConfig`.
 
 ---
 

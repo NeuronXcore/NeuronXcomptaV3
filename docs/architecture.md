@@ -237,14 +237,68 @@ Page Bibliothèque (/ged) → GedPage (split layout)
       → Recherche full-text : noms fichiers + tags + notes + contenu .ocr.json
 ```
 
+### Rapports V2
+
+```
+Page Rapports (/reports) → ReportsPage (2 onglets)
+  ├─ Onglet "Générer"
+  │   → 3 templates rapides (BNC annuel, Ventilation charges, Récapitulatif social)
+  │   → Filtres avancés (période, catégories multi-select, type, montant, format)
+  │   → Formats : PDF (EUR, ligne totaux), CSV (;/virgule/BOM), Excel (formules SUM)
+  │   → Déduplication : même clé (filtres+format) = remplacement ancien rapport
+  │
+  ├─ Onglet "Bibliothèque" (layout split comme GED)
+  │   → Arbre triple vue (par année / par catégorie / par format)
+  │   → Grille cartes avec favoris (étoile dorée, tri en premier)
+  │   → Sélection multiple pour comparaison (checkbox)
+  │   → Drawer preview 800px (PDF iframe, metadata, édition titre, re-génération)
+  │   → Drawer comparaison 700px (side-by-side, deltas montants/ops/%)
+  │
+  └─ Index JSON (data/reports/reports_index.json)
+      → Réconciliation au boot (sync filesystem ↔ index)
+      → Titre auto-généré (catégorie + période)
+```
+
+### Dotations aux Amortissements
+
+```
+Page Amortissements (/amortissements) → AmortissementsPage (4 onglets)
+  ├─ Registre : tableau immobilisations avec avancement %, VNC, statut
+  ├─ Tableau annuel : dotations par exercice avec totaux
+  ├─ Synthèse par poste : VNC et dotations par poste comptable
+  └─ Candidates : opérations détectées (montant > seuil + catégorie éligible)
+
+Moteur de calcul (dupliqué Python + TypeScript) :
+  ├─ Linéaire : annuité = base / durée, pro rata année 1 (jours/360), complément dernière année
+  ├─ Dégressif : taux = (1/durée) × coeff, bascule linéaire quand linéaire > dégressif
+  ├─ Plafonds véhicules : base plafonnée selon classe CO2 (30000/20300/18300/9900€)
+  └─ Quote-part pro : dotation_déductible = dotation_brute × quote_part_pro / 100
+
+Données : data/amortissements/immobilisations.json + config.json
+```
+
+### Dashboard V2 (Cockpit exercice)
+
+```
+Page Dashboard (/) → DashboardPage
+  → GET /api/analytics/year-overview?year=2025 (un seul appel agrégé)
+  ├─ Jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports)
+  ├─ 4 KPI cards (Recettes, Charges, BNC + sparkline, Charges sociales prov.)
+  ├─ Grille 12 mois avec 6 badges d'état, expansion au clic (montants + actions)
+  ├─ Alertes pondérées par impact (100/80/55+/40/25)
+  ├─ Rappels rapports à générer (rapports mensuels/trimestriels manquants)
+  ├─ Échéances fiscales (URSSAF T1-T4, CARMF, ODM) avec countdown J-XX
+  └─ Bar chart recettes vs dépenses + feed activité récente
+```
+
 ## Couches applicatives
 
 ### Frontend
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Components** | UI et interactions | `src/components/` (40+ fichiers, incl. `ged/` 11 fichiers) |
-| **Hooks** | Data fetching, cache, mutations, SSE, useYearOperations, useGed | `src/hooks/` (12 fichiers) |
+| **Components** | UI et interactions | `src/components/` (60+ fichiers, incl. `ged/`, `amortissements/`, `reports/`, `dashboard/`) |
+| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (14 fichiers, incl. useGed, useReports, useAmortissements) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -253,9 +307,9 @@ Page Bibliothèque (/ged) → GedPage (split layout)
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (15 fichiers, incl. ged.py) |
-| **Services** | Logique métier, I/O, watchdog, GED | `backend/services/` (14 fichiers, incl. ged_service.py) |
-| **Models** | Schémas Pydantic | `backend/models/` (7 fichiers, incl. ged.py) |
+| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (17 fichiers, incl. ged.py, amortissements.py) |
+| **Services** | Logique métier, I/O, watchdog, GED, amortissements | `backend/services/` (16 fichiers, incl. ged_service.py, amortissement_service.py) |
+| **Models** | Schémas Pydantic | `backend/models/` (10 fichiers, incl. ged.py, report.py, analytics.py, amortissement.py) |
 | **Config** | Chemins, constantes | `backend/core/config.py` |
 
 ## Stockage des données
@@ -288,6 +342,9 @@ data/
 │   ├── thumbnails/             # Cache thumbnails PNG (pdf2image, 200px)
 │   │   └── {md5_doc_id}.png
 │   └── {year}/{month}/         # Documents libres uploadés
+├── amortissements/
+│   ├── immobilisations.json    # Registre des immobilisations
+│   └── config.json             # Seuil (500€), durées, catégories éligibles, plafonds
 ├── compta_analytique/          # Presets de requêtes
 ├── logs/                       # Logs applicatifs (rotation 10 Mo)
 └── ocr/                        # Cache OCR global

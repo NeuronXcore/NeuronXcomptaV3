@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, X, FileText, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGedUpload, useGedPostes } from '@/hooks/useGed'
+import { useGedUpload, useGedPostes, useGedTypes } from '@/hooks/useGed'
+import { useCategories } from '@/hooks/useApi'
 
 interface GedUploadZoneProps {
   open: boolean
@@ -11,8 +12,10 @@ interface GedUploadZoneProps {
 
 export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
   const [file, setFile] = useState<File | null>(null)
-  const [docType, setDocType] = useState('document_libre')
+  const [docType, setDocType] = useState('divers')
   const [poste, setPoste] = useState('')
+  const [categorie, setCategorie] = useState('')
+  const [sousCategorie, setSousCategorie] = useState('')
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [tagInput, setTagInput] = useState('')
@@ -20,7 +23,16 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
   const [notes, setNotes] = useState('')
 
   const { data: postesConfig } = useGedPostes()
+  const { data: types = [] } = useGedTypes()
+  const { data: categoriesData } = useCategories()
   const uploadMutation = useGedUpload()
+
+  const categories = categoriesData?.categories ?? []
+  const subcategories = useMemo(() => {
+    if (!categorie) return []
+    const cat = categories.find(c => c.name === categorie)
+    return cat?.subcategories?.map(s => s.name) ?? []
+  }, [categorie, categories])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: files => { if (files[0]) setFile(files[0]) },
@@ -38,6 +50,8 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
           year,
           month,
           poste_comptable: poste || null,
+          categorie: categorie || null,
+          sous_categorie: sousCategorie || null,
           tags,
           notes,
         },
@@ -47,6 +61,8 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
           setFile(null)
           setTags([])
           setNotes('')
+          setCategorie('')
+          setSousCategorie('')
           onClose()
         },
       }
@@ -64,7 +80,7 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] max-w-[95vw] bg-background border border-border rounded-xl shadow-2xl z-50 p-6">
+      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] max-w-[95vw] max-h-[90vh] overflow-y-auto bg-background border border-border rounded-xl shadow-2xl z-50 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-text">Upload document</h2>
           <button onClick={onClose} className="p-1 text-text-muted hover:text-text">
@@ -103,20 +119,23 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
 
         {/* Form */}
         <div className="space-y-3">
+          {/* Type + Poste */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[10px] text-text-muted block mb-1">Type</label>
-              <select
+              <label className="text-[10px] text-text-muted block mb-1">Type de document</label>
+              <input
+                type="text"
+                list="ged-type-suggestions"
                 value={docType}
                 onChange={e => setDocType(e.target.value)}
-                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-              >
-                <option value="document_libre">Courrier fiscal</option>
-                <option value="document_libre">Courrier social</option>
-                <option value="document_libre">Contrat</option>
-                <option value="document_libre">Attestation</option>
-                <option value="document_libre">Divers</option>
-              </select>
+                placeholder="Ex: courrier CARMF, devis..."
+                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary"
+              />
+              <datalist id="ged-type-suggestions">
+                {types.map(t => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="text-[10px] text-text-muted block mb-1">Poste comptable</label>
@@ -133,6 +152,38 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
             </div>
           </div>
 
+          {/* Catégorie + Sous-catégorie */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-text-muted block mb-1">Catégorie</label>
+              <select
+                value={categorie}
+                onChange={e => { setCategorie(e.target.value); setSousCategorie('') }}
+                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+              >
+                <option value="">Aucune</option>
+                {categories.map(c => (
+                  <option key={c.name} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted block mb-1">Sous-catégorie</label>
+              <select
+                value={sousCategorie}
+                onChange={e => setSousCategorie(e.target.value)}
+                disabled={!categorie || subcategories.length === 0}
+                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary disabled:opacity-50"
+              >
+                <option value="">Aucune</option>
+                {subcategories.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Année + Mois */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-text-muted block mb-1">Année</label>

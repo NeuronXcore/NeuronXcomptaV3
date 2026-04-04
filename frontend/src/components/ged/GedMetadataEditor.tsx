@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { X, Plus } from 'lucide-react'
+import { useCategories } from '@/hooks/useApi'
 import type { GedDocument, PosteComptable } from '@/types'
 
 interface GedMetadataEditorProps {
@@ -10,6 +11,13 @@ interface GedMetadataEditorProps {
 
 export default function GedMetadataEditor({ document: doc, postes, onChange }: GedMetadataEditorProps) {
   const [tagInput, setTagInput] = useState('')
+  const { data: categoriesData } = useCategories()
+  const allCategories = categoriesData?.categories ?? []
+  const subcategories = useMemo(() => {
+    if (!doc.categorie) return []
+    const cat = allCategories.find(c => c.name === doc.categorie)
+    return cat?.subcategories?.map(s => s.name) ?? []
+  }, [doc.categorie, allCategories])
 
   const poste = doc.poste_comptable ? postes.find(p => p.id === doc.poste_comptable) : null
   const effectivePct = doc.deductible_pct_override ?? (poste?.deductible_pct ?? 0)
@@ -30,6 +38,37 @@ export default function GedMetadataEditor({ document: doc, postes, onChange }: G
 
   return (
     <div className="space-y-4">
+      {/* Classement comptable */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] text-text-muted block mb-1">Catégorie</label>
+          <select
+            value={doc.categorie || ''}
+            onChange={e => { onChange({ categorie: e.target.value || null, sous_categorie: null }) }}
+            className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+          >
+            <option value="">Aucune</option>
+            {allCategories.map(c => (
+              <option key={c.name} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-text-muted block mb-1">Sous-catégorie</label>
+          <select
+            value={doc.sous_categorie || ''}
+            onChange={e => onChange({ sous_categorie: e.target.value || null })}
+            disabled={!doc.categorie || subcategories.length === 0}
+            className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary disabled:opacity-50"
+          >
+            <option value="">Aucune</option>
+            {subcategories.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Fiscalité */}
       <div className="bg-surface rounded-lg border border-border p-4 space-y-3">
         <h4 className="text-xs font-semibold text-text uppercase tracking-wide">Fiscalité</h4>

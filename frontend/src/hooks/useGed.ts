@@ -36,6 +36,13 @@ export function useGedDocuments(filters: GedFilters) {
   })
 }
 
+export function useGedTypes() {
+  return useQuery<string[]>({
+    queryKey: ['ged-types'],
+    queryFn: () => api.get('/ged/types'),
+  })
+}
+
 export function useGedPostes() {
   return useQuery<PostesConfig>({
     queryKey: ['ged-postes'],
@@ -75,7 +82,8 @@ export function useGedUpload() {
       queryClient.invalidateQueries({ queryKey: ['ged-tree'] })
       queryClient.invalidateQueries({ queryKey: ['ged-documents'] })
       queryClient.invalidateQueries({ queryKey: ['ged-stats'] })
-      toast.success('Document uploadé')
+      queryClient.invalidateQueries({ queryKey: ['ged-types'] })
+      toast.success('Document uploadé avec OCR')
     },
     onError: (e: Error) => toast.error(e.message),
   })

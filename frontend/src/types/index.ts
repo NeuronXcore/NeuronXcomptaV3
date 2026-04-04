@@ -33,6 +33,9 @@ export interface Operation {
   alerte_note?: string
   _index?: number
   _sourceFile?: string
+  immobilisation_id?: string
+  immobilisation_candidate?: boolean
+  immobilisation_ignored?: boolean
 }
 
 export interface OperationFile {
@@ -413,6 +416,91 @@ export interface SoldePrevisionnel {
   alerte: boolean
 }
 
+// ─── Reports V2 ───
+
+export interface ReportFiltersV2 {
+  categories?: string[]
+  subcategories?: string[]
+  date_from?: string
+  date_to?: string
+  year?: number
+  quarter?: number
+  month?: number
+  type?: 'debit' | 'credit' | 'all'
+  important_only?: boolean
+  min_amount?: number
+  max_amount?: number
+}
+
+export interface ReportGenerateRequest {
+  format: 'pdf' | 'csv' | 'excel'
+  title?: string
+  description?: string
+  filters: ReportFiltersV2
+  template_id?: string
+}
+
+export interface ReportMetadata {
+  filename: string
+  title: string
+  description?: string
+  format: string
+  generated_at: string
+  filters: ReportFiltersV2
+  template_id?: string
+  nb_operations: number
+  total_debit: number
+  total_credit: number
+  file_size: number
+  file_size_human: string
+  year?: number
+  quarter?: number
+  month?: number
+  favorite?: boolean
+  categories_label?: string
+  replaced?: string
+}
+
+export interface ReportTemplate {
+  id: string
+  label: string
+  description: string
+  icon: string
+  format: string
+  filters: ReportFiltersV2
+}
+
+export interface ReportTreeResponse {
+  by_year: GedTreeNode[]
+  by_category: GedTreeNode[]
+  by_format: GedTreeNode[]
+}
+
+export interface ReportComparison {
+  report_a: ReportMetadata
+  report_b: ReportMetadata
+  delta_debit: number
+  delta_credit: number
+  delta_ops: number
+  delta_debit_pct: number
+  delta_credit_pct: number
+}
+
+export interface PendingReport {
+  type: string
+  period: string
+  message: string
+  year: number
+  month?: number
+  quarter?: number
+}
+
+export interface ReportGalleryResponse {
+  reports: ReportMetadata[]
+  available_years: number[]
+  total_count: number
+}
+
 // ─── GED ───
 
 export interface PosteComptable {
@@ -436,6 +524,8 @@ export interface GedDocument {
   year: number | null
   month: number | null
   poste_comptable: string | null
+  categorie: string | null
+  sous_categorie: string | null
   montant_brut: number | null
   deductible_pct_override: number | null
   tags: string[]
@@ -480,6 +570,74 @@ export interface GedStats {
   }>
 }
 
+// ─── Dashboard V2 (Year Overview) ───
+
+export interface MoisOverview {
+  mois: number
+  label: string
+  has_releve: boolean
+  nb_operations: number
+  taux_lettrage: number
+  taux_justificatifs: number
+  taux_categorisation: number
+  taux_rapprochement: number
+  has_export: boolean
+  total_credit: number
+  total_debit: number
+  filename: string | null
+}
+
+export interface DashboardKPIs {
+  total_recettes: number
+  total_charges: number
+  bnc_estime: number
+  nb_operations: number
+  nb_mois_actifs: number
+  bnc_mensuel: number[]
+}
+
+export interface DeltaN1 {
+  prev_total_recettes: number
+  prev_total_charges: number
+  prev_bnc: number
+  delta_recettes_pct: number
+  delta_charges_pct: number
+  delta_bnc_pct: number
+}
+
+export interface AlerteDashboard {
+  type: string
+  mois: number
+  year: number
+  impact: number
+  message: string
+  detail: string
+  count: number
+}
+
+export interface ProgressionExercice {
+  globale: number
+  criteres: Record<string, number>
+}
+
+export interface ActiviteRecente {
+  type: string
+  message: string
+  timestamp: string
+  detail: string
+}
+
+export interface YearOverviewResponse {
+  year: number
+  mois: MoisOverview[]
+  kpis: DashboardKPIs
+  delta_n1: DeltaN1 | null
+  alertes: AlerteDashboard[]
+  progression: ProgressionExercice
+  activite_recente: ActiviteRecente[]
+  pending_reports?: PendingReport[]
+}
+
 export interface GedFilters {
   type?: string
   year?: number
@@ -489,4 +647,117 @@ export interface GedFilters {
   search?: string
   sort_by?: string
   sort_order?: 'asc' | 'desc'
+}
+
+// ─── Amortissements ───
+
+export interface OperationSourceRef {
+  file: string
+  index: number
+}
+
+export interface Immobilisation {
+  id: string
+  libelle: string
+  date_acquisition: string
+  valeur_origine: number
+  duree_amortissement: number
+  methode: 'lineaire' | 'degressif'
+  poste_comptable: string
+  date_mise_en_service: string | null
+  date_sortie: string | null
+  motif_sortie: string | null
+  prix_cession: number | null
+  quote_part_pro: number
+  plafond_fiscal: number | null
+  co2_classe: string | null
+  operation_source: OperationSourceRef | null
+  justificatif_id: string | null
+  ged_doc_id: string | null
+  created_at: string
+  statut: 'en_cours' | 'amorti' | 'sorti'
+  notes: string | null
+  avancement_pct?: number
+  vnc_actuelle?: number
+  tableau?: LigneAmortissement[]
+}
+
+export interface ImmobilisationCreate {
+  libelle: string
+  date_acquisition: string
+  valeur_origine: number
+  duree_amortissement: number
+  methode?: string
+  poste_comptable: string
+  date_mise_en_service?: string | null
+  quote_part_pro?: number
+  plafond_fiscal?: number | null
+  co2_classe?: string | null
+  operation_source?: OperationSourceRef | null
+  justificatif_id?: string | null
+  ged_doc_id?: string | null
+  notes?: string | null
+}
+
+export interface LigneAmortissement {
+  exercice: number
+  jours: number
+  base_amortissable: number
+  dotation_brute: number
+  quote_part_pro: number
+  dotation_deductible: number
+  amortissements_cumules: number
+  vnc: number
+}
+
+export interface AmortissementCandidate {
+  filename: string
+  index: number
+  date: string
+  libelle: string
+  categorie: string
+  sous_categorie: string
+  debit: number
+}
+
+export interface AmortissementKpis {
+  nb_actives: number
+  nb_amorties: number
+  nb_sorties: number
+  nb_candidates: number
+  dotation_exercice: number
+  total_vnc: number
+  total_valeur_origine: number
+  postes: Array<{ poste: string; nb: number; vnc: number; dotation: number }>
+}
+
+export interface DotationsExercice {
+  year: number
+  total_dotations_brutes: number
+  total_dotations_deductibles: number
+  detail: Array<{
+    immo_id: string
+    libelle: string
+    poste_comptable: string
+    dotation_brute: number
+    dotation_deductible: number
+    vnc: number
+  }>
+}
+
+export interface AmortissementConfig {
+  seuil_immobilisation: number
+  durees_par_defaut: Record<string, number>
+  methode_par_defaut: string
+  categories_immobilisables: string[]
+  sous_categories_exclues: string[]
+  exercice_cloture: string
+}
+
+export interface CessionResult {
+  vnc_sortie: number
+  plus_value: number | null
+  moins_value: number | null
+  duree_detention_mois: number
+  regime: 'court_terme' | 'long_terme'
 }
