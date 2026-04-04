@@ -22,7 +22,7 @@ import {
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
-import { useOperationFiles, useOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
+import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
@@ -114,7 +114,8 @@ export default function EditorPage() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
-  const { data: rawOperations, isLoading: opsLoading } = useOperations(selectedFile)
+  const [allYearMode, setAllYearMode] = useState(false)
+  const { data: rawOperations, isLoading: opsLoading } = useOperations(allYearMode ? null : selectedFile)
 
   // Années et mois disponibles pour le sélecteur en cascade
   const availableYears = useMemo(() => {
@@ -129,6 +130,11 @@ export default function EditorPage() {
       .filter(f => f.year === selectedYear)
       .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
   }, [files, selectedYear])
+
+  const totalYearOps = useMemo(() => monthsForYear.reduce((s, f) => s + f.count, 0), [monthsForYear])
+
+  // Year-wide operations (all files for selected year)
+  const { data: yearOperations, isLoading: yearOpsLoading } = useYearOperations(monthsForYear, allYearMode)
 
   const [operations, setOperations] = useState<Operation[]>([])
   const [hasChanges, setHasChanges] = useState(false)
@@ -204,13 +210,14 @@ export default function EditorPage() {
 
   // Sync operations when loaded from API
   useEffect(() => {
-    if (rawOperations) {
-      setOperations([...rawOperations])
+    const data = allYearMode ? yearOperations : rawOperations
+    if (data) {
+      setOperations([...data])
       setHasChanges(false)
       setUndoStack([])
       setRowSelection({})
     }
-  }, [rawOperations])
+  }, [rawOperations, yearOperations, allYearMode])
 
   // Auto-catégorisation IA au chargement d'un fichier (vides uniquement)
   useEffect(() => {
@@ -728,15 +735,25 @@ export default function EditorPage() {
         description="Modifier et catégoriser vos opérations bancaires"
         actions={
           <div className="flex gap-2 items-center">
-            {/* Undo */}
-            <button
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              className="flex items-center gap-1.5 px-2.5 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover disabled:opacity-30 transition-colors"
-              title="Annuler (Ctrl+Z)"
-            >
-              <RotateCcw size={15} />
-            </button>
+            {allYearMode && (
+              <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
+                Lecture seule — Année complète
+              </span>
+            )}
+
+            {!allYearMode && (
+              <>
+                {/* Undo */}
+                <button
+                  onClick={handleUndo}
+                  disabled={undoStack.length === 0}
+                  className="flex items-center gap-1.5 px-2.5 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover disabled:opacity-30 transition-colors"
+                  title="Annuler (Ctrl+Z)"
+                >
+                  <RotateCcw size={15} />
+                </button>
+              </>
+            )}
 
             {/* Export CSV */}
             <button
@@ -748,57 +765,61 @@ export default function EditorPage() {
               <Download size={15} />
             </button>
 
-            {/* Lettrage stats */}
-            {lettrageStats && selectedFile && (
-              <span className="text-xs font-mono text-text-muted px-2 py-2 bg-surface border border-border rounded-lg">
-                <CheckCircle2 size={12} className="inline mr-1 text-emerald-400" />
-                {lettrageStats.lettrees}/{lettrageStats.total} L
-              </span>
+            {!allYearMode && (
+              <>
+                {/* Lettrage stats */}
+                {lettrageStats && selectedFile && (
+                  <span className="text-xs font-mono text-text-muted px-2 py-2 bg-surface border border-border rounded-lg">
+                    <CheckCircle2 size={12} className="inline mr-1 text-emerald-400" />
+                    {lettrageStats.lettrees}/{lettrageStats.total} L
+                  </span>
+                )}
+
+                {/* Tout lettrer */}
+                {lettrageStats && lettrageStats.non_lettrees > 0 && selectedFile && (
+                  <button
+                    onClick={() => {
+                      const indices = operations.map((_, i) => i)
+                      bulkLettrageMutation.mutate({ filename: selectedFile, indices, lettre: true })
+                    }}
+                    disabled={bulkLettrageMutation.isPending}
+                    className="flex items-center gap-1.5 px-2.5 py-2 text-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+                    title="Lettrer toutes les opérations"
+                  >
+                    <CheckCircle2 size={15} />
+                    Tout L
+                  </button>
+                )}
+
+                {/* Recatégoriser IA (force toutes les lignes) */}
+                <button
+                  onClick={() => handleCategorize('all')}
+                  disabled={!selectedFile || categorizeMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm bg-primary/10 text-primary border border-primary/30 rounded-lg hover:bg-primary/20 disabled:opacity-50 transition-colors"
+                >
+                  <Bot size={15} />
+                  {categorizeMutation.isPending ? 'IA...' : 'Recatégoriser IA'}
+                </button>
+
+                {/* Save */}
+                <button
+                  onClick={handleSave}
+                  disabled={!hasChanges || saveMutation.isPending}
+                  className={cn(
+                    'flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg transition-all',
+                    saveSuccess
+                      ? 'bg-success text-white'
+                      : hasChanges
+                        ? 'bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/25'
+                        : 'bg-primary/50 text-white/70 cursor-not-allowed'
+                  )}
+                >
+                  {saveMutation.isPending ? <Loader2 size={15} className="animate-spin" /> :
+                   saveSuccess ? <Check size={15} /> : <Save size={15} />}
+                  {saveSuccess ? 'OK!' : 'Sauvegarder'}
+                </button>
+              </>
             )}
-
-            {/* Tout lettrer */}
-            {lettrageStats && lettrageStats.non_lettrees > 0 && selectedFile && (
-              <button
-                onClick={() => {
-                  const indices = operations.map((_, i) => i)
-                  bulkLettrageMutation.mutate({ filename: selectedFile, indices, lettre: true })
-                }}
-                disabled={bulkLettrageMutation.isPending}
-                className="flex items-center gap-1.5 px-2.5 py-2 text-sm bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
-                title="Lettrer toutes les opérations"
-              >
-                <CheckCircle2 size={15} />
-                Tout L
-              </button>
-            )}
-
-            {/* Recatégoriser IA (force toutes les lignes) */}
-            <button
-              onClick={() => handleCategorize('all')}
-              disabled={!selectedFile || categorizeMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-primary/10 text-primary border border-primary/30 rounded-lg hover:bg-primary/20 disabled:opacity-50 transition-colors"
-            >
-              <Bot size={15} />
-              {categorizeMutation.isPending ? 'IA...' : 'Recatégoriser IA'}
-            </button>
-
-            {/* Save */}
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges || saveMutation.isPending}
-              className={cn(
-                'flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg transition-all',
-                saveSuccess
-                  ? 'bg-success text-white'
-                  : hasChanges
-                    ? 'bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/25'
-                    : 'bg-primary/50 text-white/70 cursor-not-allowed'
-              )}
-            >
-              {saveMutation.isPending ? <Loader2 size={15} className="animate-spin" /> :
-               saveSuccess ? <Check size={15} /> : <Save size={15} />}
-              {saveSuccess ? 'OK!' : 'Sauvegarder'}
-            </button>
           </div>
         }
       />
@@ -813,6 +834,7 @@ export default function EditorPage() {
             setSelectedYear(yr)
             setSelectedMonth(null)
             setSelectedFile(null)
+            setAllYearMode(false)
             setRowSelection({})
             // Auto-sélectionner le premier mois de l'année
             if (yr && files) {
@@ -833,20 +855,32 @@ export default function EditorPage() {
 
         {/* Month selector */}
         <select
-          value={selectedFile ?? ''}
+          value={allYearMode ? '__ALL__' : (selectedFile ?? '')}
           onChange={e => {
-            const fname = e.target.value || null
-            setSelectedFile(fname)
-            setRowSelection({})
-            if (fname && files) {
-              const match = files.find(f => f.filename === fname)
-              if (match) setSelectedMonth(match.month ?? null)
+            const val = e.target.value
+            if (val === '__ALL__') {
+              setAllYearMode(true)
+              setSelectedFile(null)
+              setSelectedMonth(null)
+              setRowSelection({})
+            } else {
+              setAllYearMode(false)
+              const fname = val || null
+              setSelectedFile(fname)
+              setRowSelection({})
+              if (fname && files) {
+                const match = files.find(f => f.filename === fname)
+                if (match) setSelectedMonth(match.month ?? null)
+              }
             }
           }}
           disabled={!selectedYear}
           className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text flex-1 max-w-xs disabled:opacity-50"
         >
           <option value="">Mois...</option>
+          {monthsForYear.length > 1 && (
+            <option value="__ALL__">Toute l'année ({totalYearOps} ops)</option>
+          )}
           {monthsForYear.map(f => (
             <option key={f.filename} value={f.filename}>
               {MOIS_FR[(f.month ?? 1) - 1]} ({f.count} ops)
@@ -904,16 +938,18 @@ export default function EditorPage() {
         </button>
 
         {/* Add row */}
-        <button
-          onClick={addRow}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors"
-        >
-          <Plus size={15} />
-          Ligne
-        </button>
+        {!allYearMode && (
+          <button
+            onClick={addRow}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors"
+          >
+            <Plus size={15} />
+            Ligne
+          </button>
+        )}
 
         {/* Batch delete */}
-        {selectedCount > 0 && (
+        {!allYearMode && selectedCount > 0 && (
           <button
             onClick={deleteSelectedRows}
             className="flex items-center gap-1.5 px-3 py-2 text-sm bg-danger/10 text-danger border border-danger/30 rounded-lg hover:bg-danger/20 transition-colors"
@@ -926,17 +962,38 @@ export default function EditorPage() {
 
       {/* Filters panel */}
       {showFilters && (
-        <div className="bg-surface rounded-xl border border-border p-4 mb-3 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-surface rounded-xl border border-border p-4 mb-3 grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="text-xs text-text-muted mb-1.5 block font-medium">Catégorie</label>
             <select
               value={(table.getColumn('Catégorie')?.getFilterValue() as string) ?? ''}
-              onChange={e => table.getColumn('Catégorie')?.setFilterValue(e.target.value || undefined)}
+              onChange={e => {
+                table.getColumn('Catégorie')?.setFilterValue(e.target.value || undefined)
+                table.getColumn('Sous-catégorie')?.setFilterValue(undefined)
+              }}
               className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text"
             >
               <option value="">Toutes les catégories</option>
               {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="text-xs text-text-muted mb-1.5 block font-medium">Sous-catégorie</label>
+            {(() => {
+              const selectedCat = (table.getColumn('Catégorie')?.getFilterValue() as string) ?? ''
+              const subs = selectedCat ? (subcategoriesMap.get(selectedCat) || []) : []
+              return (
+                <select
+                  value={(table.getColumn('Sous-catégorie')?.getFilterValue() as string) ?? ''}
+                  onChange={e => table.getColumn('Sous-catégorie')?.setFilterValue(e.target.value || undefined)}
+                  disabled={!selectedCat || subs.length === 0}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text disabled:opacity-40"
+                >
+                  <option value="">{!selectedCat ? 'Choisir catégorie...' : subs.length === 0 ? 'Aucune sous-cat.' : 'Toutes'}</option>
+                  {subs.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )
+            })()}
           </div>
           <div>
             <label className="text-xs text-text-muted mb-1.5 block font-medium">Afficher</label>
@@ -950,7 +1007,7 @@ export default function EditorPage() {
               ))}
             </select>
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 col-start-4">
             <label className="text-xs text-text-muted mb-1.5 block font-medium">Statistiques</label>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-background rounded-lg p-2 flex justify-between">
@@ -983,9 +1040,9 @@ export default function EditorPage() {
       )}
 
       {/* Main table */}
-      {opsLoading ? (
-        <LoadingSpinner text="Chargement des opérations..." />
-      ) : !selectedFile ? (
+      {(opsLoading || yearOpsLoading) ? (
+        <LoadingSpinner text={allYearMode ? "Chargement de l'année complète..." : "Chargement des opérations..."} />
+      ) : !selectedFile && !allYearMode ? (
         <div className="bg-surface rounded-xl border border-border p-16 text-center">
           <div className="text-text-muted">
             <Paperclip size={48} className="mx-auto mb-4 opacity-30" />

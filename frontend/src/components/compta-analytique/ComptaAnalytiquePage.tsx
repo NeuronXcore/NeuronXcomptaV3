@@ -120,7 +120,7 @@ export default function ComptaAnalytiquePage() {
       </div>
 
       {pageMode === 'comparatif' ? (
-        <ComparatifSection />
+        <ComparatifSection onCategoryClick={(cat) => setDrillCategory(cat)} />
       ) : (
       <div className="space-y-6">
         {/* Global Period Filters */}

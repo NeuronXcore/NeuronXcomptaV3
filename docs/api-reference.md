@@ -205,9 +205,12 @@ Compare deux périodes avec KPIs et ventilation par catégorie.
   "period_b": { "total_debit": 79802, "total_credit": 98755, "solde": 18952, "nb_operations": 176 },
   "delta": { "total_debit": -62.1, "total_credit": -29.5, "solde": -73.2, "nb_operations": 46.7 },
   "categories": [
-    { "category": "Matériel", "a_debit": 30000, "b_debit": 42000, "delta_pct": 40.0, "a_ops": 15, "b_ops": 22 }
+    { "category": "Matériel", "a_debit": 30000, "a_credit": 0, "b_debit": 42000, "b_credit": 0, "delta_pct": 40.0, "a_ops": 15, "b_ops": 22 }
   ]
 }
+```
+
+**Note :** Le frontend sépare les catégories en recettes (credit > debit) et dépenses, avec 2 tableaux et 2 graphiques distincts.
 ```
 
 ---

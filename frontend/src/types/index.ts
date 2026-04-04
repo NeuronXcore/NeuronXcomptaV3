@@ -32,6 +32,7 @@ export interface Operation {
   compte_attente?: boolean
   alerte_note?: string
   _index?: number
+  _sourceFile?: string
 }
 
 export interface OperationFile {

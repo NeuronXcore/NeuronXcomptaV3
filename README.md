@@ -12,10 +12,10 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 |--------|-------------|
 | **Tableau de bord** | KPIs financiers, graphiques d'évolution, opérations récentes |
 | **Importation** | Upload de relevés bancaires PDF, extraction automatique des opérations (dates YYYY-MM-DD, filtrage soldes/totaux) |
-| **Éditeur** | Édition inline, catégorisation IA (vides/tout), colonnes : Justificatif, Important, À revoir, Pointée |
+| **Éditeur** | Édition inline, catégorisation IA (vides/tout), **vue année complète** (lecture seule), **filtres catégorie + sous-catégorie**, colonnes : Justificatif, Important, À revoir, Pointée |
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
 | **Rapports** | Génération PDF, CSV et Excel avec filtres avancés |
-| **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, comparatif périodes, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
+| **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, **comparatif périodes avec séparation recettes/dépenses**, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | **Rapprochement** | Rapprochement auto + drawer manuel avec filtres, scores, preview PDF |
 | **Justificatifs** | Galerie, association aux opérations, suggestions automatiques (upload via page OCR) |
 | **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups |

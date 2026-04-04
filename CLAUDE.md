@@ -57,7 +57,7 @@ neuronXcompta/
 │       ├── App.tsx             # All 14 routes (Accueil fusionné avec Dashboard)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
 │       ├── components/         # 30+ .tsx components
-│       ├── hooks/              # 11 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes)
+│       ├── hooks/              # 11 hook files (useApi, useOperations [incl. useYearOperations], useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes)
 │       ├── types/index.ts      # All TypeScript interfaces
 │       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, formatFileTitle
 │       └── index.css           # Tailwind @theme with custom colors
@@ -107,10 +107,10 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 |-------|-----------|-------------|
 | `/` | DashboardPage | KPIs, charts, recent operations (anciennement Accueil + Dashboard fusionnés) |
 | `/import` | ImportPage | PDF drag-drop import |
-| `/editor` | EditorPage | Inline editing, **auto-catégorisation IA au chargement** (vides), bouton "Recatégoriser IA" (tout), **sélecteur année → mois en cascade**, colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert), PDF preview |
+| `/editor` | EditorPage | Inline editing, **auto-catégorisation IA au chargement** (vides), bouton "Recatégoriser IA" (tout), **sélecteur année → mois en cascade** avec option **"Toute l'année"** (lecture seule, charge N fichiers en parallèle via `useYearOperations`), **filtres catégorie + sous-catégorie** en cascade, colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert), PDF preview |
 | `/categories` | CategoriesPage | 4-tab category management |
 | `/reports` | ReportsPage | Report generation (CSV/PDF/Excel) + gallery |
-| `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie, comparatif périodes, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
+| `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie (drawer sous-catégories), **comparatif périodes avec séparation recettes/dépenses** (2 graphiques, 2 tableaux, delta badges inversés pour revenus, clic catégorie → drawer), tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | `/justificatifs` | JustificatifsPage | Galerie, association, PDF preview drawer, sandbox SSE badge (upload retiré — passe par OCR) |
 | `/agent-ai` | AgentIAPage | ML model dashboard, rules, training, backups |
 | `/export` | ExportPage | Monthly ZIP export with calendar grid |
@@ -147,6 +147,9 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - **Toasts**: Use `react-hot-toast` (`toast.success()`, `toast.error()`) — `<Toaster />` is in `App.tsx`
 - **Sidebar sections**: Utilise `NAV_SECTIONS` avec labels de section discrets (uppercase, text-[10px])
 - **File selectors**: EditorPage et AlertesPage utilisent un sélecteur en cascade **année → mois** (pas de dropdown unique surchargé). Fichiers triés chronologiquement. `availableYears` et `monthsForYear` via `useMemo`.
+- **Year-wide view**: EditorPage propose "Toute l'année" qui charge tous les fichiers en parallèle via `useYearOperations` (hook `useQueries`). Mode **lecture seule** (pas de save/edit). Badge ambre "Lecture seule — Année complète". Filtres et tri fonctionnels.
+- **Category/subcategory filters**: Panel Filtres de EditorPage propose un dropdown catégorie + un dropdown sous-catégorie dépendant (peuplé via `subcategoriesMap`). Reset auto de la sous-catégorie au changement de catégorie. Grille 5 colonnes.
+- **Comparatif recettes/dépenses**: ComparatifSection sépare les catégories en 2 groupes (recettes si credit > debit, dépenses sinon). 2 graphiques côte à côte avec légendes dynamiques (périodes sélectionnées). 2 tableaux avec colonnes adaptées (Crédit A/B pour recettes, Débit A/B pour dépenses). Delta badges inversés pour les revenus (hausse = vert). Clic catégorie → CategoryDetailDrawer.
 - **Auto-categorization**: EditorPage déclenche automatiquement `categorizeMutation` (mode `empty_only`) au chargement d'un fichier via `useEffect` + `useRef` anti-boucle.
 - **Image upload**: Justificatifs acceptent PDF/JPG/PNG. Images converties en PDF à l'intake via `_convert_image_to_pdf()` (Pillow). Validation magic bytes multi-format.
 

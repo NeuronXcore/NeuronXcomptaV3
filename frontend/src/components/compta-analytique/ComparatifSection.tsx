@@ -1,14 +1,13 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useComparePeriods, useOperationFiles } from '@/hooks/useApi'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
-  TrendingUp, TrendingDown, Minus, ArrowRight, Loader2,
+  TrendingUp, TrendingDown, Minus, ArrowRight, Loader2, ChevronRight,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend,
 } from 'recharts'
-import { useMemo } from 'react'
 
 const tooltipStyle = {
   backgroundColor: '#1e293b',
@@ -73,16 +72,16 @@ function PeriodSelector({
   )
 }
 
-function DeltaBadge({ value }: { value: number | null }) {
+function DeltaBadge({ value, invertColors }: { value: number | null; invertColors?: boolean }) {
   if (value == null) return <span className="text-text-muted text-[10px]">—</span>
   const isPos = value > 0
   const isNeg = value < 0
+  const posColor = invertColors ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+  const negColor = invertColors ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'
   return (
     <span className={cn(
       'inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full',
-      isPos ? 'bg-red-500/15 text-red-400' :
-      isNeg ? 'bg-emerald-500/15 text-emerald-400' :
-      'bg-zinc-500/15 text-text-muted',
+      isPos ? posColor : isNeg ? negColor : 'bg-zinc-500/15 text-text-muted',
     )}>
       {isPos ? <TrendingUp size={9} /> : isNeg ? <TrendingDown size={9} /> : <Minus size={9} />}
       {isPos ? '+' : ''}{value.toFixed(1)}%
@@ -90,7 +89,16 @@ function DeltaBadge({ value }: { value: number | null }) {
   )
 }
 
-export default function ComparatifSection() {
+function deltaPct(a: number, b: number): number | null {
+  if (a === 0) return null
+  return (b - a) / Math.abs(a) * 100
+}
+
+interface Props {
+  onCategoryClick: (cat: string) => void
+}
+
+export default function ComparatifSection({ onCategoryClick }: Props) {
   const { data: opFiles } = useOperationFiles()
   const years = useMemo(() => {
     if (!opFiles) return []
@@ -114,21 +122,50 @@ export default function ComparatifSection() {
     canCompare,
   )
 
-  // Chart data
-  const chartData = useMemo(() => {
-    if (!data) return []
-    return data.categories
-      .filter(c => c.a_debit > 0 || c.b_debit > 0)
-      .slice(0, 12)
-      .map(c => ({
-        name: c.category.length > 12 ? c.category.slice(0, 12) + '…' : c.category,
-        'Période A': c.a_debit,
-        'Période B': c.b_debit,
-      }))
+  // Split categories into recettes / dépenses
+  const { recettes, depenses } = useMemo(() => {
+    if (!data) return { recettes: [], depenses: [] }
+    const rec: typeof data.categories = []
+    const dep: typeof data.categories = []
+    for (const c of data.categories) {
+      if ((c.a_credit + c.b_credit) > (c.a_debit + c.b_debit)) {
+        rec.push(c)
+      } else {
+        dep.push(c)
+      }
+    }
+    // Sort recettes by total credit desc
+    rec.sort((a, b) => (b.a_credit + b.b_credit) - (a.a_credit + a.b_credit))
+    // Sort depenses by total debit desc
+    dep.sort((a, b) => (b.a_debit + b.b_debit) - (a.a_debit + a.b_debit))
+    return { recettes: rec, depenses: dep }
   }, [data])
 
   const periodLabelA = [yearA, quarterA ? `T${quarterA}` : null, monthA ? MOIS_FR[monthA - 1]?.slice(0, 3) : null].filter(Boolean).join(' ') || 'Toutes'
   const periodLabelB = [yearB, quarterB ? `T${quarterB}` : null, monthB ? MOIS_FR[monthB - 1]?.slice(0, 3) : null].filter(Boolean).join(' ') || 'Toutes'
+  // Chart data - recettes (stable keys for Recharts, display via `name` prop on Bar)
+  const chartRecettes = useMemo(() => {
+    return recettes
+      .filter(c => c.a_credit > 0 || c.b_credit > 0)
+      .slice(0, 8)
+      .map(c => ({
+        name: c.category.length > 14 ? c.category.slice(0, 14) + '…' : c.category,
+        periodA: c.a_credit,
+        periodB: c.b_credit,
+      }))
+  }, [recettes])
+
+  // Chart data - dépenses
+  const chartDepenses = useMemo(() => {
+    return depenses
+      .filter(c => c.a_debit > 0 || c.b_debit > 0)
+      .slice(0, 10)
+      .map(c => ({
+        name: c.category.length > 14 ? c.category.slice(0, 14) + '…' : c.category,
+        periodA: c.a_debit,
+        periodB: c.b_debit,
+      }))
+  }, [depenses])
 
   return (
     <div className="space-y-6">
@@ -183,66 +220,211 @@ export default function ComparatifSection() {
                     <p className="text-[10px] text-blue-400 mb-0.5">A: {kpi.label === 'Opérations' ? kpi.aVal : formatCurrency(kpi.aVal)}</p>
                     <p className={cn('text-sm font-semibold', kpi.color)}>B: {kpi.label === 'Opérations' ? kpi.bVal : formatCurrency(kpi.bVal)}</p>
                   </div>
-                  <DeltaBadge value={kpi.delta} />
+                  <DeltaBadge value={kpi.delta} invertColors={kpi.label === 'Revenus' || kpi.label === 'Solde'} />
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Chart */}
-          {chartData.length > 0 && (
+          {/* Charts side by side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recettes chart */}
+            {chartRecettes.length > 0 && (
+              <div className="bg-surface rounded-xl border border-border p-5">
+                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  Recettes par catégorie
+                </h3>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={chartRecettes} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} angle={-30} textAnchor="end" height={60} />
+                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} width={70} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    <Bar dataKey="periodA" name={periodLabelA} fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="periodB" name={periodLabelB} fill="#22c55e" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Dépenses chart */}
+            {chartDepenses.length > 0 && (
+              <div className="bg-surface rounded-xl border border-border p-5">
+                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-400" />
+                  Dépenses par catégorie
+                </h3>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={chartDepenses} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} angle={-30} textAnchor="end" height={60} />
+                    <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} width={70} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    <Bar dataKey="periodA" name={periodLabelA} fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="periodB" name={periodLabelB} fill="#ef4444" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Recettes table */}
+          {recettes.length > 0 && (
             <div className="bg-surface rounded-xl border border-border p-5">
-              <h3 className="text-sm font-semibold mb-4">Dépenses par catégorie</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} angle={-30} textAnchor="end" height={60} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} width={70} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-                  <Legend wrapperStyle={{ fontSize: '11px' }} />
-                  <Bar dataKey="Période A" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="Période B" fill="#811971" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                Recettes
+                <span className="text-[10px] text-text-muted font-normal ml-auto">Cliquez pour le détail</span>
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-text-muted text-xs">
+                      <th className="text-left py-2 px-2">Catégorie</th>
+                      <th className="text-right py-2 px-2 text-blue-400">Crédit {periodLabelA}</th>
+                      <th className="text-right py-2 px-2 text-emerald-400">Crédit {periodLabelB}</th>
+                      <th className="text-right py-2 px-2">Δ%</th>
+                      <th className="text-right py-2 px-2 text-blue-400">Ops A</th>
+                      <th className="text-right py-2 px-2 text-emerald-400">Ops B</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recettes.map((c, i) => (
+                      <tr
+                        key={i}
+                        onClick={() => onCategoryClick(c.category)}
+                        className="border-b border-border/30 hover:bg-surface-hover transition-colors cursor-pointer"
+                      >
+                        <td className="py-2 px-2 text-xs text-text">
+                          <span className="inline-flex items-center gap-2">
+                            {c.category}
+                            <ChevronRight size={10} className="text-text-muted" />
+                          </span>
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-xs text-blue-400">
+                          {c.a_credit > 0 ? formatCurrency(c.a_credit) : '—'}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-xs text-emerald-400">
+                          {c.b_credit > 0 ? formatCurrency(c.b_credit) : '—'}
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <DeltaBadge value={deltaPct(c.a_credit, c.b_credit)} invertColors />
+                        </td>
+                        <td className="py-2 px-2 text-right text-xs text-text-muted">{c.a_ops}</td>
+                        <td className="py-2 px-2 text-right text-xs text-text-muted">{c.b_ops}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border font-semibold text-xs">
+                      <td className="py-2 px-2">Total</td>
+                      <td className="py-2 px-2 text-right font-mono text-blue-400">
+                        {formatCurrency(recettes.reduce((s, r) => s + r.a_credit, 0))}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-emerald-400">
+                        {formatCurrency(recettes.reduce((s, r) => s + r.b_credit, 0))}
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <DeltaBadge
+                          value={deltaPct(
+                            recettes.reduce((s, r) => s + r.a_credit, 0),
+                            recettes.reduce((s, r) => s + r.b_credit, 0),
+                          )}
+                          invertColors
+                        />
+                      </td>
+                      <td className="py-2 px-2 text-right text-text-muted">
+                        {recettes.reduce((s, r) => s + r.a_ops, 0)}
+                      </td>
+                      <td className="py-2 px-2 text-right text-text-muted">
+                        {recettes.reduce((s, r) => s + r.b_ops, 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           )}
 
-          {/* Category table */}
-          <div className="bg-surface rounded-xl border border-border p-5">
-            <h3 className="text-sm font-semibold mb-4">Détail par catégorie</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-text-muted text-xs">
-                    <th className="text-left py-2 px-2">Catégorie</th>
-                    <th className="text-right py-2 px-2 text-blue-400">{periodLabelA}</th>
-                    <th className="text-right py-2 px-2 text-primary">{periodLabelB}</th>
-                    <th className="text-right py-2 px-2">Δ%</th>
-                    <th className="text-right py-2 px-2 text-blue-400">Ops A</th>
-                    <th className="text-right py-2 px-2 text-primary">Ops B</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.categories.map((c, i) => (
-                    <tr key={i} className="border-b border-border/30 hover:bg-surface-hover transition-colors">
-                      <td className="py-2 px-2 text-xs text-text">{c.category}</td>
-                      <td className="py-2 px-2 text-right font-mono text-xs text-blue-400">
-                        {c.a_debit > 0 ? formatCurrency(c.a_debit) : '—'}
+          {/* Dépenses table */}
+          {depenses.length > 0 && (
+            <div className="bg-surface rounded-xl border border-border p-5">
+              <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-400" />
+                Dépenses
+                <span className="text-[10px] text-text-muted font-normal ml-auto">Cliquez pour le détail</span>
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-text-muted text-xs">
+                      <th className="text-left py-2 px-2">Catégorie</th>
+                      <th className="text-right py-2 px-2 text-blue-400">Débit {periodLabelA}</th>
+                      <th className="text-right py-2 px-2 text-red-400">Débit {periodLabelB}</th>
+                      <th className="text-right py-2 px-2">Δ%</th>
+                      <th className="text-right py-2 px-2 text-blue-400">Ops A</th>
+                      <th className="text-right py-2 px-2 text-red-400">Ops B</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {depenses.map((c, i) => (
+                      <tr
+                        key={i}
+                        onClick={() => onCategoryClick(c.category)}
+                        className="border-b border-border/30 hover:bg-surface-hover transition-colors cursor-pointer"
+                      >
+                        <td className="py-2 px-2 text-xs text-text">
+                          <span className="inline-flex items-center gap-2">
+                            {c.category}
+                            <ChevronRight size={10} className="text-text-muted" />
+                          </span>
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-xs text-blue-400">
+                          {c.a_debit > 0 ? formatCurrency(c.a_debit) : '—'}
+                        </td>
+                        <td className="py-2 px-2 text-right font-mono text-xs text-red-400">
+                          {c.b_debit > 0 ? formatCurrency(c.b_debit) : '—'}
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <DeltaBadge value={c.delta_pct} />
+                        </td>
+                        <td className="py-2 px-2 text-right text-xs text-text-muted">{c.a_ops}</td>
+                        <td className="py-2 px-2 text-right text-xs text-text-muted">{c.b_ops}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border font-semibold text-xs">
+                      <td className="py-2 px-2">Total</td>
+                      <td className="py-2 px-2 text-right font-mono text-blue-400">
+                        {formatCurrency(depenses.reduce((s, r) => s + r.a_debit, 0))}
                       </td>
-                      <td className="py-2 px-2 text-right font-mono text-xs text-primary">
-                        {c.b_debit > 0 ? formatCurrency(c.b_debit) : '—'}
+                      <td className="py-2 px-2 text-right font-mono text-red-400">
+                        {formatCurrency(depenses.reduce((s, r) => s + r.b_debit, 0))}
                       </td>
                       <td className="py-2 px-2 text-right">
-                        <DeltaBadge value={c.delta_pct} />
+                        <DeltaBadge
+                          value={deltaPct(
+                            depenses.reduce((s, r) => s + r.a_debit, 0),
+                            depenses.reduce((s, r) => s + r.b_debit, 0),
+                          )}
+                        />
                       </td>
-                      <td className="py-2 px-2 text-right text-xs text-text-muted">{c.a_ops}</td>
-                      <td className="py-2 px-2 text-right text-xs text-text-muted">{c.b_ops}</td>
+                      <td className="py-2 px-2 text-right text-text-muted">
+                        {depenses.reduce((s, r) => s + r.a_ops, 0)}
+                      </td>
+                      <td className="py-2 px-2 text-right text-text-muted">
+                        {depenses.reduce((s, r) => s + r.b_ops, 0)}
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </tfoot>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

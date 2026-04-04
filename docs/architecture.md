@@ -110,6 +110,33 @@ Auto-catégorisation (EditorPage) :
   → Bouton "Recatégoriser IA" : force mode "all" (recatégorise toutes les lignes)
 ```
 
+### Vue année complète (EditorPage)
+
+```
+Sélection "Toute l'année" → useYearOperations(filesForYear, true)
+  → useQueries : N requêtes parallèles GET /operations/{filename}
+  → Fusion des résultats avec champ _sourceFile par opération
+  → Mode lecture seule (pas de save/edit/add/delete)
+  → Badge ambre "Lecture seule — Année complète"
+  → Filtres catégorie + sous-catégorie + tri fonctionnels
+  → Export CSV disponible
+```
+
+### Comparatif recettes / dépenses (Compta Analytique)
+
+```
+Onglet Comparatif → sélection Période A + Période B
+  → GET /api/analytics/compare → KPIs + categories avec a_debit/a_credit/b_debit/b_credit
+  → Frontend : séparation catégories en 2 groupes
+    → Recettes : catégories où (a_credit + b_credit) > (a_debit + b_debit)
+    → Dépenses : les autres
+  → 2 graphiques côte à côte (recettes vert, dépenses rouge)
+  → 2 tableaux distincts avec colonnes adaptées (Crédit A/B ou Débit A/B)
+  → Delta badges inversés pour revenus (hausse = vert)
+  → Clic catégorie → CategoryDetailDrawer (sous-catégories, évolution, opérations)
+  → Légendes dynamiques avec périodes (ex: "2024" / "2025")
+```
+
 ### OCR automatique
 
 ```
@@ -187,8 +214,8 @@ Sélection mois → exports router → export_service.generate_export()
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Components** | UI et interactions | `src/components/` (28 fichiers) |
-| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (11 fichiers) |
+| **Components** | UI et interactions | `src/components/` (30+ fichiers) |
+| **Hooks** | Data fetching, cache, mutations, SSE, useYearOperations | `src/hooks/` (11 fichiers) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
