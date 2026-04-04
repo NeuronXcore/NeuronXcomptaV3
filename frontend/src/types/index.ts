@@ -761,3 +761,78 @@ export interface CessionResult {
   duree_detention_mois: number
   regime: 'court_terme' | 'long_terme'
 }
+
+// ============================================================
+// Simulation BNC
+// ============================================================
+
+export interface SimulationLeviers {
+  madelin: number
+  per: number
+  carmf_classe: string
+  investissement: number
+  investissement_duree: number
+  investissement_prorata_mois: number
+  formation_dpc: number
+  remplacement: number
+  depense_pro: number
+  depenses_detail: Record<string, number>
+}
+
+export interface SimulationResult {
+  bnc_actuel: number
+  bnc_social: number
+  bnc_imposable: number
+  dotations_existantes: number
+  dotation_nouvel_invest: number
+  investissement_traitement: 'charge_immediate' | 'immobilisation'
+  urssaf_actuel: number; urssaf_simule: number; urssaf_delta: number
+  carmf_actuel: number; carmf_simule: number; carmf_delta: number
+  odm: number
+  ir_actuel: number; ir_simule: number; ir_delta: number
+  total_actuel: number; total_simule: number; total_delta: number
+  revenu_net_actuel: number; revenu_net_simule: number; revenu_net_delta: number
+  invest_montant: number
+  invest_deduction_an1: number
+  invest_cout_reel_an1: number
+}
+
+export interface TauxMarginal {
+  ir: number; urssaf: number; carmf: number; csg: number; total: number
+  prochaine_tranche: {
+    taux: number; seuil: number; label: string; distance: number
+  } | null
+}
+
+export interface SeuilCritique {
+  seuil: number; label: string; type: 'ir' | 'urssaf' | 'carmf'
+  taux_avant: number; taux_apres: number; delta: number
+}
+
+export interface HistoriqueBNC {
+  years: number[]
+  monthly: Array<{ year: number; month: number; recettes: number; depenses: number; bnc: number }>
+  annual: Array<{ year: number; recettes: number; depenses: number; bnc: number; nb_mois: number }>
+  profil_saisonnier: Array<{ month: number; coeff: number }>
+}
+
+export interface PrevisionBNC {
+  methode: string
+  previsions: Array<{
+    year: number; month: number; recettes_prevues: number
+    depenses_prevues: number; bnc_prevu: number
+    confiance: 'haute' | 'moyenne' | 'basse'
+  }>
+  bnc_annuel_prevu: number
+  tendance_annuelle_pct: number
+  nb_mois_historique: number
+  avertissement: string | null
+}
+
+export interface AllBaremes {
+  urssaf: any
+  carmf: any
+  ir: any
+  odm: { year: number; cotisation_annuelle: number; type: string }
+  year: number
+}

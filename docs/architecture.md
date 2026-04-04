@@ -26,7 +26,7 @@
 │                                                           │
 │  ┌────────────┐     ┌─────────────┐     ┌──────────────┐ │
 │  │  Routers   │ ──▶ │  Services   │ ──▶ │  Data (JSON) │ │
-│  │  (15 files)│     │  (14 files) │     │  data/       │ │
+│  │  (18 files)│     │  (17 files) │     │  data/       │ │
 │  └────────────┘     └─────────────┘     └──────────────┘ │
 │        │                   │                              │
 │  ┌─────▼──────┐     ┌─────▼──────┐                       │
@@ -45,8 +45,8 @@ SAISIE → TRAITEMENT → ANALYSE → CLÔTURE → DOCUMENTS → OUTILS
 
 Importation      Justificatifs      Tableau de bord     Export Comptable    Bibliothèque    Agent IA
 Édition          Rapprochement      Compta Analytique   Clôture             (GED)           Paramètres
-Catégories       Compte d'attente   Rapports
-OCR              Échéancier
+Catégories       Compte d'attente   Rapports            Amortissements
+OCR              Échéancier         Simulation BNC
 ```
 
 ### Importation d'un relevé

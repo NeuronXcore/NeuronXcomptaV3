@@ -798,3 +798,70 @@ Statistiques par dossier de données.
 
 ### `GET /system-info`
 Informations système (version app, Python, plateforme).
+
+---
+
+## Simulation (`/api/simulation`)
+
+### `GET /baremes`
+Charge tous les barèmes fiscaux pour une année donnée.
+
+**Paramètres :** `year` (int, défaut 2024)
+
+**Réponse :** Objet avec clés `urssaf`, `carmf`, `ir`, `odm`, `year`.
+
+### `GET /baremes/{type_bareme}`
+Charge un barème spécifique (urssaf, carmf, ir, odm). Fallback sur l'année la plus récente si inexistant.
+
+**Paramètres :** `year` (int, défaut 2024)
+
+### `PUT /baremes/{type_bareme}`
+Met à jour un barème. Body : objet JSON du barème complet.
+
+**Paramètres :** `year` (int, défaut 2024)
+
+### `POST /calculate`
+Simulation multi-leviers complète.
+
+**Body :**
+```json
+{
+  "bnc_actuel": 125000,
+  "year": 2024,
+  "parts": 1.75,
+  "leviers": {
+    "madelin": 0,
+    "per": 0,
+    "carmf_classe": "M",
+    "investissement": 0,
+    "investissement_duree": 5,
+    "investissement_prorata_mois": 6,
+    "formation_dpc": 0,
+    "remplacement": 0,
+    "depense_pro": 0,
+    "depenses_detail": {}
+  }
+}
+```
+
+**Réponse :** Objet `SimulationResult` avec actuel/simulé/delta pour chaque organisme (URSSAF, CARMF, ODM, IR), revenu net, détail investissement.
+
+### `GET /taux-marginal`
+Calcule le taux marginal réel combiné (IR + URSSAF + CARMF) par delta +1€.
+
+**Paramètres :** `bnc` (float), `year` (int), `parts` (float)
+
+### `GET /seuils`
+Identifie les seuils critiques où le taux marginal saute (tranches IR, maladie, allocations familiales).
+
+**Paramètres :** `year` (int), `parts` (float)
+
+### `GET /historique`
+Calcule le BNC historique depuis les fichiers d'opérations (mensuel, annuel, profil saisonnier).
+
+**Paramètres :** `years` (string, optionnel, ex: "2024,2025")
+
+### `GET /previsions`
+Projette les revenus futurs par analyse saisonnière ou moyenne simple.
+
+**Paramètres :** `horizon` (int, défaut 12), `methode` (string, défaut "saisonnier")

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 16 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking. Includes a Dotations aux Amortissements module with registre des immobilisations, moteur de calcul linéaire/dégressif, et détection automatique des opérations candidates.
+NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 17 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking. Includes a Dotations aux Amortissements module with registre des immobilisations, moteur de calcul linéaire/dégressif, et détection automatique des opérations candidates.
 
 ## Architecture
 
@@ -14,6 +14,7 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Sandbox Watchdog**: `watchdog` library monitors `data/justificatifs/sandbox/` for PDF/JPG/PNG, auto-converts images to PDF, auto-OCR + SSE notifications
 - **Image Support**: JPG/JPEG/PNG justificatifs are converted to PDF at intake via Pillow (`_convert_image_to_pdf()`). Only PDF is stored. Constants in `config.py`: `ALLOWED_JUSTIFICATIF_EXTENSIONS`, `IMAGE_EXTENSIONS`, `MAGIC_BYTES`.
 - **Amortissements**: Registre des immobilisations avec calcul automatique des dotations (linéaire/dégressif), détection des opérations candidates (montant > seuil + catégorie éligible), plafonds véhicules CO2, gestion cessions/sorties. Données dans `data/amortissements/`. Moteur de calcul dupliqué Python/TypeScript.
+- **Simulation BNC**: Moteur fiscal complet (URSSAF, CARMF, ODM, IR) avec barèmes JSON versionnés dans `data/baremes/`. Calcul temps réel côté client via `fiscal-engine.ts` (duplique la logique Python). Distinction critique PER (IR seul) vs Madelin (BNC + social). Prévisions d'honoraires par analyse saisonnière.
 - **GED**: Document library indexing existing files (relevés, justificatifs, rapports) without duplication. Supports free document uploads in `data/ged/{year}/{month}/`. Each document linked to a *poste comptable* with configurable deductibility % (slider 0-100, step 5). Metadata stored in `data/ged/ged_metadata.json`, postes in `data/ged/ged_postes.json`. PDF thumbnails cached in `data/ged/thumbnails/` via pdf2image. Dual tree view (by year / by type).
 
 ## PDF Import Pipeline
@@ -50,17 +51,18 @@ npm run dev
 neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
-│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR
-│   ├── models/                 # Pydantic schemas (10 files, incl. ged.py, report.py, analytics.py, amortissement.py)
-│   ├── routers/                # API endpoints (17 routers, incl. ged.py, amortissements.py)
-│   └── services/               # Business logic (16 services, incl. ged_service.py, amortissement_service.py)
+│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR, BAREMES_DIR
+│   ├── models/                 # Pydantic schemas (11 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py)
+│   ├── routers/                # API endpoints (18 routers, incl. ged.py, amortissements.py, simulation.py)
+│   └── services/               # Business logic (17 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx             # All 16 routes (Accueil fusionné avec Dashboard)
+│       ├── App.tsx             # All 17 routes (Accueil fusionné avec Dashboard)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
 │       ├── components/         # 60+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/)
-│       ├── hooks/              # 14 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements)
+│       ├── hooks/              # 15 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation)
 │       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
+│       ├── lib/fiscal-engine.ts         # Moteur fiscal TypeScript (URSSAF, CARMF, IR, simulation multi-leviers)
 │       ├── types/index.ts      # All TypeScript interfaces
 │       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, formatFileTitle
 │       └── index.css           # Tailwind @theme with custom colors
@@ -76,6 +78,11 @@ neuronXcompta/
 │   │   ├── ged_postes.json     # Postes comptables config
 │   │   ├── thumbnails/         # PDF thumbnail cache (PNG)
 │   │   └── {year}/{month}/     # Free document uploads
+│   ├── baremes/
+│   │   ├── urssaf_2024.json      # Barème URSSAF (PASS, maladie, CSG/CRDS, IJ, CURPS)
+│   │   ├── carmf_2024.json       # Barème CARMF (régime base, complémentaire, ASV)
+│   │   ├── ir_2024.json          # Barème IR (tranches, décote, PER, Madelin)
+│   │   └── odm_2024.json         # Cotisation Ordre des Médecins
 ├── settings.json               # App settings
 └── docs/                       # Documentation
 ```
@@ -88,7 +95,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 |--------|-------|
 | **SAISIE** | Importation, Édition, Catégories, OCR |
 | **TRAITEMENT** | Justificatifs, Rapprochement, Compte d'attente, Échéancier |
-| **ANALYSE** | Tableau de bord, Compta Analytique, Rapports |
+| **ANALYSE** | Tableau de bord, Compta Analytique, Rapports, Simulation BNC |
 | **CLÔTURE** | Export Comptable, Clôture, Amortissements |
 | **DOCUMENTS** | Bibliothèque (GED) |
 | **OUTILS** | Agent IA, Paramètres |
@@ -113,6 +120,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | sandbox | `/api/sandbox` | GET /events (SSE), GET /list, DELETE /{filename} |
 | amortissements | `/api/amortissements` | GET /, GET /kpis, POST /, PATCH /{id}, DELETE /{id}, GET /dotations/{year}, GET /projections, GET /candidates, POST /candidates/immobiliser, POST /candidates/ignore, POST /cession/{id}, GET/PUT /config |
 | ged | `/api/ged` | GET /tree, GET /documents, POST /upload, PATCH /documents/{doc_id}, DELETE /documents/{doc_id}, GET /documents/{doc_id}/preview, GET /documents/{doc_id}/thumbnail, POST /documents/{doc_id}/open-native, GET /search, GET /stats, GET/PUT/POST/DELETE /postes, POST /bulk-tag, POST /scan |
+| simulation | `/api/simulation` | GET /baremes, GET /baremes/{type}, PUT /baremes/{type}, POST /calculate, GET /taux-marginal, GET /seuils, GET /historique, GET /previsions |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info |
 
 ## Frontend Routes
@@ -135,6 +143,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 | `/echeancier` | EcheancierPage | Échéancier des opérations récurrentes |
 | `/amortissements` | AmortissementsPage | Registre immobilisations (4 onglets : registre, tableau annuel, synthèse par poste, candidates), drawers (immobilisation avec aperçu tableau temps réel, config seuils/durées, cession avec calcul plus/moins-value), détection auto des opérations candidates (montant > seuil), moteur calcul linéaire/dégressif, plafonds véhicules CO2 |
 | `/ged` | GedPage | **Bibliothèque GED** : split layout (arbre 260px + contenu), **double vue arbre (par année / par type)**, grille thumbnails PDF ou liste tableau, drawer preview PDF redimensionnable (400-1200px) + section fiscalité (poste comptable, montant brut, % déductible, montant déductible calculé), drawer postes comptables avec **sliders % déductibilité** (0-100, step 5, couleur dynamique vert/orange/rouge), upload documents libres (drag-drop), recherche full-text (noms + OCR), ouverture native macOS (Aperçu) |
+| `/simulation` | SimulationPage | Simulateur BNC 2 onglets : **Optimisation** (leviers Madelin/PER/CARMF/investissement avec sliders temps réel, impact charges URSSAF/CARMF/ODM/IR, taux marginal réel segmenté, comparatif charge/immobilisation, projection dotations 5 ans) + **Prévisions** (historique BNC, projections saisonnières, profil mensuel, tableau annuel avec évolution) |
 | `/settings` | SettingsPage | 5-tab settings (general, theme, export, storage, system) |
 
 ## Key Components
@@ -157,6 +166,8 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - `ImmobilisationDrawer` — 650px, création/édition immobilisation, aperçu tableau temps réel (moteur TS), section véhicule conditionnelle
 - `ConfigAmortissementsDrawer` — 500px, seuil, durées par défaut, catégories éligibles, plafonds véhicules
 - `CessionDrawer` — 500px, sortie d'actif avec calcul plus/moins-value et régime fiscal
+- `SimulationOptimisationSection` — leviers interactifs (sliders), calcul temps réel, impact charges, taux marginal, comparatif charge/immobilisation
+- `SimulationPrevisionsSection` — historique BNC, projections saisonnières, profil mensuel, tableau annuel
 
 ## Patterns to Follow
 
@@ -182,6 +193,9 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - **Amortissement engine**: Moteur de calcul dupliqué backend Python (`amortissement_service.py`) et frontend TypeScript (`lib/amortissement-engine.ts`). Résultats identiques. Linéaire (pro rata temporis année 1, complément dernière année) et dégressif (bascule en linéaire quand linéaire > dégressif).
 - **Candidate detection**: Détection automatique des opérations > seuil (500€ par défaut) dans les catégories immobilisables. Champs `immobilisation_id`, `immobilisation_ignored` sur l'opération.
 - **Plafonds véhicules**: Base amortissable plafonnée selon classe CO2 (30000/20300/18300/9900€). Quote-part pro appliquée ensuite.
+- **Fiscal engine dual**: Moteur fiscal dupliqué Python (`fiscal_service.py`) et TypeScript (`fiscal-engine.ts`). Résultats identiques à l'arrondi près. Barèmes chargés une seule fois via `useBaremes()`, calcul côté client pour la réactivité des sliders.
+- **PER vs Madelin**: PER déduit du revenu imposable (IR) UNIQUEMENT. Madelin déduit du BNC social ET imposable. Cette distinction est critique dans `simulateAll()`.
+- **Barèmes versionnés**: Fichiers JSON dans `data/baremes/{type}_{year}.json`. Fallback sur l'année la plus récente. Modifiables via `PUT /api/simulation/baremes/{type}`.
 
 ## Dependencies
 

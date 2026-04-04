@@ -23,6 +23,7 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique |
 | **GED** | Bibliothèque documentaire : double vue arbre (année/type), thumbnails PDF, postes comptables avec % déductibilité, upload documents libres, recherche full-text, OCR auto |
 | **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |
+| **Simulation BNC** | Simulateur fiscal : leviers Madelin/PER/CARMF/investissement/remplacement, dépenses détaillées par catégorie, taux marginal réel, comparatif charge/immobilisation, prévisions d'honoraires avec profil saisonnier |
 | **Paramètres** | Thème, export, stockage, informations système |
 
 ---

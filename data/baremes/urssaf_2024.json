@@ -1,0 +1,31 @@
+{
+  "year": 2024,
+  "pass": 46368,
+  "maladie": {
+    "taux_reduit": 0.0,
+    "taux_plein": 0.065,
+    "seuil_taux_plein_pct_pass": 0.4,
+    "contribution_additionnelle": 0.035,
+    "seuil_additionnelle_pct_pass": 5.0
+  },
+  "allocations_familiales": {
+    "taux_reduit": 0.0,
+    "taux_plein": 0.031,
+    "seuil_bas_pct_pass": 1.1,
+    "seuil_haut_pct_pass": 1.4
+  },
+  "csg_crds": {
+    "taux_csg_deductible": 0.068,
+    "taux_csg_non_deductible": 0.024,
+    "taux_crds": 0.005,
+    "abattement_pct": 0.0
+  },
+  "indemnites_journalieres": {
+    "taux": 0.003,
+    "plafond_pct_pass": 3.0
+  },
+  "curps": {
+    "taux": 0.001,
+    "plafond_pct_pass": 5.0
+  }
+}

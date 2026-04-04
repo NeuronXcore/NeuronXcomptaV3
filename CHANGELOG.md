@@ -9,6 +9,21 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 ## [Unreleased]
 
 ### Added (2026-04-05)
+- **Simulation BNC** : simulateur fiscal complet pour optimisation des charges
+  - Page `/simulation` avec 2 onglets (Optimisation, Prévisions)
+  - Moteur fiscal dual Python (`fiscal_service.py`) + TypeScript (`fiscal-engine.ts`) avec résultats identiques
+  - Barèmes versionnés JSON dans `data/baremes/` (URSSAF, CARMF, IR, ODM) avec fallback année la plus récente
+  - Onglet Optimisation : leviers interactifs (Madelin, PER, CARMF classe, investissement, remplacement, formation DPC), expander dépenses détaillées par catégorie (véhicule, fournitures, abonnements, télécom, logiciel, comptable, frais bancaires, repas, poste, autres)
+  - Distinction critique PER (réduit IR seul) vs Madelin (réduit BNC social + IR)
+  - Impact charges temps réel (URSSAF, CARMF, ODM, IR) avec delta et badges économie
+  - Taux marginal réel combiné avec barre segmentée colorée (IR/URSSAF/CARMF)
+  - Comparatif charge immédiate vs immobilisation pour les investissements
+  - Projection des dotations sur 5 ans (graphique Recharts)
+  - Onglet Prévisions : historique BNC depuis les opérations, projections saisonnières, profil saisonnier 12 mois, tableau annuel avec évolution
+  - Parts fiscales : défaut 1.75 (parent isolé + garde alternée), options 1/1.25/1.5/1.75/2/2.5/3/3.5/4
+  - 8 endpoints sous `/api/simulation` (barèmes, calculate, taux-marginal, seuils, historique, prévisions)
+  - `frontend/src/hooks/useSimulation.ts` : 7 hooks (5 queries + 2 mutations)
+  - Sidebar : entrée "Simulation BNC" avec icône Calculator dans le groupe ANALYSE
 - **Module Amortissements** : registre des immobilisations, calcul dotations linéaire/dégressif avec pro rata temporis, détection auto candidates (montant > 500€ + catégorie éligible), plafonds véhicules CO2 (4 classes), gestion cessions avec calcul plus/moins-value et régime fiscal (court/long terme), moteur de calcul dupliqué Python/TypeScript
   - Page `/amortissements` avec 4 onglets (Registre, Tableau annuel, Synthèse par poste, Candidates)
   - 3 drawers : ImmobilisationDrawer (650px, aperçu tableau temps réel), ConfigAmortissementsDrawer (500px), CessionDrawer (500px)

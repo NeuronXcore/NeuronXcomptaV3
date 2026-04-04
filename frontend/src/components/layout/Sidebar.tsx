@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Upload, Pencil, Tags, BarChart3,
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   GitCompareArrows, CalendarCheck, CalendarClock, AlertTriangle,
-  Library, Landmark,
+  Library, Landmark, Calculator,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -33,6 +33,7 @@ const NAV_SECTIONS = [
       { to: '/', label: 'Tableau de bord', icon: LayoutDashboard },
       { to: '/visualization', label: 'Compta Analytique', icon: BarChart3 },
       { to: '/reports', label: 'Rapports', icon: FileText },
+      { to: '/simulation', label: 'Simulation BNC', icon: Calculator },
     ],
   },
   {

@@ -1,0 +1,29 @@
+{
+  "year": 2024,
+  "tranches": [
+    { "seuil": 0, "taux": 0.0 },
+    { "seuil": 11294, "taux": 0.11 },
+    { "seuil": 28797, "taux": 0.30 },
+    { "seuil": 82341, "taux": 0.41 },
+    { "seuil": 177106, "taux": 0.45 }
+  ],
+  "decote": {
+    "seuil_celibataire": 1929,
+    "seuil_couple": 3191,
+    "coeff": 0.4525
+  },
+  "plafond_quotient_familial": 1759,
+  "per": {
+    "plafond_pct_bnc": 0.10,
+    "plafond_absolu": 35194,
+    "plancher": 4399
+  },
+  "madelin": {
+    "prevoyance_pct_bnc": 0.07,
+    "prevoyance_plafond_pct_pass": 0.03,
+    "retraite_pct_bnc": 0.10,
+    "retraite_plafond_pct_pass": 0.08,
+    "mutuelle_pct_bnc": 0.0375,
+    "mutuelle_plafond_pct_pass": 0.02
+  }
+}

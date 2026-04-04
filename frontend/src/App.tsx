@@ -18,6 +18,7 @@ import AlertesPage from '@/pages/AlertesPage'
 import SettingsPage from '@/components/settings/SettingsPage'
 import GedPage from '@/components/ged/GedPage'
 import AmortissementsPage from '@/components/amortissements/AmortissementsPage'
+import SimulationPage from '@/components/simulation/SimulationPage'
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/echeancier" element={<EcheancierPage />} />
         <Route path="/ocr" element={<OcrPage />} />
         <Route path="/amortissements" element={<AmortissementsPage />} />
+        <Route path="/simulation" element={<SimulationPage />} />
         <Route path="/ged" element={<GedPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

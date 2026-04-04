@@ -1,0 +1,36 @@
+{
+  "year": 2024,
+  "regime_base": {
+    "tranche_1_taux": 0.0881,
+    "tranche_1_plafond_pct_pass": 1.0,
+    "tranche_2_taux": 0.0166,
+    "tranche_2_plafond_pct_pass": 5.0
+  },
+  "complementaire": {
+    "classes": {
+      "M": 2813,
+      "1": 3750,
+      "2": 5625,
+      "3": 7500,
+      "4": 9375,
+      "5": 11250,
+      "6": 13125,
+      "7": 15000,
+      "8": 16875,
+      "9": 18750,
+      "10": 20625
+    },
+    "classe_defaut": "M"
+  },
+  "asv": {
+    "part_forfaitaire": 5765,
+    "part_proportionnelle_taux": 0.04,
+    "part_proportionnelle_plafond_pct_pass": 5.0,
+    "prise_en_charge_cpam_pct": 66.67
+  },
+  "invalidite_deces": {
+    "classe_a": 631,
+    "classe_b": 710,
+    "classe_c": 853
+  }
+}

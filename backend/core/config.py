@@ -37,6 +37,9 @@ GED_THUMBNAILS_DIR = GED_DIR / "thumbnails"
 # Amortissements
 AMORTISSEMENTS_DIR = DATA_DIR / "amortissements"
 
+# Barèmes fiscaux
+BAREMES_DIR = DATA_DIR / "baremes"
+
 SEUIL_IMMOBILISATION = 500  # € TTC
 
 CATEGORIES_IMMOBILISABLES = [
@@ -129,6 +132,7 @@ def ensure_directories():
         ML_DIR, ML_BACKUPS_DIR, COMPTA_ANALYTIQUE_DIR, OCR_DIR,
         GED_DIR, GED_THUMBNAILS_DIR,
         AMORTISSEMENTS_DIR,
+        BAREMES_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
