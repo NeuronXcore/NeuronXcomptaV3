@@ -102,9 +102,17 @@ Rapprochement manuel : drawer avec filtres
 ```
 Libellé → ml router → ml_service.predict_category()
   1. Correspondance exacte (model.json → exact_matches)
-  2. Mots-clés (model.json → keywords)
+  2. Mots-clés (model.json → keywords) — exact word match + substring match
+     Ex: "motifremplacementdr" matche keyword "rempla" via substring (score 0.8)
   3. Scikit-learn (sklearn_model.pkl + vectorizer.pkl)
   → Score de confiance + risque d'hallucination
+
+Sous-catégorie → ml_service.predict_subcategory()
+  1. Correspondance exacte (model.json → subcategories)
+  2. Pattern matching (model.json → subcategory_patterns) — substring dans le libellé
+     Ex: libellé contenant "rempla" → sous-catégorie "Honoraires"
+
+Import PDF → _categorize_simple() : keywords par priorité (Remplaçant avant Revenus)
 
 Auto-catégorisation (EditorPage) :
   → Au chargement d'un fichier, useEffect déclenche POST /{filename}/categorize (mode: empty_only)

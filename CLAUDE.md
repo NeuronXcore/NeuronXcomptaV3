@@ -25,7 +25,7 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Dates**: Extracted as `DD/MM/YY` or `DD/MM/YYYY`, converted to `YYYY-MM-DD` (required by HTML `input type="date"`)
 - **Amounts**: Simple pattern `\d+[,.]\d{2}` tried first (avoids false thousands grouping), last match used (amount is rightmost on line)
 - **Exclusion filter**: Lines containing SOLDE, TOTAL, etc. are skipped (balance lines, not operations)
-- **Categorization at import**: Basic keyword matching (`_categorize_simple()`) at PDF import. Full ML categorization (rules + sklearn) runs **automatically** when a file is loaded in EditorPage (empty categories only). Manual "Recatégoriser IA" button available to force re-categorize all lines.
+- **Categorization at import**: Basic keyword matching (`_categorize_simple()`) at PDF import — priority order matters (e.g. "Remplaçant" with REMPLA keywords checked before "Revenus" with VIREMENT). Full ML categorization (rules + sklearn) runs **automatically** when a file is loaded in EditorPage (empty categories only). ML model supports substring matching in keywords (e.g. "motifremplacementdr" matches keyword "rempla") and `subcategory_patterns` for pattern-based sous-catégorie prediction. Manual "Recatégoriser IA" button available to force re-categorize all lines.
 - **Deduplication**: SHA-256 hash of PDF content, first 8 chars in filenames
 
 ## Critical Constraints

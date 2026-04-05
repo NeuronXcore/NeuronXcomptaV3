@@ -377,6 +377,7 @@ def _categorize_simple(libelle: str) -> str:
     libelle_upper = libelle.upper()
 
     categories = {
+        "Remplaçant": ["REMPLA", "REMPLACANT", "REMPLACEMENT"],
         "Revenus": ["SALAIRE", "VIREMENT", "REMBOURSEMENT", "VERSEMENT"],
         "Alimentation": ["CARREFOUR", "LECLERC", "AUCHAN", "INTERMARCHE", "FRANPRIX", "MONOPRIX", "SUPERMARCH"],
         "Transport": ["SNCF", "RATP", "TAXI", "UBER", "ESSENCE", "CARBURANT", "AUTOROUTE", "PEAGE"],

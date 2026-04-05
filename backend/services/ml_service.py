@@ -111,13 +111,20 @@ def predict_category(libelle: str, model: Optional[dict] = None) -> Optional[str
     if libelle_clean in model.get("exact_matches", {}):
         return model["exact_matches"][libelle_clean]
 
-    # Scoring par mots-clés
+    # Scoring par mots-clés (exact match + substring match)
     keywords = extract_keywords(libelle_clean)
     scores: dict[str, float] = defaultdict(float)
     for word in keywords:
         for category, word_list in model.get("keywords", {}).items():
+            # Exact match
             if word in word_list:
                 scores[category] += 1.0 / max(len(word_list), 1)
+            else:
+                # Substring match : le mot contient un keyword (ex: "motifremplacementdr" contient "rempla")
+                for kw in word_list:
+                    if kw in word:
+                        scores[category] += 0.8 / max(len(word_list), 1)
+                        break
 
     if scores:
         return max(scores.items(), key=lambda x: x[1])[0]
@@ -129,7 +136,18 @@ def predict_subcategory(libelle: str, model: Optional[dict] = None) -> Optional[
     if model is None:
         model = load_rules_model()
     libelle_clean = libelle.strip().lower()
-    return model.get("subcategories", {}).get(libelle_clean)
+
+    # Exact match
+    result = model.get("subcategories", {}).get(libelle_clean)
+    if result:
+        return result
+
+    # Substring patterns (pour les libellés avec montants variables)
+    for pattern, subcat in model.get("subcategory_patterns", {}).items():
+        if pattern in libelle_clean:
+            return subcat
+
+    return None
 
 
 # ── Sklearn model ───────────────────────────────────────────────────────

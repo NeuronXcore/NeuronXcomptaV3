@@ -112,7 +112,15 @@
     "maisonsdumondmdm": "Matériel",
     "asfcahorssud vedene": "Véhicule"
   },
-  "keywords": {},
+  "keywords": {
+    "Remplaçant": [
+      "rempla",
+      "remplacement",
+      "remplacant",
+      "rempladr",
+      "remplac"
+    ]
+  },
   "subcategories": {
     "virsctinstrecufrmandrececcoli": "virement",
     "bnpparibas": "Retrait CB",
@@ -2065,5 +2073,11 @@
         53
       ]
     }
+  },
+  "subcategory_patterns": {
+    "rempla": "Honoraires",
+    "remplacement": "Honoraires",
+    "remplacant": "Honoraires",
+    "rempladr": "Honoraires"
   }
 }
