@@ -19,6 +19,7 @@ import {
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
   CheckCircle2, Circle,
 } from 'lucide-react'
+import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
@@ -534,17 +535,17 @@ export default function EditorPage() {
         )
       },
     },
-    // Justificatif — interactive paperclip
+    // Justificatif — interactive paperclip + reconstituer
     {
       accessorKey: 'Justificatif',
       header: () => <Paperclip size={14} className="mx-auto" title="Justificatif" />,
-      size: 40,
+      size: 56,
       cell: ({ row }) => {
         const hasJustif = row.original.Justificatif || false
         const hintScore = batchHints?.[String(row.index)]
         const hasStrongHint = !hasJustif && hintScore != null && hintScore >= 0.75
         return (
-          <div className="flex justify-center">
+          <div className="flex items-center justify-center gap-0.5 group/justif">
             <button
               onClick={() => {
                 setDrawerOpIndex(row.index)
@@ -570,6 +571,16 @@ export default function EditorPage() {
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
               )}
             </button>
+            {!hasJustif && selectedFile && (
+              <div className="opacity-0 group-hover/justif:opacity-100 transition-opacity">
+                <ReconstituerButton
+                  operationFile={selectedFile}
+                  operationIndex={row.index}
+                  libelle={row.original['Libellé'] || ''}
+                  size="sm"
+                />
+              </div>
+            )}
           </div>
         )
       },

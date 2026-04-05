@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X } from 'lucide-react'
+import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import toast from 'react-hot-toast'
 import {
   useReactTable,
@@ -403,13 +404,24 @@ export default function AlertesPage() {
                     className="flex items-center justify-between bg-background rounded-lg p-3"
                   >
                     <AlerteBadge type={type} size="md" />
-                    <button
-                      onClick={() => handleResolve(drawerOp, type)}
-                      disabled={resolveMutation.isPending}
-                      className="px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      Marquer résolue
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {type === 'justificatif_manquant' && selectedFile && drawerOp._index != null && (
+                        <ReconstituerButton
+                          operationFile={selectedFile}
+                          operationIndex={drawerOp._index}
+                          libelle={drawerOp['Libellé'] || ''}
+                          size="sm"
+                          onGenerated={() => refreshMutation.mutate({ filename: selectedFile })}
+                        />
+                      )}
+                      <button
+                        onClick={() => handleResolve(drawerOp, type)}
+                        disabled={resolveMutation.isPending}
+                        className="px-3 py-1 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        Marquer résolue
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

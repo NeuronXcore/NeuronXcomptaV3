@@ -20,7 +20,8 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Justificatifs** | Galerie, association aux opérations, suggestions automatiques (upload via page OCR) |
 | **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups |
 | **Export Comptable** | Archive ZIP mensuelle (opérations + relevé + justificatifs) |
-| **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique |
+| **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique, **templates justificatifs** (création depuis scan, bibliothèque fournisseurs, génération reconstitués) |
+| **Templates** | Bibliothèque de templates par fournisseur, génération de justificatifs reconstitués (PDF A5 via ReportLab) quand l'original est manquant, suggestion automatique par alias, bouton intégré dans 4 pages |
 | **GED** | Bibliothèque documentaire : double vue arbre (année/type), thumbnails PDF, postes comptables avec % déductibilité, upload documents libres, recherche full-text, OCR auto |
 | **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |
 | **Simulation BNC** | Simulateur fiscal : leviers Madelin/PER/CARMF/investissement/remplacement, dépenses détaillées par catégorie, taux marginal réel, comparatif charge/immobilisation, prévisions d'honoraires avec profil saisonnier |
@@ -104,7 +105,7 @@ neuronXcompta/
 │   ├── requirements.txt        # Dépendances Python
 │   ├── core/
 │   │   └── config.py           # Configuration centralisée
-│   ├── models/                 # Schémas Pydantic (10 fichiers)
+│   ├── models/                 # Schémas Pydantic (12 fichiers)
 │   │   ├── category.py
 │   │   ├── justificatif.py
 │   │   ├── ocr.py
@@ -115,7 +116,7 @@ neuronXcompta/
 │   │   ├── analytics.py
 │   │   ├── amortissement.py
 │   │   └── ...
-│   ├── routers/                # Endpoints API (17 fichiers)
+│   ├── routers/                # Endpoints API (19 fichiers)
 │   │   ├── operations.py
 │   │   ├── categories.py
 │   │   ├── ml.py
@@ -129,7 +130,7 @@ neuronXcompta/
 │   │   ├── ged.py
 │   │   ├── amortissements.py
 │   │   └── ...
-│   └── services/               # Logique métier (16 fichiers)
+│   └── services/               # Logique métier (18 fichiers)
 │       ├── operation_service.py
 │       ├── category_service.py
 │       ├── ml_service.py
@@ -152,7 +153,7 @@ neuronXcompta/
 │       ├── index.css           # Thème Tailwind
 │       ├── api/client.ts       # Client API
 │       ├── components/         # 60+ composants React
-│       ├── hooks/              # 14 fichiers de hooks
+│       ├── hooks/              # 17 fichiers de hooks
 │       ├── types/index.ts      # Types TypeScript
 │       └── lib/utils.ts        # Utilitaires
 ├── data/                       # Données applicatives
@@ -171,6 +172,8 @@ neuronXcompta/
 │   ├── amortissements/         # Registre immobilisations
 │   │   ├── immobilisations.json
 │   │   └── config.json
+│   ├── templates/              # Templates justificatifs
+│   │   └── justificatifs_templates.json
 │   ├── ml/                     # Modèles ML
 │   └── logs/                   # Logs applicatifs
 ├── settings.json               # Configuration utilisateur
@@ -210,6 +213,11 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `GET` | `/api/amortissements` | Registre des immobilisations |
 | `GET` | `/api/amortissements/kpis` | KPIs amortissements |
 | `GET` | `/api/amortissements/candidates` | Opérations candidates à immobiliser |
+| `GET` | `/api/templates` | Lister les templates justificatifs |
+| `POST` | `/api/templates` | Créer un template fournisseur |
+| `POST` | `/api/templates/extract` | Extraire les champs d'un justificatif scanné |
+| `POST` | `/api/templates/generate` | Générer un PDF justificatif reconstitué |
+| `GET` | `/api/templates/suggest/{file}/{idx}` | Suggestions de templates pour une opération |
 | `PUT` | `/api/settings` | Sauvegarder les paramètres |
 
 ---

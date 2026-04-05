@@ -7,6 +7,7 @@ import {
   X, Search, Calendar, DollarSign, FileText, Check,
   RotateCcw, Eye, Loader2,
 } from 'lucide-react'
+import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 
 interface Props {
   isOpen: boolean
@@ -221,9 +222,17 @@ export default function RapprochementManuelDrawer({
                 <Loader2 size={20} className="animate-spin text-text-muted" />
               </div>
             ) : suggestions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-text-muted text-sm">
+              <div className="flex flex-col items-center justify-center h-full text-text-muted text-sm gap-3">
                 <FileText size={28} className="opacity-20 mb-2" />
                 <p>Aucun justificatif trouvé</p>
+                {filename && operation && (
+                  <ReconstituerButton
+                    operationFile={filename}
+                    operationIndex={operation.index}
+                    libelle={operation.libelle}
+                    size="md"
+                  />
+                )}
               </div>
             ) : (
               <div className="divide-y divide-border/30">

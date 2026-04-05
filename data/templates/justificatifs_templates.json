@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_9a0d79cc",
+      "vendor": "TotalEnergies",
+      "vendor_aliases": [
+        "total",
+        "totalenergies"
+      ],
+      "category": "Véhicule",
+      "sous_categorie": "Carburant",
+      "source_justificatif": null,
+      "fields": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "date",
+          "source": "operation",
+          "required": true,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": null
+        },
+        {
+          "key": "montant_ttc",
+          "label": "Montant TTC",
+          "type": "currency",
+          "source": "operation",
+          "required": true,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": null
+        },
+        {
+          "key": "tva_rate",
+          "label": "Taux TVA",
+          "type": "percent",
+          "source": "fixed",
+          "required": false,
+          "default": 20.0,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": null
+        },
+        {
+          "key": "montant_ht",
+          "label": "Montant HT",
+          "type": "currency",
+          "source": "computed",
+          "required": false,
+          "default": null,
+          "formula": "montant_ttc / (1 + tva_rate / 100)",
+          "options": null,
+          "ocr_confidence": null
+        },
+        {
+          "key": "tva",
+          "label": "TVA",
+          "type": "currency",
+          "source": "computed",
+          "required": false,
+          "default": null,
+          "formula": "montant_ttc - montant_ht",
+          "options": null,
+          "ocr_confidence": null
+        }
+      ],
+      "created_at": "2026-04-05T07:44:26.305845",
+      "created_from": "manual",
+      "usage_count": 0
+    }
+  ]
+}

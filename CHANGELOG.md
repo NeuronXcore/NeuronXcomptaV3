@@ -9,6 +9,21 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 ## [Unreleased]
 
 ### Added (2026-04-05)
+- **Templates Justificatifs** : système de templates par fournisseur pour reconstituer des justificatifs manquants
+  - Création de templates depuis des justificatifs scannés (extraction OCR enrichie via Qwen2-VL, fallback données OCR basiques)
+  - Bibliothèque fournisseurs avec aliases de matching (détection automatique dans les libellés bancaires)
+  - Génération de PDF reconstitués via ReportLab (format A5, professionnel, sans watermark)
+  - Traçabilité exclusivement dans les métadonnées : préfixe `reconstitue_` + champ `"source": "reconstitue"` dans `.ocr.json`
+  - Champs auto-remplis (opération, OCR), manuels, fixes et calculés (TVA temps réel via formules)
+  - Auto-association optionnelle du justificatif généré à l'opération source
+  - 4ème onglet "Templates justificatifs" dans la page OCR (création, bibliothèque, génération)
+  - Bouton `ReconstituerButton` intégré dans 4 pages : Rapprochement (drawer vide), Alertes (justificatif_manquant), Éditeur (colonne trombone), Clôture (mois incomplets)
+  - `ReconstituerDrawer` : drawer 600px avec formulaire pré-rempli, sélection template, champs auto/manuels
+  - `backend/services/template_service.py` : CRUD, extraction OCR, suggestion, génération PDF, auto-association
+  - `backend/routers/templates.py` : 8 endpoints sous `/api/templates`
+  - `frontend/src/hooks/useTemplates.ts` : 7 hooks (3 queries + 4 mutations)
+  - Templates stockés dans `data/templates/justificatifs_templates.json`
+  - Fichiers générés dans `data/justificatifs/en_attente/` (reconstitue_YYYYMMDD_HHMMSS_vendor.pdf + .ocr.json)
 - **Pipeline Comptable Interactif** : nouvelle page d'accueil (`/`) remplace le Dashboard
   - Stepper vertical 6 étapes avec statuts temps réel (Import, Catégorisation, Justificatifs, Rapprochement, Vérification, Clôture)
   - Grille 12 badges mois cliquables avec icône statut, nom court et % progression (couleur vert/ambre/gris)
@@ -116,7 +131,7 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - `backend/core/config.py` : ajout `JUSTIFICATIFS_SANDBOX_DIR` + `ensure_directories()`
 - `backend/main.py` : ajout lifespan context manager, import router sandbox
 - `frontend/src/hooks/useApi.ts` : tous les hooks analytics acceptent year/quarter/month
-- `frontend/src/components/ocr/OcrPage.tsx` : 3 onglets (Upload & OCR, Test Manuel, Historique)
+- `frontend/src/components/ocr/OcrPage.tsx` : 4 onglets (Upload & OCR, Test Manuel, Historique, Templates justificatifs)
 - `frontend/src/components/justificatifs/JustificatifsPage.tsx` : zone upload retiree
 - `frontend/src/components/compta-analytique/ComptaAnalytiquePage.tsx` : filtres globaux, drill-down, toggle Analyse/Comparatif, mode empile
 

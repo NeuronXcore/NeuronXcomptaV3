@@ -26,7 +26,7 @@
 │                                                           │
 │  ┌────────────┐     ┌─────────────┐     ┌──────────────┐ │
 │  │  Routers   │ ──▶ │  Services   │ ──▶ │  Data (JSON) │ │
-│  │  (18 files)│     │  (17 files) │     │  data/       │ │
+│  │  (19 files)│     │  (18 files) │     │  data/       │ │
 │  └────────────┘     └─────────────┘     └──────────────┘ │
 │        │                   │                              │
 │  ┌─────▼──────┐     ┌─────▼──────┐                       │
@@ -280,6 +280,33 @@ Moteur de calcul (dupliqué Python + TypeScript) :
 Données : data/amortissements/immobilisations.json + config.json
 ```
 
+### Templates Justificatifs (reconstitution)
+
+```
+Page OCR (/ocr) → OcrPage → 4ème onglet "Templates justificatifs"
+  ├─ Créer : sélection justificatif existant → POST /api/templates/extract
+  │   → Extraction OCR enrichie (Qwen2-VL via Ollama, fallback .ocr.json basique)
+  │   → Formulaire : vendor, aliases, catégorie, table champs (checkbox, label, source, confiance)
+  │   → POST /api/templates → sauvegarde dans data/templates/justificatifs_templates.json
+  ├─ Bibliothèque : grille cards templates (vendor, aliases, champs, usage_count)
+  │   → DELETE /api/templates/{id} pour suppression
+  └─ Générer : sélection opération (file + index) → GET /api/templates/suggest/{file}/{idx}
+      → Template auto-suggéré par matching alias dans le libellé bancaire
+      → Formulaire 2 colonnes : champs auto (grisés) + champs manuels
+      → Calcul TVA temps réel (formules computed)
+      → POST /api/templates/generate
+          → ReportLab : PDF A5 sobre (Helvetica, pas de watermark)
+          → .ocr.json compagnon ("source": "reconstitue", operation_ref)
+          → Fichiers dans data/justificatifs/en_attente/reconstitue_*
+          → Si auto_associate : justificatif_service.associate() + rapprochement metadata
+
+Intégrations (bouton ReconstituerButton) :
+  ├─ RapprochementManuelDrawer : quand aucun justificatif trouvé
+  ├─ AlertesPage : à côté de "Marquer résolue" pour alertes justificatif_manquant
+  ├─ EditorPage : colonne Paperclip, visible au hover pour opérations sans justificatif
+  └─ CloturePage : bouton "Reconstituer les manquants" → redirige vers alertes filtrées
+```
+
 ### Pipeline Comptable Interactif (page d'accueil)
 
 ```
@@ -319,7 +346,7 @@ Page Dashboard (/dashboard) → DashboardPage
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
 | **Components** | UI et interactions | `src/components/` (60+ fichiers, incl. `pipeline/`, `ged/`, `amortissements/`, `reports/`, `dashboard/`) |
-| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (16 fichiers, incl. usePipeline, useGed, useReports, useAmortissements) |
+| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (17 fichiers, incl. usePipeline, useGed, useReports, useAmortissements, useTemplates) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -328,9 +355,9 @@ Page Dashboard (/dashboard) → DashboardPage
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (17 fichiers, incl. ged.py, amortissements.py) |
-| **Services** | Logique métier, I/O, watchdog, GED, amortissements | `backend/services/` (16 fichiers, incl. ged_service.py, amortissement_service.py) |
-| **Models** | Schémas Pydantic | `backend/models/` (10 fichiers, incl. ged.py, report.py, analytics.py, amortissement.py) |
+| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (19 fichiers, incl. ged.py, amortissements.py, templates.py) |
+| **Services** | Logique métier, I/O, watchdog, GED, amortissements, templates | `backend/services/` (18 fichiers, incl. ged_service.py, amortissement_service.py, template_service.py) |
+| **Models** | Schémas Pydantic | `backend/models/` (12 fichiers, incl. ged.py, report.py, analytics.py, amortissement.py, template.py) |
 | **Config** | Chemins, constantes | `backend/core/config.py` |
 
 ## Stockage des données
@@ -366,6 +393,8 @@ data/
 ├── amortissements/
 │   ├── immobilisations.json    # Registre des immobilisations
 │   └── config.json             # Seuil (500€), durées, catégories éligibles, plafonds
+├── templates/
+│   └── justificatifs_templates.json  # Templates fournisseurs (vendor, aliases, fields)
 ├── compta_analytique/          # Presets de requêtes
 ├── logs/                       # Logs applicatifs (rotation 10 Mo)
 └── ocr/                        # Cache OCR global

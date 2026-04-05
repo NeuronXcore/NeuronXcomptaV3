@@ -865,3 +865,193 @@ Calcule le BNC historique depuis les fichiers d'opérations (mensuel, annuel, pr
 Projette les revenus futurs par analyse saisonnière ou moyenne simple.
 
 **Paramètres :** `horizon` (int, défaut 12), `methode` (string, défaut "saisonnier")
+
+---
+
+## Templates Justificatifs (`/api/templates`)
+
+Gestion des templates de justificatifs par fournisseur. Permet de créer des templates depuis des justificatifs scannés et de générer des PDF reconstitués quand l'original est manquant.
+
+### `GET /`
+Liste tous les templates.
+
+**Réponse :**
+```json
+[
+  {
+    "id": "tpl_9a0d79cc",
+    "vendor": "TotalEnergies",
+    "vendor_aliases": ["total", "totalenergies"],
+    "category": "Véhicule",
+    "sous_categorie": "Carburant",
+    "source_justificatif": "justificatif_20260315_143022_ticket_total.pdf",
+    "fields": [
+      {
+        "key": "date",
+        "label": "Date",
+        "type": "date",
+        "source": "operation",
+        "required": true
+      },
+      {
+        "key": "montant_ttc",
+        "label": "Montant TTC",
+        "type": "currency",
+        "source": "operation",
+        "required": true
+      },
+      {
+        "key": "tva_rate",
+        "label": "Taux TVA",
+        "type": "percent",
+        "source": "fixed",
+        "default": 20
+      },
+      {
+        "key": "montant_ht",
+        "label": "Montant HT",
+        "type": "currency",
+        "source": "computed",
+        "formula": "montant_ttc / (1 + tva_rate / 100)"
+      }
+    ],
+    "created_at": "2026-04-05T14:30:00",
+    "created_from": "scan",
+    "usage_count": 3
+  }
+]
+```
+
+### `GET /{template_id}`
+Retourne un template par ID.
+
+### `POST /`
+Crée un nouveau template.
+
+**Body :**
+```json
+{
+  "vendor": "TotalEnergies",
+  "vendor_aliases": ["total", "totalenergies", "total access"],
+  "category": "Véhicule",
+  "sous_categorie": "Carburant",
+  "source_justificatif": "justificatif_xxx.pdf",
+  "fields": [
+    {
+      "key": "date",
+      "label": "Date",
+      "type": "date",
+      "source": "operation",
+      "required": true
+    }
+  ]
+}
+```
+
+### `PUT /{template_id}`
+Met à jour un template existant. Même body que `POST /`.
+
+### `DELETE /{template_id}`
+Supprime un template.
+
+### `POST /extract`
+Extrait les champs structurés d'un justificatif existant pour aider à créer un template. Tente Ollama/Qwen2-VL d'abord, fallback sur les données `.ocr.json` basiques.
+
+**Body :**
+```json
+{
+  "filename": "justificatif_20260315_143022_ticket_total.pdf"
+}
+```
+
+**Réponse :**
+```json
+{
+  "vendor": "TOTALENERGIES",
+  "suggested_aliases": ["totalenergies", "total"],
+  "detected_fields": [
+    {
+      "key": "date",
+      "label": "Date",
+      "value": "2026-03-15",
+      "type": "date",
+      "confidence": 0.85,
+      "suggested_source": "operation"
+    },
+    {
+      "key": "montant_ttc",
+      "label": "Montant TTC",
+      "value": "72.45",
+      "type": "currency",
+      "confidence": 0.80,
+      "suggested_source": "operation"
+    }
+  ]
+}
+```
+
+### `POST /generate`
+Génère un PDF justificatif reconstitué depuis un template + opération. Le PDF est sobre (format A5, Helvetica) sans aucune mention de reconstitution. La traçabilité est dans le `.ocr.json` compagnon (`"source": "reconstitue"`).
+
+**Body :**
+```json
+{
+  "template_id": "tpl_9a0d79cc",
+  "operation_file": "operations_20260320_xxx.json",
+  "operation_index": 12,
+  "field_values": {
+    "litrage": 35.2,
+    "type_carburant": "SP95"
+  },
+  "auto_associate": true
+}
+```
+
+**Réponse :**
+```json
+{
+  "filename": "reconstitue_20260405_143000_totalenergies.pdf",
+  "associated": true
+}
+```
+
+Fichiers générés dans `data/justificatifs/en_attente/` :
+- `reconstitue_YYYYMMDD_HHMMSS_vendor.pdf` — le justificatif PDF
+- `reconstitue_YYYYMMDD_HHMMSS_vendor.ocr.json` — métadonnées avec `"source": "reconstitue"` et `operation_ref`
+
+### `GET /suggest/{operation_file}/{operation_index}`
+Suggère des templates correspondant au libellé de l'opération. Les alias du template sont matchés dans le libellé bancaire (insensible à la casse, trié par longueur du match).
+
+**Réponse :**
+```json
+[
+  {
+    "template_id": "tpl_9a0d79cc",
+    "vendor": "TotalEnergies",
+    "match_score": 0.5,
+    "matched_alias": "totalenergies",
+    "fields_count": 5
+  }
+]
+```
+
+### Types de champs
+
+| `type` | Description | Format |
+|--------|-------------|--------|
+| `text` | Texte libre | string |
+| `date` | Date | `YYYY-MM-DD` |
+| `currency` | Montant EUR | float, affiché `XX,XX €` |
+| `number` | Nombre | float |
+| `percent` | Pourcentage | int 0-100 |
+| `select` | Choix parmi `options` | string |
+
+### Sources de champs
+
+| `source` | Comportement |
+|----------|-------------|
+| `operation` | Auto-rempli depuis l'opération bancaire (date, montant) |
+| `ocr` | Pré-rempli depuis le libellé OCR |
+| `manual` | L'utilisateur remplit manuellement |
+| `computed` | Calculé via `formula` (expressions arithmétiques simples) |
+| `fixed` | Valeur par défaut fixe (modifiable) |

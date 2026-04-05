@@ -15,6 +15,7 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Image Support**: JPG/JPEG/PNG justificatifs are converted to PDF at intake via Pillow (`_convert_image_to_pdf()`). Only PDF is stored. Constants in `config.py`: `ALLOWED_JUSTIFICATIF_EXTENSIONS`, `IMAGE_EXTENSIONS`, `MAGIC_BYTES`.
 - **Amortissements**: Registre des immobilisations avec calcul automatique des dotations (linéaire/dégressif), détection des opérations candidates (montant > seuil + catégorie éligible), plafonds véhicules CO2, gestion cessions/sorties. Données dans `data/amortissements/`. Moteur de calcul dupliqué Python/TypeScript.
 - **Simulation BNC**: Moteur fiscal complet (URSSAF, CARMF, ODM, IR) avec barèmes JSON versionnés dans `data/baremes/`. Calcul temps réel côté client via `fiscal-engine.ts` (duplique la logique Python). Distinction critique PER (IR seul) vs Madelin (BNC + social). Prévisions d'honoraires par analyse saisonnière.
+- **Templates Justificatifs**: Bibliothèque de templates par fournisseur créés depuis des justificatifs scannés. Génération de PDF reconstitués via ReportLab quand l'original est manquant. Aucune mention de reconstitution sur le PDF — traçabilité uniquement dans les métadonnées `.ocr.json`. Templates stockés dans `data/templates/justificatifs_templates.json`. Fichiers générés préfixés `reconstitue_` dans `data/justificatifs/en_attente/`.
 - **GED**: Document library indexing existing files (relevés, justificatifs, rapports) without duplication. Supports free document uploads in `data/ged/{year}/{month}/`. Each document linked to a *poste comptable* with configurable deductibility % (slider 0-100, step 5). Metadata stored in `data/ged/ged_metadata.json`, postes in `data/ged/ged_postes.json`. PDF thumbnails cached in `data/ged/thumbnails/` via pdf2image. Dual tree view (by year / by type).
 
 ## PDF Import Pipeline
@@ -52,15 +53,15 @@ neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
 │   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR, BAREMES_DIR
-│   ├── models/                 # Pydantic schemas (11 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py)
-│   ├── routers/                # API endpoints (18 routers, incl. ged.py, amortissements.py, simulation.py)
-│   └── services/               # Business logic (17 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py)
+│   ├── models/                 # Pydantic schemas (12 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py, template.py)
+│   ├── routers/                # API endpoints (19 routers, incl. ged.py, amortissements.py, simulation.py, templates.py)
+│   └── services/               # Business logic (18 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py)
 ├── frontend/
 │   └── src/
 │       ├── App.tsx             # All 18 routes (Pipeline=/, Dashboard=/dashboard)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
 │       ├── components/         # 60+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/)
-│       ├── hooks/              # 16 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline)
+│       ├── hooks/              # 17 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates)
 │       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
 │       ├── lib/fiscal-engine.ts         # Moteur fiscal TypeScript (URSSAF, CARMF, IR, simulation multi-leviers)
 │       ├── types/index.ts      # All TypeScript interfaces
@@ -78,6 +79,8 @@ neuronXcompta/
 │   │   ├── ged_postes.json     # Postes comptables config
 │   │   ├── thumbnails/         # PDF thumbnail cache (PNG)
 │   │   └── {year}/{month}/     # Free document uploads
+│   ├── templates/
+│   │   └── justificatifs_templates.json   # Templates par fournisseur
 │   ├── baremes/
 │   │   ├── urssaf_2024.json      # Barème URSSAF (PASS, maladie, CSG/CRDS, IJ, CURPS)
 │   │   ├── carmf_2024.json       # Barème CARMF (régime base, complémentaire, ASV)
@@ -122,6 +125,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | amortissements | `/api/amortissements` | GET /, GET /kpis, POST /, PATCH /{id}, DELETE /{id}, GET /dotations/{year}, GET /projections, GET /candidates, POST /candidates/immobiliser, POST /candidates/ignore, POST /cession/{id}, GET/PUT /config |
 | ged | `/api/ged` | GET /tree, GET /documents, POST /upload, PATCH /documents/{doc_id}, DELETE /documents/{doc_id}, GET /documents/{doc_id}/preview, GET /documents/{doc_id}/thumbnail, POST /documents/{doc_id}/open-native, GET /search, GET /stats, GET/PUT/POST/DELETE /postes, POST /bulk-tag, POST /scan |
 | simulation | `/api/simulation` | GET /baremes, GET /baremes/{type}, PUT /baremes/{type}, POST /calculate, GET /taux-marginal, GET /seuils, GET /historique, GET /previsions |
+| templates | `/api/templates` | GET /, POST /, PUT /{id}, DELETE /{id}, POST /extract, POST /generate, GET /suggest/{file}/{idx} |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info |
 
 ## Frontend Routes
@@ -141,7 +145,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | `/rapprochement` | RapprochementPage | Auto/manual bank-justificatif reconciliation avec drawer rapprochement manuel (filtres, scores, preview PDF) |
 | `/alertes` | AlertesPage | Compte d'attente avec badge alertes, **sélecteur année + boutons mois** |
 | `/cloture` | CloturePage | Annual calendar view of monthly accounting completeness |
-| `/ocr` | OcrPage | Point d'entrée justificatifs : batch upload **PDF/JPG/PNG** + OCR, test manuel, historique (3 onglets) |
+| `/ocr` | OcrPage | Point d'entrée justificatifs : batch upload **PDF/JPG/PNG** + OCR, test manuel, historique, **templates justificatifs** (création depuis scan, bibliothèque fournisseurs, génération reconstitués) (4 onglets) |
 | `/echeancier` | EcheancierPage | Échéancier des opérations récurrentes |
 | `/amortissements` | AmortissementsPage | Registre immobilisations (4 onglets : registre, tableau annuel, synthèse par poste, candidates), drawers (immobilisation avec aperçu tableau temps réel, config seuils/durées, cession avec calcul plus/moins-value), détection auto des opérations candidates (montant > seuil), moteur calcul linéaire/dégressif, plafonds véhicules CO2 |
 | `/ged` | GedPage | **Bibliothèque GED** : split layout (arbre 260px + contenu), **double vue arbre (par année / par type)**, grille thumbnails PDF ou liste tableau, drawer preview PDF redimensionnable (400-1200px) + section fiscalité (poste comptable, montant brut, % déductible, montant déductible calculé), drawer postes comptables avec **sliders % déductibilité** (0-100, step 5, couleur dynamique vert/orange/rouge), upload documents libres (drag-drop), recherche full-text (noms + OCR), ouverture native macOS (Aperçu) |
@@ -171,6 +175,8 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 - `CessionDrawer` — 500px, sortie d'actif avec calcul plus/moins-value et régime fiscal
 - `SimulationOptimisationSection` — leviers interactifs (sliders), calcul temps réel, impact charges, taux marginal, comparatif charge/immobilisation
 - `SimulationPrevisionsSection` — historique BNC, projections saisonnières, profil mensuel, tableau annuel
+- `ReconstituerButton` — bouton contextuel (rapprochement, alertes, éditeur) pour générer un justificatif reconstitué depuis un template fournisseur
+- `ReconstituerDrawer` — 600px, formulaire de génération pré-rempli (champs auto/manuels, TVA, preview)
 
 ## Patterns to Follow
 
@@ -199,6 +205,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 - **Fiscal engine dual**: Moteur fiscal dupliqué Python (`fiscal_service.py`) et TypeScript (`fiscal-engine.ts`). Résultats identiques à l'arrondi près. Barèmes chargés une seule fois via `useBaremes()`, calcul côté client pour la réactivité des sliders.
 - **PER vs Madelin**: PER déduit du revenu imposable (IR) UNIQUEMENT. Madelin déduit du BNC social ET imposable. Cette distinction est critique dans `simulateAll()`.
 - **Barèmes versionnés**: Fichiers JSON dans `data/baremes/{type}_{year}.json`. Fallback sur l'année la plus récente. Modifiables via `PUT /api/simulation/baremes/{type}`.
+- **Templates justificatifs**: Créés depuis des justificatifs scannés existants (OCR extraction enrichie via Qwen2-VL). Un template = un fournisseur avec aliases de matching. Les reconstitués sont des PDF sobres (ReportLab, A5) sans aucune mention de reconstitution. Traçabilité uniquement dans le `.ocr.json` (`"source": "reconstitue"`). Le bouton `ReconstituerButton` est intégré dans 4 pages (rapprochement, alertes, éditeur, clôture).
 - **Pipeline badge** : badge % global dans la sidebar sous l'item Pipeline, clic → navigate('/'), couleur dynamique (vert/ambre/gris). Utilise `usePipeline` pour le mois courant auto-détecté.
 
 ## Dependencies

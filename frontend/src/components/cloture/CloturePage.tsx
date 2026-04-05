@@ -26,7 +26,7 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
   )
 }
 
-function MonthCard({ month, onClick }: { month: MonthStatus; onClick: () => void }) {
+function MonthCard({ month, onClick, year, onReconstituer }: { month: MonthStatus; onClick: () => void; year: number; onReconstituer?: () => void }) {
   const config = STATUT_CONFIG[month.statut]
 
   return (
@@ -81,6 +81,16 @@ function MonthCard({ month, onClick }: { month: MonthStatus; onClick: () => void
           <div className="text-[10px] text-text-muted mt-2 font-mono">
             {month.nb_operations} ops &middot; {Math.round(month.taux_lettrage * 100)}% L &middot; {Math.round(month.taux_justificatifs * 100)}% J
           </div>
+
+          {/* Reconstituer les manquants */}
+          {month.statut === 'partiel' && month.nb_justificatifs_ok < month.nb_justificatifs_total && onReconstituer && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onReconstituer() }}
+              className="mt-2 w-full text-[10px] text-violet-400 hover:text-violet-300 bg-violet-500/10 hover:bg-violet-500/15 rounded px-2 py-1 transition-colors"
+            >
+              Reconstituer les manquants
+            </button>
+          )}
         </>
       )}
     </div>
@@ -180,11 +190,13 @@ export default function CloturePage() {
             <MonthCard
               key={month.mois}
               month={month}
+              year={effectiveYear}
               onClick={() => {
                 if (month.filename) {
                   navigate(`/editor?file=${encodeURIComponent(month.filename)}`)
                 }
               }}
+              onReconstituer={() => navigate(`/alertes?year=${effectiveYear}&month=${month.mois}&type=justificatif_manquant`)}
             />
           ))}
         </div>

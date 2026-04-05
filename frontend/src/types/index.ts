@@ -299,6 +299,62 @@ export interface OperationSuggestion {
   score_detail: string
 }
 
+// ─── Templates justificatifs ───
+
+export interface TemplateField {
+  key: string
+  label: string
+  type: 'text' | 'date' | 'currency' | 'number' | 'percent' | 'select'
+  source: 'operation' | 'ocr' | 'manual' | 'computed' | 'fixed'
+  required: boolean
+  default?: number
+  formula?: string
+  options?: string[]
+  ocr_confidence?: number
+}
+
+export interface JustificatifTemplate {
+  id: string
+  vendor: string
+  vendor_aliases: string[]
+  category?: string
+  sous_categorie?: string
+  source_justificatif?: string
+  fields: TemplateField[]
+  created_at: string
+  created_from: 'scan' | 'manual'
+  usage_count: number
+}
+
+export interface ExtractedFields {
+  vendor: string
+  suggested_aliases: string[]
+  detected_fields: Array<{
+    key: string
+    label: string
+    value: string
+    type: string
+    confidence: number
+    suggested_source: string
+  }>
+}
+
+export interface TemplateSuggestion {
+  template_id: string
+  vendor: string
+  match_score: number
+  matched_alias: string
+  fields_count: number
+}
+
+export interface GenerateRequest {
+  template_id: string
+  operation_file: string
+  operation_index: number
+  field_values: Record<string, string | number>
+  auto_associate: boolean
+}
+
 // ─── Lettrage ───
 
 export interface LettrageStats {

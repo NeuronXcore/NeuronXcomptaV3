@@ -40,6 +40,10 @@ AMORTISSEMENTS_DIR = DATA_DIR / "amortissements"
 # Barèmes fiscaux
 BAREMES_DIR = DATA_DIR / "baremes"
 
+# Templates justificatifs
+TEMPLATES_DIR = DATA_DIR / "templates"
+TEMPLATES_FILE = TEMPLATES_DIR / "justificatifs_templates.json"
+
 SEUIL_IMMOBILISATION = 500  # € TTC
 
 CATEGORIES_IMMOBILISABLES = [
@@ -133,6 +137,7 @@ def ensure_directories():
         GED_DIR, GED_THUMBNAILS_DIR,
         AMORTISSEMENTS_DIR,
         BAREMES_DIR,
+        TEMPLATES_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)

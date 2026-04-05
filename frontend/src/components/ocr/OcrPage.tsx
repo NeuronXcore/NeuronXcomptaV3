@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useCallback, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
@@ -15,12 +15,19 @@ import {
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
   ArrowRight, DollarSign, Calendar, User,
 } from 'lucide-react'
+import TemplatesTab from './TemplatesTab'
 import type { OCRResult, OCRHistoryItem } from '@/types'
 
-type Tab = 'upload' | 'test' | 'historique'
+type Tab = 'upload' | 'test' | 'historique' | 'templates'
 
 export default function OcrPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('upload')
+  const location = useLocation()
+  const searchParams = new URLSearchParams(location.search)
+  const preFile = searchParams.get('file')
+  const preIndex = searchParams.get('index')
+  const preTemplate = searchParams.get('template')
+
+  const [activeTab, setActiveTab] = useState<Tab>(preFile ? 'templates' : 'upload')
   const { data: status } = useOcrStatus()
   const { data: history, isLoading: historyLoading } = useOcrHistory(30)
 
@@ -63,6 +70,7 @@ export default function OcrPage() {
           { key: 'upload' as Tab, label: 'Upload & OCR', icon: Upload },
           { key: 'test' as Tab, label: 'Test Manuel', icon: ScanLine },
           { key: 'historique' as Tab, label: 'Historique', icon: Clock },
+          { key: 'templates' as Tab, label: 'Templates justificatifs', icon: FileText },
         ]).map(tab => (
           <button
             key={tab.key}
@@ -84,6 +92,8 @@ export default function OcrPage() {
         <BatchUploadTab />
       ) : activeTab === 'test' ? (
         <TestManuelTab />
+      ) : activeTab === 'templates' ? (
+        <TemplatesTab preFile={preFile} preIndex={preIndex} preTemplate={preTemplate} />
       ) : (
         <HistoriqueTab history={history || []} isLoading={historyLoading} />
       )}
