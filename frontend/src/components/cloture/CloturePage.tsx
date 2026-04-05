@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, CheckCircle2, AlertCircle,
@@ -100,18 +101,9 @@ function MonthCard({ month, onClick, year, onReconstituer }: { month: MonthStatu
 export default function CloturePage() {
   const navigate = useNavigate()
   const { data: years, isLoading: yearsLoading } = useClotureYears()
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
-
-  // Default to most recent year with data
-  useEffect(() => {
-    if (years && years.length > 0 && selectedYear === null) {
-      setSelectedYear(years[0])
-    } else if (years && years.length === 0 && selectedYear === null) {
-      setSelectedYear(new Date().getFullYear())
-    }
-  }, [years, selectedYear])
+  const { selectedYear, setYear } = useFiscalYearStore()
   const { data: months, isLoading: monthsLoading } = useAnnualStatus(selectedYear)
-  const effectiveYear = selectedYear ?? new Date().getFullYear()
+  const effectiveYear = selectedYear
 
   // Summary stats
   const summary = useMemo(() => {
@@ -165,7 +157,7 @@ export default function CloturePage() {
       {/* Year selector */}
       <div className="flex items-center justify-center gap-4 mb-6">
         <button
-          onClick={() => setSelectedYear(y => (y ?? effectiveYear) - 1)}
+          onClick={() => setYear(selectedYear - 1)}
           disabled={effectiveYear <= minYear - 1}
           className="p-2 rounded-lg bg-surface border border-border hover:bg-surface-hover disabled:opacity-30 transition-colors"
         >
@@ -173,7 +165,7 @@ export default function CloturePage() {
         </button>
         <span className="text-2xl font-bold text-text min-w-[100px] text-center">{effectiveYear}</span>
         <button
-          onClick={() => setSelectedYear(y => (y ?? effectiveYear) + 1)}
+          onClick={() => setYear(selectedYear + 1)}
           disabled={effectiveYear >= maxYear + 1}
           className="p-2 rounded-lg bg-surface border border-border hover:bg-surface-hover disabled:opacity-30 transition-colors"
         >

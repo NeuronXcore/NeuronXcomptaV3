@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { TrendingUp, BarChart3, Building2, Settings } from 'lucide-react'
 import PageHeader from '@/components/shared/PageHeader'
 import { cn } from '@/lib/utils'
@@ -16,7 +17,7 @@ const TABS = [
 
 export default function PrevisionnelPage() {
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
-  const [year, setYear] = useState(new Date().getFullYear())
+  const { selectedYear: year, setYear } = useFiscalYearStore()
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

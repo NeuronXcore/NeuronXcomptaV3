@@ -1020,3 +1020,42 @@ export interface PipelineState {
   steps: PipelineStep[]
   globalProgress: number // 0-100, moyenne pondérée
 }
+
+// ──── Tasks (Kanban) ────
+
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
+export type TaskPriority = 'haute' | 'normale' | 'basse'
+export type TaskSource = 'manual' | 'auto'
+
+export interface Task {
+  id: string
+  title: string
+  description?: string
+  status: TaskStatus
+  priority: TaskPriority
+  source: TaskSource
+  year?: number
+  auto_key?: string
+  due_date?: string
+  dismissed: boolean
+  created_at: string
+  completed_at?: string
+}
+
+export interface TaskCreate {
+  title: string
+  description?: string
+  status?: TaskStatus
+  priority?: TaskPriority
+  year?: number
+  due_date?: string
+}
+
+export interface TaskUpdate {
+  title?: string
+  description?: string
+  status?: TaskStatus
+  priority?: TaskPriority
+  due_date?: string
+  dismissed?: boolean
+}

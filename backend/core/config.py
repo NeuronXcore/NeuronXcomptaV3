@@ -97,6 +97,7 @@ RULES_MODEL_PATH = ML_DIR / "model.json"
 CATEGORIES_FILE = DATA_DIR / "categories.json"
 SOUS_CATEGORIES_FILE = DATA_DIR / "sous_categories.json"
 SETTINGS_FILE = BASE_DIR / "settings.json"
+TASKS_FILE = DATA_DIR / "tasks.json"
 
 # Constantes d'application
 APP_NAME = "NeuronXcompta"

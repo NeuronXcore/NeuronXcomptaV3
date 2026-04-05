@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { cn } from '@/lib/utils'
 import { GitCompareArrows } from 'lucide-react'
 import PageHeader from '@/components/shared/PageHeader'
@@ -11,7 +12,8 @@ import type { ReportFiltersV2, ReportMetadata, ReportTemplate } from '@/types'
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'generate' | 'library'>('generate')
-  const [filters, setFilters] = useState<ReportFiltersV2>({ year: new Date().getFullYear() })
+  const { selectedYear, setYear } = useFiscalYearStore()
+  const [filters, setFilters] = useState<ReportFiltersV2>({ year: selectedYear })
   const [format, setFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf')
   const [templateId, setTemplateId] = useState<string | undefined>()
   const [previewReport, setPreviewReport] = useState<ReportMetadata | null>(null)
@@ -28,11 +30,18 @@ export default function ReportsPage() {
     )
   }
 
+  const handleFiltersChange = (f: ReportFiltersV2) => {
+    setFilters(f)
+    if (f.year) setYear(f.year)
+  }
+
   const handleTemplateSelect = (t: ReportTemplate) => {
+    const yr = t.filters.year || selectedYear
     setFilters({
       ...t.filters,
-      year: t.filters.year || new Date().getFullYear(),
+      year: yr,
     })
+    if (yr) setYear(yr)
     setFormat(t.format as 'pdf' | 'csv' | 'excel')
     setTemplateId(t.id)
   }
@@ -100,7 +109,7 @@ export default function ReportsPage() {
       {activeTab === 'generate' ? (
         <ReportFilters
           filters={filters}
-          onFiltersChange={setFilters}
+          onFiltersChange={handleFiltersChange}
           format={format}
           onFormatChange={setFormat}
           onGenerate={handleGenerate}

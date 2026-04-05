@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 17 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking. Includes a Dotations aux Amortissements module with registre des immobilisations, moteur de calcul linéaire/dégressif, et détection automatique des opérations candidates.
+NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 18 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking. Includes a Dotations aux Amortissements module with registre des immobilisations, moteur de calcul linéaire/dégressif, et détection automatique des opérations candidates. Includes a Tasks Kanban module for tracking accounting actions (auto-generated + manual tasks) with drag & drop.
 
 ## Architecture
 
@@ -17,6 +17,8 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Simulation BNC**: Moteur fiscal complet (URSSAF, CARMF, ODM, IR) avec barèmes JSON versionnés dans `data/baremes/`. Calcul temps réel côté client via `fiscal-engine.ts` (duplique la logique Python). Distinction critique PER (IR seul) vs Madelin (BNC + social). Prévisions d'honoraires par analyse saisonnière.
 - **Prévisionnel**: Calendrier de trésorerie annuel combinant charges attendues (providers récurrents + moyennes N-1), recettes projetées (régression linéaire + saisonnalité), et réalisé. Deux modes fournisseurs : facture récurrente (un document par période) et échéancier de prélèvements (parsing OCR, matching opérations bancaires). Timeline 12 mois Recharts avec barres empilées. Données dans `data/previsionnel/`. Background scan toutes les heures.
 - **Templates Justificatifs**: Bibliothèque de templates par fournisseur créés depuis des justificatifs scannés. Génération de PDF reconstitués via ReportLab quand l'original est manquant. Aucune mention de reconstitution sur le PDF — traçabilité uniquement dans les métadonnées `.ocr.json`. Templates stockés dans `data/templates/justificatifs_templates.json`. Fichiers générés préfixés `reconstitue_` dans `data/justificatifs/en_attente/`.
+- **Tâches Kanban**: Module de suivi des actions comptables avec vue kanban 3 colonnes (To do / In progress / Done). Tâches auto-générées par scan de l'état applicatif (5 détections : opérations non catégorisées, justificatifs en attente, clôture incomplète, mois sans relevé, alertes non résolues) + tâches manuelles. Drag & drop via @dnd-kit. Scopé par année (store Zustand global). Badge compteur dans la sidebar. Données dans `data/tasks.json`.
+- **Sélecteur Année Global**: Store Zustand (`useFiscalYearStore`) avec persistance localStorage. Sélecteur `◀ ANNÉE ▶` dans la sidebar, synchronisé bidirectionnellement avec les sélecteurs année de chaque page (EditorPage, AlertesPage, CloturePage, DashboardPage, ExportPage, ReportsPage, PrevisionnelPage, ComptaAnalytiquePage).
 - **GED**: Document library indexing existing files (relevés, justificatifs, rapports) without duplication. Supports free document uploads in `data/ged/{year}/{month}/`. Each document linked to a *poste comptable* with configurable deductibility % (slider 0-100, step 5). Metadata stored in `data/ged/ged_metadata.json`, postes in `data/ged/ged_postes.json`. PDF thumbnails cached in `data/ged/thumbnails/` via pdf2image. Dual tree view (by year / by type).
 
 ## PDF Import Pipeline
@@ -53,16 +55,17 @@ npm run dev
 neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
-│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR, BAREMES_DIR
-│   ├── models/                 # Pydantic schemas (13 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py, template.py, previsionnel.py)
-│   ├── routers/                # API endpoints (19 routers, incl. ged.py, amortissements.py, simulation.py, templates.py, previsionnel.py)
-│   └── services/               # Business logic (18 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py, previsionnel_service.py)
+│   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR, BAREMES_DIR, TASKS_FILE
+│   ├── models/                 # Pydantic schemas (14 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py, template.py, previsionnel.py, task.py)
+│   ├── routers/                # API endpoints (20 routers, incl. ged.py, amortissements.py, simulation.py, templates.py, previsionnel.py, tasks.py)
+│   └── services/               # Business logic (19 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py, previsionnel_service.py, task_service.py)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx             # All 18 routes (Pipeline=/, Dashboard=/dashboard)
+│       ├── App.tsx             # All 19 routes (Pipeline=/, Dashboard=/dashboard, Tasks=/tasks)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
-│       ├── components/         # 60+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/)
-│       ├── hooks/              # 18 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel)
+│       ├── components/         # 65+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/, components/tasks/)
+│       ├── hooks/              # 19 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel, useTasks)
+│       ├── stores/useFiscalYearStore.ts  # Zustand store — année globale persistée en localStorage
 │       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
 │       ├── lib/fiscal-engine.ts         # Moteur fiscal TypeScript (URSSAF, CARMF, IR, simulation multi-leviers)
 │       ├── types/index.ts      # All TypeScript interfaces
@@ -91,6 +94,7 @@ neuronXcompta/
 │   │   ├── carmf_2024.json       # Barème CARMF (régime base, complémentaire, ASV)
 │   │   ├── ir_2024.json          # Barème IR (tranches, décote, PER, Madelin)
 │   │   └── odm_2024.json         # Cotisation Ordre des Médecins
+│   └── tasks.json              # Tâches kanban (auto + manuelles, toutes années)
 ├── settings.json               # App settings
 └── docs/                       # Documentation
 ```
@@ -107,7 +111,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | **ANALYSE** | Tableau de bord, Prévisionnel, Compta Analytique, Rapports, Simulation BNC |
 | **CLÔTURE** | Export Comptable, Clôture, Amortissements |
 | **DOCUMENTS** | Bibliothèque (GED) |
-| **OUTILS** | Agent IA, Paramètres |
+| **OUTILS** | Tâches, Agent IA, Paramètres |
 
 ## Backend API Endpoints
 
@@ -132,6 +136,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | simulation | `/api/simulation` | GET /baremes, GET /baremes/{type}, PUT /baremes/{type}, POST /calculate, GET /taux-marginal, GET /seuils, GET /historique, GET /previsions |
 | previsionnel | `/api/previsionnel` | GET /timeline, GET/POST/PUT/DELETE /providers, GET /echeances, GET /dashboard, POST /scan, POST /refresh, POST /echeances/{id}/link, POST /echeances/{id}/prelevements, POST /echeances/{id}/auto-populate, GET/PUT /settings |
 | templates | `/api/templates` | GET /, POST /, PUT /{id}, DELETE /{id}, POST /extract, POST /generate, GET /suggest/{file}/{idx} |
+| tasks | `/api/tasks` | GET /?year=, POST /, PATCH /{task_id}, DELETE /{task_id}, POST /refresh?year= |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info |
 
 ## Frontend Routes
@@ -156,6 +161,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | `/amortissements` | AmortissementsPage | Registre immobilisations (4 onglets : registre, tableau annuel, synthèse par poste, candidates), drawers (immobilisation avec aperçu tableau temps réel, config seuils/durées, cession avec calcul plus/moins-value), détection auto des opérations candidates (montant > seuil), moteur calcul linéaire/dégressif, plafonds véhicules CO2 |
 | `/ged` | GedPage | **Bibliothèque GED** : split layout (arbre 260px + contenu), **double vue arbre (par année / par type)**, grille thumbnails PDF ou liste tableau, drawer preview PDF redimensionnable (400-1200px) + section fiscalité (poste comptable, montant brut, % déductible, montant déductible calculé), drawer postes comptables avec **sliders % déductibilité** (0-100, step 5, couleur dynamique vert/orange/rouge), upload documents libres (drag-drop), recherche full-text (noms + OCR), ouverture native macOS (Aperçu) |
 | `/simulation` | SimulationPage | Simulateur BNC 2 onglets : **Optimisation** (leviers Madelin/PER/CARMF/investissement avec sliders temps réel, impact charges URSSAF/CARMF/ODM/IR, taux marginal réel segmenté, comparatif charge/immobilisation, projection dotations 5 ans) + **Prévisions** (historique BNC, projections saisonnières, profil mensuel, tableau annuel avec évolution) |
+| `/tasks` | TasksPage | **Tâches Kanban** : 3 colonnes (To do / In progress / Done), drag & drop @dnd-kit, tâches auto (5 détections) + manuelles, scopé par année globale, refresh auto au montage, badge compteur sidebar, formulaire inline création/édition |
 | `/settings` | SettingsPage | 5-tab settings (general, theme, export, storage, system) |
 
 ## Key Components
@@ -213,9 +219,11 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 - **Barèmes versionnés**: Fichiers JSON dans `data/baremes/{type}_{year}.json`. Fallback sur l'année la plus récente. Modifiables via `PUT /api/simulation/baremes/{type}`.
 - **Templates justificatifs**: Créés depuis des justificatifs scannés existants (OCR extraction enrichie via Qwen2-VL). Un template = un fournisseur avec aliases de matching. Les reconstitués sont des PDF sobres (ReportLab, A5) sans aucune mention de reconstitution. Traçabilité uniquement dans le `.ocr.json` (`"source": "reconstitue"`). Le bouton `ReconstituerButton` est intégré dans 4 pages (rapprochement, alertes, éditeur, clôture).
 - **Pipeline badge** : badge % global dans la sidebar sous l'item Pipeline, clic → navigate('/'), couleur dynamique (vert/ambre/gris). Utilise `usePipeline` pour le mois courant auto-détecté.
+- **Global year store** : `useFiscalYearStore` (Zustand + persist localStorage `neuronx-fiscal-year`). Sélecteur `◀ ANNÉE ▶` dans la sidebar, synchronisé avec toutes les pages. Le mois/trimestre restent en `useState` local par page. La sidebar ne sync pas tant que `useOperationFiles` n'a pas chargé (évite d'écraser la valeur persistée avec le fallback année courante).
+- **Tasks kanban** : 3 colonnes avec `DndContext` + `useDroppable` + `useSortable` (@dnd-kit). Tâches auto générées par `task_service.generate_auto_tasks(year)` (5 détections scopées par année). Déduplication par `auto_key` dans le router (pas le service). Tâches manuelles supprimables, auto uniquement dismissables. Refresh auto au montage + quand l'année change. Badge compteur (tâches non-done) dans la sidebar sur l'item `/tasks`.
 
 ## Dependencies
 
-**Frontend**: react, react-router-dom, @tanstack/react-query, @tanstack/react-table, recharts, react-dropzone, lucide-react, tailwind-merge, clsx, date-fns, zustand, react-hot-toast
+**Frontend**: react, react-router-dom, @tanstack/react-query, @tanstack/react-table, recharts, react-dropzone, lucide-react, tailwind-merge, clsx, date-fns, zustand, react-hot-toast, @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities
 
 **Backend**: fastapi, uvicorn, pandas, numpy, scikit-learn, pdfplumber, reportlab, openpyxl, easyocr, pdf2image, pillow, pytesseract, watchdog

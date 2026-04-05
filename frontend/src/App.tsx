@@ -20,6 +20,7 @@ import GedPage from '@/components/ged/GedPage'
 import AmortissementsPage from '@/components/amortissements/AmortissementsPage'
 import SimulationPage from '@/components/simulation/SimulationPage'
 import PrevisionnelPage from '@/components/previsionnel/PrevisionnelPage'
+import TasksPage from '@/components/tasks/TasksPage'
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/simulation" element={<SimulationPage />} />
         <Route path="/previsionnel" element={<PrevisionnelPage />} />
         <Route path="/ged" element={<GedPage />} />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>

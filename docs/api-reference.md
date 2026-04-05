@@ -1207,3 +1207,93 @@ Suggère des templates correspondant au libellé de l'opération. Les alias du t
 | `manual` | L'utilisateur remplit manuellement |
 | `computed` | Calculé via `formula` (expressions arithmétiques simples) |
 | `fixed` | Valeur par défaut fixe (modifiable) |
+
+---
+
+## Tasks (`/api/tasks`)
+
+Module de suivi des actions comptables avec tâches auto-générées et manuelles, scopées par année.
+
+### `GET /`
+
+Liste les tâches.
+
+**Query params** :
+| Param | Type | Description |
+|-------|------|-------------|
+| `year` | int (optionnel) | Filtrer par année |
+| `include_dismissed` | bool | Inclure les tâches auto ignorées (défaut: false) |
+
+**Réponse** : `Task[]`
+
+### `POST /`
+
+Créer une tâche manuelle. Le champ `source` est forcé à `"manual"`.
+
+**Body** : `TaskCreate`
+| Champ | Type | Description |
+|-------|------|-------------|
+| `title` | string | Titre (requis) |
+| `description` | string? | Description optionnelle |
+| `status` | `"todo"` \| `"in_progress"` \| `"done"` | Défaut: `"todo"` |
+| `priority` | `"haute"` \| `"normale"` \| `"basse"` | Défaut: `"normale"` |
+| `year` | int? | Année d'exercice |
+| `due_date` | string? | Date d'échéance `YYYY-MM-DD` |
+
+**Réponse** : `Task`
+
+### `PATCH /{task_id}`
+
+Modifier une tâche. Si `status` passe à `"done"`, `completed_at` est renseigné automatiquement.
+
+**Body** : `TaskUpdate` (tous champs optionnels)
+
+**Réponse** : `Task` | 404
+
+### `DELETE /{task_id}`
+
+Supprimer une tâche **manuelle uniquement**. Retourne 400 pour les tâches auto (utiliser PATCH `dismissed: true`).
+
+**Réponse** : `{ "success": true }` | 400 | 404
+
+### `POST /refresh`
+
+Régénère les tâches auto pour l'année donnée et applique la déduplication.
+
+**Query params** :
+| Param | Type | Description |
+|-------|------|-------------|
+| `year` | int (requis) | Année à scanner |
+
+**Logique de déduplication** :
+- Nouveau `auto_key` → ajouté
+- `auto_key` existant avec status done ou dismissed → ignoré (pas recréé)
+- `auto_key` existant actif → titre/description/priorité mis à jour
+- `auto_key` disparu (problème résolu) → tâche supprimée
+
+**5 détections auto** :
+1. Opérations non catégorisées (par fichier de l'année)
+2. Justificatifs en attente de rapprochement
+3. Clôture incomplète (mois partiels)
+4. Mois sans relevé importé
+5. Alertes non résolues (compte d'attente)
+
+**Réponse** : `{ "added": N, "updated": N, "removed": N }`
+
+### Modèle Task
+
+```json
+{
+  "id": "a1b2c3d4",
+  "title": "Catégoriser 34 opérations — février 2026",
+  "description": "Fichier operations_xxx.json contient 34 opérations...",
+  "status": "todo",
+  "priority": "haute",
+  "source": "auto",
+  "year": 2026,
+  "auto_key": "categorize:operations_xxx.json",
+  "due_date": null,
+  "dismissed": false,
+  "created_at": "2026-04-05T20:45:07.245",
+  "completed_at": null
+}

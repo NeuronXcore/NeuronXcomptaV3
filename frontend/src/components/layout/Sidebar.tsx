@@ -1,13 +1,17 @@
+import { useMemo, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Upload, Pencil, Tags, BarChart3,
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   GitCompareArrows, CalendarCheck, AlertTriangle, TrendingUp,
-  Library, Landmark, Calculator, ListChecks,
+  Library, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
 import { usePipeline } from '@/hooks/usePipeline'
+import { useOperationFiles } from '@/hooks/useOperations'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import { useTasks } from '@/hooks/useTasks'
 import SidebarLogo from './SidebarLogo'
 
 const NAV_SECTIONS = [
@@ -55,6 +59,7 @@ const NAV_SECTIONS = [
   {
     label: 'Outils',
     items: [
+      { to: '/tasks', label: 'Tâches', icon: CheckSquare },
       { to: '/agent-ai', label: 'Agent IA', icon: Bot },
       { to: '/settings', label: 'Paramètres', icon: Settings },
     ],
@@ -66,6 +71,29 @@ export default function Sidebar() {
   const { data: alertesSummary } = useAlertesSummary()
   const alertesCount = alertesSummary?.total_en_attente ?? 0
   const { globalProgress } = usePipeline()
+  const { selectedYear, setYear } = useFiscalYearStore()
+  const { data: files } = useOperationFiles()
+
+  const filesLoaded = !!files
+  const availableYears = useMemo(() => {
+    if (!files?.length) return [new Date().getFullYear()]
+    const years = [...new Set(files.filter(f => f.year).map(f => f.year!))] as number[]
+    years.sort((a, b) => b - a)
+    return years.length > 0 ? years : [new Date().getFullYear()]
+  }, [files])
+
+  useEffect(() => {
+    if (!filesLoaded) return
+    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+      setYear(availableYears[0])
+    }
+  }, [filesLoaded, availableYears, selectedYear, setYear])
+
+  const { data: tasksList } = useTasks(selectedYear)
+  const tasksToDoCount = useMemo(() => {
+    if (!tasksList) return 0
+    return tasksList.filter(t => t.status !== 'done').length
+  }, [tasksList])
 
   return (
     <aside className="w-64 h-screen bg-surface border-r border-border flex flex-col fixed left-0 top-0">
@@ -113,6 +141,33 @@ export default function Sidebar() {
           </button>
         </div>
 
+        {/* Year selector */}
+        <div className="px-3 py-2 mb-2">
+          <div className="flex items-center justify-between bg-surface/50 rounded-lg px-2 py-1.5 border border-border/50">
+            <button
+              onClick={() => {
+                const idx = availableYears.indexOf(selectedYear)
+                if (idx < availableYears.length - 1) setYear(availableYears[idx + 1])
+              }}
+              disabled={availableYears.indexOf(selectedYear) >= availableYears.length - 1}
+              className="p-1 rounded hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed text-text-muted hover:text-text transition-colors"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="text-sm font-semibold text-text tabular-nums">{selectedYear}</span>
+            <button
+              onClick={() => {
+                const idx = availableYears.indexOf(selectedYear)
+                if (idx > 0) setYear(availableYears[idx - 1])
+              }}
+              disabled={availableYears.indexOf(selectedYear) <= 0}
+              className="p-1 rounded hover:bg-surface disabled:opacity-30 disabled:cursor-not-allowed text-text-muted hover:text-text transition-colors"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+
         {/* Section groups */}
         {NAV_SECTIONS.map((section) => (
           <div key={section.label} className="mt-1">
@@ -137,6 +192,11 @@ export default function Sidebar() {
                 {to === '/alertes' && alertesCount > 0 && (
                   <span className="ml-auto bg-danger text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                     {alertesCount}
+                  </span>
+                )}
+                {to === '/tasks' && tasksToDoCount > 0 && (
+                  <span className="ml-auto bg-amber-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {tasksToDoCount}
                   </span>
                 )}
               </NavLink>

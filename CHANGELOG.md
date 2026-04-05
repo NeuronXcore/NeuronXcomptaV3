@@ -8,6 +8,33 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-05)
+- **Module Tâches Kanban** : suivi des actions comptables avec vue kanban 3 colonnes
+  - 3 colonnes : To do / In progress / Done avec drag & drop via @dnd-kit
+  - Tâches auto-générées par scan de l'état applicatif (5 détections) : opérations non catégorisées, justificatifs en attente, clôture incomplète, mois sans relevé, alertes non résolues
+  - Tâches manuelles créées par l'utilisateur avec titre, description, priorité, date d'échéance
+  - Scopé par année (synchronisé avec le sélecteur année global de la sidebar)
+  - Déduplication des tâches auto par `auto_key` : ne recrée pas les tâches done/dismissed, met à jour les tâches actives
+  - Badge "Auto" sur les tâches générées, bouton Dismiss (EyeOff) pour ignorer
+  - Formulaire inline pour création/édition, validation Enter/Escape
+  - Refresh automatique au montage de la page et au changement d'année
+  - Badge compteur de tâches actives dans la sidebar (amber)
+  - `backend/models/task.py` : 3 enums (TaskStatus, TaskPriority, TaskSource) + 3 modèles Pydantic
+  - `backend/services/task_service.py` : `generate_auto_tasks(year)` avec 5 détections scopées par année
+  - `backend/routers/tasks.py` : 5 endpoints CRUD + refresh sous `/api/tasks`
+  - `frontend/src/hooks/useTasks.ts` : 5 hooks TanStack Query
+  - 4 composants dans `frontend/src/components/tasks/` (TaskCard, KanbanColumn, TaskInlineForm, TasksPage)
+  - Données dans `data/tasks.json`
+  - Sidebar : entrée "Tâches" avec icône CheckSquare dans le groupe OUTILS
+
+- **Sélecteur Année Global** : store Zustand partagé entre toutes les pages
+  - `frontend/src/stores/useFiscalYearStore.ts` : store Zustand avec middleware `persist` (localStorage `neuronx-fiscal-year`)
+  - Sélecteur `◀ ANNÉE ▶` compact dans la sidebar, au-dessus des groupes de navigation
+  - Synchronisation bidirectionnelle : changer l'année dans la sidebar ou sur une page met à jour partout
+  - Pages migrées : EditorPage, AlertesPage, CloturePage, ComptaAnalytiquePage, DashboardPage, ExportPage, ReportsPage, PrevisionnelPage
+  - L'année persiste au refresh navigateur
+  - Le mois/trimestre restent en `useState` local par page (non concernés)
+
 ### Fixed (2026-04-05)
 - **Catégorisation REMPLA** : les opérations bancaires contenant "REMPLA" dans le libellé (virements SEPA remplaçants) sont désormais catégorisées automatiquement en "Remplaçant / Honoraires"
   - `_categorize_simple()` : ajout "Remplaçant" avec keywords ["REMPLA", "REMPLACANT", "REMPLACEMENT"] **avant** "Revenus" (qui matchait "VIREMENT" en premier)

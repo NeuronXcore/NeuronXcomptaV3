@@ -26,7 +26,7 @@
 │                                                           │
 │  ┌────────────┐     ┌─────────────┐     ┌──────────────┐ │
 │  │  Routers   │ ──▶ │  Services   │ ──▶ │  Data (JSON) │ │
-│  │  (19 files)│     │  (18 files) │     │  data/       │ │
+│  │  (20 files)│     │  (19 files) │     │  data/       │ │
 │  └────────────┘     └─────────────┘     └──────────────┘ │
 │        │                   │                              │
 │  ┌─────▼──────┐     ┌─────▼──────┐                       │
@@ -433,9 +433,56 @@ data/
 └── ocr/                        # Cache OCR global
 ```
 
+### Tâches Kanban
+
+```
+task_service.generate_auto_tasks(year)
+    ├── 1. Opérations non catégorisées (par fichier de l'année)
+    ├── 2. Justificatifs en attente de rapprochement
+    ├── 3. Clôture incomplète (mois partiels via cloture_service)
+    ├── 4. Mois sans relevé importé
+    └── 5. Alertes non résolues (compte d'attente)
+            │
+            ▼
+    POST /api/tasks/refresh?year=YYYY
+    ┌─ Déduplication par auto_key ──────────────────┐
+    │  - Nouveau auto_key → ajouter                  │
+    │  - auto_key existant (done/dismissed) → skip   │
+    │  - auto_key existant (actif) → update          │
+    │  - auto_key disparu → supprimer                │
+    └────────────────────────────────────────────────┘
+            │
+            ▼
+    data/tasks.json (toutes années, un seul fichier)
+            │
+            ▼
+    GET /api/tasks/?year=YYYY → filtré par année
+```
+
+Frontend : `DndContext` (@dnd-kit) → 3 colonnes `useDroppable` → cartes `useSortable`. Refresh auto au montage et au changement d'année (store Zustand).
+
+### Sélecteur année global
+
+```
+useFiscalYearStore (Zustand + persist localStorage)
+    │
+    ├── Sidebar : sélecteur ◀ ANNÉE ▶
+    ├── EditorPage : dropdown année → mois en cascade
+    ├── DashboardPage : YearSelector
+    ├── CloturePage : boutons ◀▶
+    ├── AlertesPage : dropdown année → mois
+    ├── ComptaAnalytiquePage : filtre année global
+    ├── ExportPage : boutons année
+    ├── ReportsPage : filtre année dans filters
+    ├── PrevisionnelPage : dropdown année
+    └── TasksPage : query + refresh scopés par année
+```
+
+Tous lisent/écrivent le même store → sync bidirectionnelle automatique (Zustand natif).
+
 ## Gestion de l'état frontend
 
-**TanStack Query** gère tout l'état serveur :
+**TanStack Query** gère tout l'état serveur, **Zustand** gère l'état client partagé (année globale) :
 
 ```typescript
 // Lecture avec cache automatique

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X } from 'lucide-react'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import toast from 'react-hot-toast'
@@ -35,7 +36,7 @@ function alertePriority(op: Operation): number {
 export default function AlertesPage() {
   const { data: summary, isLoading: isSummaryLoading } = useAlertesSummary()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const { selectedYear, setYear } = useFiscalYearStore()
   const { data: operations, isLoading: isOpsLoading } = useAlertesFichier(selectedFile)
   const resolveMutation = useResolveAlerte()
   const refreshMutation = useRefreshAlertes()
@@ -58,25 +59,22 @@ export default function AlertesPage() {
       .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
   }, [summary, selectedYear])
 
-  // Auto-sélection une seule fois au premier chargement
+  // Auto-sélection du fichier pour l'année du store
   useEffect(() => {
     if (hasAutoSelected.current) return
     if (!summary?.par_fichier || summary.par_fichier.length === 0) return
 
     hasAutoSelected.current = true
 
-    const years = [...new Set(summary.par_fichier.filter(f => f.year).map(f => f.year!))]
-    if (years.length > 0) {
-      const maxYear = Math.max(...years)
-      setSelectedYear(maxYear)
-      const firstOfYear = summary.par_fichier
-        .filter(f => f.year === maxYear)
-        .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))[0]
-      if (firstOfYear) setSelectedFile(firstOfYear.filename)
+    const filesOfYear = summary.par_fichier
+      .filter(f => f.year === selectedYear)
+      .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
+    if (filesOfYear.length > 0) {
+      setSelectedFile(filesOfYear[0].filename)
     } else if (summary.par_fichier.length > 0) {
       setSelectedFile(summary.par_fichier[0].filename)
     }
-  }, [summary])
+  }, [summary, selectedYear])
 
   const sortedOps = useMemo(
     () => [...(operations || [])].sort((a, b) => alertePriority(a) - alertePriority(b)),
@@ -249,10 +247,10 @@ export default function AlertesPage() {
         <div className="flex items-center gap-3">
           {/* Year selector */}
           <select
-            value={selectedYear ?? ''}
+            value={selectedYear}
             onChange={(e) => {
               const yr = e.target.value ? Number(e.target.value) : null
-              setSelectedYear(yr)
+              if (yr) setYear(yr)
               setSelectedFile(null)
               // Auto-sélectionner le premier mois de l'année
               if (yr && summary?.par_fichier) {

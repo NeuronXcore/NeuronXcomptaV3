@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -99,7 +100,7 @@ function GenerateTab() {
   const { data: periodsData, isLoading } = useExportPeriods()
   const generateMutation = useGenerateExport()
 
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const { selectedYear, setYear } = useFiscalYearStore()
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number } | null>(null)
   const [result, setResult] = useState<ExportResult | null>(null)
 
@@ -111,9 +112,8 @@ function GenerateTab() {
   const [includeJustificatifs, setIncludeJustificatifs] = useState(true)
   const [includeReports, setIncludeReports] = useState(false)
 
-  // Set default year when data loads
   const years = periodsData?.years ?? []
-  const effectiveYear = selectedYear ?? years[0] ?? null
+  const effectiveYear = selectedYear
 
   const monthsForYear = useMemo(() => {
     if (!periodsData || !effectiveYear) return []
@@ -183,7 +183,7 @@ function GenerateTab() {
             {years.map(y => (
               <button
                 key={y}
-                onClick={() => { setSelectedYear(y); setSelectedMonth(null); setResult(null) }}
+                onClick={() => { setYear(y); setSelectedMonth(null); setResult(null) }}
                 className={cn(
                   'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
                   (effectiveYear === y)

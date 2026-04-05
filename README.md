@@ -26,6 +26,7 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |
 | **Prévisionnel** | Calendrier de trésorerie 12 mois : timeline charges/recettes (barres Recharts), fournisseurs récurrents (facture/échéancier), parsing OCR prélèvements, scan automatique documents, régression recettes + saisonnalité, paramètres catégories |
 | **Simulation BNC** | Simulateur fiscal : leviers Madelin/PER/CARMF/investissement/remplacement, dépenses détaillées par catégorie, taux marginal réel, comparatif charge/immobilisation, prévisions d'honoraires avec profil saisonnier |
+| **Tâches** | Vue kanban 3 colonnes (To do / In progress / Done) avec drag & drop, tâches auto-générées (5 détections : catégorisation, justificatifs, clôture, imports, alertes) + tâches manuelles, scopé par année, badge compteur sidebar |
 | **Paramètres** | Thème, export, stockage, informations système |
 
 ---
@@ -40,6 +41,8 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 - **TanStack Table 8** (tableaux)
 - **Recharts 3** (graphiques)
 - **Lucide React** (icônes)
+- **Zustand** (state management global, année persistée)
+- **@dnd-kit** (drag & drop kanban)
 
 ### Backend
 - **FastAPI** (Python 3.9+)
@@ -106,7 +109,7 @@ neuronXcompta/
 │   ├── requirements.txt        # Dépendances Python
 │   ├── core/
 │   │   └── config.py           # Configuration centralisée
-│   ├── models/                 # Schémas Pydantic (12 fichiers)
+│   ├── models/                 # Schémas Pydantic (14 fichiers)
 │   │   ├── category.py
 │   │   ├── justificatif.py
 │   │   ├── ocr.py
@@ -117,7 +120,7 @@ neuronXcompta/
 │   │   ├── analytics.py
 │   │   ├── amortissement.py
 │   │   └── ...
-│   ├── routers/                # Endpoints API (19 fichiers)
+│   ├── routers/                # Endpoints API (20 fichiers)
 │   │   ├── operations.py
 │   │   ├── categories.py
 │   │   ├── ml.py
@@ -131,7 +134,7 @@ neuronXcompta/
 │   │   ├── ged.py
 │   │   ├── amortissements.py
 │   │   └── ...
-│   └── services/               # Logique métier (18 fichiers)
+│   └── services/               # Logique métier (19 fichiers)
 │       ├── operation_service.py
 │       ├── category_service.py
 │       ├── ml_service.py
@@ -179,6 +182,7 @@ neuronXcompta/
 │   │   └── settings.json
 │   ├── templates/              # Templates justificatifs
 │   │   └── justificatifs_templates.json
+│   ├── tasks.json              # Tâches kanban (auto + manuelles)
 │   ├── ml/                     # Modèles ML
 │   └── logs/                   # Logs applicatifs
 ├── settings.json               # Configuration utilisateur
@@ -228,6 +232,10 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `POST` | `/api/templates/extract` | Extraire les champs d'un justificatif scanné |
 | `POST` | `/api/templates/generate` | Générer un PDF justificatif reconstitué |
 | `GET` | `/api/templates/suggest/{file}/{idx}` | Suggestions de templates pour une opération |
+| `GET` | `/api/tasks/?year=` | Lister les tâches pour une année |
+| `POST` | `/api/tasks/` | Créer une tâche manuelle |
+| `PATCH` | `/api/tasks/{id}` | Modifier une tâche (status, priority, dismiss) |
+| `POST` | `/api/tasks/refresh?year=` | Régénérer les tâches auto pour l'année |
 | `PUT` | `/api/settings` | Sauvegarder les paramètres |
 
 ---

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import {
   useReactTable,
   getCoreRowModel,
@@ -113,7 +114,7 @@ export default function EditorPage() {
   const { data: files, isLoading: filesLoading } = useOperationFiles()
   const { data: categoriesData } = useCategories()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const { selectedYear, setYear } = useFiscalYearStore()
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
   const [allYearMode, setAllYearMode] = useState(false)
   const { data: rawOperations, isLoading: opsLoading } = useOperations(allYearMode ? null : selectedFile)
@@ -170,7 +171,7 @@ export default function EditorPage() {
   const categorizeMutation = useCategorizeOperations()
   const searchRef = useRef<HTMLInputElement>(null)
 
-  // Auto-select year/month/file from query param or last available
+  // Auto-select month/file from query param or last available for the store year
   useEffect(() => {
     if (!files || files.length === 0) return
     if (selectedFile) return
@@ -180,31 +181,26 @@ export default function EditorPage() {
     if (fileParam) {
       const match = files.find(f => f.filename === fileParam)
       if (match) {
-        setSelectedYear(match.year ?? null)
+        if (match.year) setYear(match.year)
         setSelectedMonth(match.month ?? null)
         setSelectedFile(match.filename)
         return
       }
     }
 
-    // Auto-sélection : dernière année, dernier mois
-    const years = [...new Set(files.filter(f => f.year).map(f => f.year!))]
-    if (years.length > 0) {
-      const maxYear = Math.max(...years)
-      setSelectedYear(maxYear)
-      const monthsOfYear = files
-        .filter(f => f.year === maxYear)
-        .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
-      if (monthsOfYear.length > 0) {
-        const last = monthsOfYear[monthsOfYear.length - 1]
-        setSelectedMonth(last.month ?? null)
-        setSelectedFile(last.filename)
-      }
+    // Auto-sélection du mois/fichier pour l'année du store
+    const monthsOfYear = files
+      .filter(f => f.year === selectedYear)
+      .sort((a, b) => (a.month ?? 0) - (b.month ?? 0))
+    if (monthsOfYear.length > 0) {
+      const last = monthsOfYear[monthsOfYear.length - 1]
+      setSelectedMonth(last.month ?? null)
+      setSelectedFile(last.filename)
     } else if (files.length > 0) {
       // Fallback : fichiers sans year/month
       setSelectedFile(files[0].filename)
     }
-  }, [files, searchParams])
+  }, [files, searchParams, selectedYear])
 
   // Ref pour éviter la boucle de catégorisation auto
   const lastAutoCategorizedFile = useRef<string | null>(null)
@@ -839,10 +835,10 @@ export default function EditorPage() {
       <div className="flex items-center gap-3 mb-3">
         {/* Year selector */}
         <select
-          value={selectedYear ?? ''}
+          value={selectedYear}
           onChange={e => {
             const yr = e.target.value ? Number(e.target.value) : null
-            setSelectedYear(yr)
+            if (yr) setYear(yr)
             setSelectedMonth(null)
             setSelectedFile(null)
             setAllYearMode(false)

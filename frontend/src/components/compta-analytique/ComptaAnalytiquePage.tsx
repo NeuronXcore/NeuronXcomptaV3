@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useDashboard, useAnalyticsTrends, useAnalyticsAnomalies, useOperationFiles } from '@/hooks/useApi'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
@@ -43,7 +44,7 @@ export default function ComptaAnalytiquePage() {
   const [pageMode, setPageMode] = useState<'analyse' | 'comparatif'>('analyse')
 
   // Global period filters
-  const [globalYear, setGlobalYear] = useState<number | null>(null)
+  const { selectedYear: globalYear, setYear: setGlobalYear } = useFiscalYearStore()
   const [globalQuarter, setGlobalQuarter] = useState<number | null>(null)
   const [globalMonth, setGlobalMonth] = useState<number | null>(null)
 
@@ -130,15 +131,14 @@ export default function ComptaAnalytiquePage() {
             Période :
           </div>
           <select
-            value={globalYear ?? ''}
+            value={globalYear}
             onChange={e => {
               const v = e.target.value ? Number(e.target.value) : null
-              setGlobalYear(v)
-              if (!v) { setGlobalQuarter(null); setGlobalMonth(null) }
+              if (v) setGlobalYear(v)
+              setGlobalQuarter(null); setGlobalMonth(null)
             }}
             className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary"
           >
-            <option value="">Toutes les années</option>
             {availableYears.map(y => (
               <option key={y} value={y}>{y}</option>
             ))}
@@ -150,8 +150,7 @@ export default function ComptaAnalytiquePage() {
               setGlobalQuarter(v)
               if (v) setGlobalMonth(null)
             }}
-            disabled={!globalYear}
-            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary disabled:opacity-40"
+            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary"
           >
             <option value="">Tous trimestres</option>
             <option value="1">T1 (Jan-Mar)</option>
@@ -166,7 +165,7 @@ export default function ComptaAnalytiquePage() {
               setGlobalMonth(v)
               if (v) setGlobalQuarter(null)
             }}
-            disabled={!globalYear || globalQuarter !== null}
+            disabled={globalQuarter !== null}
             className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary disabled:opacity-40"
           >
             <option value="">Tous les mois</option>
@@ -174,9 +173,9 @@ export default function ComptaAnalytiquePage() {
               <option key={i} value={i + 1}>{m}</option>
             ))}
           </select>
-          {(globalYear || globalQuarter || globalMonth) && (
+          {(globalQuarter || globalMonth) && (
             <button
-              onClick={() => { setGlobalYear(null); setGlobalQuarter(null); setGlobalMonth(null) }}
+              onClick={() => { setGlobalQuarter(null); setGlobalMonth(null) }}
               className="text-[10px] text-text-muted hover:text-text transition-colors"
             >
               Réinitialiser

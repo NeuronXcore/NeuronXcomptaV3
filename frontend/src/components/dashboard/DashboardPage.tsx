@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useNavigate } from 'react-router-dom'
 import { useYearOverview } from '@/hooks/useApi'
 import { useClotureYears } from '@/hooks/useCloture'
@@ -15,7 +16,7 @@ import ActivityFeed from './ActivityFeed'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const { selectedYear, setYear: setSelectedYear } = useFiscalYearStore()
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null)
 
   const { data: years } = useClotureYears()
