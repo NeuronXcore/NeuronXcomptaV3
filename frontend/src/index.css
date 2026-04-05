@@ -31,3 +31,84 @@ body {
 ::-webkit-scrollbar-thumb {
   @apply bg-border rounded-full;
 }
+
+/* Logo animations */
+@keyframes logo-breathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px #22d3ee) drop-shadow(0 0 3px var(--color-primary)); }
+  50% { transform: scale(1.07); filter: drop-shadow(0 0 18px #22d3ee) drop-shadow(0 0 6px var(--color-primary-light)); }
+}
+
+@keyframes logo-glow {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.35); }
+}
+
+@keyframes logo-ring {
+  0% { opacity: 0.4; transform: scale(1); }
+  70% { opacity: 0; transform: scale(1.8); }
+  100% { opacity: 0; transform: scale(1.8); }
+}
+
+@keyframes logo-orbit {
+  0% { top: -2px; left: 50%; opacity: 0; }
+  10% { opacity: 1; }
+  25% { top: 50%; left: calc(100% + 2px); }
+  50% { top: calc(100% + 2px); left: 50%; }
+  75% { top: 50%; left: -4px; }
+  90% { opacity: 1; }
+  100% { top: -2px; left: 50%; opacity: 0; }
+}
+
+.animate-logo-breathe {
+  animation: logo-breathe 3s ease-in-out infinite;
+}
+
+.animate-logo-glow {
+  animation: logo-glow 3s ease-in-out infinite;
+}
+
+.animate-logo-ring {
+  animation: logo-ring 3s ease-out infinite;
+}
+
+.animate-logo-orbit {
+  animation: logo-orbit 6s linear infinite;
+}
+
+/* Electric frame animations */
+@keyframes electric-dash {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -56; }
+}
+
+@keyframes electric-dash-reverse {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 40; }
+}
+
+@keyframes electric-spark {
+  0%, 85%, 100% { opacity: 0; r: 1; }
+  90% { opacity: 1; r: 2.5; }
+  95% { opacity: 0.6; r: 1.5; }
+}
+
+.animate-electric-dash {
+  animation: electric-dash 1.5s linear infinite;
+}
+
+.animate-electric-dash-reverse {
+  animation: electric-dash-reverse 2s linear infinite;
+}
+
+.animate-electric-dash-fast {
+  animation: electric-dash 0.8s linear infinite;
+}
+
+.animate-electric-spark-1 { animation: electric-spark 1.8s ease-in-out infinite; }
+.animate-electric-spark-2 { animation: electric-spark 1.8s ease-in-out 0.3s infinite; }
+.animate-electric-spark-3 { animation: electric-spark 1.8s ease-in-out 0.6s infinite; }
+.animate-electric-spark-4 { animation: electric-spark 1.8s ease-in-out 0.9s infinite; }
+.animate-electric-spark-5 { animation: electric-spark 1.4s ease-in-out 0.15s infinite; }
+.animate-electric-spark-6 { animation: electric-spark 1.4s ease-in-out 0.5s infinite; }
+.animate-electric-spark-7 { animation: electric-spark 1.4s ease-in-out 0.85s infinite; }
+.animate-electric-spark-8 { animation: electric-spark 1.4s ease-in-out 1.1s infinite; }

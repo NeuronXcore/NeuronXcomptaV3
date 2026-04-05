@@ -24,6 +24,7 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Templates** | Bibliothèque de templates par fournisseur, génération de justificatifs reconstitués (PDF A5 via ReportLab) quand l'original est manquant, suggestion automatique par alias, bouton intégré dans 4 pages |
 | **GED** | Bibliothèque documentaire : double vue arbre (année/type), thumbnails PDF, postes comptables avec % déductibilité, upload documents libres, recherche full-text, OCR auto |
 | **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |
+| **Prévisionnel** | Calendrier de trésorerie 12 mois : timeline charges/recettes (barres Recharts), fournisseurs récurrents (facture/échéancier), parsing OCR prélèvements, scan automatique documents, régression recettes + saisonnalité, paramètres catégories |
 | **Simulation BNC** | Simulateur fiscal : leviers Madelin/PER/CARMF/investissement/remplacement, dépenses détaillées par catégorie, taux marginal réel, comparatif charge/immobilisation, prévisions d'honoraires avec profil saisonnier |
 | **Paramètres** | Thème, export, stockage, informations système |
 
@@ -153,7 +154,7 @@ neuronXcompta/
 │       ├── index.css           # Thème Tailwind
 │       ├── api/client.ts       # Client API
 │       ├── components/         # 60+ composants React
-│       ├── hooks/              # 17 fichiers de hooks
+│       ├── hooks/              # 18 fichiers de hooks
 │       ├── types/index.ts      # Types TypeScript
 │       └── lib/utils.ts        # Utilitaires
 ├── data/                       # Données applicatives
@@ -172,6 +173,10 @@ neuronXcompta/
 │   ├── amortissements/         # Registre immobilisations
 │   │   ├── immobilisations.json
 │   │   └── config.json
+│   ├── previsionnel/           # Prévisionnel trésorerie
+│   │   ├── providers.json
+│   │   ├── echeances.json
+│   │   └── settings.json
 │   ├── templates/              # Templates justificatifs
 │   │   └── justificatifs_templates.json
 │   ├── ml/                     # Modèles ML
@@ -213,6 +218,11 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `GET` | `/api/amortissements` | Registre des immobilisations |
 | `GET` | `/api/amortissements/kpis` | KPIs amortissements |
 | `GET` | `/api/amortissements/candidates` | Opérations candidates à immobiliser |
+| `GET` | `/api/previsionnel/timeline` | Timeline 12 mois charges/recettes/solde |
+| `GET` | `/api/previsionnel/providers` | Fournisseurs récurrents configurés |
+| `POST` | `/api/previsionnel/scan` | Scanner documents OCR/GED vs échéances |
+| `POST` | `/api/previsionnel/refresh` | Régénérer les échéances de l'année |
+| `GET` | `/api/previsionnel/dashboard` | KPIs prévisionnel |
 | `GET` | `/api/templates` | Lister les templates justificatifs |
 | `POST` | `/api/templates` | Créer un template fournisseur |
 | `POST` | `/api/templates/extract` | Extraire les champs d'un justificatif scanné |

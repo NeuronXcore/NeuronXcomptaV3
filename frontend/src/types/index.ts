@@ -427,49 +427,147 @@ export interface AutoLogEntry {
   score: number
 }
 
-// ─── Échéancier ───
+// ─── Prévisionnel ───
 
-export interface Recurrence {
+export interface PrevProvider {
   id: string
-  libelle_display: string
-  libelle_normalized: string
-  periodicite: 'hebdomadaire' | 'bi_mensuel' | 'mensuel' | 'trimestriel' | 'semestriel' | 'annuel'
-  montant_moyen: number
-  montant_std: number
-  derniere_occurrence: string
-  nb_occurrences: number
-  fiabilite: number
-  categorie?: string
+  fournisseur: string
+  label: string
+  mode: 'facture' | 'echeancier'
+  periodicite: 'mensuel' | 'bimestriel' | 'trimestriel' | 'semestriel' | 'annuel'
+  mois_attendus: number[]
+  jour_attendu: number
+  delai_retard_jours: number
+  montant_estime: number | null
+  categorie: string | null
+  keywords_ocr: string[]
+  keywords_operations: string[]
+  tolerance_montant: number
+  poste_comptable: string | null
+  actif: boolean
 }
 
-export interface Echeance {
-  id: string
-  recurrence_id: string
-  date_prevue: string
-  date_min: string
-  date_max: string
-  libelle: string
-  montant_prevu: number
-  incertitude: number
+export interface PrevProviderCreate {
+  fournisseur: string
+  label: string
+  mode?: string
   periodicite: string
-  fiabilite: number
-  statut: 'prevu' | 'realise' | 'annule'
-  operation_liee?: string
+  mois_attendus: number[]
+  jour_attendu?: number
+  delai_retard_jours?: number
+  montant_estime?: number | null
+  categorie?: string | null
+  keywords_ocr?: string[]
+  keywords_operations?: string[]
+  tolerance_montant?: number
+  poste_comptable?: string | null
+  actif?: boolean
 }
 
-export interface EcheancierStats {
-  total: number
-  par_periodicite: Record<string, number>
-  montant_mensuel_moyen: number
-  nb_alertes_decouvert: number
-}
-
-export interface SoldePrevisionnel {
-  date: string
-  solde: number
-  evenement: string
+export interface PrelevementLine {
+  mois: number
   montant: number
-  alerte: boolean
+  jour?: number
+  ocr_confidence?: number
+}
+
+export interface OcrExtractionResult {
+  success: boolean
+  nb_lignes_extraites: number
+  lignes: PrelevementLine[]
+  raw_text_snippet: string
+  warnings: string[]
+}
+
+export interface PrevPrelevement {
+  mois: number
+  mois_label: string
+  montant_attendu: number
+  date_prevue: string
+  statut: 'attendu' | 'verifie' | 'ecart' | 'non_preleve' | 'manuel'
+  source: 'ocr' | 'manuel'
+  ocr_confidence: number | null
+  operation_file: string | null
+  operation_index: number | null
+  operation_libelle: string | null
+  operation_date: string | null
+  montant_reel: number | null
+  ecart: number | null
+  match_auto: boolean
+}
+
+export interface PrevEcheance {
+  id: string
+  provider_id: string
+  periode_label: string
+  date_attendue: string
+  statut: 'attendu' | 'recu' | 'en_retard' | 'non_applicable'
+  date_reception: string | null
+  document_ref: string | null
+  document_source: string | null
+  montant_reel: number | null
+  match_score: number | null
+  match_auto: boolean
+  note: string
+  prelevements: PrevPrelevement[]
+  nb_prelevements_verifies: number
+  nb_prelevements_total: number
+  ocr_extraction: OcrExtractionResult | null
+}
+
+export interface TimelinePoste {
+  id: string
+  label: string
+  montant: number
+  source: 'provider' | 'moyenne_n1' | 'realise' | 'projete' | 'override'
+  statut: 'verifie' | 'attendu' | 'ecart' | 'estime' | 'realise' | 'projete'
+  provider_id: string | null
+  document_ref: string | null
+  confidence: number | null
+}
+
+export interface TimelineMois {
+  mois: number
+  label: string
+  statut_mois: 'futur' | 'en_cours' | 'clos'
+  charges: TimelinePoste[]
+  charges_total: number
+  recettes: TimelinePoste[]
+  recettes_total: number
+  solde: number
+  solde_cumule: number
+}
+
+export interface TimelineResponse {
+  year: number
+  mois: TimelineMois[]
+  charges_annuelles: number
+  recettes_annuelles: number
+  solde_annuel: number
+  taux_verification: number
+}
+
+export interface PrevSettings {
+  seuil_montant: number
+  categories_exclues: string[]
+  categories_recettes: string[]
+  annees_reference: number[]
+  overrides_mensuels: Record<string, number>
+}
+
+export interface PrevDashboard {
+  total_echeances: number
+  recues: number
+  en_attente: number
+  en_retard: number
+  non_applicable: number
+  taux_completion: number
+  montant_total_estime: number
+  montant_total_reel: number
+  prelevements_verifies: number
+  prelevements_total: number
+  prelevements_en_ecart: number
+  taux_prelevements: number
 }
 
 // ─── Reports V2 ───

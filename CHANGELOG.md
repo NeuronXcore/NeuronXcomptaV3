@@ -9,6 +9,24 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 ## [Unreleased]
 
 ### Added (2026-04-05)
+- **Module Prévisionnel** : calendrier de trésorerie annuel remplaçant l'ancien Échéancier
+  - Timeline 12 mois avec barres empilées Recharts (charges rouge / recettes vert), courbe trésorerie cumulée togglable
+  - 3 sources de données : providers récurrents, moyennes N-1 par catégorie, régression linéaire + saisonnalité
+  - 2 modes fournisseurs : facture récurrente (1 document par période) et échéancier de prélèvements (parsing OCR 3 formats)
+  - CRUD providers avec drawer 600px, keywords OCR/opérations, périodicité configurable
+  - Grille 12 mois prélèvements avec statuts colorés (vérifié/écart/attendu), confiance OCR
+  - Scan automatique documents (OCR+GED → échéances, score ≥0.75), chaînage mode échéancier (association → parse OCR → populate → scan opérations)
+  - Scan prélèvements vs opérations bancaires par keywords + montant ± tolérance
+  - Expansion inline au clic sur barre : détail charges/recettes avec source et statut
+  - Paramètres : seuil montant, grille checkboxes catégories à inclure, catégories recettes (chips), overrides mensuels
+  - Background scan asyncio toutes les heures (refresh + statuts retard + scan documents + scan prélèvements)
+  - Intégrations post-OCR/sandbox/GED (`check_single_document` en try/except)
+  - `backend/services/previsionnel_service.py` : CRUD, timeline, parsing OCR, scan matching, régression numpy
+  - `backend/routers/previsionnel.py` : 18 endpoints sous `/api/previsionnel`
+  - `frontend/src/hooks/usePrevisionnel.ts` : 20 hooks TanStack Query
+  - 11 composants dans `frontend/src/components/previsionnel/`
+  - Données dans `data/previsionnel/` (providers.json, echeances.json, settings.json)
+  - Sidebar : entrée "Prévisionnel" dans le groupe ANALYSE (remplace Échéancier du groupe TRAITEMENT)
 - **Templates Justificatifs** : système de templates par fournisseur pour reconstituer des justificatifs manquants
   - Création de templates depuis des justificatifs scannés (extraction OCR enrichie via Qwen2-VL, fallback données OCR basiques)
   - Bibliothèque fournisseurs avec aliases de matching (détection automatique dans les libellés bancaires)

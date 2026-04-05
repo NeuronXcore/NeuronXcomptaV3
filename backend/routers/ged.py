@@ -65,6 +65,15 @@ async def upload_document(
         request = {}
 
     doc = ged_service.upload_document(content, file.filename, request)
+
+    # Hook previsionnel — check document matching
+    try:
+        from backend.services import previsionnel_service
+        doc_id = doc.get("doc_id") or doc.get("filename") or file.filename
+        previsionnel_service.check_single_document(doc_id, "ged")
+    except Exception:
+        pass
+
     return doc
 
 

@@ -113,6 +113,13 @@ def _process_file(filepath: Path) -> None:
         except Exception as e:
             logger.error("Sandbox: erreur OCR pour %s: %s", dest.name, e)
 
+        # Hook previsionnel — check document matching
+        try:
+            from backend.services import previsionnel_service
+            previsionnel_service.check_single_document(dest.name, "justificatif")
+        except Exception:
+            pass
+
         # Notifier via SSE
         _push_event(dest.name, "processed")
 

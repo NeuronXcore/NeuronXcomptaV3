@@ -868,6 +868,158 @@ Projette les revenus futurs par analyse saisonnière ou moyenne simple.
 
 ---
 
+## Prévisionnel (`/api/previsionnel`)
+
+Calendrier de trésorerie annuel combinant charges attendues, recettes projetées et réalisé.
+
+### `GET /timeline`
+Vue 12 mois avec charges, recettes, solde et solde cumulé.
+
+**Paramètres :** `year` (int, required)
+
+**Réponse :**
+```json
+{
+  "year": 2026,
+  "mois": [
+    {
+      "mois": 1,
+      "label": "janvier",
+      "statut_mois": "clos",
+      "charges": [
+        { "id": "provider:urssaf-trimestriel:1", "label": "Cotisations URSSAF", "montant": 3500, "source": "provider", "statut": "recu" }
+      ],
+      "charges_total": 12500,
+      "recettes": [
+        { "id": "rec:Honoraires:1", "label": "Honoraires", "montant": 45000, "source": "realise", "statut": "realise" }
+      ],
+      "recettes_total": 45000,
+      "solde": 32500,
+      "solde_cumule": 32500
+    }
+  ],
+  "charges_annuelles": 150000,
+  "recettes_annuelles": 540000,
+  "solde_annuel": 390000,
+  "taux_verification": 0.75
+}
+```
+
+### `GET /providers`
+Liste les fournisseurs récurrents configurés.
+
+### `POST /providers`
+Ajouter un fournisseur. Body : `PrevProviderCreate`.
+
+**Body :**
+```json
+{
+  "fournisseur": "URSSAF",
+  "label": "Cotisations URSSAF",
+  "mode": "facture",
+  "periodicite": "trimestriel",
+  "mois_attendus": [1, 4, 7, 10],
+  "jour_attendu": 15,
+  "montant_estime": 3500,
+  "keywords_ocr": ["urssaf", "cotisation"]
+}
+```
+
+### `PUT /providers/{id}`
+Modifier un fournisseur. Body : `PrevProviderUpdate` (champs optionnels).
+
+### `DELETE /providers/{id}`
+Supprimer un fournisseur et ses échéances liées.
+
+### `GET /echeances`
+Échéances filtrées. Query : `year` (int, optional), `statut` (string, optional).
+
+### `GET /dashboard`
+KPIs du prévisionnel. Query : `year` (int, required).
+
+**Réponse :**
+```json
+{
+  "total_echeances": 12,
+  "recues": 6,
+  "en_attente": 4,
+  "en_retard": 2,
+  "taux_completion": 0.5,
+  "montant_total_estime": 42000,
+  "prelevements_verifies": 8,
+  "prelevements_total": 12,
+  "taux_prelevements": 0.67
+}
+```
+
+### `POST /scan`
+Scanner les documents OCR et GED pour auto-associer aux échéances. Score ≥0.75 + match unique = auto-association.
+
+### `POST /refresh`
+Régénérer les échéances de l'année (sans écraser les existantes). Query : `year` (int, required).
+
+### `POST /echeances/{id}/link`
+Association manuelle d'un document à une échéance.
+
+**Body :**
+```json
+{
+  "document_ref": "justificatif_xxx.pdf",
+  "document_source": "justificatif",
+  "montant_reel": 3450
+}
+```
+
+### `POST /echeances/{id}/unlink`
+Dissocier un document d'une échéance.
+
+### `POST /echeances/{id}/dismiss`
+Marquer une échéance comme non applicable.
+
+### `POST /echeances/{id}/prelevements`
+Saisir les montants mensuels (mode échéancier).
+
+**Body :**
+```json
+{
+  "prelevements": [
+    { "mois": 1, "montant": 850.00 },
+    { "mois": 2, "montant": 850.00 }
+  ]
+}
+```
+
+### `POST /echeances/{id}/auto-populate`
+Forcer le re-parsing OCR du document lié pour extraire les prélèvements mensuels (3 formats supportés).
+
+### `POST /echeances/{id}/scan-prelevements`
+Scanner les opérations bancaires pour vérifier les prélèvements attendus (match par keywords + montant ± tolérance).
+
+### `POST /echeances/{id}/prelevements/{mois}/verify`
+Vérification manuelle d'un prélèvement.
+
+### `POST /echeances/{id}/prelevements/{mois}/unverify`
+Annuler la vérification d'un prélèvement.
+
+### `GET /settings`
+Charger les paramètres du module (seuil, catégories exclues/recettes, overrides).
+
+### `PUT /settings`
+Sauvegarder les paramètres.
+
+**Body :**
+```json
+{
+  "seuil_montant": 200,
+  "categories_exclues": ["perso"],
+  "categories_recettes": ["Honoraires"],
+  "annees_reference": [2024, 2025],
+  "overrides_mensuels": { "recettes-7": 8000 }
+}
+```
+
+---
+
 ## Templates Justificatifs (`/api/templates`)
 
 Gestion des templates de justificatifs par fournisseur. Permet de créer des templates depuis des justificatifs scannés et de générer des PDF reconstitués quand l'original est manquant.

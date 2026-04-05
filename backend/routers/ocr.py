@@ -117,6 +117,14 @@ async def batch_upload(files: List[UploadFile] = File(...)):
             "ocr_error": ocr_error,
         })
 
+        # Hook previsionnel — check document matching
+        if ocr_success and filename:
+            try:
+                from backend.services import previsionnel_service
+                previsionnel_service.check_single_document(filename, "justificatif")
+            except Exception:
+                pass
+
     return results
 
 

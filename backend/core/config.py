@@ -40,6 +40,12 @@ AMORTISSEMENTS_DIR = DATA_DIR / "amortissements"
 # Barèmes fiscaux
 BAREMES_DIR = DATA_DIR / "baremes"
 
+# Prévisionnel
+PREVISIONNEL_DIR = DATA_DIR / "previsionnel"
+PREV_PROVIDERS_FILE = PREVISIONNEL_DIR / "providers.json"
+PREV_ECHEANCES_FILE = PREVISIONNEL_DIR / "echeances.json"
+PREV_SETTINGS_FILE = PREVISIONNEL_DIR / "settings.json"
+
 # Templates justificatifs
 TEMPLATES_DIR = DATA_DIR / "templates"
 TEMPLATES_FILE = TEMPLATES_DIR / "justificatifs_templates.json"
@@ -138,6 +144,7 @@ def ensure_directories():
         AMORTISSEMENTS_DIR,
         BAREMES_DIR,
         TEMPLATES_DIR,
+        PREVISIONNEL_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)

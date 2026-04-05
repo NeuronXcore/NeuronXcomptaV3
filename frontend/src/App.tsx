@@ -14,12 +14,12 @@ import OcrPage from '@/components/ocr/OcrPage'
 import ExportPage from '@/components/export/ExportPage'
 import RapprochementPage from '@/components/rapprochement/RapprochementPage'
 import CloturePage from '@/components/cloture/CloturePage'
-import EcheancierPage from '@/pages/EcheancierPage'
 import AlertesPage from '@/pages/AlertesPage'
 import SettingsPage from '@/components/settings/SettingsPage'
 import GedPage from '@/components/ged/GedPage'
 import AmortissementsPage from '@/components/amortissements/AmortissementsPage'
 import SimulationPage from '@/components/simulation/SimulationPage'
+import PrevisionnelPage from '@/components/previsionnel/PrevisionnelPage'
 
 export default function App() {
   return (
@@ -49,10 +49,10 @@ export default function App() {
         <Route path="/agent-ai" element={<AgentIAPage />} />
         <Route path="/export" element={<ExportPage />} />
         <Route path="/cloture" element={<CloturePage />} />
-        <Route path="/echeancier" element={<EcheancierPage />} />
         <Route path="/ocr" element={<OcrPage />} />
         <Route path="/amortissements" element={<AmortissementsPage />} />
         <Route path="/simulation" element={<SimulationPage />} />
+        <Route path="/previsionnel" element={<PrevisionnelPage />} />
         <Route path="/ged" element={<GedPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

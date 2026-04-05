@@ -2,12 +2,13 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Upload, Pencil, Tags, BarChart3,
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
-  GitCompareArrows, CalendarCheck, CalendarClock, AlertTriangle,
+  GitCompareArrows, CalendarCheck, AlertTriangle, TrendingUp,
   Library, Landmark, Calculator, ListChecks,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
 import { usePipeline } from '@/hooks/usePipeline'
+import SidebarLogo from './SidebarLogo'
 
 const NAV_SECTIONS = [
   {
@@ -25,13 +26,13 @@ const NAV_SECTIONS = [
       { to: '/justificatifs', label: 'Justificatifs', icon: Paperclip },
       { to: '/rapprochement', label: 'Rapprochement', icon: GitCompareArrows },
       { to: '/alertes', label: "Compte d'attente", icon: AlertTriangle },
-      { to: '/echeancier', label: 'Échéancier', icon: CalendarClock },
     ],
   },
   {
     label: 'Analyse',
     items: [
       { to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+      { to: '/previsionnel', label: 'Prévisionnel', icon: TrendingUp },
       { to: '/visualization', label: 'Compta Analytique', icon: BarChart3 },
       { to: '/reports', label: 'Rapports', icon: FileText },
       { to: '/simulation', label: 'Simulation BNC', icon: Calculator },
@@ -69,11 +70,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 h-screen bg-surface border-r border-border flex flex-col fixed left-0 top-0">
       {/* Logo */}
-      <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold text-primary">
-          NeuronX<span className="text-text">compta</span>
-        </h1>
-        <p className="text-xs text-text-muted mt-1">Assistant Comptable IA</p>
+      <div className="px-5 pt-6 pb-5 border-b border-border">
+        <SidebarLogo />
       </div>
 
       {/* Navigation */}

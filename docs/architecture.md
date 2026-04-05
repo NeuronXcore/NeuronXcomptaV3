@@ -49,7 +49,7 @@ SAISIE → TRAITEMENT → ANALYSE → CLÔTURE → DOCUMENTS → OUTILS
 Importation      Justificatifs      Tableau de bord     Export Comptable    Bibliothèque    Agent IA
 Édition          Rapprochement      Compta Analytique   Clôture             (GED)           Paramètres
 Catégories       Compte d'attente   Rapports            Amortissements
-OCR              Échéancier         Simulation BNC
+OCR              Prévisionnel       Simulation BNC
 ```
 
 ### Importation d'un relevé
@@ -280,6 +280,27 @@ Moteur de calcul (dupliqué Python + TypeScript) :
 Données : data/amortissements/immobilisations.json + config.json
 ```
 
+### Prévisionnel (calendrier de trésorerie)
+
+```
+Page Prévisionnel (/previsionnel) → PrevisionnelPage (3 onglets)
+  ├─ Timeline : ComposedChart Recharts (barres charges/recettes + courbe cumul)
+  │   ├─ Charges = providers récurrents + moyennes catégories N-1 (> seuil)
+  │   ├─ Recettes = régression linéaire (numpy) + coefficients saisonniers
+  │   ├─ Mois clos = données réelles depuis opérations importées
+  │   └─ Expansion inline au clic : détail postes charges/recettes avec source/statut
+  ├─ Fournisseurs : CRUD providers (2 modes)
+  │   ├─ Mode facture : 1 document attendu par période (mensuel/trimestriel/etc.)
+  │   └─ Mode échéancier : 1 document annuel → parsing OCR (3 formats) → 12 prélèvements
+  │       → Grille 12 mois (montant, statut, confiance OCR)
+  │       → Scan vs opérations bancaires (keywords + montant ± tolérance)
+  └─ Paramètres : seuil, catégories à inclure (checkboxes), recettes (chips), overrides
+
+Données : data/previsionnel/ (providers.json, echeances.json, settings.json)
+Background : asyncio task (1h) → refresh + statuts retard + scan documents + scan prélèvements
+Intégrations : post-OCR, post-sandbox, post-GED upload → check_single_document()
+```
+
 ### Templates Justificatifs (reconstitution)
 
 ```
@@ -346,7 +367,7 @@ Page Dashboard (/dashboard) → DashboardPage
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
 | **Components** | UI et interactions | `src/components/` (60+ fichiers, incl. `pipeline/`, `ged/`, `amortissements/`, `reports/`, `dashboard/`) |
-| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (17 fichiers, incl. usePipeline, useGed, useReports, useAmortissements, useTemplates) |
+| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (18 fichiers, incl. usePipeline, useGed, useReports, useAmortissements, useTemplates, usePrevisionnel) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -355,9 +376,9 @@ Page Dashboard (/dashboard) → DashboardPage
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (19 fichiers, incl. ged.py, amortissements.py, templates.py) |
-| **Services** | Logique métier, I/O, watchdog, GED, amortissements, templates | `backend/services/` (18 fichiers, incl. ged_service.py, amortissement_service.py, template_service.py) |
-| **Models** | Schémas Pydantic | `backend/models/` (12 fichiers, incl. ged.py, report.py, analytics.py, amortissement.py, template.py) |
+| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (19 fichiers, incl. ged.py, amortissements.py, templates.py, previsionnel.py) |
+| **Services** | Logique métier, I/O, watchdog, GED, prévisionnel | `backend/services/` (18 fichiers, incl. ged_service.py, amortissement_service.py, template_service.py, previsionnel_service.py) |
+| **Models** | Schémas Pydantic | `backend/models/` (13 fichiers, incl. ged.py, amortissement.py, template.py, previsionnel.py) |
 | **Config** | Chemins, constantes | `backend/core/config.py` |
 
 ## Stockage des données
@@ -395,6 +416,10 @@ data/
 │   └── config.json             # Seuil (500€), durées, catégories éligibles, plafonds
 ├── templates/
 │   └── justificatifs_templates.json  # Templates fournisseurs (vendor, aliases, fields)
+├── previsionnel/
+│   ├── providers.json          # Fournisseurs récurrents (URSSAF, CARMF, assurance...)
+│   ├── echeances.json          # Échéances générées (statut, document lié, prélèvements)
+│   └── settings.json           # Paramètres (seuil, catégories, overrides)
 ├── compta_analytique/          # Presets de requêtes
 ├── logs/                       # Logs applicatifs (rotation 10 Mo)
 └── ocr/                        # Cache OCR global

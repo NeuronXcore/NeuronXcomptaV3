@@ -3,6 +3,7 @@ NeuronXcompta V3 - FastAPI Backend
 Point d'entrée principal de l'API.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
@@ -11,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
-from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, echeancier, sandbox, alertes, ged, amortissements, simulation, templates
+from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel
 from backend.services.sandbox_service import start_sandbox_watchdog, stop_sandbox_watchdog
 
 # Initialiser les répertoires et migrer les fichiers existants
@@ -29,15 +30,39 @@ file_handler.setFormatter(formatter)
 logging.getLogger().addHandler(file_handler)
 logging.getLogger().setLevel(logging.INFO)
 
-# Lifespan — démarrage/arrêt du sandbox watchdog
+# Background task — previsionnel scan periodique
+async def _previsionnel_background_loop():
+    """Refresh echeances + scan matching toutes les heures."""
+    import datetime
+    await asyncio.sleep(30)  # attendre 30s apres demarrage
+    while True:
+        try:
+            from backend.services import previsionnel_service
+            year = datetime.date.today().year
+            previsionnel_service.refresh_echeances(year)
+            previsionnel_service.update_statuts_retard()
+            previsionnel_service.scan_matching()
+            previsionnel_service.scan_all_prelevements(year)
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Previsionnel background scan error: {e}")
+        await asyncio.sleep(3600)  # 1 heure
+
+_prev_task = None
+
+# Lifespan — démarrage/arrêt du sandbox watchdog + previsionnel
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _prev_task
     start_sandbox_watchdog()
     # Réconciliation index rapports
     from backend.services.report_service import reconcile_index
     reconcile_index()
+    # Demarrer la tache previsionnel en arriere-plan
+    _prev_task = asyncio.create_task(_previsionnel_background_loop())
     yield
     stop_sandbox_watchdog()
+    if _prev_task:
+        _prev_task.cancel()
 
 
 # Créer l'app FastAPI
@@ -76,13 +101,13 @@ app.include_router(exports.router)
 app.include_router(rapprochement.router)
 app.include_router(lettrage.router)
 app.include_router(cloture.router)
-app.include_router(echeancier.router)
 app.include_router(sandbox.router, prefix="/api/sandbox", tags=["sandbox"])
 app.include_router(alertes.router)
 app.include_router(ged.router)
 app.include_router(amortissements.router)
 app.include_router(simulation.router)
 app.include_router(templates.router)
+app.include_router(previsionnel.router)
 
 
 @app.get("/")
