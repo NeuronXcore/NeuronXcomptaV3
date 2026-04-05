@@ -836,3 +836,33 @@ export interface AllBaremes {
   odm: { year: number; cotisation_annuelle: number; type: string }
   year: number
 }
+
+// Pipeline Comptable
+export type PipelineStepStatus = 'not_started' | 'in_progress' | 'complete'
+
+export interface PipelineStep {
+  id: string
+  number: number
+  title: string
+  description: string
+  status: PipelineStepStatus
+  progress: number // 0-100
+  metrics: PipelineMetric[]
+  actionLabel: string
+  actionRoute: string
+  secondaryActions?: { label: string; route: string }[]
+}
+
+export interface PipelineMetric {
+  label: string
+  value: string | number
+  total?: number
+  variant?: 'default' | 'success' | 'warning' | 'danger'
+}
+
+export interface PipelineState {
+  year: number
+  month: number
+  steps: PipelineStep[]
+  globalProgress: number // 0-100, moyenne pondérée
+}

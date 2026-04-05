@@ -9,6 +9,21 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 ## [Unreleased]
 
 ### Added (2026-04-05)
+- **Pipeline Comptable Interactif** : nouvelle page d'accueil (`/`) remplace le Dashboard
+  - Stepper vertical 6 étapes avec statuts temps réel (Import, Catégorisation, Justificatifs, Rapprochement, Vérification, Clôture)
+  - Grille 12 badges mois cliquables avec icône statut, nom court et % progression (couleur vert/ambre/gris)
+  - Sélecteur d'exercice fiscal avec boutons années (style primary pour l'année active)
+  - Barre de progression globale pondérée (10/20/25/25/10/10)
+  - Cards expandables accordion avec métriques, description et boutons d'action vers les pages concernées
+  - Persistance année/mois dans localStorage
+  - Badge % global dans la sidebar sous l'item Pipeline
+  - Dashboard déplacé vers `/dashboard` dans le groupe ANALYSE
+  - Suppression du drawer Pipeline flottant (PipelineWrapper, PipelineTrigger, PipelineDrawer, PipelineStep, PipelineDetail)
+  - `frontend/src/hooks/usePipeline.ts` : réécrit avec 6 étapes, monthBadges, localStorage
+  - `frontend/src/components/pipeline/PipelinePage.tsx` + `PipelineStepCard.tsx` : nouveaux composants
+  - Types : `PipelineStepStatus`, `PipelineStep`, `PipelineMetric`, `PipelineState`
+
+### Added (2026-04-05 — previous)
 - **Simulation BNC** : simulateur fiscal complet pour optimisation des charges
   - Page `/simulation` avec 2 onglets (Optimisation, Prévisions)
   - Moteur fiscal dual Python (`fiscal_service.py`) + TypeScript (`fiscal-engine.ts`) avec résultats identiques
@@ -95,10 +110,11 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - Lifespan FastAPI pour gestion du cycle de vie du watchdog (start/stop)
 
 ### Changed
+- `frontend/src/App.tsx` : route `/` = PipelinePage, route `/dashboard` = DashboardPage (18 routes)
+- `frontend/src/components/layout/Sidebar.tsx` : item Pipeline hors-groupe en tête avec badge % global, Dashboard déplacé vers `/dashboard` dans ANALYSE
+- `frontend/src/components/layout/AppLayout.tsx` : suppression PipelineWrapper (drawer flottant)
 - `backend/core/config.py` : ajout `JUSTIFICATIFS_SANDBOX_DIR` + `ensure_directories()`
 - `backend/main.py` : ajout lifespan context manager, import router sandbox
-- `frontend/src/components/layout/Sidebar.tsx` : `NAV_SECTIONS` groupee remplace `NAV_ITEMS` plat
-- `frontend/src/App.tsx` : fusion route `/` avec DashboardPage, suppression route `/dashboard`
 - `frontend/src/hooks/useApi.ts` : tous les hooks analytics acceptent year/quarter/month
 - `frontend/src/components/ocr/OcrPage.tsx` : 3 onglets (Upload & OCR, Test Manuel, Historique)
 - `frontend/src/components/justificatifs/JustificatifsPage.tsx` : zone upload retiree

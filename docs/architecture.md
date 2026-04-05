@@ -41,6 +41,9 @@
 ### Pipeline comptable (sidebar)
 
 ```
+PIPELINE (hors-groupe, page d'accueil /)
+  └─ Badge % global du mois courant
+
 SAISIE → TRAITEMENT → ANALYSE → CLÔTURE → DOCUMENTS → OUTILS
 
 Importation      Justificatifs      Tableau de bord     Export Comptable    Bibliothèque    Agent IA
@@ -277,10 +280,28 @@ Moteur de calcul (dupliqué Python + TypeScript) :
 Données : data/amortissements/immobilisations.json + config.json
 ```
 
+### Pipeline Comptable Interactif (page d'accueil)
+
+```
+Page Pipeline (/) → PipelinePage
+  → Grille 12 badges mois (icône + nom + %) cliquables
+  → Sélecteur exercice fiscal (boutons années)
+  → Barre progression globale pondérée (10/20/25/25/10/10)
+  → Stepper 6 étapes accordion (cards expandables) :
+    1. Import (GET /api/operations/files)
+    2. Catégorisation (GET /api/operations/{filename})
+    3. Justificatifs (GET /api/cloture/{year} → taux_justificatifs)
+    4. Rapprochement (GET /api/cloture/{year} → taux_lettrage)
+    5. Vérification (GET /api/alertes/summary)
+    6. Clôture (GET /api/cloture/{year} → statut)
+  → Persistance année/mois dans localStorage
+  → Badge sidebar : % global mois courant, clic → navigate('/')
+```
+
 ### Dashboard V2 (Cockpit exercice)
 
 ```
-Page Dashboard (/) → DashboardPage
+Page Dashboard (/dashboard) → DashboardPage
   → GET /api/analytics/year-overview?year=2025 (un seul appel agrégé)
   ├─ Jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports)
   ├─ 4 KPI cards (Recettes, Charges, BNC + sparkline, Charges sociales prov.)
@@ -297,8 +318,8 @@ Page Dashboard (/) → DashboardPage
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Components** | UI et interactions | `src/components/` (60+ fichiers, incl. `ged/`, `amortissements/`, `reports/`, `dashboard/`) |
-| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (14 fichiers, incl. useGed, useReports, useAmortissements) |
+| **Components** | UI et interactions | `src/components/` (60+ fichiers, incl. `pipeline/`, `ged/`, `amortissements/`, `reports/`, `dashboard/`) |
+| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (16 fichiers, incl. usePipeline, useGed, useReports, useAmortissements) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |

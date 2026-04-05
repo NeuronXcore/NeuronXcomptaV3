@@ -57,10 +57,10 @@ neuronXcompta/
 │   └── services/               # Business logic (17 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx             # All 17 routes (Accueil fusionné avec Dashboard)
+│       ├── App.tsx             # All 18 routes (Pipeline=/, Dashboard=/dashboard)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
 │       ├── components/         # 60+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/)
-│       ├── hooks/              # 15 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation)
+│       ├── hooks/              # 16 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline)
 │       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
 │       ├── lib/fiscal-engine.ts         # Moteur fiscal TypeScript (URSSAF, CARMF, IR, simulation multi-leviers)
 │       ├── types/index.ts      # All TypeScript interfaces
@@ -89,10 +89,11 @@ neuronXcompta/
 
 ## Sidebar Navigation (Pipeline Comptable)
 
-La sidebar est organisée en 5 groupes suivant la chronologie du pipeline comptable :
+La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6 groupes :
 
 | Groupe | Pages |
 |--------|-------|
+| **—** | Pipeline (hors-groupe, en tête) |
 | **SAISIE** | Importation, Édition, Catégories, OCR |
 | **TRAITEMENT** | Justificatifs, Rapprochement, Compte d'attente, Échéancier |
 | **ANALYSE** | Tableau de bord, Compta Analytique, Rapports, Simulation BNC |
@@ -127,7 +128,8 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/` | DashboardPage | **Cockpit exercice comptable V2** : sélecteur année, jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports), 4 cartes KPI avec sparkline BNC et delta N-1, grille 12 mois cliquables avec 6 badges d'état + expansion (montants + actions contextuelles), alertes pondérées triées par impact, échéances fiscales (URSSAF/CARMF/ODM), bar chart recettes vs dépenses (Recharts), feed activité récente |
+| `/` | PipelinePage | Pipeline comptable interactif — stepper 6 étapes, progression globale, sélecteur mois/année |
+| `/dashboard` | DashboardPage | **Cockpit exercice comptable V2** : sélecteur année, jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports), 4 cartes KPI avec sparkline BNC et delta N-1, grille 12 mois cliquables avec 6 badges d'état + expansion (montants + actions contextuelles), alertes pondérées triées par impact, échéances fiscales (URSSAF/CARMF/ODM), bar chart recettes vs dépenses (Recharts), feed activité récente |
 | `/import` | ImportPage | PDF drag-drop import |
 | `/editor` | EditorPage | Inline editing, **auto-catégorisation IA au chargement** (vides), bouton "Recatégoriser IA" (tout), **sélecteur année → mois en cascade** avec option **"Toute l'année"** (lecture seule, charge N fichiers en parallèle via `useYearOperations`), **filtres catégorie + sous-catégorie** en cascade, colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert), PDF preview |
 | `/categories` | CategoriesPage | 4-tab category management |
@@ -152,6 +154,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - `PageHeader` — `{ title, description?, actions?: ReactNode }`
 - `MetricCard` — `{ title, value, icon?, trend?, className? }`
 - `LoadingSpinner` — `{ text? }`
+- `PipelineStepCard` — card expandable avec cercle statut, barre progression, métriques, actions
 
 ### Drawers (pattern commun : translateX + backdrop)
 - `RapprochementManuelDrawer` — 800px, filtres montant/date/fournisseur, liste scorée, preview PDF iframe
@@ -196,6 +199,7 @@ La sidebar est organisée en 5 groupes suivant la chronologie du pipeline compta
 - **Fiscal engine dual**: Moteur fiscal dupliqué Python (`fiscal_service.py`) et TypeScript (`fiscal-engine.ts`). Résultats identiques à l'arrondi près. Barèmes chargés une seule fois via `useBaremes()`, calcul côté client pour la réactivité des sliders.
 - **PER vs Madelin**: PER déduit du revenu imposable (IR) UNIQUEMENT. Madelin déduit du BNC social ET imposable. Cette distinction est critique dans `simulateAll()`.
 - **Barèmes versionnés**: Fichiers JSON dans `data/baremes/{type}_{year}.json`. Fallback sur l'année la plus récente. Modifiables via `PUT /api/simulation/baremes/{type}`.
+- **Pipeline badge** : badge % global dans la sidebar sous l'item Pipeline, clic → navigate('/'), couleur dynamique (vert/ambre/gris). Utilise `usePipeline` pour le mois courant auto-détecté.
 
 ## Dependencies
 

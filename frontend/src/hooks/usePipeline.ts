@@ -1,121 +1,363 @@
-import { useMemo } from 'react'
-import { useAnnualStatus } from './useCloture'
-import { useOperations } from './useOperations'
-import { useCategories } from './useApi'
-import type { Operation, CategoryGroup, MonthStatus } from '@/types'
+import { useQuery } from '@tanstack/react-query'
+import { useCallback, useMemo, useState } from 'react'
+import { api } from '../api/client'
+import type { PipelineStep, PipelineStepStatus } from '../types'
 
-export interface PipelineStepData {
-  name: string
-  ok: number
-  total: number
-  percent: number
-  status: 'complete' | 'partial' | 'low' | 'empty'
+// Pondération pour le calcul de progression globale
+const STEP_WEIGHTS = [10, 20, 25, 25, 10, 10] // total = 100
+
+const STORAGE_KEY_YEAR = 'pipeline_year'
+const STORAGE_KEY_MONTH = 'pipeline_month'
+
+function readStoredNumber(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw !== null) {
+      const n = Number(raw)
+      if (!isNaN(n)) return n
+    }
+  } catch { /* localStorage unavailable */ }
+  return fallback
 }
 
-export interface PipelineData {
-  month: number
+interface OperationFile {
+  filename: string
   year: number
-  filename: string | null
-  globalProgress: number
-  steps: PipelineStepData[]
-  uncategorized: Operation[]
-  unmatched: Operation[]
-  unlettered: Operation[]
-  categories: CategoryGroup[]
-  monthStatus: MonthStatus | null
-  isLoading: boolean
+  month: number
+  count: number
 }
 
-function computeStatus(percent: number): PipelineStepData['status'] {
-  if (percent >= 100) return 'complete'
-  if (percent > 50) return 'partial'
-  if (percent > 0) return 'low'
-  return 'empty'
+interface OperationRecord {
+  categorie?: string
+  'Catégorie'?: string
 }
 
-export function usePipeline(year: number, month: number): PipelineData {
-  const { data: annualData, isLoading: loadingCloture } = useAnnualStatus(year)
-  const { data: categoriesData, isLoading: loadingCategories } = useCategories()
+interface ClotureMonth {
+  mois: number
+  taux_justificatifs?: number
+  taux_lettrage?: number
+  nb_justificatifs_ok?: number
+  nb_justificatifs_total?: number
+  nb_lettrees?: number
+  nb_operations?: number
+  statut?: string
+}
 
-  const monthStatus = useMemo(() => {
-    if (!annualData) return null
-    return annualData.find((m) => m.mois === month) ?? null
-  }, [annualData, month])
+interface AlertesSummary {
+  par_fichier?: Array<{ filename: string; nb_alertes: number }>
+}
 
-  const filename = monthStatus?.filename ?? null
+export function usePipeline() {
+  const currentDate = new Date()
+  const [year, setYearState] = useState(() => readStoredNumber(STORAGE_KEY_YEAR, currentDate.getFullYear()))
+  const [month, setMonthState] = useState(() => readStoredNumber(STORAGE_KEY_MONTH, currentDate.getMonth() + 1))
 
-  const { data: operations, isLoading: loadingOps } = useOperations(filename)
+  const setYear = useCallback((y: number) => {
+    setYearState(y)
+    try { localStorage.setItem(STORAGE_KEY_YEAR, String(y)) } catch { /* noop */ }
+  }, [])
 
-  const isLoading = loadingCloture || loadingCategories || (!!filename && loadingOps)
+  const setMonth = useCallback((m: number) => {
+    setMonthState(m)
+    try { localStorage.setItem(STORAGE_KEY_MONTH, String(m)) } catch { /* noop */ }
+  }, [])
 
-  const uncategorized = useMemo(() => {
-    if (!operations) return []
-    return operations
-      .map((op, i) => ({ ...op, _index: op._index ?? i }))
-      .filter((op) => !op['Catégorie'])
-  }, [operations])
+  // 1. Liste des fichiers d'opérations
+  const filesQuery = useQuery({
+    queryKey: ['operations-files'],
+    queryFn: () => api.get<OperationFile[]>('/operations/files'),
+  })
 
-  const unmatched = useMemo(() => {
-    if (!operations) return []
-    return operations
-      .map((op, i) => ({ ...op, _index: op._index ?? i }))
-      .filter((op) => !op.Justificatif)
-  }, [operations])
+  // Identifier le fichier du mois sélectionné
+  const currentFile = useMemo(() => {
+    if (!filesQuery.data) return null
+    return filesQuery.data.find(
+      (f) => f.year === year && f.month === month
+    ) || null
+  }, [filesQuery.data, year, month])
 
-  const unlettered = useMemo(() => {
-    if (!operations) return []
-    return operations
-      .map((op, i) => ({ ...op, _index: op._index ?? i }))
-      .filter((op) => !op.lettre)
-  }, [operations])
+  // 2. Charger les opérations du fichier (si existe)
+  const operationsQuery = useQuery({
+    queryKey: ['operations', currentFile?.filename],
+    queryFn: () => api.get<OperationRecord[]>(`/operations/${currentFile!.filename}`),
+    enabled: !!currentFile?.filename,
+  })
 
-  const steps = useMemo((): PipelineStepData[] => {
-    const total = monthStatus?.nb_operations ?? 0
-    const hasReleve = monthStatus?.has_releve ?? false
+  // 3. Données de clôture pour l'année
+  const clotureQuery = useQuery({
+    queryKey: ['cloture', year],
+    queryFn: () => api.get<ClotureMonth[]>(`/cloture/${year}`),
+  })
 
-    const relevePercent = hasReleve ? 100 : 0
-    const verificationPercent = hasReleve ? 100 : 0
+  // 4. Alertes
+  const alertesQuery = useQuery({
+    queryKey: ['alertes-summary'],
+    queryFn: () => api.get<AlertesSummary>('/alertes/summary'),
+  })
 
-    const nbCategorized = total - (uncategorized.length)
-    const catPercent = total > 0 ? Math.round((nbCategorized / total) * 100) : 0
+  // Données clôture du mois sélectionné
+  const clotureMonth = useMemo(() => {
+    if (!clotureQuery.data) return null
+    return clotureQuery.data.find((m) => m.mois === month) || null
+  }, [clotureQuery.data, month])
 
-    const nbJustifies = total - (unmatched.length)
-    const justPercent = total > 0 ? Math.round((nbJustifies / total) * 100) : 0
+  // Alertes du fichier courant
+  const alertesForFile = useMemo(() => {
+    if (!alertesQuery.data || !currentFile) return { count: 0 }
+    const fileEntry = (alertesQuery.data.par_fichier || []).find(
+      (f) => f.filename === currentFile.filename
+    )
+    return { count: fileEntry?.nb_alertes || 0 }
+  }, [alertesQuery.data, currentFile])
 
-    const nbLettrees = total - (unlettered.length)
-    const lettragePercent = total > 0 ? Math.round((nbLettrees / total) * 100) : 0
+  // Calcul catégorisation
+  const categorizationStats = useMemo(() => {
+    if (!operationsQuery.data) return { total: 0, categorized: 0, uncategorized: 0, taux: 0 }
+    const ops = operationsQuery.data
+    const total = ops.length
+    const uncategorized = ops.filter(
+      (op) => {
+        const cat = op.categorie || op['Catégorie'] || ''
+        return !cat || cat === 'Autres'
+      }
+    ).length
+    const categorized = total - uncategorized
+    return {
+      total,
+      categorized,
+      uncategorized,
+      taux: total > 0 ? categorized / total : 0,
+    }
+  }, [operationsQuery.data])
 
-    const cloturePercent = catPercent >= 100 && justPercent >= 100 && lettragePercent >= 100 ? 100 : 0
+  // Années disponibles (extraites des fichiers)
+  const availableYears = useMemo(() => {
+    if (!filesQuery.data) return [currentDate.getFullYear()]
+    const years = [...new Set(filesQuery.data.map((f) => f.year))]
+    return years.sort((a, b) => b - a)
+  }, [filesQuery.data])
+
+  // Construire les 6 étapes
+  const steps: PipelineStep[] = useMemo(() => {
+    // --- ÉTAPE 1 : Import ---
+    const step1Status: PipelineStepStatus = currentFile ? 'complete' : 'not_started'
+    const step1Progress = currentFile ? 100 : 0
+
+    // --- ÉTAPE 2 : Catégorisation ---
+    const step2Progress = Math.round(categorizationStats.taux * 100)
+    const step2Status: PipelineStepStatus =
+      !currentFile ? 'not_started' :
+      step2Progress === 100 ? 'complete' :
+      step2Progress > 0 ? 'in_progress' : 'not_started'
+
+    // --- ÉTAPE 3 : Justificatifs ---
+    const tauxJustificatifs = clotureMonth?.taux_justificatifs ?? 0
+    const step3Progress = Math.round(tauxJustificatifs * 100)
+    const step3Status: PipelineStepStatus =
+      !currentFile ? 'not_started' :
+      step3Progress === 100 ? 'complete' :
+      step3Progress > 0 ? 'in_progress' : 'not_started'
+
+    // --- ÉTAPE 4 : Rapprochement ---
+    const tauxLettrage = clotureMonth?.taux_lettrage ?? 0
+    const step4Progress = Math.round(tauxLettrage * 100)
+    const step4Status: PipelineStepStatus =
+      !currentFile ? 'not_started' :
+      step4Progress === 100 ? 'complete' :
+      step4Progress > 0 ? 'in_progress' : 'not_started'
+
+    // --- ÉTAPE 5 : Vérification ---
+    const nbAlertes = alertesForFile.count
+    const step5Progress = !currentFile ? 0 : nbAlertes === 0 ? 100 : Math.max(0, 100 - nbAlertes * 5)
+    const step5Status: PipelineStepStatus =
+      !currentFile ? 'not_started' :
+      nbAlertes === 0 ? 'complete' : 'in_progress'
+
+    // --- ÉTAPE 6 : Clôture ---
+    const statut = clotureMonth?.statut ?? 'manquant'
+    const step6Progress = statut === 'complet' ? 100 : statut === 'partiel' ? 50 : 0
+    const step6Status: PipelineStepStatus =
+      statut === 'complet' ? 'complete' :
+      statut === 'partiel' ? 'in_progress' : 'not_started'
 
     return [
-      { name: 'Relevé importé', ok: hasReleve ? 1 : 0, total: 1, percent: relevePercent, status: computeStatus(relevePercent) },
-      { name: 'Vérification', ok: hasReleve ? total : 0, total: total || 1, percent: verificationPercent, status: computeStatus(verificationPercent) },
-      { name: 'Catégorisation', ok: nbCategorized, total, percent: catPercent, status: computeStatus(catPercent) },
-      { name: 'Justificatifs', ok: nbJustifies, total, percent: justPercent, status: computeStatus(justPercent) },
-      { name: 'Lettrage', ok: nbLettrees, total, percent: lettragePercent, status: computeStatus(lettragePercent) },
-      { name: 'Clôture', ok: cloturePercent >= 100 ? 1 : 0, total: 1, percent: cloturePercent, status: computeStatus(cloturePercent) },
+      {
+        id: 'import',
+        number: 1,
+        title: 'Import du relevé bancaire',
+        description: 'Importer le relevé PDF du mois. Le système extrait automatiquement les opérations et détecte les doublons.',
+        status: step1Status,
+        progress: step1Progress,
+        metrics: [
+          {
+            label: 'Relevé',
+            value: currentFile ? 'Importé' : 'Manquant',
+            variant: currentFile ? 'success' : 'danger',
+          },
+          ...(currentFile ? [{
+            label: 'Opérations extraites',
+            value: currentFile.count,
+            variant: 'default' as const,
+          }] : []),
+        ],
+        actionLabel: currentFile ? 'Voir les opérations' : 'Importer un relevé',
+        actionRoute: currentFile ? '/editor' : '/import',
+      },
+      {
+        id: 'categorization',
+        number: 2,
+        title: 'Catégorisation des opérations',
+        description: 'Vérifier et corriger les catégories attribuées par l\'IA. Les opérations sans catégorie ou classées "Autres" nécessitent une revue manuelle.',
+        status: step2Status,
+        progress: step2Progress,
+        metrics: [
+          {
+            label: 'Catégorisées',
+            value: categorizationStats.categorized,
+            total: categorizationStats.total,
+            variant: step2Progress === 100 ? 'success' : step2Progress > 50 ? 'warning' : 'danger',
+          },
+          {
+            label: 'À traiter',
+            value: categorizationStats.uncategorized,
+            variant: categorizationStats.uncategorized === 0 ? 'success' : 'warning',
+          },
+        ],
+        actionLabel: 'Ouvrir l\'éditeur',
+        actionRoute: '/editor',
+      },
+      {
+        id: 'justificatifs',
+        number: 3,
+        title: 'Justificatifs & OCR',
+        description: 'Scanner et associer les justificatifs (factures, reçus) aux opérations. L\'OCR extrait automatiquement montant, date et fournisseur.',
+        status: step3Status,
+        progress: step3Progress,
+        metrics: [
+          {
+            label: 'Taux justificatifs',
+            value: `${step3Progress}%`,
+            variant: step3Progress === 100 ? 'success' : step3Progress > 50 ? 'warning' : 'danger',
+          },
+          {
+            label: 'Avec justificatif',
+            value: clotureMonth?.nb_justificatifs_ok ?? 0,
+            total: clotureMonth?.nb_justificatifs_total ?? 0,
+            variant: 'default',
+          },
+        ],
+        actionLabel: 'Upload & OCR',
+        actionRoute: '/ocr',
+        secondaryActions: [{ label: 'Voir justificatifs', route: '/justificatifs' }],
+      },
+      {
+        id: 'rapprochement',
+        number: 4,
+        title: 'Rapprochement bancaire',
+        description: 'Lettrer les opérations en les associant aux justificatifs correspondants. Le rapprochement auto gère les cas évidents (score ≥ 0.95).',
+        status: step4Status,
+        progress: step4Progress,
+        metrics: [
+          {
+            label: 'Taux lettrage',
+            value: `${step4Progress}%`,
+            variant: step4Progress === 100 ? 'success' : step4Progress > 50 ? 'warning' : 'danger',
+          },
+          {
+            label: 'Lettrées',
+            value: clotureMonth?.nb_lettrees ?? 0,
+            total: clotureMonth?.nb_operations ?? 0,
+            variant: 'default',
+          },
+        ],
+        actionLabel: 'Rapprochement',
+        actionRoute: '/rapprochement',
+      },
+      {
+        id: 'verification',
+        number: 5,
+        title: 'Vérification & alertes',
+        description: 'Traiter les alertes du compte d\'attente : justificatifs manquants, opérations non catégorisées, montants suspects, doublons potentiels.',
+        status: step5Status,
+        progress: step5Progress,
+        metrics: [
+          {
+            label: 'Alertes restantes',
+            value: nbAlertes,
+            variant: nbAlertes === 0 ? 'success' : nbAlertes <= 5 ? 'warning' : 'danger',
+          },
+        ],
+        actionLabel: 'Voir les alertes',
+        actionRoute: '/alertes',
+      },
+      {
+        id: 'cloture',
+        number: 6,
+        title: 'Clôture & export',
+        description: 'Finaliser le mois : vérifier que lettrage et justificatifs sont à 100%, puis générer l\'archive comptable ZIP.',
+        status: step6Status,
+        progress: step6Progress,
+        metrics: [
+          {
+            label: 'Statut',
+            value: statut === 'complet' ? 'Complet' : statut === 'partiel' ? 'Partiel' : 'Manquant',
+            variant: statut === 'complet' ? 'success' : statut === 'partiel' ? 'warning' : 'danger',
+          },
+        ],
+        actionLabel: 'Exporter',
+        actionRoute: '/export',
+        secondaryActions: [{ label: 'Vue clôture', route: '/cloture' }],
+      },
     ]
-  }, [monthStatus, uncategorized.length, unmatched.length, unlettered.length])
+  }, [currentFile, categorizationStats, clotureMonth, alertesForFile])
 
+  // Progression globale pondérée
   const globalProgress = useMemo(() => {
-    if (steps.length === 0) return 0
-    const weights = [0.10, 0.05, 0.30, 0.25, 0.25, 0.05]
     return Math.round(
-      steps.reduce((acc, step, i) => acc + step.percent * weights[i], 0)
+      steps.reduce((acc, step, i) => acc + step.progress * STEP_WEIGHTS[i], 0) / 100
     )
   }, [steps])
 
+  // Badges pour les 12 mois (progression simplifiée depuis clôture + fichiers)
+  const monthBadges = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1
+      const clMonth = clotureQuery.data?.find((c) => c.mois === m) ?? null
+      const hasFile = filesQuery.data?.some((f) => f.year === year && f.month === m) ?? false
+
+      if (!hasFile && !clMonth) {
+        return { month: m, progress: 0, status: 'not_started' as PipelineStepStatus }
+      }
+
+      const importPct = hasFile ? 100 : 0
+      const justPct = Math.round((clMonth?.taux_justificatifs ?? 0) * 100)
+      const letPct = Math.round((clMonth?.taux_lettrage ?? 0) * 100)
+      const statut = clMonth?.statut ?? 'manquant'
+      const cloturePct = statut === 'complet' ? 100 : statut === 'partiel' ? 50 : 0
+
+      // Simplified weighted average (import 15%, justificatifs 30%, lettrage 30%, clôture 25%)
+      const progress = Math.round(importPct * 0.15 + justPct * 0.30 + letPct * 0.30 + cloturePct * 0.25)
+
+      const status: PipelineStepStatus =
+        progress === 100 ? 'complete' :
+        progress > 0 ? 'in_progress' : 'not_started'
+
+      return { month: m, progress, status }
+    })
+  }, [clotureQuery.data, filesQuery.data, year])
+
+  const isLoading = filesQuery.isLoading || clotureQuery.isLoading || alertesQuery.isLoading
+
   return {
-    month,
     year,
-    filename,
-    globalProgress,
+    setYear,
+    month,
+    setMonth,
+    availableYears,
     steps,
-    uncategorized,
-    unmatched,
-    unlettered,
-    categories: categoriesData?.categories ?? [],
-    monthStatus,
+    globalProgress,
+    monthBadges,
     isLoading,
+    currentFile,
   }
 }

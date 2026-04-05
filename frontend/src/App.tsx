@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import AppLayout from '@/components/layout/AppLayout'
+import PipelinePage from '@/components/pipeline/PipelinePage'
 import DashboardPage from '@/components/dashboard/DashboardPage'
 import ImportPage from '@/components/import/ImportPage'
 import EditorPage from '@/components/editor/EditorPage'
@@ -35,7 +36,8 @@ export default function App() {
     />
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<PipelinePage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/import" element={<ImportPage />} />
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
