@@ -70,7 +70,7 @@ Batch PDF/JPG/PNG → POST /api/ocr/batch-upload
   → justificatif_service.upload_justificatifs() (validation magic bytes, sauvegarde en_attente/)
   → ocr_service.extract_or_cached() pour chaque fichier (synchrone)
   → Retour : résultats avec données OCR (montant, date, fournisseur)
-  → Page Justificatifs = galerie seule (pas d'upload)
+  → Page Justificatifs = vue opérations-centrée (tableau triable, drawer attribution split resizable, pas d'upload)
 
 Alternative : Sandbox watchdog
   → Dépôt PDF/JPG/PNG dans data/justificatifs/sandbox/
@@ -419,7 +419,7 @@ Page Dashboard (/dashboard) → DashboardPage
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Components** | UI et interactions | `src/components/` (65+ fichiers, incl. `pipeline/`, `ged/`, `amortissements/`, `reports/`, `dashboard/`, `editor/VentilationDrawer`, `justificatifs/OcrDataEditor`) |
+| **Components** | UI et interactions | `src/components/` (67+ fichiers, incl. `pipeline/`, `ged/`, `amortissements/`, `reports/`, `dashboard/`, `editor/VentilationDrawer`, `justificatifs/JustificatifAttributionDrawer`, `justificatifs/OcrDataEditor`) |
 | **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (19 fichiers, incl. usePipeline, useGed, useReports, useAmortissements, useTemplates, usePrevisionnel, useVentilation) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |

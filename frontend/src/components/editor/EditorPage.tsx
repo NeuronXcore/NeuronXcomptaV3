@@ -35,7 +35,7 @@ import { formatCurrency, formatFileTitle, cn, MOIS_FR } from '@/lib/utils'
 import AlerteBadge from '@/components/AlerteBadge'
 import type { Operation, CategoryRaw } from '@/types'
 
-// Editable cell component
+// Editable cell component — uses local state to avoid re-render on every keystroke
 function EditableCell({
   value,
   onChange,
@@ -51,6 +51,21 @@ function EditableCell({
   placeholder?: string
   options?: { value: string; label: string }[]
 }) {
+  const [localValue, setLocalValue] = useState(value)
+  const prevValueRef = useRef(value)
+
+  // Sync local state when parent value changes (e.g. undo, categorize)
+  if (prevValueRef.current !== value) {
+    prevValueRef.current = value
+    setLocalValue(value)
+  }
+
+  const commitValue = useCallback(() => {
+    if (localValue !== value) {
+      onChange(localValue)
+    }
+  }, [localValue, value, onChange])
+
   if (type === 'select' && options) {
     return (
       <select
@@ -73,12 +88,19 @@ function EditableCell({
     <input
       type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
       step={type === 'number' ? '0.01' : undefined}
-      value={value ?? ''}
+      value={localValue ?? ''}
       onChange={e => {
         if (type === 'number') {
-          onChange(parseFloat(e.target.value) || 0)
+          setLocalValue(parseFloat(e.target.value) || 0)
         } else {
-          onChange(e.target.value)
+          setLocalValue(e.target.value)
+        }
+      }}
+      onBlur={commitValue}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          commitValue()
+          ;(e.target as HTMLInputElement).blur()
         }
       }}
       placeholder={placeholder}

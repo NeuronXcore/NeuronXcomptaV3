@@ -88,7 +88,22 @@ async def preview_justificatif(filename: str):
         str(filepath),
         media_type="application/pdf",
         filename=filename,
+        content_disposition_type="inline",
     )
+
+
+@router.post("/{filename}/open-native")
+async def open_native(filename: str):
+    """Ouvre le justificatif dans l'application native (Aperçu macOS)."""
+    import subprocess
+    filepath = justificatif_service.get_justificatif_path(filename)
+    if not filepath:
+        raise HTTPException(status_code=404, detail="Justificatif non trouvé")
+    try:
+        subprocess.Popen(["open", str(filepath)])
+        return {"status": "opened"}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Impossible d'ouvrir le fichier")
 
 
 @router.get("/{filename}/suggestions")

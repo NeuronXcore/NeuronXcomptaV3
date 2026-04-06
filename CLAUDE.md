@@ -65,8 +65,8 @@ neuronXcompta/
 │   └── src/
 │       ├── App.tsx             # All 19 routes (Pipeline=/, Dashboard=/dashboard, Tasks=/tasks)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
-│       ├── components/         # 65+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/, components/tasks/)
-│       ├── hooks/              # 19 hook files (useApi, useOperations, useJustificatifs, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel, useTasks)
+│       ├── components/         # 67+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/, components/tasks/, components/justificatifs/)
+│       ├── hooks/              # 20 hook files (useApi, useOperations, useJustificatifs, useJustificatifsPage, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel, useTasks)
 │       ├── stores/useFiscalYearStore.ts  # Zustand store — année globale persistée en localStorage
 │       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
 │       ├── lib/fiscal-engine.ts         # Moteur fiscal TypeScript (URSSAF, CARMF, IR, simulation multi-leviers)
@@ -153,7 +153,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | `/categories` | CategoriesPage | 4-tab category management |
 | `/reports` | ReportsPage | **Rapports V2** : 2 onglets (Générer avec templates rapides + filtres avancés, Bibliothèque avec triple vue arbre par année/catégorie/format), favoris épinglés, comparaison side-by-side de 2 rapports (drawer delta), rappels dans le dashboard, formats PDF (EUR, ligne totaux)/CSV (`;` FR)/Excel (formules SUM), déduplication, index JSON, preview drawer 800px avec édition titre/description |
 | `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie (drawer sous-catégories), **comparatif périodes avec séparation recettes/dépenses** (2 graphiques, 2 tableaux, delta badges inversés pour revenus, clic catégorie → drawer), tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
-| `/justificatifs` | JustificatifsPage | Galerie, association, PDF preview drawer, sandbox SSE badge (upload retiré — passe par OCR) |
+| `/justificatifs` | JustificatifsPage | **Vue opérations-centrée** : sélecteur année/mois (store Zustand), tableau triable 7 colonnes (date, libellé, débit, crédit, catégorie, sous-catégorie, justif ✓/○), filtre sans/avec justif (défaut: sans), 4 MetricCards (total, avec, sans, taux %), `JustificatifAttributionDrawer` (800px split resizable, suggestions scorées, hover preview PDF, attribution + dissociation, ReconstituerButton), flash highlight post-navigation, sandbox SSE badge |
 | `/agent-ai` | AgentIAPage | **2 onglets** (Dashboard ML : gauges, actions rapides avec Entraîner + Appliquer bulk, courbe apprentissage, règles, backups \| Monitoring : performance/fiabilité/progression/diagnostic avec tables + Recharts), badge sidebar violet (ops non catégorisées si entraînement > 7j) |
 | `/export` | ExportPage | Monthly ZIP export with calendar grid |
 | `/rapprochement` | RapprochementPage | Auto/manual bank-justificatif reconciliation avec drawer rapprochement manuel (filtres, scores, preview PDF) |
@@ -179,7 +179,8 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 - `RapprochementManuelDrawer` — 800px, filtres montant/date/fournisseur, liste scorée, preview PDF iframe
 - `CategoryDetailDrawer` — 700px, sous-catégories avec barres, mini BarChart mensuel, liste opérations
 - `RapprochementDrawer` — 600px, suggestions auto avec scores de confiance
-- `JustificatifDrawer` — preview PDF + infos justificatif
+- `JustificatifAttributionDrawer` — 800px **split resizable** (poignée drag verticale, min gauche 300px, max 550px, persistance localStorage), panneau gauche : suggestions scorées avec hover 300ms → preview PDF, panneau droit : `<object>` PDF inline. Attribution + dissociation, ReconstituerButton en bas, navigation post-attribution (saut à l'op suivante sans justif)
+- `JustificatifDrawer` — preview PDF + infos justificatif (legacy, conservé)
 - `QueryDrawer` — constructeur de requêtes personnalisées avec résultats
 - `GedDocumentDrawer` — 400-1200px **redimensionnable** (poignée drag bord gauche), preview PDF + fiscalité + tags/notes
 - `GedPostesDrawer` — 600px, liste postes avec sliders déductibilité, stats par poste
@@ -209,6 +210,9 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 - **Category/subcategory filters**: Panel Filtres de EditorPage propose un dropdown catégorie + un dropdown sous-catégorie dépendant (peuplé via `subcategoriesMap`). Reset auto de la sous-catégorie au changement de catégorie. Grille 5 colonnes.
 - **Comparatif recettes/dépenses**: ComparatifSection sépare les catégories en 2 groupes (recettes si credit > debit, dépenses sinon). 2 graphiques côte à côte avec légendes dynamiques (périodes sélectionnées). 2 tableaux avec colonnes adaptées (Crédit A/B pour recettes, Débit A/B pour dépenses). Delta badges inversés pour les revenus (hausse = vert). Clic catégorie → CategoryDetailDrawer.
 - **Auto-categorization**: EditorPage déclenche automatiquement `categorizeMutation` (mode `empty_only`) au chargement d'un fichier via `useEffect` + `useRef` anti-boucle.
+- **EditableCell (EditorPage)** : utilise un état local (`useState`) pour éviter la perte de focus à chaque frappe. La valeur est committée au parent au `onBlur` ou `Enter` (pas à chaque `onChange`). Sync depuis le parent via `useRef` pour undo/categorize.
+- **Justificatifs vue opérations** : `useJustificatifsPage` hook dédié. Enrichit les opérations avec `_originalIndex` + `_filename` pour transmettre les index corrects au drawer (pas les index filtrés). Mode "Toute l'année" supporte `_sourceFile`. Filtre par défaut "Sans justificatif". Sync année avec données disponibles (fallback première année si store contient une année absente).
+- **PDF preview inline** : endpoint `/preview` utilise `FileResponse` avec `content_disposition_type="inline"` (pas `attachment`). Drawer utilise `<object type="application/pdf">` avec fallback lien. Basename extrait de `Lien justificatif` via `.split('/').pop()` car le champ peut contenir un chemin avec dossier (`traites/...`).
 - **Image upload**: Justificatifs acceptent PDF/JPG/PNG. Images converties en PDF à l'intake via `_convert_image_to_pdf()` (Pillow). Validation magic bytes multi-format.
 - **GED dual tree**: `build_tree()` returns `{"by_type": [...], "by_year": [...]}`. Frontend tabs switch between views. Node IDs encode type/year/month for filter derivation (`year-{y}-{type}-{m}` for by_year, `releve-{y}-{m}` for by_type).
 - **GED postes comptables**: 16 postes par défaut (loyer-cabinet, véhicule, téléphone, etc.). Slider 0-100 step 5 avec couleur dynamique (vert/orange/rouge). Postes system non supprimables, custom ajoutables. Stats par poste (nb docs, total brut, total déduit).

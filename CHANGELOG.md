@@ -9,6 +9,21 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 ## [Unreleased]
 
 ### Added (2026-04-06)
+- **Refonte page Justificatifs** : remplacement de la galerie par une vue operations-centree
+  - Tableau triable 7 colonnes (date, libelle, debit, credit, categorie, sous-categorie, justif)
+  - Hook dedie `useJustificatifsPage` avec enrichissement `_originalIndex` + `_filename`
+  - Filtre sans/avec justificatif (defaut: sans), 4 MetricCards (total, avec, sans, taux %)
+  - `JustificatifAttributionDrawer` (800px, split resizable avec poignee drag, persistance localStorage)
+  - Suggestions scorees avec hover 300ms → preview PDF inline (`<object type="application/pdf">`)
+  - Attribution + dissociation + navigation post-attribution (saut a l'op suivante sans justif)
+  - Flash highlight CSS sur la ligne active apres navigation
+  - Selecteur annee/mois en cascade (pattern EditorPage), sync annee avec donnees disponibles
+  - ReconstituerButton en bas du panneau gauche, sandbox SSE badge dans le header
+
+- **Fix preview PDF inline** : `Content-Disposition: inline` dans l'endpoint `/api/justificatifs/{filename}/preview` pour afficher les PDF dans les iframes au lieu de les telecharger
+
+- **Fix EditableCell (EditorPage)** : etat local (`useState`) pour eviter la perte de focus a chaque frappe dans les champs texte (commentaire, libelle). Valeur committee au parent au `onBlur` ou `Enter`
+
 - **Ventilation d'operations** : une operation bancaire peut etre ventilee en N sous-lignes (>=2) avec categorie, sous-categorie, montant et justificatif individuels
   - Backend : modele `VentilationLine`, service `ventilation_service.py`, router `/api/ventilation` (PUT/DELETE/PATCH)
   - `sum(montants)` doit egaler le montant de l'operation (tolerance 0.01)

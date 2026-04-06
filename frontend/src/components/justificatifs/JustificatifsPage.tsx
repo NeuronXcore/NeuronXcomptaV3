@@ -1,49 +1,37 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import JustificatifDrawer from './JustificatifDrawer'
-import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
-import {
-  useJustificatifs,
-  useJustificatifStats,
-  useDeleteJustificatif,
-} from '@/hooks/useJustificatifs'
-import { useBatchJustificatifScores } from '@/hooks/useRapprochement'
+import JustificatifAttributionDrawer from './JustificatifAttributionDrawer'
+import { useJustificatifsPage } from '@/hooks/useJustificatifsPage'
+import type { EnrichedOperation } from '@/hooks/useJustificatifsPage'
 import { useSandbox } from '@/hooks/useSandbox'
 import toast from 'react-hot-toast'
-import { cn, MOIS_FR } from '@/lib/utils'
+import { cn, formatCurrency, formatDate, MOIS_FR } from '@/lib/utils'
 import {
-  Upload, Clock, CheckCircle, FileText, Search,
-  Trash2, Eye, X, Loader2, AlertCircle, Link, ScanLine, AlertTriangle,
+  FileText, Search, ScanLine, ChevronLeft, ChevronRight,
+  CheckCircle2, Circle, ArrowUpDown, ArrowUp, ArrowDown,
+  FileCheck, FileX, Percent, Hash,
 } from 'lucide-react'
-import type { JustificatifInfo } from '@/types'
 
-type StatusFilter = 'all' | 'en_attente' | 'traites' | 'sans_correspondance' | 'correspondance_forte'
-type SortBy = 'date' | 'name' | 'size'
+type SortKey = 'date' | 'libelle' | 'debit' | 'credit' | 'categorie' | 'sous_categorie'
 
 export default function JustificatifsPage() {
-  // Filters
-  const [search, setSearch] = useState('')
-  const [year, setYear] = useState<number | null>(null)
-  const [month, setMonth] = useState<number | null>(null)
-  const [sortBy, setSortBy] = useState<SortBy>('date')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-
   const navigate = useNavigate()
 
-  // UI state
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [selectedJustificatif, setSelectedJustificatif] = useState<JustificatifInfo | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [rapprochementDrawerOpen, setRapprochementDrawerOpen] = useState(false)
-  const [rapprochementFilename, setRapprochementFilename] = useState<string | null>(null)
-
-  // Data
-  const { data: stats } = useJustificatifStats()
-  const { data: batchScores } = useBatchJustificatifScores()
+  const {
+    year, setYear, selectedMonth, setSelectedMonth,
+    search, setSearch,
+    sortKey, sortOrder, toggleSort,
+    justifFilter, setJustifFilter,
+    selectedOpIndex, selectedOpFilename,
+    drawerOpen, setDrawerOpen,
+    availableYears, monthsForYear, selectedFile,
+    operations, stats,
+    isYearWide, isLoading,
+    openDrawer, goToNextWithout,
+  } = useJustificatifsPage()
 
   // Sandbox watchdog SSE
   const { lastEvent, isConnected } = useSandbox()
@@ -58,180 +46,143 @@ export default function JustificatifsPage() {
     }
   }, [lastEvent])
 
-  // Map special status filters to API status
-  const apiStatus = (statusFilter === 'sans_correspondance' || statusFilter === 'correspondance_forte')
-    ? 'en_attente' : statusFilter
+  // Flash highlight on navigation
+  useEffect(() => {
+    if (selectedOpIndex !== null && selectedOpFilename !== null) {
+      const rowId = `op-row-${selectedOpFilename}-${selectedOpIndex}`
+      const row = document.getElementById(rowId)
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        row.classList.add('flash-highlight')
+        setTimeout(() => row.classList.remove('flash-highlight'), 1500)
+      }
+    }
+  }, [selectedOpIndex, selectedOpFilename])
 
-  const { data: justificatifs, isLoading } = useJustificatifs({
-    status: apiStatus,
-    search,
-    year,
-    month,
-    sort_by: sortBy,
-    sort_order: sortOrder,
-  })
-  const deleteMutation = useDeleteJustificatif()
+  // Opération sélectionnée pour le drawer
+  const selectedOperation = operations.find(
+    op => op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
+  ) ?? null
 
-  const handleView = (j: JustificatifInfo) => {
-    setSelectedJustificatif(j)
-    setDrawerOpen(true)
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown size={12} className="text-text-muted/40" />
+    return sortOrder === 'asc'
+      ? <ArrowUp size={12} className="text-primary" />
+      : <ArrowDown size={12} className="text-primary" />
   }
 
-  const handleDelete = (filename: string) => {
-    deleteMutation.mutate(filename, {
-      onSuccess: () => {
-        setDeleteConfirm(null)
-        if (selectedJustificatif?.filename === filename) {
-          setDrawerOpen(false)
-          setSelectedJustificatif(null)
-        }
-      },
-    })
-  }
-
-  // Filter by rapprochement score for special filters
-  const filteredJustificatifs = (() => {
-    if (!justificatifs) return []
-    if (statusFilter === 'sans_correspondance') {
-      return justificatifs.filter(j => !batchScores?.[j.filename])
-    }
-    if (statusFilter === 'correspondance_forte') {
-      return justificatifs.filter(j => (batchScores?.[j.filename] ?? 0) >= 0.75)
-    }
-    return justificatifs
-  })()
-
-  // Generate year options from current data
-  const years = Array.from(
-    new Set((justificatifs || []).map(j => parseInt(j.date.slice(0, 4))).filter(y => !isNaN(y)))
-  ).sort((a, b) => b - a)
+  const headerClick = (col: SortKey) => () => toggleSort(col)
 
   return (
     <div>
       <PageHeader
         title="Justificatifs"
-        description="Galerie, prévisualisation et association des justificatifs comptables"
+        description="Attribution des justificatifs aux opérations bancaires"
         actions={
-          <button
-            onClick={() => navigate('/ocr')}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
-          >
-            <ScanLine size={16} />
-            Ajouter via OCR
-          </button>
+          <div className="flex items-center gap-3">
+            {isConnected && (
+              <span className="flex items-center gap-2 text-xs text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-lg">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                Sandbox actif
+              </span>
+            )}
+            <button
+              onClick={() => navigate('/ocr')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
+            >
+              <ScanLine size={16} />
+              Ajouter via OCR
+            </button>
+          </div>
         }
       />
 
-      <div className="space-y-6">
-        {/* Sandbox status */}
-        {isConnected && (
-          <div className="flex items-center gap-2 text-xs text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-lg w-fit">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            Sandbox actif — dépôt auto surveillé
-          </div>
-        )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <MetricCard
-            title="En attente"
-            value={String(stats?.en_attente ?? 0)}
-            icon={<Clock size={20} />}
-            trend={stats?.en_attente ? 'down' : undefined}
-          />
-          <MetricCard
-            title="Traités"
-            value={String(stats?.traites ?? 0)}
-            icon={<CheckCircle size={20} />}
-            trend="up"
-          />
-          <MetricCard
-            title="Total"
-            value={String(stats?.total ?? 0)}
-            icon={<FileText size={20} />}
-          />
-        </div>
-
-        {/* Toolbar */}
+      <div className="space-y-5">
+        {/* Barre filtres */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
+          {/* Sélecteur année */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                const idx = availableYears.indexOf(year)
+                if (idx < availableYears.length - 1) setYear(availableYears[idx + 1])
+              }}
+              disabled={availableYears.indexOf(year) >= availableYears.length - 1}
+              className="p-1 text-text-muted hover:text-text disabled:opacity-30 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <select
+              value={year}
+              onChange={e => setYear(Number(e.target.value))}
+              className="bg-surface border border-border rounded px-3 py-1.5 text-sm text-text font-medium"
+            >
+              {availableYears.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                const idx = availableYears.indexOf(year)
+                if (idx > 0) setYear(availableYears[idx - 1])
+              }}
+              disabled={availableYears.indexOf(year) <= 0}
+              className="p-1 text-text-muted hover:text-text disabled:opacity-30 transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Sélecteur mois */}
+          <select
+            value={selectedMonth ?? ''}
+            onChange={e => {
+              const v = e.target.value
+              setSelectedMonth(v === '' ? null : Number(v))
+            }}
+            className="bg-surface border border-border rounded px-3 py-1.5 text-sm text-text"
+          >
+            <option value="">
+              {monthsForYear.length > 0
+                ? `${MOIS_FR[(monthsForYear[0].month ?? 1) - 1]} (${monthsForYear[0].count} ops)`
+                : 'Aucun mois'}
+            </option>
+            <option value={0}>Toute l&apos;année</option>
+            {monthsForYear.map(f => (
+              <option key={f.month} value={f.month}>
+                {MOIS_FR[(f.month ?? 1) - 1]} ({f.count} ops)
+              </option>
+            ))}
+          </select>
+
+          {/* Recherche */}
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder="Rechercher libellé, catégorie..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-surface border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+              className="w-full pl-8 pr-3 py-1.5 text-sm bg-surface border border-border rounded text-text placeholder:text-text-muted/50"
             />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text">
-                <X size={14} />
-              </button>
-            )}
           </div>
 
-          {/* Year filter */}
-          <select
-            value={year ?? ''}
-            onChange={e => setYear(e.target.value ? Number(e.target.value) : null)}
-            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-          >
-            <option value="">Année</option>
-            {years.map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-            {years.length === 0 && <option value="2024">2024</option>}
-          </select>
-
-          {/* Month filter */}
-          <select
-            value={month ?? ''}
-            onChange={e => setMonth(e.target.value ? Number(e.target.value) : null)}
-            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-          >
-            <option value="">Mois</option>
-            {MOIS_FR.map((m, i) => (
-              <option key={i} value={i + 1}>{m}</option>
-            ))}
-          </select>
-
-          {/* Sort */}
-          <select
-            value={`${sortBy}_${sortOrder}`}
-            onChange={e => {
-              const [by, order] = e.target.value.split('_') as [SortBy, 'asc' | 'desc']
-              setSortBy(by)
-              setSortOrder(order)
-            }}
-            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-          >
-            <option value="date_desc">Date (récent)</option>
-            <option value="date_asc">Date (ancien)</option>
-            <option value="name_asc">Nom (A-Z)</option>
-            <option value="name_desc">Nom (Z-A)</option>
-            <option value="size_desc">Taille (grand)</option>
-            <option value="size_asc">Taille (petit)</option>
-          </select>
-
-          {/* Status tabs */}
-          <div className="flex bg-background rounded-lg border border-border overflow-hidden">
+          {/* Filtre justificatif */}
+          <div className="flex bg-background rounded border border-border overflow-hidden">
             {([
               ['all', 'Tous'],
-              ['en_attente', 'En attente'],
-              ['traites', 'Traités'],
-              ['sans_correspondance', 'Sans corresp.'],
-              ['correspondance_forte', 'Corresp. forte'],
-            ] as [StatusFilter, string][]).map(([value, label]) => (
+              ['sans', 'Sans justif.'],
+              ['avec', 'Avec justif.'],
+            ] as const).map(([value, label]) => (
               <button
                 key={value}
-                onClick={() => setStatusFilter(value)}
+                onClick={() => setJustifFilter(value)}
                 className={cn(
-                  'px-3 py-2 text-xs transition-colors',
-                  statusFilter === value
+                  'px-3 py-1.5 text-xs transition-colors',
+                  justifFilter === value
                     ? 'bg-primary text-white'
                     : 'text-text-muted hover:text-text'
                 )}
@@ -240,170 +191,149 @@ export default function JustificatifsPage() {
               </button>
             ))}
           </div>
+
+          {/* Badge lecture seule année */}
+          {isYearWide && (
+            <span className="text-xs bg-amber-500/15 text-amber-400 px-2.5 py-1 rounded-full font-medium">
+              Lecture seule — Année complète
+            </span>
+          )}
         </div>
 
-        {/* Gallery */}
+        {/* MetricCards */}
+        <div className="grid grid-cols-4 gap-4">
+          <MetricCard
+            title="Total opérations"
+            value={String(stats.total)}
+            icon={<Hash size={20} />}
+          />
+          <MetricCard
+            title="Avec justificatif"
+            value={String(stats.avec)}
+            icon={<FileCheck size={20} />}
+            trend={stats.avec > 0 ? 'up' : undefined}
+          />
+          <MetricCard
+            title="Sans justificatif"
+            value={String(stats.sans)}
+            icon={<FileX size={20} />}
+            trend={stats.sans > 0 ? 'down' : undefined}
+          />
+          <MetricCard
+            title="Taux couverture"
+            value={`${stats.taux}%`}
+            icon={<Percent size={20} />}
+            trend={stats.taux >= 80 ? 'up' : stats.taux > 0 ? 'down' : undefined}
+          />
+        </div>
+
+        {/* Tableau opérations */}
         {isLoading ? (
-          <LoadingSpinner text="Chargement des justificatifs..." />
-        ) : filteredJustificatifs.length === 0 ? (
+          <LoadingSpinner text="Chargement des opérations..." />
+        ) : operations.length === 0 ? (
           <div className="bg-surface rounded-xl border border-border p-12 text-center">
             <FileText size={40} className="mx-auto text-text-muted mb-3" />
-            <p className="text-text-muted">Aucun justificatif trouvé</p>
-            <button
-              onClick={() => navigate('/ocr')}
-              className="mt-3 text-primary text-sm hover:underline"
-            >
-              Ajouter via la page OCR
-            </button>
+            <p className="text-text-muted">Aucune opération trouvée</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredJustificatifs.map(j => {
-              const matchScore = batchScores?.[j.filename]
-              const confidenceLevel = matchScore != null
-                ? matchScore >= 0.95 ? 'fort'
-                : matchScore >= 0.75 ? 'probable'
-                : matchScore >= 0.60 ? 'possible'
-                : null
-                : null
-
-              return (
-                <div
-                  key={j.filename}
-                  className="bg-surface rounded-xl border border-border p-4 hover:border-primary/50 transition-colors group"
-                >
-                  {/* Icon + Status */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FileText size={20} className="text-primary" />
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {confidenceLevel && j.status === 'en_attente' && (
-                        <span className={cn(
-                          'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
-                          confidenceLevel === 'fort' || confidenceLevel === 'probable'
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-amber-500/15 text-amber-400'
-                        )}>
-                          {Math.round(matchScore! * 100)}%
+          <div className="bg-surface rounded-xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    {([
+                      ['date', 'Date'],
+                      ['libelle', 'Libellé'],
+                      ['debit', 'Débit'],
+                      ['credit', 'Crédit'],
+                      ['categorie', 'Catégorie'],
+                      ['sous_categorie', 'Sous-catégorie'],
+                    ] as [SortKey, string][]).map(([key, label]) => (
+                      <th
+                        key={key}
+                        onClick={headerClick(key)}
+                        className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider cursor-pointer hover:text-text select-none transition-colors"
+                      >
+                        <span className="flex items-center gap-1">
+                          {label}
+                          <SortIcon col={key} />
                         </span>
-                      )}
-                      <span className={cn(
-                        'text-[10px] px-2 py-0.5 rounded-full font-medium',
-                        j.status === 'traites'
-                          ? 'bg-emerald-500/15 text-emerald-400'
-                          : 'bg-amber-500/15 text-amber-400'
-                      )}>
-                        {j.status === 'traites' ? 'Traité' : 'En attente'}
-                      </span>
-                    </div>
-                  </div>
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-center text-xs font-medium text-text-muted uppercase tracking-wider w-20">
+                      Justif.
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {operations.map((op) => {
+                    const hasJustif = !!op['Lien justificatif']
+                    const rowId = `op-row-${op._filename}-${op._originalIndex}`
+                    const isSelected = op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
 
-                  {/* OCR incomplet badge */}
-                  {(j.ocr_amount === null || j.ocr_amount === undefined || j.ocr_date === null || j.ocr_date === undefined) && j.ocr_data?.processed && (
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">
-                        <AlertTriangle size={10} />
-                        OCR incomplet
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Name */}
-                  <p className="text-sm font-medium text-text truncate mb-1" title={j.original_name}>
-                    {j.original_name}
-                  </p>
-
-                  {/* Metadata */}
-                  <div className="flex items-center gap-2 text-xs text-text-muted mb-3">
-                    <span>{j.date.slice(0, 10)}</span>
-                    <span>·</span>
-                    <span>{j.size_human}</span>
-                  </div>
-
-                  {/* Linked operation */}
-                  {j.linked_operation && (
-                    <p className="text-[10px] text-primary truncate mb-2" title={j.linked_operation}>
-                      Lié : {j.linked_operation}
-                    </p>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleView(j)}
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-primary/10 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors"
-                    >
-                      <Eye size={12} />
-                      Voir
-                    </button>
-                    {j.status === 'en_attente' && (
-                      <button
-                        onClick={() => {
-                          setRapprochementFilename(j.filename)
-                          setRapprochementDrawerOpen(true)
-                        }}
-                        className="flex items-center justify-center gap-1 px-2 py-1.5 bg-amber-500/10 text-amber-400 rounded-lg text-xs hover:bg-amber-500/20 transition-colors"
-                        title="Voir les correspondances"
+                    return (
+                      <tr
+                        key={rowId}
+                        id={rowId}
+                        onClick={() => openDrawer(op)}
+                        className={cn(
+                          'hover:bg-surface/50 transition-colors cursor-pointer',
+                          isSelected && 'bg-primary/5'
+                        )}
                       >
-                        <Link size={12} />
-                      </button>
-                    )}
-                    {deleteConfirm === j.filename ? (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleDelete(j.filename)}
-                          className="px-2 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs hover:bg-red-500/30"
-                          disabled={deleteMutation.isPending}
-                        >
-                          {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Oui'}
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm(null)}
-                          className="px-2 py-1.5 bg-surface-hover text-text-muted rounded-lg text-xs"
-                        >
-                          Non
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setDeleteConfirm(j.filename)}
-                        className="flex items-center justify-center px-2 py-1.5 text-text-muted hover:text-red-400 rounded-lg text-xs transition-colors"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+                        <td className="px-4 py-2.5 text-text whitespace-nowrap">
+                          {formatDate(op.Date)}
+                        </td>
+                        <td className="px-4 py-2.5 text-text max-w-xs truncate" title={op['Libellé']}>
+                          {op['Libellé']}
+                        </td>
+                        <td className="px-4 py-2.5 text-red-400 whitespace-nowrap tabular-nums">
+                          {op['Débit'] ? formatCurrency(op['Débit']) : ''}
+                        </td>
+                        <td className="px-4 py-2.5 text-emerald-400 whitespace-nowrap tabular-nums">
+                          {op['Crédit'] ? formatCurrency(op['Crédit']) : ''}
+                        </td>
+                        <td className="px-4 py-2.5 text-text-muted truncate max-w-[140px]" title={op['Catégorie']}>
+                          {op['Catégorie'] ?? '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-text-muted truncate max-w-[140px]" title={op['Sous-catégorie']}>
+                          {op['Sous-catégorie'] ?? ''}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          <button
+                            onClick={() => openDrawer(op)}
+                            title={hasJustif ? 'Justificatif attribué — cliquer pour voir' : 'Cliquer pour attribuer un justificatif'}
+                            className={cn(
+                              'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
+                              hasJustif
+                                ? 'text-emerald-400 hover:bg-emerald-500/15'
+                                : 'text-amber-400 hover:bg-amber-500/15'
+                            )}
+                          >
+                            {hasJustif ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-2 border-t border-border text-xs text-text-muted">
+              {operations.length} opération{operations.length > 1 ? 's' : ''} affichée{operations.length > 1 ? 's' : ''}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Justificatif Drawer */}
-      <JustificatifDrawer
+      {/* Attribution Drawer */}
+      <JustificatifAttributionDrawer
         open={drawerOpen}
-        justificatif={selectedJustificatif}
-        onClose={() => {
-          setDrawerOpen(false)
-          setSelectedJustificatif(null)
-        }}
-        onDeleted={() => {
-          setDrawerOpen(false)
-          setSelectedJustificatif(null)
-        }}
-      />
-
-      {/* Rapprochement Drawer */}
-      <RapprochementDrawer
-        open={rapprochementDrawerOpen}
-        onClose={() => {
-          setRapprochementDrawerOpen(false)
-          setRapprochementFilename(null)
-        }}
-        mode="justificatif"
-        justificatifFilename={rapprochementFilename || undefined}
+        onClose={() => setDrawerOpen(false)}
+        operation={selectedOperation}
+        operationFile={selectedOpFilename ?? ''}
+        operationIndex={selectedOpIndex ?? -1}
+        onNextWithout={goToNextWithout}
       />
     </div>
   )
