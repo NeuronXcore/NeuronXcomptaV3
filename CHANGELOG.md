@@ -8,7 +8,61 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
-### Added (2026-04-06)
+### Added (2026-04-06) — Session 2
+
+- **Checkboxes modernes (EditorPage)** : remplacement des `<input type="checkbox">` natifs par des boutons toggle stylises
+  - Carres arrondis 22px avec `border-2`, icone blanche quand coches, bordure coloree subtile quand decoches
+  - Selection : fond `primary` + icone `Check`
+  - Important : fond `warning` + icone `Star`, bordure ambre au repos
+  - A revoir : fond `danger` + icone `AlertTriangle`, bordure rouge au repos
+  - Pointee : fond `emerald-500` + icone `CheckCircle2`
+  - Composant `CheckboxCell` generique avec props `colorClass`, `uncheckedColor`, `icon`
+
+- **Tri sur les colonnes badge (EditorPage)** : les 4 colonnes badge sont desormais triables
+  - Justificatif (trombone), Important (etoile), A revoir (triangle), Pointee (cercle)
+  - `sortingFn` custom : tri boolean `Number(value || 0)`
+  - Fleches de tri visibles dans le header au clic
+
+- **Navigation Pipeline → Editeur filtree** : clic "Ouvrir l'editeur" sur l'etape Categorisation navigue vers `/editor?filter=uncategorized`
+  - EditorPage lit le param `?filter=uncategorized` et active un filtre custom sur la colonne Categorie
+  - `filterFn` custom : `__uncategorized__` matche les operations vides ou "Autres"
+  - Panneau filtres ouvert automatiquement avec dropdown positionne sur "Non categorisees"
+  - Bandeau warning "Filtre actif : operations non categorisees (N resultats)" avec bouton "Retirer le filtre"
+  - Option "Non categorisees" ajoutee au dropdown categorie du panneau filtres
+
+- **Auto-rapprochement justificatifs** : association automatique justificatif ↔ operation apres upload
+  - `_run_ocr_background()` (justificatifs.py) chaine `run_auto_rapprochement()` apres OCR
+  - `batch_upload()` (ocr.py) lance le rapprochement auto apres la boucle OCR
+  - `_process_file()` (sandbox_service.py) lance le rapprochement auto apres OCR watchdog
+  - Les 3 points d'entree (upload justificatifs, upload OCR, sandbox) declenchent automatiquement l'association
+
+- **Bouton "Associer automatiquement" (JustificatifsPage)** : bandeau CTA contextuel
+  - Bandeau ambre gradient visible quand `stats.sans > 0` avec compteur dynamique
+  - Bouton `bg-warning` avec shadow, hover scale et icone Zap
+  - Toast custom cliquable quand suggestions fortes : clic → filtre "Sans justif." + ouvre drawer sur la 1ere operation sans justificatif
+  - Disparait automatiquement quand toutes les operations sont couvertes
+  - Utilise le hook existant `useRunAutoRapprochement()` avec invalidation de cache complete
+
+- **Amelioration scoring rapprochement** : meilleure detection des correspondances
+  - `score_fournisseur()` : ajout matching par sous-chaine (ex: "amazon" dans "PRLVSEPAAMAZONPAYMENT" → score 1.0)
+  - Seuil auto-association abaisse de 0.95 → 0.80 (avec toujours ecart >= 0.02 entre 1er et 2eme match)
+  - Niveaux de confiance ajustes : fort >= 0.80, probable >= 0.65, possible >= 0.50
+  - Scores reels passes de 0.80 max a 0.93-1.0 grace au substring matching
+
+- **Recherche libre dans le drawer attribution** : recherche dans tous les justificatifs en attente
+  - Requete `GET /justificatifs/?status=en_attente&search=...` avec debounce 300ms
+  - Resultats affiches sous les suggestions scorees avec separateur "Autres justificatifs correspondants"
+  - Chaque resultat a un bouton "Attribuer" orange identique
+  - Message d'aide quand aucune suggestion : "Tapez un nom pour rechercher dans tous les justificatifs"
+
+- **Fix affichage score** : `score.total` (0-1 backend) multiplie par 100 pour affichage en pourcentage
+  - Corrige le badge qui affichait "1%" au lieu de "80%"
+  - `scoreColor()` recoit maintenant correctement la valeur 0-100
+
+- **Bouton Attribuer modernise** : style orange identique au bouton "Associer automatiquement"
+  - `bg-warning text-background` avec `shadow-sm`, `hover:scale-105`, `font-semibold`
+
+### Added (2026-04-06) — Session 1
 - **Refonte page Justificatifs** : remplacement de la galerie par une vue operations-centree
   - Tableau triable 7 colonnes (date, libelle, debit, credit, categorie, sous-categorie, justif)
   - Hook dedie `useJustificatifsPage` avec enrichissement `_originalIndex` + `_filename`

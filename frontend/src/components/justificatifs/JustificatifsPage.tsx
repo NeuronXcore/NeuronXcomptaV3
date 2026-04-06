@@ -12,8 +12,9 @@ import { cn, formatCurrency, formatDate, MOIS_FR } from '@/lib/utils'
 import {
   FileText, Search, ScanLine, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, ArrowUpDown, ArrowUp, ArrowDown,
-  FileCheck, FileX, Percent, Hash,
+  FileCheck, FileX, Percent, Hash, Zap, Loader2,
 } from 'lucide-react'
+import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 
 type SortKey = 'date' | 'libelle' | 'debit' | 'credit' | 'categorie' | 'sous_categorie'
 
@@ -35,6 +36,9 @@ export default function JustificatifsPage() {
 
   // Sandbox watchdog SSE
   const { lastEvent, isConnected } = useSandbox()
+
+  // Auto-rapprochement
+  const autoRapprochement = useRunAutoRapprochement()
 
   useEffect(() => {
     if (lastEvent) {
@@ -226,6 +230,107 @@ export default function JustificatifsPage() {
             trend={stats.taux >= 80 ? 'up' : stats.taux > 0 ? 'down' : undefined}
           />
         </div>
+
+        {/* Bandeau association automatique */}
+        {stats.sans > 0 && (
+          <div className="relative overflow-hidden rounded-xl border border-warning/30 bg-gradient-to-r from-warning/10 via-warning/5 to-transparent p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-warning/20">
+                  <Zap size={20} className="text-warning" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-text">
+                    {stats.sans} opération{stats.sans > 1 ? 's' : ''} sans justificatif
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    Lancer le rapprochement automatique pour associer les justificatifs disponibles
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  autoRapprochement.mutate(undefined, {
+                    onSuccess: (report) => {
+                      const auto = report.associations_auto ?? 0
+                      const suggestions = report.suggestions_fortes ?? 0
+                      if (auto > 0 && suggestions > 0) {
+                        toast.success(`${auto} associé${auto > 1 ? 's' : ''} automatiquement`)
+                        toast.custom((t) => (
+                          <div
+                            className={cn(
+                              'flex items-center gap-3 bg-surface border border-warning/40 rounded-xl px-4 py-3 shadow-lg cursor-pointer transition-all hover:border-warning',
+                              t.visible ? 'animate-enter' : 'animate-leave'
+                            )}
+                            onClick={() => {
+                              toast.dismiss(t.id)
+                              setJustifFilter('sans')
+                              // Ouvrir le drawer sur la première opération sans justificatif
+                              const firstSans = operations.find(op => !op.Justificatif)
+                              if (firstSans) {
+                                openDrawer(firstSans)
+                              }
+                            }}
+                          >
+                            <span className="text-xl">💡</span>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-text">
+                                {suggestions} suggestion{suggestions > 1 ? 's' : ''} forte{suggestions > 1 ? 's' : ''}
+                              </p>
+                              <p className="text-xs text-text-muted">Cliquer pour associer manuellement →</p>
+                            </div>
+                          </div>
+                        ), { duration: 8000 })
+                      } else if (auto > 0) {
+                        toast.success(`${auto} justificatif${auto > 1 ? 's' : ''} associé${auto > 1 ? 's' : ''} automatiquement`)
+                      } else if (suggestions > 0) {
+                        toast.custom((t) => (
+                          <div
+                            className={cn(
+                              'flex items-center gap-3 bg-surface border border-warning/40 rounded-xl px-4 py-3 shadow-lg cursor-pointer transition-all hover:border-warning',
+                              t.visible ? 'animate-enter' : 'animate-leave'
+                            )}
+                            onClick={() => {
+                              toast.dismiss(t.id)
+                              setJustifFilter('sans')
+                              const firstSans = operations.find(op => !op.Justificatif)
+                              if (firstSans) {
+                                openDrawer(firstSans)
+                              }
+                            }}
+                          >
+                            <span className="text-xl">💡</span>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-text">
+                                {suggestions} suggestion{suggestions > 1 ? 's' : ''} forte{suggestions > 1 ? 's' : ''} — association manuelle requise
+                              </p>
+                              <p className="text-xs text-text-muted">Cliquer pour associer manuellement →</p>
+                            </div>
+                          </div>
+                        ), { duration: 8000 })
+                      } else {
+                        toast('Aucune correspondance trouvée', { icon: 'ℹ️' })
+                      }
+                    },
+                    onError: () => toast.error('Erreur lors du rapprochement automatique'),
+                  })
+                }}
+                disabled={autoRapprochement.isPending}
+                className={cn(
+                  'flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap',
+                  'bg-warning text-background shadow-lg shadow-warning/25 hover:shadow-warning/40 hover:scale-[1.02]',
+                  'disabled:opacity-60 disabled:hover:scale-100 disabled:shadow-none'
+                )}
+              >
+                {autoRapprochement.isPending
+                  ? <Loader2 size={18} className="animate-spin" />
+                  : <Zap size={18} />
+                }
+                Associer automatiquement
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tableau opérations */}
         {isLoading ? (

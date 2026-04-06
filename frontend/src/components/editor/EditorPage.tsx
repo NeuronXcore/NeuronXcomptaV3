@@ -112,24 +112,36 @@ function EditableCell({
   )
 }
 
-// Checkbox cell
+// Modern toggle checkbox
 function CheckboxCell({
   checked,
   onChange,
-  accentClass = 'accent-primary',
+  colorClass = 'bg-primary',
+  uncheckedColor,
+  icon: Icon,
+  iconClass,
 }: {
   checked: boolean
   onChange: (val: boolean) => void
-  accentClass?: string
+  colorClass?: string
+  uncheckedColor?: string
+  icon?: React.ElementType
+  iconClass?: string
 }) {
   return (
     <div className="flex justify-center">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={e => onChange(e.target.checked)}
-        className={cn('w-3.5 h-3.5 cursor-pointer', accentClass)}
-      />
+      <button
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'w-[22px] h-[22px] rounded-md flex items-center justify-center transition-all duration-150 border-2',
+          checked
+            ? cn(colorClass, 'border-transparent shadow-md ring-1 ring-white/20')
+            : cn('bg-surface', uncheckedColor || 'border-text-muted/30', 'hover:border-text-muted/60 hover:bg-surface-hover')
+        )}
+      >
+        {checked && Icon && <Icon size={13} className={cn('text-white drop-shadow-sm', iconClass)} />}
+        {checked && !Icon && <Check size={13} className="text-white drop-shadow-sm" />}
+      </button>
     </div>
   )
 }
@@ -172,6 +184,9 @@ export default function EditorPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+
+  // Special filter from Pipeline navigation
+  const [filterUncategorized, setFilterUncategorized] = useState(false)
 
   // UI state
   const [showFilters, setShowFilters] = useState(false)
@@ -234,6 +249,22 @@ export default function EditorPage() {
       setSelectedFile(files[0].filename)
     }
   }, [files, searchParams, selectedYear])
+
+  // URL param ?filter=uncategorized → activer le filtre "non catégorisées"
+  const filterParamApplied = useRef(false)
+  useEffect(() => {
+    if (filterParamApplied.current) return
+    const filterParam = searchParams.get('filter')
+    if (filterParam === 'uncategorized') {
+      setFilterUncategorized(true)
+      setShowFilters(true)
+      setColumnFilters(prev => {
+        const without = prev.filter(f => f.id !== 'Catégorie')
+        return [...without, { id: 'Catégorie', value: '__uncategorized__' }]
+      })
+      filterParamApplied.current = true
+    }
+  }, [searchParams])
 
   // Ref pour éviter la boucle de catégorisation auto
   const lastAutoCategorizedFile = useRef<string | null>(null)
@@ -428,22 +459,32 @@ export default function EditorPage() {
       id: 'select',
       header: ({ table }) => (
         <div className="flex justify-center">
-          <input
-            type="checkbox"
-            checked={table.getIsAllPageRowsSelected()}
-            onChange={table.getToggleAllPageRowsSelectedHandler()}
-            className="w-3.5 h-3.5 cursor-pointer accent-primary"
-          />
+          <button
+            onClick={table.getToggleAllPageRowsSelectedHandler()}
+            className={cn(
+              'w-[22px] h-[22px] rounded-md flex items-center justify-center transition-all duration-150 border-2',
+              table.getIsAllPageRowsSelected()
+                ? 'bg-primary border-transparent shadow-md ring-1 ring-white/20'
+                : 'bg-surface border-text-muted/30 hover:border-text-muted/60 hover:bg-surface-hover'
+            )}
+          >
+            {table.getIsAllPageRowsSelected() && <Check size={13} className="text-white drop-shadow-sm" />}
+          </button>
         </div>
       ),
       cell: ({ row }) => (
         <div className="flex justify-center">
-          <input
-            type="checkbox"
-            checked={row.getIsSelected()}
-            onChange={row.getToggleSelectedHandler()}
-            className="w-3.5 h-3.5 cursor-pointer accent-primary"
-          />
+          <button
+            onClick={row.getToggleSelectedHandler()}
+            className={cn(
+              'w-[22px] h-[22px] rounded-md flex items-center justify-center transition-all duration-150 border-2',
+              row.getIsSelected()
+                ? 'bg-primary border-transparent shadow-md ring-1 ring-white/20'
+                : 'bg-surface border-text-muted/30 hover:border-text-muted/60 hover:bg-surface-hover'
+            )}
+          >
+            {row.getIsSelected() && <Check size={13} className="text-white drop-shadow-sm" />}
+          </button>
         </div>
       ),
       size: 40,
@@ -541,7 +582,13 @@ export default function EditorPage() {
           </div>
         )
       },
-      filterFn: 'equals',
+      filterFn: (row, columnId, filterValue) => {
+        const val = row.getValue<string>(columnId) || ''
+        if (filterValue === '__uncategorized__') {
+          return !val || val === 'Autres'
+        }
+        return val === filterValue
+      },
     },
     // Sous-catégorie (linked to category)
     {
@@ -619,7 +666,7 @@ export default function EditorPage() {
           </div>
         )
       },
-      enableSorting: false,
+      sortingFn: (a, b) => Number(a.original.Justificatif || 0) - Number(b.original.Justificatif || 0),
     },
     // Important
     {
@@ -630,10 +677,12 @@ export default function EditorPage() {
         <CheckboxCell
           checked={row.original.Important || false}
           onChange={val => updateOperation(row.index, 'Important', val)}
-          accentClass="accent-warning"
+          colorClass="bg-warning"
+          uncheckedColor="border-warning/20"
+          icon={Star}
         />
       ),
-      enableSorting: false,
+      sortingFn: (a, b) => Number(a.original.Important || 0) - Number(b.original.Important || 0),
     },
     // A_revoir
     {
@@ -644,10 +693,12 @@ export default function EditorPage() {
         <CheckboxCell
           checked={row.original.A_revoir || false}
           onChange={val => updateOperation(row.index, 'A_revoir', val)}
-          accentClass="accent-danger"
+          colorClass="bg-danger"
+          uncheckedColor="border-danger/20"
+          icon={AlertTriangle}
         />
       ),
-      enableSorting: false,
+      sortingFn: (a, b) => Number(a.original.A_revoir || 0) - Number(b.original.A_revoir || 0),
     },
     // Lettrée
     {
@@ -664,18 +715,20 @@ export default function EditorPage() {
                   toggleLettrageMutation.mutate({ filename: selectedFile, index: row.index })
                 }
               }}
-              className="p-0.5 rounded hover:bg-surface-hover transition-colors"
+              className={cn(
+                'w-[22px] h-[22px] rounded-md flex items-center justify-center transition-all duration-150 border-2',
+                isLettre
+                  ? 'bg-emerald-500 border-transparent shadow-md ring-1 ring-white/20'
+                  : 'bg-surface border-text-muted/30 hover:border-text-muted/60 hover:bg-surface-hover'
+              )}
               title={isLettre ? 'Lettrée' : 'Non lettrée'}
             >
-              {isLettre
-                ? <CheckCircle2 size={14} className="text-emerald-400" />
-                : <Circle size={14} className="text-text-muted/30" />
-              }
+              {isLettre && <CheckCircle2 size={13} className="text-white drop-shadow-sm" />}
             </button>
           </div>
         )
       },
-      enableSorting: false,
+      sortingFn: (a, b) => Number(a.original.lettre || 0) - Number(b.original.lettre || 0),
     },
     // Commentaire
     {
@@ -1038,12 +1091,18 @@ export default function EditorPage() {
             <select
               value={(table.getColumn('Catégorie')?.getFilterValue() as string) ?? ''}
               onChange={e => {
-                table.getColumn('Catégorie')?.setFilterValue(e.target.value || undefined)
+                const val = e.target.value
+                setFilterUncategorized(val === '__uncategorized__')
+                table.getColumn('Catégorie')?.setFilterValue(val || undefined)
                 table.getColumn('Sous-catégorie')?.setFilterValue(undefined)
               }}
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text"
+              className={cn(
+                'w-full bg-background border rounded-lg px-3 py-2 text-sm text-text',
+                filterUncategorized ? 'border-warning text-warning' : 'border-border'
+              )}
             >
               <option value="">Toutes les catégories</option>
+              <option value="__uncategorized__">⚠ Non catégorisées</option>
               {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -1122,6 +1181,27 @@ export default function EditorPage() {
         </div>
       ) : (
         <div className="bg-surface rounded-xl border border-border overflow-hidden flex-1 flex flex-col">
+          {/* Uncategorized filter banner */}
+          {filterUncategorized && (
+            <div className="flex items-center justify-between px-4 py-2.5 bg-warning/10 border-b border-warning/30">
+              <div className="flex items-center gap-2 text-sm text-warning">
+                <AlertTriangle size={15} />
+                <span className="font-medium">
+                  Filtre actif : opérations non catégorisées ({table.getRowModel().rows.length} résultats)
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setFilterUncategorized(false)
+                  table.getColumn('Catégorie')?.setFilterValue(undefined)
+                }}
+                className="flex items-center gap-1 text-xs text-text-muted hover:text-text px-2 py-1 rounded-md hover:bg-surface-hover transition-colors"
+              >
+                <X size={14} />
+                Retirer le filtre
+              </button>
+            </div>
+          )}
           {/* Table */}
           <div className="overflow-x-auto flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 340px)' }}>
             <table className="w-full text-sm">

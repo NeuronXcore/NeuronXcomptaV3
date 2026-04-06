@@ -67,15 +67,19 @@ async def upload_justificatifs(files: List[UploadFile] = File(...)):
 
 
 def _run_ocr_background(filename: str):
-    """Lance l'OCR en background pour un justificatif uploadé."""
+    """Lance l'OCR en background pour un justificatif uploadé, puis rapprochement auto."""
     try:
-        from backend.services import ocr_service
+        from backend.services import ocr_service, rapprochement_service
         filepath = justificatif_service.get_justificatif_path(filename)
         if filepath:
             ocr_service.extract_or_cached(filepath)
             logger.info(f"OCR background terminé: {filename}")
+            # Auto-rapprochement après OCR
+            result = rapprochement_service.run_auto_rapprochement()
+            if result.get("associations_auto", 0) > 0:
+                logger.info(f"Auto-rapprochement: {result['associations_auto']} associations")
     except Exception as e:
-        logger.warning(f"OCR background échoué pour {filename}: {e}")
+        logger.warning(f"OCR/rapprochement background échoué pour {filename}: {e}")
 
 
 @router.get("/{filename}/preview")

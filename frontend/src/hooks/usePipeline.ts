@@ -224,7 +224,7 @@ export function usePipeline() {
           },
         ],
         actionLabel: 'Ouvrir l\'éditeur',
-        actionRoute: '/editor',
+        actionRoute: '/editor?filter=uncategorized',
       },
       {
         id: 'justificatifs',

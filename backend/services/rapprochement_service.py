@@ -85,24 +85,42 @@ def score_date(j_date_str: Optional[str], o_date_str: str) -> float:
 
 
 def score_fournisseur(j_fournisseur: Optional[str], o_libelle: Optional[str]) -> float:
-    """Score Jaccard sur tokens normalisés."""
+    """Score combiné : Jaccard sur tokens + matching par sous-chaîne."""
     if not j_fournisseur or not o_libelle:
         return 0.0
+
+    # 1) Jaccard classique sur tokens
     tokens_a = _normalize_tokens(j_fournisseur)
     tokens_b = _normalize_tokens(o_libelle)
-    if not tokens_a or not tokens_b:
-        return 0.0
-    intersection = tokens_a & tokens_b
-    union = tokens_a | tokens_b
-    return len(intersection) / len(union)
+    jaccard = 0.0
+    if tokens_a and tokens_b:
+        intersection = tokens_a & tokens_b
+        union = tokens_a | tokens_b
+        jaccard = len(intersection) / len(union)
+
+    # 2) Sous-chaîne : le nom fournisseur apparaît dans le libellé bancaire
+    #    (ex: "amazon" dans "PRLVSEPAAMAZONPAYMENT", "orange" dans "PRLVSEPAORANGEECH")
+    j_norm = re.sub(r"[^\w]", "", j_fournisseur.lower())
+    o_norm = re.sub(r"[^\w]", "", o_libelle.lower())
+    substring = 0.0
+    if j_norm and o_norm and len(j_norm) >= 3:
+        if j_norm in o_norm or o_norm in j_norm:
+            substring = 1.0
+        else:
+            # Chercher chaque token fournisseur (>= 3 chars) dans le libellé concaténé
+            for token in tokens_a:
+                if len(token) >= 3 and token in o_norm:
+                    substring = max(substring, 0.85)
+
+    return max(jaccard, substring)
 
 
 def _confidence_level(score: float) -> str:
-    if score >= 0.95:
+    if score >= 0.80:
         return "fort"
-    if score >= 0.75:
+    if score >= 0.65:
         return "probable"
-    if score >= 0.60:
+    if score >= 0.50:
         return "possible"
     return "faible"
 
@@ -509,8 +527,8 @@ def _run_auto_rapprochement_locked() -> dict:
             sans_correspondance += 1
             continue
 
-        # Auto-association : score >= 0.95 et pas d'ex-aequo à ±0.02
-        if best_score >= 0.95 and (best_score - second_best_score) > 0.02 and best_match:
+        # Auto-association : score >= 0.80 et pas d'ex-aequo à ±0.02
+        if best_score >= 0.80 and (best_score - second_best_score) > 0.02 and best_match:
             try:
                 vl_idx = best_match.get("ventilation_index")
                 if vl_idx is not None:

@@ -140,6 +140,15 @@ async def batch_upload(files: List[UploadFile] = File(...)):
             except Exception:
                 pass
 
+    # Auto-rapprochement après OCR de tous les fichiers
+    try:
+        from backend.services import rapprochement_service
+        rap_result = rapprochement_service.run_auto_rapprochement()
+        if rap_result.get("associations_auto", 0) > 0:
+            logger.info(f"Auto-rapprochement batch: {rap_result['associations_auto']} associations")
+    except Exception as e:
+        logger.warning(f"Auto-rapprochement batch échoué: {e}")
+
     return results
 
 

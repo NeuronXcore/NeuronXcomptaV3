@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { X, Search, FileText, Check, Unlink, ArrowRight, ExternalLink } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { api } from '@/api/client'
@@ -6,7 +7,7 @@ import { useOperationSuggestions } from '@/hooks/useRapprochement'
 import { useAssociate, useDissociate } from '@/hooks/useJustificatifs'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import toast from 'react-hot-toast'
-import type { Operation, RapprochementSuggestion } from '@/types'
+import type { Operation, RapprochementSuggestion, JustificatifInfo } from '@/types'
 
 interface JustificatifAttributionDrawerProps {
   open: boolean
@@ -53,11 +54,24 @@ export default function JustificatifAttributionDrawer({
   const splitXRef = useRef(splitX)
   splitXRef.current = splitX
 
-  // Suggestions
+  // Suggestions par scoring
   const { data: suggestions = [], isLoading: suggestionsLoading } = useOperationSuggestions(
     open ? operationFile : null,
     open ? operationIndex : null
   )
+
+  // Recherche libre dans tous les justificatifs en attente (debounced)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data: allPending = [] } = useQuery<JustificatifInfo[]>({
+    queryKey: ['justificatifs-search', debouncedSearch],
+    queryFn: () => api.get(`/justificatifs/?status=en_attente&search=${encodeURIComponent(debouncedSearch)}`),
+    enabled: open && debouncedSearch.trim().length >= 2,
+  })
 
   // Mutations
   const associateMutation = useAssociate()
@@ -71,10 +85,11 @@ export default function JustificatifAttributionDrawer({
       setPreviewFile(null)
     }
     setSearch('')
+    setDebouncedSearch('')
   }, [open, operation])
 
   // Filtrer et trier les suggestions
-  const filteredSuggestions = (() => {
+  const scoredSuggestions = (() => {
     let items = suggestions.filter(
       (s): s is RapprochementSuggestion => 'justificatif_filename' in s
     )
@@ -97,6 +112,15 @@ export default function JustificatifAttributionDrawer({
 
     return items
   })()
+
+  // Résultats de recherche libre (exclure ceux déjà dans les suggestions scorées)
+  const searchResults = (() => {
+    if (!search.trim() || search.trim().length < 2) return []
+    const scoredNames = new Set(scoredSuggestions.map(s => s.justificatif_filename))
+    return allPending.filter(j => !scoredNames.has(j.filename))
+  })()
+
+  const filteredSuggestions = scoredSuggestions
 
   // Hover preview avec debounce
   const handleMouseEnter = useCallback((filename: string) => {
@@ -311,61 +335,112 @@ export default function JustificatifAttributionDrawer({
               </select>
             </div>
 
-            {/* Liste suggestions */}
+            {/* Liste suggestions + résultats recherche */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
               {suggestionsLoading ? (
                 <div className="flex items-center justify-center h-32 text-text-muted text-sm">
                   Chargement...
                 </div>
-              ) : filteredSuggestions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 text-text-muted text-sm gap-2">
-                  <FileText size={24} />
-                  <span>Aucune suggestion</span>
-                </div>
               ) : (
-                filteredSuggestions.map((s) => (
-                  <div
-                    key={s.justificatif_filename}
-                    className="p-2.5 bg-surface rounded-lg border border-border hover:border-primary/40 transition-colors cursor-pointer group"
-                    onMouseEnter={() => handleMouseEnter(s.justificatif_filename)}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-text truncate font-medium">
-                          {s.justificatif_filename}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
-                          {s.operation_date && <span>{formatDate(s.operation_date)}</span>}
-                          {s.operation_montant !== undefined && (
-                            <span>{formatCurrency(Math.abs(s.operation_montant))}</span>
+                <>
+                  {/* Suggestions scorées */}
+                  {filteredSuggestions.map((s) => (
+                    <div
+                      key={s.justificatif_filename}
+                      className="p-2.5 bg-surface rounded-lg border border-border hover:border-primary/40 transition-colors cursor-pointer group"
+                      onMouseEnter={() => handleMouseEnter(s.justificatif_filename)}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-text truncate font-medium">
+                            {s.justificatif_filename}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
+                            {s.operation_date && <span>{formatDate(s.operation_date)}</span>}
+                            {s.operation_montant !== undefined && (
+                              <span>{formatCurrency(Math.abs(s.operation_montant))}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {s.score && (
+                            <span className={cn(
+                              'text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
+                              scoreColor(Math.round(s.score.total * 100))
+                            )}>
+                              {Math.round(s.score.total * 100)}%
+                            </span>
                           )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleAssociate(s.justificatif_filename)
+                            }}
+                            disabled={associateMutation.isPending}
+                            className="flex items-center gap-1.5 text-xs font-semibold bg-warning text-background rounded-md px-3 py-1.5 hover:bg-warning/85 shadow-sm shadow-warning/25 transition-all hover:shadow-warning/40 hover:scale-105"
+                          >
+                            <ArrowRight size={12} />
+                            Attribuer
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {s.score && (
-                          <span className={cn(
-                            'text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
-                            scoreColor(s.score.total)
-                          )}>
-                            {Math.round(s.score.total)}%
-                          </span>
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleAssociate(s.justificatif_filename)
-                          }}
-                          disabled={associateMutation.isPending}
-                          className="flex items-center gap-1 text-[10px] bg-primary/15 text-primary rounded px-2 py-1 hover:bg-primary/25 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          <ArrowRight size={12} />
-                          Attribuer
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+
+                  {/* Résultats recherche libre (justificatifs en attente non scorés) */}
+                  {searchResults.length > 0 && (
+                    <>
+                      {filteredSuggestions.length > 0 && (
+                        <div className="text-[10px] text-text-muted uppercase tracking-wider px-1 pt-2">
+                          Autres justificatifs correspondants
+                        </div>
+                      )}
+                      {searchResults.map((j) => (
+                        <div
+                          key={j.filename}
+                          className="p-2.5 bg-surface rounded-lg border border-border/60 hover:border-warning/40 transition-colors cursor-pointer group"
+                          onMouseEnter={() => handleMouseEnter(j.filename)}
+                          onMouseLeave={handleMouseLeave}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-text truncate font-medium">
+                                {j.filename}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
+                                {j.date && <span>{formatDate(j.date)}</span>}
+                                {j.size && <span>{(j.size / 1024).toFixed(0)} Ko</span>}
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAssociate(j.filename)
+                              }}
+                              disabled={associateMutation.isPending}
+                              className="flex items-center gap-1.5 text-xs font-semibold bg-warning text-background rounded-md px-3 py-1.5 hover:bg-warning/85 shadow-sm shadow-warning/25 transition-all hover:shadow-warning/40 hover:scale-105"
+                            >
+                              <ArrowRight size={12} />
+                              Attribuer
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Aucun résultat */}
+                  {filteredSuggestions.length === 0 && searchResults.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-32 text-text-muted text-sm gap-2">
+                      <FileText size={24} />
+                      <span>{search.trim() ? 'Aucun justificatif trouvé' : 'Aucune suggestion'}</span>
+                      {!search.trim() && (
+                        <span className="text-xs">Tapez un nom pour rechercher dans tous les justificatifs</span>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 

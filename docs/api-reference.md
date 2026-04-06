@@ -518,7 +518,7 @@ Supprimer un export.
 ## Rapprochement (`/api/rapprochement`)
 
 ### `POST /run-auto`
-Rapprochement automatique : parcourt tous les justificatifs en attente, auto-associe ceux avec score >= 0.95 et match unique.
+Rapprochement automatique : parcourt tous les justificatifs en attente, auto-associe ceux avec score >= 0.80 et match unique (écart >= 0.02 avec le 2ème meilleur). Déclenché automatiquement après chaque upload de justificatif (via OCR background, batch upload OCR, et sandbox watchdog).
 
 **Réponse :**
 ```json

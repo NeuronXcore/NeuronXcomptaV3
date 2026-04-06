@@ -120,6 +120,15 @@ def _process_file(filepath: Path) -> None:
         except Exception:
             pass
 
+        # Auto-rapprochement après OCR
+        try:
+            from backend.services import rapprochement_service
+            rap_result = rapprochement_service.run_auto_rapprochement()
+            if rap_result.get("associations_auto", 0) > 0:
+                logger.info(f"Sandbox auto-rapprochement: {rap_result['associations_auto']} associations")
+        except Exception as e:
+            logger.warning(f"Sandbox auto-rapprochement échoué: {e}")
+
         # Notifier via SSE
         _push_event(dest.name, "processed")
 

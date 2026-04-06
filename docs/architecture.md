@@ -88,13 +88,24 @@ Images converties en PDF à l'intake, original non conservé
 ```
 Rapprochement automatique : POST /rapprochement/run-auto
   → Parcourt justificatifs en_attente avec OCR
-  → Score = 45% montant + 35% date + 20% fournisseur (Jaccard)
-  → Auto-associe si score >= 0.95 et match unique
+  → Score = 45% montant + 35% date + 20% fournisseur (Jaccard + sous-chaîne)
+  → score_fournisseur : max(Jaccard, substring matching)
+    ex: "amazon" dans "PRLVSEPAAMAZONPAYMENT" → 1.0
+  → Auto-associe si score >= 0.80 et écart >= 0.02 avec 2ème match
+  → Chaîné automatiquement après OCR (3 points d'entrée) :
+    - _run_ocr_background() dans justificatifs.py
+    - batch_upload() dans ocr.py
+    - _process_file() dans sandbox_service.py
 
-Rapprochement manuel : drawer avec filtres
-  → GET /{filename}/{index}/suggestions?search=&montant_min=...
-  → Score simplifié : 50% montant + 30% date + 20% fournisseur
-  → Sélection + preview PDF + association
+Rapprochement manuel : drawer avec filtres + recherche libre
+  → Suggestions scorées : GET /suggestions/operation/{file}/{index}
+  → Recherche libre : GET /justificatifs/?status=en_attente&search=...
+  → Bouton Attribuer orange (bg-warning) + preview PDF
+  → Score affiché en % (score.total × 100)
+
+Bouton "Associer automatiquement" sur JustificatifsPage :
+  → Bandeau CTA contextuel (visible quand ops sans justificatif)
+  → Toast cliquable → filtre "Sans justif." + ouvre drawer
 ```
 
 ### Catégorisation IA
@@ -132,6 +143,32 @@ ML Monitoring :
   → Entraînements loggés dans data/ml/logs/trainings.json
   → GET /monitoring/stats agrège : couverture, confiance, corrections, hallucinations, confusion
   → GET /monitoring/health : KPI résumé pour Dashboard (coverage, correction_trend, alert)
+```
+
+### Checkboxes modernes et tri (EditorPage)
+
+```
+Composant CheckboxCell : bouton toggle 22px arrondi
+  → Props : colorClass, uncheckedColor, icon (React.ElementType)
+  → Coché : fond coloré + icône blanche + shadow + ring
+  → Décoché : bg-surface + bordure colorée subtile + hover
+
+Colonnes badge triables (sortingFn custom) :
+  → Justificatif : tri par Boolean(Justificatif)
+  → Important : tri par Boolean(Important), colorClass="bg-warning", icon=Star
+  → À revoir : tri par Boolean(A_revoir), colorClass="bg-danger", icon=AlertTriangle
+  → Pointée : tri par Boolean(lettre), bouton dédié bg-emerald-500
+```
+
+### Filtre "Non catégorisées" (EditorPage)
+
+```
+Pipeline étape Catégorisation → navigate('/editor?filter=uncategorized')
+  → EditorPage lit searchParams.get('filter')
+  → Active filterUncategorized state + columnFilter '__uncategorized__'
+  → filterFn custom sur colonne Catégorie : matche vide || "Autres"
+  → Panneau filtres ouvert auto avec dropdown sur "⚠ Non catégorisées"
+  → Bandeau warning "Filtre actif : N résultats" + bouton "Retirer le filtre"
 ```
 
 ### Vue année complète (EditorPage)
