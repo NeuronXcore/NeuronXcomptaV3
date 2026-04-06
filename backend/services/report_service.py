@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import logging
+import os
 import re
 import unicodedata
 from datetime import datetime
@@ -240,8 +241,10 @@ def _generate_title(filters: dict, template_id: Optional[str] = None) -> str:
     cats = filters.get("categories")
     if cats and len(cats) == 1:
         return f"{cats[0]} — {period}"
-    elif cats and len(cats) > 1:
-        return f"{len(cats)} catégories — {period}"
+    elif cats and 2 <= len(cats) <= 4:
+        return f"{', '.join(cats)} — {period}"
+    elif cats and len(cats) > 4:
+        return f"{', '.join(cats[:3])}… (+{len(cats) - 3}) — {period}"
     else:
         return f"Toutes catégories — {period}"
 
@@ -437,7 +440,7 @@ def _apply_filters(operations: list[dict], filters: dict) -> list[dict]:
 
 def _generate_csv_v2(operations: list[dict], filepath: Path, title: str):
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
-        f.write(f"Date;Libellé;Catégorie;Sous-catégorie;Débit;Crédit\n")
+        f.write("Date;Libellé;Catégorie;Sous-catégorie;Débit;Crédit;Justificatif;Commentaire\n")
         for op in operations:
             date = op.get("Date", "")
             lib = str(op.get("Libellé", "")).replace(";", ",")
@@ -445,11 +448,15 @@ def _generate_csv_v2(operations: list[dict], filepath: Path, title: str):
             scat = str(op.get("Sous-catégorie", ""))
             debit = f"{op.get('Débit', 0):.2f}".replace(".", ",") if op.get("Débit", 0) else ""
             credit = f"{op.get('Crédit', 0):.2f}".replace(".", ",") if op.get("Crédit", 0) else ""
-            f.write(f"{date};{lib};{cat};{scat};{debit};{credit}\n")
+            lien = op.get("Lien justificatif", "") or ""
+            just_name = os.path.basename(lien) if lien else ""
+            comment = str(op.get("Commentaire", "") or "").replace(";", ",")
+            f.write(f"{date};{lib};{cat};{scat};{debit};{credit};{just_name};{comment}\n")
 
         total_d = sum(op.get("Débit", 0) for op in operations)
         total_c = sum(op.get("Crédit", 0) for op in operations)
-        f.write(f";TOTAUX;;;{total_d:.2f};{total_c:.2f}\n".replace(".", ","))
+        nb_just = sum(1 for op in operations if op.get("Lien justificatif"))
+        f.write(f";TOTAUX;;;{total_d:.2f};{total_c:.2f};{nb_just}/{len(operations)};\n".replace(".", ","))
 
 
 # ─── PDF Generation ───
@@ -460,7 +467,7 @@ def _generate_pdf_v2(operations: list[dict], filepath: Path, title: str, filters
         from reportlab.lib.colors import HexColor
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib.units import cm, mm
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     except ImportError:
         raise RuntimeError("reportlab non installé")
@@ -482,6 +489,17 @@ def _generate_pdf_v2(operations: list[dict], filepath: Path, title: str, filters
 
     elements = []
 
+    # Logo
+    logo_path = ASSETS_DIR / "logo_lockup_light_400.png"
+    if logo_path.exists():
+        try:
+            logo = Image(str(logo_path), width=120, height=40)
+            logo.hAlign = "LEFT"
+            elements.append(logo)
+            elements.append(Spacer(1, 6))
+        except Exception:
+            pass  # Graceful fallback if logo can't be loaded
+
     # Header
     elements.append(Paragraph(title, title_style))
     filter_desc = _describe_filters(filters)
@@ -491,13 +509,35 @@ def _generate_pdf_v2(operations: list[dict], filepath: Path, title: str, filters
     ))
     elements.append(Spacer(1, 8))
 
+    # Justificatif styles
+    from reportlab.lib.enums import TA_CENTER
+    just_yes_style = ParagraphStyle("RJustYes", parent=small_style, textColor=HexColor("#16a34a"),
+                                     alignment=TA_CENTER)
+    just_no_style = ParagraphStyle("RJustNo", parent=small_style, textColor=HexColor("#aaaaaa"),
+                                    alignment=TA_CENTER)
+    just_name_style = ParagraphStyle("RJustName", parent=small_style, fontSize=5.5, leading=7,
+                                      textColor=HexColor("#666666"))
+
+    # Comment style
+    comment_style = ParagraphStyle("RComment", parent=small_style, fontSize=6, leading=7,
+                                    textColor=HexColor("#555555"), fontName="Helvetica-Oblique")
+
     # Table
-    headers = ["Date", "Libellé", "Catégorie", "Sous-catégorie", "Débit", "Crédit"]
+    headers = ["Date", "Libellé", "Catégorie", "Sous-cat.", "Débit", "Crédit", "Just.", "Commentaire"]
     table_data = [headers]
 
     for op in operations[:500]:
         debit = op.get("Débit", 0)
         credit = op.get("Crédit", 0)
+        lien = op.get("Lien justificatif", "") or ""
+        has_just = bool(lien)
+        just_name = os.path.basename(lien) if lien else ""
+        comment = str(op.get("Commentaire", "") or "")
+        # Checkbox ☑ or ☐ + filename on second line
+        if has_just:
+            just_cell = Paragraph(f"☑ <font size=5>{just_name[:25]}</font>", just_yes_style)
+        else:
+            just_cell = Paragraph("☐", just_no_style)
         row = [
             str(op.get("Date", "")),
             Paragraph(str(op.get("Libellé", ""))[:80], small_style),
@@ -505,15 +545,19 @@ def _generate_pdf_v2(operations: list[dict], filepath: Path, title: str, filters
             str(op.get("Sous-catégorie", "")),
             _format_eur(debit) if debit else "",
             _format_eur(credit) if credit else "",
+            just_cell,
+            Paragraph(comment[:40], comment_style) if comment else "",
         ]
         table_data.append(row)
 
     # Totals row
     total_d = sum(op.get("Débit", 0) for op in operations)
     total_c = sum(op.get("Crédit", 0) for op in operations)
-    table_data.append(["", "TOTAUX", "", "", _format_eur(total_d), _format_eur(total_c)])
+    nb_just = sum(1 for op in operations if op.get("Lien justificatif"))
+    table_data.append(["", "TOTAUX", "", "", _format_eur(total_d), _format_eur(total_c),
+                        f"{nb_just}/{len(operations)}", ""])
 
-    col_widths = [2.2 * cm, 9 * cm, 3.5 * cm, 3.5 * cm, 3 * cm, 3 * cm]
+    col_widths = [2 * cm, 6.5 * cm, 2.8 * cm, 2.5 * cm, 2.5 * cm, 2.5 * cm, 2.8 * cm, 2.7 * cm]
     table = Table(table_data, colWidths=col_widths, repeatRows=1)
 
     n_rows = len(table_data)
@@ -526,6 +570,7 @@ def _generate_pdf_v2(operations: list[dict], filepath: Path, title: str, filters
         # Body
         ("FONTSIZE", (0, 1), (-1, -1), 7),
         ("ALIGN", (4, 1), (5, -1), "RIGHT"),
+        ("ALIGN", (6, 0), (6, 0), "CENTER"),
         ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#dddddd")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, HexColor("#f5f5f5")]),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),

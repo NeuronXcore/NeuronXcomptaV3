@@ -1,17 +1,25 @@
 import { useState, useMemo } from 'react'
-import { Eye, Trash2, FileText, Sheet, Table2, Search, Loader2, Star, Calendar, Tag, Download } from 'lucide-react'
+import {
+  Eye, Trash2, FileText, Sheet, Table2, Search, Loader2, Star,
+  Calendar, Tag, Download, ExternalLink, Check, Minus, Send,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
 import { cn, formatCurrency } from '@/lib/utils'
-import { useReportsGallery, useReportTree, useDeleteReport, useToggleFavorite } from '@/hooks/useReports'
+import { useReportsGallery, useReportTree, useDeleteReport, useToggleFavorite, useOpenReportNative, useDeleteAllReports } from '@/hooks/useReports'
 import GedTree from '@/components/ged/GedTree'
 import type { ReportMetadata, GedTreeNode } from '@/types'
 
-type TreeMode = 'by_year' | 'by_category' | 'by_format'
+type TreeMode = 'by_year' | 'by_category'
 
 interface ReportGalleryProps {
   onPreview: (report: ReportMetadata) => void
   onSwitchToGenerate: () => void
-  selectedForCompare: string[]
-  onToggleCompareSelect: (filename: string) => void
+  selectedReports: string[]
+  onToggleSelect: (filename: string) => void
+  onSelectAll: (filenames: string[]) => void
+  onClearSelection: () => void
+  onExportZip: () => void
+  isExporting?: boolean
 }
 
 const FORMAT_CONFIG: Record<string, { icon: typeof FileText; color: string; label: string }> = {
@@ -20,15 +28,19 @@ const FORMAT_CONFIG: Record<string, { icon: typeof FileText; color: string; labe
   excel: { icon: Table2, color: 'text-emerald-400', label: 'Excel' },
 }
 
-export default function ReportGallery({ onPreview, onSwitchToGenerate, selectedForCompare, onToggleCompareSelect }: ReportGalleryProps) {
+export default function ReportGallery({
+  onPreview, onSwitchToGenerate, selectedReports, onToggleSelect,
+  onSelectAll, onClearSelection, onExportZip, isExporting,
+}: ReportGalleryProps) {
   const { data: gallery, isLoading } = useReportsGallery()
   const { data: treeData } = useReportTree()
   const deleteMutation = useDeleteReport()
   const favMutation = useToggleFavorite()
+  const openNativeMutation = useOpenReportNative()
+  const deleteAllMutation = useDeleteAllReports()
   const [treeMode, setTreeMode] = useState<TreeMode>('by_year')
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const activeTree = treeData ? treeData[treeMode] ?? [] : []
 
@@ -60,9 +72,6 @@ export default function ReportGallery({ onPreview, onSwitchToGenerate, selectedF
         } else {
           result = result.filter(r => r.filters?.categories?.includes(cat))
         }
-      } else if (selectedNode.startsWith('fmt-')) {
-        const fmt = selectedNode.replace('fmt-', '')
-        result = result.filter(r => r.format === fmt)
       }
     }
 
@@ -74,6 +83,10 @@ export default function ReportGallery({ onPreview, onSwitchToGenerate, selectedF
 
     return result
   }, [gallery, selectedNode, searchTerm])
+
+  const allFilenames = filteredReports.map(r => r.filename)
+  const allSelected = allFilenames.length > 0 && allFilenames.every(f => selectedReports.includes(f))
+  const someSelected = selectedReports.length > 0 && !allSelected
 
   if (isLoading) return <div className="text-center py-12 text-text-muted">Chargement...</div>
 
@@ -94,24 +107,23 @@ export default function ReportGallery({ onPreview, onSwitchToGenerate, selectedF
     <div className="flex" style={{ height: 'calc(100vh - 260px)' }}>
       {/* Left panel: tree */}
       <div className="w-[240px] shrink-0 border-r border-border flex flex-col">
-        {/* Tree mode tabs */}
+        {/* Tree mode tabs — date / category only */}
         <div className="flex border-b border-border">
           {([
-            { key: 'by_year' as const, label: 'Année', icon: Calendar },
-            { key: 'by_category' as const, label: 'Catégorie', icon: Tag },
-            { key: 'by_format' as const, label: 'Format', icon: FileText },
+            { key: 'by_year' as TreeMode, label: 'Par date', icon: Calendar },
+            { key: 'by_category' as TreeMode, label: 'Par catégorie', icon: Tag },
           ]).map(tab => (
             <button
               key={tab.key}
               onClick={() => { setTreeMode(tab.key); setSelectedNode(null) }}
               className={cn(
-                'flex-1 flex items-center justify-center gap-1 px-2 py-2 text-[10px] font-medium transition-colors',
+                'flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-[11px] font-medium transition-colors',
                 treeMode === tab.key
                   ? 'text-primary border-b-2 border-primary'
                   : 'text-text-muted hover:text-text'
               )}
             >
-              <tab.icon size={11} />
+              <tab.icon size={12} />
               {tab.label}
             </button>
           ))}
@@ -148,13 +160,83 @@ export default function ReportGallery({ onPreview, onSwitchToGenerate, selectedF
 
       {/* Right panel: reports grid */}
       <div className="flex-1 overflow-y-auto p-4">
-        <p className="text-xs text-text-muted mb-3">{filteredReports.length} rapport{filteredReports.length !== 1 ? 's' : ''}</p>
+        {/* Toolbar: select all + count + export button */}
+        <div className="flex items-center gap-3 mb-3">
+          {/* Select all checkbox */}
+          <button
+            onClick={() => allSelected ? onClearSelection() : onSelectAll(allFilenames)}
+            className={cn(
+              'w-[20px] h-[20px] rounded flex items-center justify-center transition-all duration-150 border-2 shrink-0',
+              allSelected
+                ? 'bg-primary border-transparent shadow-sm'
+                : someSelected
+                  ? 'bg-primary/40 border-transparent shadow-sm'
+                  : 'bg-surface border-text-muted/30 hover:border-primary/50'
+            )}
+          >
+            {allSelected && <Check size={13} className="text-white drop-shadow-sm" />}
+            {someSelected && <Minus size={13} className="text-white drop-shadow-sm" />}
+          </button>
+
+          <p className="text-xs text-text-muted flex-1">
+            {selectedReports.length > 0
+              ? `${selectedReports.length} sélectionné${selectedReports.length > 1 ? 's' : ''} sur ${filteredReports.length}`
+              : `${filteredReports.length} rapport${filteredReports.length !== 1 ? 's' : ''}`
+            }
+          </p>
+
+          {/* Export to accountant button */}
+          {selectedReports.length > 0 && (
+            <button
+              onClick={onExportZip}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {isExporting ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+              Exporter pour le comptable ({selectedReports.length})
+            </button>
+          )}
+
+          {/* Delete all */}
+          <button
+            onClick={() => {
+              toast((t) => (
+                <div className="flex flex-col items-center gap-3 py-1">
+                  <p className="text-sm font-medium text-center">
+                    Supprimer les {gallery?.total_count ?? 0} rapports ?
+                  </p>
+                  <p className="text-xs text-gray-500 text-center">Cette action est irréversible</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { toast.dismiss(t.id); deleteAllMutation.mutate(undefined, { onSuccess: () => onClearSelection() }) }}
+                      className="px-4 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600"
+                    >
+                      Supprimer tout
+                    </button>
+                    <button
+                      onClick={() => toast.dismiss(t.id)}
+                      className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-300"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              ), { duration: 10000, position: 'top-center' })
+            }}
+            disabled={deleteAllMutation.isPending || !gallery?.total_count}
+            className="flex items-center gap-1.5 ml-auto text-red-400/70 hover:text-red-400 text-xs transition-colors disabled:opacity-30"
+          >
+            <Trash2 size={13} />
+            Tout supprimer
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filteredReports.map(r => {
             const fmtConfig = FORMAT_CONFIG[r.format] || FORMAT_CONFIG.pdf
             const FormatIcon = fmtConfig.icon
             const mainAmount = r.total_debit > 0 ? r.total_debit : r.total_credit
-            const isSelected = selectedForCompare.includes(r.filename)
+            const isSelected = selectedReports.includes(r.filename)
 
             return (
               <div
@@ -162,21 +244,27 @@ export default function ReportGallery({ onPreview, onSwitchToGenerate, selectedF
                 className={cn(
                   'bg-surface border rounded-lg p-3 transition-colors relative',
                   r.favorite ? 'border-amber-500/30' : 'border-border',
-                  isSelected && 'ring-2 ring-primary',
+                  isSelected && 'ring-2 ring-primary border-primary/50',
                   'hover:border-primary/50'
                 )}
               >
-                {/* Compare checkbox */}
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => onToggleCompareSelect(r.filename)}
-                  className="absolute top-2 left-2 rounded border-border"
-                  title="Sélectionner pour comparer"
-                />
+                {/* Modern checkbox */}
+                <div className="absolute top-2.5 left-2.5">
+                  <button
+                    onClick={() => onToggleSelect(r.filename)}
+                    className={cn(
+                      'w-[18px] h-[18px] rounded flex items-center justify-center transition-all duration-150 border-2',
+                      isSelected
+                        ? 'bg-primary border-transparent shadow-sm'
+                        : 'bg-surface border-text-muted/30 hover:border-primary/50'
+                    )}
+                  >
+                    {isSelected && <Check size={12} className="text-white drop-shadow-sm" />}
+                  </button>
+                </div>
 
                 {/* Header */}
-                <div className="flex items-start justify-between mb-2 pl-5">
+                <div className="flex items-start justify-between mb-2 pl-6">
                   <FormatIcon size={16} className={fmtConfig.color} />
                   <button
                     onClick={e => { e.stopPropagation(); favMutation.mutate(r.filename) }}
@@ -207,20 +295,44 @@ export default function ReportGallery({ onPreview, onSwitchToGenerate, selectedF
                 {/* Actions */}
                 <div className="flex gap-1.5 pt-1 border-t border-border">
                   <button onClick={() => onPreview(r)}
-                    className="flex-1 flex items-center justify-center py-1.5 text-[10px] text-text-muted hover:text-primary">
+                    className="flex-1 flex items-center justify-center py-1.5 text-[10px] text-text-muted hover:text-primary"
+                    title="Aperçu">
                     <Eye size={12} />
                   </button>
+                  <button onClick={() => openNativeMutation.mutate(r.filename)}
+                    className="flex-1 flex items-center justify-center py-1.5 text-[10px] text-text-muted hover:text-blue-400"
+                    title={r.format === 'pdf' ? 'Ouvrir dans Aperçu' : r.format === 'csv' ? 'Ouvrir dans Numbers' : 'Ouvrir dans Excel'}>
+                    <ExternalLink size={12} />
+                  </button>
                   <button onClick={() => window.open(`/api/reports/download/${r.filename}`)}
-                    className="flex-1 flex items-center justify-center py-1.5 text-[10px] text-text-muted hover:text-emerald-400">
+                    className="flex-1 flex items-center justify-center py-1.5 text-[10px] text-text-muted hover:text-emerald-400"
+                    title="Télécharger">
                     <Download size={12} />
                   </button>
                   <button
                     onClick={() => {
-                      if (deleteConfirm === r.filename) { deleteMutation.mutate(r.filename); setDeleteConfirm(null) }
-                      else setDeleteConfirm(r.filename)
+                      toast((t) => (
+                        <div className="flex flex-col items-center gap-3 py-1">
+                          <p className="text-sm font-medium text-center">Supprimer ce rapport ?</p>
+                          <p className="text-xs text-gray-500 text-center truncate max-w-[280px]">{r.title}</p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { toast.dismiss(t.id); deleteMutation.mutate(r.filename) }}
+                              className="px-4 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600"
+                            >
+                              Supprimer
+                            </button>
+                            <button
+                              onClick={() => toast.dismiss(t.id)}
+                              className="px-4 py-1.5 bg-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-300"
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
+                      ), { duration: 10000, position: 'top-center' })
                     }}
-                    className={cn('flex-1 flex items-center justify-center py-1.5 text-[10px]',
-                      deleteConfirm === r.filename ? 'text-red-400' : 'text-text-muted hover:text-red-400')}
+                    className="flex-1 flex items-center justify-center py-1.5 text-[10px] text-text-muted hover:text-red-400"
                   >
                     {deleteMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                   </button>

@@ -143,6 +143,44 @@ ML Monitoring :
   → Entraînements loggés dans data/ml/logs/trainings.json
   → GET /monitoring/stats agrège : couverture, confiance, corrections, hallucinations, confusion
   → GET /monitoring/health : KPI résumé pour Dashboard (coverage, correction_trend, alert)
+
+ML Auto-learning (au save éditeur) :
+  → PUT /api/operations/{filename} (après monitoring)
+  → Filtre ops avec catégorie valide (exclut vide, "Autres", "Ventilé")
+  → clean_libelle() sur chaque libellé
+  → add_training_examples_batch() : déduplique par (libelle, categorie), append dans training_examples.json
+  → update_rules_from_operations() : met à jour exact_matches + subcategories dans model.json
+  → Effet immédiat : prochaine auto-catégorisation utilise les nouvelles règles exactes
+  → Effet différé : "Entraîner + Appliquer" utilise les nouvelles données sklearn
+  → Tout en try/except : ne bloque jamais le save
+```
+
+### Export Comptable V2
+
+```
+_prepare_export_operations(operations, filename) :
+  → Itère les opérations, explose les ventilations en sous-lignes [V1/N]
+  → Classe en 3 groupes :
+    - pro : catégorie valide (BNC)
+    - perso : categorie.lower() == "perso" (exclues du BNC)
+    - attente : vide, None, "Autres", "Ventilé" sans sous-lignes
+  → Trie chaque groupe par date ASC
+  → Calcule totaux : recettes_pro, charges_pro, solde_bnc, total_perso, total_attente
+
+CSV : séparateur ;, UTF-8 BOM, CRLF, montants FR via _format_amount_fr()
+  → 8 colonnes : Date, Libellé, Débit, Crédit, Catégorie, Sous-catégorie, Justificatif, Commentaire
+  → Sections : ops pro → TOTAL PROFESSIONNEL → ops perso → TOTAL PERSO → ops attente → TOTAL ATTENTE
+
+PDF : paysage A4, logo backend/assets/, footer Page X/Y + NeuronXcompta
+  → 8 colonnes avec montants alignés droite
+  → Sections headers fond #D5E8F0, totaux fond #E8E8E8 bold
+  → Justificatif : ☑ vert + nom fichier ou ☐ gris
+  → Commentaire : italique 6pt tronqué 40 chars
+  → Récapitulatif BNC en bas de page
+
+Nommage : Export_Comptable_{YYYY}-{MM}_{MoisFR}.{ext}
+  → _export_filename(year, month, ext)
+  → ZIP : Export_Comptable_{YYYY}-{MM}_{MoisFR}_{timestamp}.zip
 ```
 
 ### Checkboxes modernes et tri (EditorPage)

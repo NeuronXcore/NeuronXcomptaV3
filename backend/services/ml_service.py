@@ -323,6 +323,54 @@ def add_training_example(libelle: str, categorie: str, sous_categorie: str = "")
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def add_training_examples_batch(examples: list[dict]) -> int:
+    """Ajoute des exemples d'entraînement en batch, dédupliqués.
+
+    Chaque dict: {"libelle": str, "categorie": str, "sous_categorie": str}
+    Returns: nombre d'exemples effectivement ajoutés.
+    """
+    existing = get_training_examples()
+    seen = {(d["libelle"], d["categorie"]) for d in existing}
+    new_examples = []
+    for ex in examples:
+        key = (ex["libelle"], ex["categorie"])
+        if key not in seen:
+            seen.add(key)
+            new_examples.append(ex)
+    if not new_examples:
+        return 0
+    existing.extend(new_examples)
+    TRAINING_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(TRAINING_FILE, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+    logger.info("ML auto-learn: %d nouveaux exemples ajoutés (total: %d)", len(new_examples), len(existing))
+    return len(new_examples)
+
+
+def update_rules_from_operations(examples: list[dict]) -> int:
+    """Met à jour exact_matches + subcategories dans le modèle à règles.
+
+    Les exemples doivent avoir un libellé déjà nettoyé via clean_libelle().
+    Returns: nombre de règles ajoutées/mises à jour.
+    """
+    model = load_rules_model()
+    exact = model.setdefault("exact_matches", {})
+    subcats = model.setdefault("subcategories", {})
+    updated = 0
+    for ex in examples:
+        key = ex["libelle"]
+        if exact.get(key) != ex["categorie"]:
+            exact[key] = ex["categorie"]
+            updated += 1
+        sub = ex.get("sous_categorie", "")
+        if sub and subcats.get(key) != sub:
+            subcats[key] = sub
+    if updated > 0:
+        save_rules_model(model)
+        logger.info("ML auto-learn: %d règles exactes mises à jour", updated)
+    return updated
+
+
 # ── Backups ─────────────────────────────────────────────────────────────
 
 def create_backup() -> str:

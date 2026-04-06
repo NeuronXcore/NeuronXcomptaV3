@@ -885,5 +885,490 @@
     "categorie": "Véhicule",
     "sous_categorie": "",
     "date": "2024-08-19"
+  },
+  {
+    "libelle": "auchandac montauban",
+    "categorie": "Alimentation",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "uber one",
+    "categorie": "Transport",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "uber eats",
+    "categorie": "Transport",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotifrempladr",
+    "categorie": "Remplaçant",
+    "sous_categorie": "Honoraires"
+  },
+  {
+    "libelle": "virsctinstemismotifrempladramony",
+    "categorie": "Remplaçant",
+    "sous_categorie": "Honoraires"
+  },
+  {
+    "libelle": "virsctinstemismotifrevacbenrvac",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifrempladr",
+    "categorie": "Remplaçant",
+    "sous_categorie": "Honoraires"
+  },
+  {
+    "libelle": "virsctinstemismotifremplacementdr",
+    "categorie": "Remplaçant",
+    "sous_categorie": "Honoraires"
+  },
+  {
+    "libelle": "accoribismon",
+    "categorie": "Remplaçant",
+    "sous_categorie": "Hébergement"
+  },
+  {
+    "libelle": "remarkable",
+    "categorie": "Abonnements",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "h1302341a01caissefederale",
+    "categorie": "perso",
+    "sous_categorie": "Retrait CB"
+  },
+  {
+    "libelle": "uber onemem",
+    "categorie": "Transport",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "vircpteacpteemisvrpermanent",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "virsctinstemismotifdeblockben",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "virsctinstemismotifcomptable",
+    "categorie": "Comptable",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "vircpteacpteemismotifbnpperso",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "prlvsepafcebankplcech180625id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "courir montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotifdebloxkben",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "virsctinstemismotifdebl0cxben",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "virsctinstemismotifrevzcbenrvac",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "prlvsepafcebankplcech180825id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "cemidipyrenees",
+    "categorie": "perso",
+    "sous_categorie": "Retrait CB"
+  },
+  {
+    "libelle": "virsctinstemismotifliterieben",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotifceacben",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "virsctinstemismotiftravauxchambre",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "virsctinstemismotifordinateur",
+    "categorie": "Matériel",
+    "sous_categorie": "Informatique"
+  },
+  {
+    "libelle": "virsctinstemismotifcourses",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "virsctinstemismotifcouettemassimo",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotifrevecbenrvac",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotiffourniture",
+    "categorie": "Fournitures",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "eleclerc montauban",
+    "categorie": "Alimentation",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifimpotsbenm",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotifvirementdem",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech180925id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "virsctinstemismotifacompte",
+    "categorie": "Fournitures",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotifmassimo",
+    "categorie": "Logiciel",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "vir sct inst",
+    "categorie": "Fournitures",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "vircpteacpteemismotifvirement",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech201025id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "virsctinstemismotifvirementdem",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "vircpteacpteemismotifvirement",
+    "categorie": "perso",
+    "sous_categorie": "virement"
+  },
+  {
+    "libelle": "vircpteacpterecurefben origscp",
+    "categorie": "Honoraires",
+    "sous_categorie": "Bloc"
+  },
+  {
+    "libelle": "ubereats",
+    "categorie": "Transport",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifvirementdem",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "retrocessioncommissiondintervention",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech181125id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "rembourstcbdu051225eldorado",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "ubereats",
+    "categorie": "repas",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "eldorado",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "tuttipizza montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "cnom paris",
+    "categorie": "Ordre des Médecins",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "ubereatshelp",
+    "categorie": "Transport",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "amazoneusarl payli2090401",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "claudeaisubsc",
+    "categorie": "Abonnements",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaamazonpaymentseuropes c a",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepapaypaleuropesarletcie",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech111225id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech181225id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "prlvsepaamazonpaymentseuropes c a",
+    "categorie": "Matériel",
+    "sous_categorie": "Informatique"
+  },
+  {
+    "libelle": "paddlenetsyn",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "tisseopr tisseo",
+    "categorie": "Véhicule",
+    "sous_categorie": "Parking"
+  },
+  {
+    "libelle": "tisseoregieautoulouse",
+    "categorie": "Véhicule",
+    "sous_categorie": "Parking"
+  },
+  {
+    "libelle": "wwwperplexity",
+    "categorie": "Abonnements",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "amazonpaymentspayli2441535",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "mcdonalds montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifremplacement",
+    "categorie": "Remplaçant",
+    "sous_categorie": "Honoraires"
+  },
+  {
+    "libelle": "virementsepaemismotifeevacben",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifrevacben",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifbnpacbenm",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech040225id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech180225id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "newschooltacomontauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "pascalcoste montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech100325id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech180325id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "virementsepaemismotifbnppersoben",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech040425id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech220425id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech050525id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech050625id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech040725id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech150725id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech040825id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech140825id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "orangevadl1 issylesmoul",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech040925id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech120925id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech061025id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech101025id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech131025id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech031125id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech101125id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech141125id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech051225id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech121225id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaech241225id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
   }
 ]

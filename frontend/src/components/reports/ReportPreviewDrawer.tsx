@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Download, RefreshCw, Trash2, Pencil, FileText, Loader2, Save } from 'lucide-react'
+import { X, Download, RefreshCw, Trash2, Pencil, FileText, Loader2, Save, ExternalLink } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
-import { useRegenerateReport, useDeleteReport, useUpdateReport } from '@/hooks/useReports'
+import { useRegenerateReport, useDeleteReport, useUpdateReport, useOpenReportNative } from '@/hooks/useReports'
 import type { ReportMetadata } from '@/types'
 
 interface ReportPreviewDrawerProps {
@@ -19,6 +19,7 @@ export default function ReportPreviewDrawer({ report, isOpen, onClose }: ReportP
   const regenerateMutation = useRegenerateReport()
   const deleteMutation = useDeleteReport()
   const updateMutation = useUpdateReport()
+  const openNativeMutation = useOpenReportNative()
 
   useEffect(() => {
     if (report) {
@@ -157,6 +158,14 @@ export default function ReportPreviewDrawer({ report, isOpen, onClose }: ReportP
 
           {/* Actions */}
           <div className="flex flex-wrap gap-2 pt-2">
+            <button
+              onClick={() => openNativeMutation.mutate(report.filename)}
+              disabled={openNativeMutation.isPending}
+              className="flex items-center gap-2 px-3 py-2 bg-surface border border-border text-text rounded-lg text-xs hover:bg-surface-hover transition-colors disabled:opacity-50"
+            >
+              <ExternalLink size={14} />
+              {isPdf ? 'Ouvrir dans Aperçu' : report.format === 'csv' ? 'Ouvrir dans Numbers' : 'Ouvrir dans Excel'}
+            </button>
             <button
               onClick={() => window.open(`/api/reports/download/${report.filename}`)}
               className="flex items-center gap-2 px-3 py-2 bg-surface border border-border text-text rounded-lg text-xs hover:bg-surface-hover transition-colors"

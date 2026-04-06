@@ -8,6 +8,63 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-06) — Session 3
+
+- **Refonte Export Comptable (CSV + PDF)** : regles comptables strictes, format professionnel
+  - Nouvelle fonction `_prepare_export_operations()` : classe les operations en 3 groupes (pro/perso/attente)
+  - Ventilations explosees en sous-lignes avec suffixe `[V1/N]`
+  - Ops "perso" exclues des totaux BNC (section separee "Mouvements personnels")
+  - Ops sans categorie / "Autres" en compte d'attente (section separee)
+  - CSV : separateur `;`, UTF-8 BOM, CRLF, montants FR (`1 234,56`), colonne Justificatif = nom fichier PDF, pas de lignes `#`
+  - PDF : logo en haut a gauche, 7 colonnes, montants alignes droite, 3 sections colorees, recapitulatif BNC, footer pagine (`Page X/Y`)
+  - Nommage : `Export_Comptable_YYYY-MM_Mois.{csv,pdf}` (retrocompatibilite ancien format)
+  - Helpers : `_format_amount_fr()`, `_export_filename()`, `_safe_float()`
+
+- **Auto-alimentation ML depuis corrections manuelles** : apprentissage automatique au save
+  - `ml_service.add_training_examples_batch()` : ajout batch deduplique dans `training_examples.json`
+  - `ml_service.update_rules_from_operations()` : mise a jour `exact_matches` + `subcategories` dans le modele a regles
+  - Handler PUT `/api/operations/{filename}` : extrait les operations categorisees au save et alimente le ML
+  - Effet immediat : nouvelles regles exactes actives des le prochain auto-categorize
+  - Effet differe : "Entrainer + Appliquer" utilise les nouvelles donnees d'entrainement
+  - Filtre : exclut vide, "Autres", "Ventile" — deduplication par couple `(libelle, categorie)`
+
+- **Fix ajout ligne EditorPage** : la nouvelle ligne apparait toujours en haut du tableau
+  - Reset des filtres colonnes, recherche globale, et filtre "Non categorisees" a l'ajout
+  - Tri bascule en date decroissante + pagination remise a page 0
+
+- **Bouton "Ouvrir dans Apercu/Numbers" (Rapports)** : ouverture native des fichiers
+  - Backend : endpoint `POST /reports/{filename}/open-native` avec `subprocess.Popen(["open", ...])`
+  - Frontend : hook `useOpenReportNative()`, bouton dans `ReportPreviewDrawer` et `ReportGallery`
+  - Label adapte au format : "Ouvrir dans Apercu" (PDF), "Ouvrir dans Numbers" (CSV), "Ouvrir dans Excel" (XLSX)
+
+- **Refonte Rapports — Generation** : checkboxes modernes + batch
+  - Remplacement `<select multiple>` par checkboxes toggle (18px, Check/Minus icons, pastilles couleur)
+  - Checkbox "Tout selectionner" en premiere ligne avec etat intermediaire (tiret) et compteur `N/17`
+  - Meme systeme pour les sous-categories
+  - Bouton "Batch (12 mois)" : genere un rapport par mois pour l'annee selectionnee avec toast progression
+  - Titres ameliores : 2-4 categories listees, 5+ tronquees avec `(+N)` (ex: "URSSAF, CARMF, Honoraires… (+3) — Mars 2025")
+
+- **Refonte Rapports — Bibliotheque** : checkboxes modernes + export comptable + suppression
+  - Checkboxes toggle modernes sur chaque carte (18px, remplacement `<input type="checkbox">`)
+  - Toolbar : checkbox "Tout selectionner" avec etat intermediaire + compteur selection
+  - Arborescence simplifiee : 2 onglets (Par date / Par categorie) au lieu de 3
+  - Bouton "Exporter pour le comptable (N)" : cree un ZIP des rapports coches via `POST /reports/export-zip`
+  - Bouton "Tout supprimer" avec toast de confirmation centre (`top-center`, 10s)
+  - Suppression individuelle : toast de confirmation centre (remplace le double-clic)
+  - Backend : endpoints `POST /reports/export-zip`, `DELETE /reports/all`, `POST /reports/regenerate-all`
+
+- **Logo dans les rapports PDF** : logo `logo_lockup_light_400.png` en haut a gauche
+  - Charge depuis `backend/assets/`, fallback graceful si absent
+  - Ajoute dans `_generate_pdf_v2()` (rapports) et `_generate_pdf_content()` (exports)
+
+- **Colonne Justificatif dans les rapports** : traçabilite des pieces justificatives
+  - CSV : 8eme colonne `Justificatif` avec nom du fichier PDF ou vide, ratio dans les totaux (`12/89`)
+  - PDF : colonne `Just.` avec checkbox ☑ vert + nom fichier ou ☐ gris, ratio dans les totaux
+
+- **Colonne Commentaire dans les rapports** : notes utilisateur exportees
+  - CSV : 9eme colonne `Commentaire` avec texte libre
+  - PDF : colonne `Commentaire` en italique 6pt, tronquee a 40 chars
+
 ### Added (2026-04-06) — Session 2
 
 - **Checkboxes modernes (EditorPage)** : remplacement des `<input type="checkbox">` natifs par des boutons toggle stylises

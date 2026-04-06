@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { FileText, PieChart, Shield, RotateCcw } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { FileText, PieChart, Shield, RotateCcw, Check, Minus, Loader2, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCategories } from '@/hooks/useApi'
 import { useReportTemplates } from '@/hooks/useReports'
@@ -11,7 +11,9 @@ interface ReportFiltersProps {
   format: 'pdf' | 'csv' | 'excel'
   onFormatChange: (f: 'pdf' | 'csv' | 'excel') => void
   onGenerate: () => void
+  onBatchGenerate?: () => void
   isGenerating: boolean
+  isBatchGenerating?: boolean
   onTemplateSelect: (t: ReportTemplate) => void
 }
 
@@ -19,7 +21,7 @@ const ICON_MAP: Record<string, typeof FileText> = { FileText, PieChart, Shield }
 
 export default function ReportFilters({
   filters, onFiltersChange, format, onFormatChange,
-  onGenerate, isGenerating, onTemplateSelect,
+  onGenerate, onBatchGenerate, isGenerating, isBatchGenerating, onTemplateSelect,
 }: ReportFiltersProps) {
   const { data: categoriesData } = useCategories()
   const { data: templates } = useReportTemplates()
@@ -39,6 +41,45 @@ export default function ReportFilters({
   const reset = () => {
     onFiltersChange({ year: new Date().getFullYear() })
     onFormatChange('pdf')
+  }
+
+  // ── Category checkbox helpers ──
+  const selectedCats = filters.categories ?? []
+  const allCatNames = categories.map(c => c.name)
+  const allSelected = allCatNames.length > 0 && selectedCats.length === allCatNames.length
+  const noneSelected = selectedCats.length === 0
+
+  const toggleCategory = (name: string) => {
+    const next = selectedCats.includes(name)
+      ? selectedCats.filter(c => c !== name)
+      : [...selectedCats, name]
+    updateFilter('categories', next.length ? next : undefined)
+  }
+
+  const toggleAllCategories = () => {
+    if (allSelected) {
+      updateFilter('categories', undefined)
+    } else {
+      updateFilter('categories', allCatNames)
+    }
+  }
+
+  // ── Subcategory checkbox helpers ──
+  const selectedSubs = filters.subcategories ?? []
+
+  const toggleSubcategory = (name: string) => {
+    const next = selectedSubs.includes(name)
+      ? selectedSubs.filter(s => s !== name)
+      : [...selectedSubs, name]
+    updateFilter('subcategories', next.length ? next : undefined)
+  }
+
+  const toggleAllSubcategories = () => {
+    if (selectedSubs.length === subcategories.length) {
+      updateFilter('subcategories', undefined)
+    } else {
+      updateFilter('subcategories', subcategories)
+    }
   }
 
   return (
@@ -113,36 +154,137 @@ export default function ReportFilters({
           </div>
         </div>
 
-        {/* Categories */}
+        {/* Categories — Modern checkboxes */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] text-text-muted block mb-1">Catégories</label>
-            <select
-              multiple
-              value={filters.categories || []}
-              onChange={e => {
-                const selected = Array.from(e.target.selectedOptions, o => o.value)
-                updateFilter('categories', selected.length ? selected : undefined)
-              }}
-              className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary h-20"
-            >
-              {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-            </select>
+            <label className="text-[10px] text-text-muted block mb-1.5">Catégories</label>
+            <div className="bg-background border border-border rounded-lg p-1.5 space-y-0.5">
+              {/* Tout sélectionner — first row */}
+              <label
+                className={cn(
+                  'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors text-xs font-medium border-b border-border mb-0.5 pb-2',
+                  allSelected ? 'text-primary' : 'text-text-muted hover:text-text'
+                )}
+              >
+                <button
+                  onClick={toggleAllCategories}
+                  className={cn(
+                    'w-[18px] h-[18px] rounded flex items-center justify-center transition-all duration-150 border-2 shrink-0',
+                    allSelected
+                      ? 'bg-primary border-transparent shadow-sm'
+                      : noneSelected
+                        ? 'bg-surface border-text-muted/30 hover:border-primary/50'
+                        : 'bg-primary/40 border-transparent shadow-sm'
+                  )}
+                >
+                  {allSelected && <Check size={12} className="text-white drop-shadow-sm" />}
+                  {!allSelected && !noneSelected && <Minus size={12} className="text-white drop-shadow-sm" />}
+                </button>
+                Tout sélectionner
+                <span className="ml-auto text-[10px] text-text-muted font-normal">
+                  {selectedCats.length}/{allCatNames.length}
+                </span>
+              </label>
+              {categories.length === 0 && (
+                <p className="text-[10px] text-text-muted py-2 text-center">Aucune catégorie</p>
+              )}
+              {categories.map(c => {
+                const checked = selectedCats.includes(c.name)
+                return (
+                  <label
+                    key={c.name}
+                    className={cn(
+                      'flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer transition-colors text-xs',
+                      checked ? 'bg-primary/8 text-text' : 'text-text-muted hover:bg-surface-hover'
+                    )}
+                  >
+                    <button
+                      onClick={() => toggleCategory(c.name)}
+                      className={cn(
+                        'w-[18px] h-[18px] rounded flex items-center justify-center transition-all duration-150 border-2 shrink-0',
+                        checked
+                          ? 'bg-primary border-transparent shadow-sm'
+                          : 'bg-surface border-text-muted/30 hover:border-primary/50'
+                      )}
+                    >
+                      {checked && <Check size={12} className="text-white drop-shadow-sm" />}
+                    </button>
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: c.color || '#888' }}
+                    />
+                    {c.name}
+                  </label>
+                )
+              })}
+            </div>
           </div>
           <div>
-            <label className="text-[10px] text-text-muted block mb-1">Sous-catégories</label>
-            <select
-              multiple
-              value={filters.subcategories || []}
-              onChange={e => {
-                const selected = Array.from(e.target.selectedOptions, o => o.value)
-                updateFilter('subcategories', selected.length ? selected : undefined)
-              }}
-              disabled={subcategories.length === 0}
-              className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary h-20 disabled:opacity-50"
-            >
-              {subcategories.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <label className="text-[10px] text-text-muted block mb-1.5">Sous-catégories</label>
+            <div className={cn(
+              'bg-background border border-border rounded-lg p-1.5 space-y-0.5',
+              subcategories.length === 0 && 'opacity-50'
+            )}>
+              {subcategories.length === 0 ? (
+                <p className="text-[10px] text-text-muted py-2 text-center">
+                  {selectedCats.length === 0 ? 'Sélectionnez des catégories' : 'Aucune sous-catégorie'}
+                </p>
+              ) : (
+                <>
+                  {/* Tout sélectionner sous-catégories */}
+                  <label
+                    className={cn(
+                      'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors text-xs font-medium border-b border-border mb-0.5 pb-2',
+                      selectedSubs.length === subcategories.length ? 'text-primary' : 'text-text-muted hover:text-text'
+                    )}
+                  >
+                    <button
+                      onClick={toggleAllSubcategories}
+                      className={cn(
+                        'w-[18px] h-[18px] rounded flex items-center justify-center transition-all duration-150 border-2 shrink-0',
+                        selectedSubs.length === subcategories.length
+                          ? 'bg-primary border-transparent shadow-sm'
+                          : selectedSubs.length === 0
+                            ? 'bg-surface border-text-muted/30 hover:border-primary/50'
+                            : 'bg-primary/40 border-transparent shadow-sm'
+                      )}
+                    >
+                      {selectedSubs.length === subcategories.length && <Check size={12} className="text-white drop-shadow-sm" />}
+                      {selectedSubs.length > 0 && selectedSubs.length < subcategories.length && <Minus size={12} className="text-white drop-shadow-sm" />}
+                    </button>
+                    Tout sélectionner
+                    <span className="ml-auto text-[10px] text-text-muted font-normal">
+                      {selectedSubs.length}/{subcategories.length}
+                    </span>
+                  </label>
+                  {subcategories.map(s => {
+                    const checked = selectedSubs.includes(s)
+                    return (
+                      <label
+                        key={s}
+                        className={cn(
+                          'flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer transition-colors text-xs',
+                          checked ? 'bg-primary/8 text-text' : 'text-text-muted hover:bg-surface-hover'
+                        )}
+                      >
+                        <button
+                          onClick={() => toggleSubcategory(s)}
+                          className={cn(
+                            'w-[18px] h-[18px] rounded flex items-center justify-center transition-all duration-150 border-2 shrink-0',
+                            checked
+                              ? 'bg-primary border-transparent shadow-sm'
+                              : 'bg-surface border-text-muted/30 hover:border-primary/50'
+                          )}
+                        >
+                          {checked && <Check size={12} className="text-white drop-shadow-sm" />}
+                        </button>
+                        {s}
+                      </label>
+                    )
+                  })}
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -215,13 +357,29 @@ export default function ReportFilters({
           <button onClick={reset} className="flex items-center gap-1.5 text-[10px] text-text-muted hover:text-text">
             <RotateCcw size={12} /> Réinitialiser
           </button>
-          <button
-            onClick={onGenerate}
-            disabled={isGenerating}
-            className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-          >
-            {isGenerating ? 'Génération...' : 'Générer le rapport'}
-          </button>
+          <div className="flex items-center gap-2">
+            {onBatchGenerate && (
+              <button
+                onClick={onBatchGenerate}
+                disabled={isGenerating || isBatchGenerating}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-surface border border-primary text-primary rounded-lg text-sm font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors"
+              >
+                {isBatchGenerating ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Layers size={14} />
+                )}
+                {isBatchGenerating ? 'Génération batch...' : 'Batch (12 mois)'}
+              </button>
+            )}
+            <button
+              onClick={onGenerate}
+              disabled={isGenerating || isBatchGenerating}
+              className="px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isGenerating ? 'Génération...' : 'Générer le rapport'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -310,11 +310,32 @@ Générer un rapport avec déduplication (même filtres+format = remplacement).
 ### `POST /{filename}/regenerate`
 Re-génère un rapport existant (même titre/description, données actualisées).
 
+### `POST /regenerate-all`
+Régénère tous les rapports existants (met à jour logo, colonnes, format).
+
+**Réponse :**
+```json
+{ "regenerated": 15, "errors": 0, "total": 15 }
+```
+
 ### `POST /{filename}/favorite`
 Toggle le favori d'un rapport.
 
+### `POST /{filename}/open-native`
+Ouvre le rapport dans l'application native macOS (Aperçu pour PDF, Numbers pour CSV, Excel pour XLSX).
+
 ### `POST /compare`
 Compare 2 rapports. Body : `{ "filename_a": "...", "filename_b": "..." }`. Retourne deltas montants, ops, %.
+
+### `POST /export-zip`
+Crée un ZIP contenant les rapports sélectionnés (pour envoi au comptable).
+
+**Body :**
+```json
+{ "filenames": ["rapport_1.pdf", "rapport_2.csv"] }
+```
+
+**Réponse :** ZIP téléchargeable (`Rapports_Comptable_YYYYMMDD_HHMMSS.zip`).
 
 ### `PUT /{filename}`
 Éditer titre et/ou description. Body : `{ "title": "...", "description": "..." }`
@@ -324,6 +345,9 @@ Sert le fichier avec `Content-Disposition: inline` pour preview iframe.
 
 ### `GET /download/{filename}`
 Télécharger un rapport.
+
+### `DELETE /all`
+Supprime tous les rapports (fichiers + index).
 
 ### `DELETE /{filename}`
 Supprime le fichier + l'entrée dans l'index.
@@ -484,14 +508,22 @@ Modifier une sous-ligne de ventilation.
 
 ## Exports (`/api/exports`)
 
+Export comptable V2 avec règles comptables strictes : ops "perso" exclues du BNC (section séparée), ops sans catégorie en compte d'attente, ventilations explosées en sous-lignes. Nommage : `Export_Comptable_YYYY-MM_Mois.{csv,pdf}`.
+
 ### `GET /periods`
 Périodes disponibles avec statistiques.
 
 ### `GET /list`
-Liste des archives ZIP générées.
+Liste des archives ZIP générées (supporte ancien et nouveau format de nommage).
 
 ### `POST /generate`
-Générer un export comptable.
+Générer un export comptable. Le contenu est structuré en 3 sections :
+- **Professionnel** : opérations BNC avec totaux recettes/charges/solde
+- **Mouvements personnels** : ops "perso" exclues du BNC
+- **Compte d'attente** : ops non catégorisées / "Autres"
+
+CSV : séparateur `;`, UTF-8 BOM, CRLF, montants FR (`1 234,56`), colonne Justificatif = nom fichier PDF, colonne Commentaire.
+PDF : logo, 7 colonnes, montants alignés droite, sections colorées, récapitulatif BNC, footer paginé.
 
 **Body :**
 ```json

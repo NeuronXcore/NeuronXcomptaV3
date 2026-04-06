@@ -373,6 +373,12 @@ export default function EditorPage() {
     }
     setOperations(prev => [newOp, ...prev])
     setHasChanges(true)
+    // Reset filters/sorting/pagination so the new row is visible
+    setColumnFilters([])
+    setGlobalFilter('')
+    setSorting([{ id: 'Date', desc: true }])
+    setPageIndex(0)
+    setFilterUncategorized(false)
   }, [operations])
 
   // Delete selected rows

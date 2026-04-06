@@ -77,6 +77,30 @@ async def save_operations(filename: str, operations: list[dict]):
             ml_monitoring_service.log_corrections(filename, corrections)
     except Exception:
         pass  # Monitoring failure should not block save
+
+    # Auto-alimentation ML depuis les catégorisations manuelles
+    try:
+        _EXCLUDED_CATS = {"", "Autres", "Ventilé"}
+        learnable = []
+        for op in operations:
+            cat = (op.get("Catégorie") or "").strip()
+            if cat in _EXCLUDED_CATS:
+                continue
+            raw_libelle = op.get("Libellé", "")
+            clean = ml_service.clean_libelle(raw_libelle)
+            if not clean:
+                continue
+            learnable.append({
+                "libelle": clean,
+                "categorie": cat,
+                "sous_categorie": (op.get("Sous-catégorie") or "").strip(),
+            })
+        if learnable:
+            ml_service.add_training_examples_batch(learnable)
+            ml_service.update_rules_from_operations(learnable)
+    except Exception:
+        pass  # Ne jamais bloquer le save
+
     saved = operation_service.save_operations(operations, filename=filename)
     return {"filename": saved, "count": len(operations)}
 

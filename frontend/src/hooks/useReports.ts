@@ -102,3 +102,25 @@ export function useDeleteReport() {
     },
   })
 }
+
+export function useOpenReportNative() {
+  return useMutation({
+    mutationFn: (filename: string) =>
+      api.post(`/reports/${filename}/open-native`),
+    onSuccess: () => toast.success('Rapport ouvert'),
+    onError: () => toast.error("Impossible d'ouvrir le rapport"),
+  })
+}
+
+export function useDeleteAllReports() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.delete('/reports/all'),
+    onSuccess: (data: { deleted: number }) => {
+      qc.invalidateQueries({ queryKey: ['reports-gallery'] })
+      qc.invalidateQueries({ queryKey: ['reports-tree'] })
+      toast.success(`${data.deleted} rapport${data.deleted > 1 ? 's' : ''} supprimé${data.deleted > 1 ? 's' : ''}`)
+    },
+    onError: () => toast.error('Erreur lors de la suppression'),
+  })
+}

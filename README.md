@@ -14,12 +14,12 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Importation** | Upload de relevés bancaires PDF, extraction automatique des opérations (dates YYYY-MM-DD, filtrage soldes/totaux) |
 | **Éditeur** | Édition inline (EditableCell avec commit onBlur), catégorisation IA (vides/tout), **vue année complète** (lecture seule), **filtres catégorie + sous-catégorie**, colonnes : Justificatif, Important, À revoir, Pointée, **ventilation** (bouton Scissors, sous-lignes indentées) |
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
-| **Rapports** | Génération PDF/CSV/Excel, 3 templates, bibliothèque triple vue (année/catégorie/format), favoris, comparaison, format EUR, déduplication |
+| **Rapports** | Génération PDF/CSV/Excel avec logo, colonnes Justificatif (☑/☐) et Commentaire, 3 templates, checkboxes modernes catégories avec "Tout sélectionner", batch 12 mois, bibliothèque arbre (date/catégorie), sélection multi-rapports + export ZIP comptable, ouverture native (Aperçu/Numbers), favoris, comparaison, suppression avec toast confirmation |
 | **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, **comparatif périodes avec séparation recettes/dépenses**, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | **Rapprochement** | Rapprochement auto + drawer manuel avec filtres, scores, preview PDF, **support ventilation** (sous-lignes individuelles, sélecteur sous-ligne) |
 | **Justificatifs** | **Vue opérations-centrée** : tableau triable 7 colonnes, filtre sans/avec justificatif, drawer attribution 800px split resizable (suggestions scorées, preview PDF inline, navigation post-attribution), 4 KPIs couverture, sandbox SSE |
-| **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups |
-| **Export Comptable** | Archive ZIP mensuelle (opérations + relevé + justificatifs) |
+| **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups, **auto-alimentation ML** depuis corrections manuelles (dédupliqué, effet immédiat sur les règles exactes) |
+| **Export Comptable** | Archive ZIP mensuelle avec **règles comptables** : 3 sections (pro/perso/attente), ventilations explosées, montants FR, logo, footer paginé, colonnes Justificatif + Commentaire. Nommage `Export_Comptable_YYYY-MM_Mois` |
 | **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique, **templates justificatifs**, **édition manuelle** (chips montants/dates cliquables, badge OCR incomplet), **convention nommage** (`fournisseur_YYYYMMDD_montant.pdf`) |
 | **Templates** | Bibliothèque de templates par fournisseur, génération de justificatifs reconstitués (PDF A5 via ReportLab) quand l'original est manquant, suggestion automatique par alias, bouton intégré dans 4 pages |
 | **GED** | Bibliothèque documentaire : double vue arbre (année/type), thumbnails PDF, postes comptables avec % déductibilité, upload documents libres, recherche full-text, OCR auto |
@@ -206,6 +206,10 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `POST` | `/api/ml/train` | Entraîner le modèle ML |
 | `GET` | `/api/analytics/dashboard` | Données du tableau de bord |
 | `POST` | `/api/reports/generate` | Générer un rapport (CSV/PDF/Excel) |
+| `POST` | `/api/reports/export-zip` | Exporter rapports sélectionnés en ZIP |
+| `POST` | `/api/reports/regenerate-all` | Régénérer tous les rapports |
+| `POST` | `/api/reports/{filename}/open-native` | Ouvrir dans Aperçu/Numbers |
+| `DELETE` | `/api/reports/all` | Supprimer tous les rapports |
 | `POST` | `/api/exports/generate` | Générer un export comptable ZIP |
 | `POST` | `/api/ocr/extract` | Extraction OCR d'un justificatif |
 | `POST` | `/api/ocr/batch-upload` | Upload batch + OCR de justificatifs |
