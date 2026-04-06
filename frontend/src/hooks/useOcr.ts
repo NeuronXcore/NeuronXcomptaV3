@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { OCRStatus, OCRResult, OCRHistoryItem } from '@/types'
+import type { OCRStatus, OCRResult, OCRHistoryItem, OcrManualEdit, OCRExtractedData } from '@/types'
+import toast from 'react-hot-toast'
 
 export function useOcrStatus() {
   return useQuery<OCRStatus>({
@@ -76,6 +77,28 @@ export function useBatchUploadOcr() {
       queryClient.invalidateQueries({ queryKey: ['ocr-status'] })
       queryClient.invalidateQueries({ queryKey: ['rapprochement-unmatched'] })
       queryClient.invalidateQueries({ queryKey: ['rapprochement-batch-just-scores'] })
+    },
+  })
+}
+
+export function useUpdateOcrData() {
+  const queryClient = useQueryClient()
+  return useMutation<OCRExtractedData, Error, { filename: string; data: OcrManualEdit }>({
+    mutationFn: ({ filename, data }) =>
+      api.patch(`/ocr/${filename}/extracted-data`, data),
+    onSuccess: (_data, { filename }) => {
+      queryClient.invalidateQueries({ queryKey: ['ocr-result', filename] })
+      queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+      queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+      queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['rapprochement'] })
+      queryClient.invalidateQueries({ queryKey: ['rapprochement-suggestions'] })
+      queryClient.invalidateQueries({ queryKey: ['rapprochement-unmatched'] })
+      queryClient.invalidateQueries({ queryKey: ['rapprochement-batch-just-scores'] })
+      toast.success('Donnees OCR mises a jour')
+    },
+    onError: (err) => {
+      toast.error(err.message)
     },
   })
 }

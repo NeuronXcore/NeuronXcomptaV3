@@ -106,9 +106,9 @@ def _process_file(filepath: Path) -> None:
             shutil.move(str(filepath), str(dest))
             logger.info("Sandbox: %s déplacé vers %s", filename, dest.name)
 
-        # Lancer l'OCR
+        # Lancer l'OCR (passer le nom original pour le parsing convention)
         try:
-            ocr_service.extract_or_cached(dest)
+            ocr_service.extract_or_cached(dest, original_filename=filename)
             logger.info("Sandbox: OCR terminé pour %s", dest.name)
         except Exception as e:
             logger.error("Sandbox: erreur OCR pour %s: %s", dest.name, e)

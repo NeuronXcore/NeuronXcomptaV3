@@ -69,9 +69,18 @@ def get_annual_status(year: int) -> list[dict]:
         for mf in month_files:
             try:
                 ops = operation_service.load_operations(mf["filename"])
-                nb_operations += len(ops)
-                nb_lettrees += sum(1 for op in ops if op.get("lettre", False))
-                nb_avec_justif += sum(1 for op in ops if op.get("Justificatif", False))
+                for op in ops:
+                    vlines = op.get("ventilation", [])
+                    if vlines:
+                        nb_operations += len(vlines)
+                        nb_lettrees += sum(1 for vl in vlines if vl.get("lettre", False))
+                        nb_avec_justif += sum(1 for vl in vlines if vl.get("justificatif"))
+                    else:
+                        nb_operations += 1
+                        if op.get("lettre", False):
+                            nb_lettrees += 1
+                        if op.get("Justificatif", False):
+                            nb_avec_justif += 1
             except Exception as e:
                 logger.warning(f"Erreur chargement {mf['filename']}: {e}")
 

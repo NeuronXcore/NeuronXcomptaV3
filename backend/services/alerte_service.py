@@ -30,15 +30,22 @@ def compute_alertes(
     resolues = op.get("alertes_resolues", []) or []
 
     # 1. justificatif_manquant
-    justif = op.get("Justificatif")
-    lien_justif = op.get("Lien justificatif", "")
     categorie = op.get("Catégorie", "") or ""
-    is_virement = "virement" in categorie.lower()
-    if not justif and not lien_justif and not is_virement:
-        alertes.append("justificatif_manquant")
+    vlines = op.get("ventilation", [])
+    if vlines:
+        # Op ventilée : alerte si au moins une sous-ligne sans justificatif
+        has_missing = any(not vl.get("justificatif") for vl in vlines)
+        if has_missing:
+            alertes.append("justificatif_manquant")
+    else:
+        justif = op.get("Justificatif")
+        lien_justif = op.get("Lien justificatif", "")
+        is_virement = "virement" in categorie.lower()
+        if not justif and not lien_justif and not is_virement:
+            alertes.append("justificatif_manquant")
 
-    # 2. a_categoriser
-    if categorie in ("", "Non catégorisé", "?"):
+    # 2. a_categoriser (skip pour ops ventilées — catégorie "Ventilé" est intentionnelle)
+    if not vlines and categorie in ("", "Non catégorisé", "?"):
         alertes.append("a_categoriser")
 
     # 3. confiance_faible

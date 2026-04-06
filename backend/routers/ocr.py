@@ -7,7 +7,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 
-from backend.models.ocr import OCRExtractRequest
+from backend.models.ocr import OCRExtractRequest, OcrManualEdit
 from backend.services import ocr_service, justificatif_service
 from backend.core.config import (
     JUSTIFICATIFS_TEMP_DIR,
@@ -43,6 +43,19 @@ async def get_result(filename: str):
     if not cached:
         raise HTTPException(status_code=404, detail="Pas de résultat OCR pour ce fichier")
     return cached
+
+
+@router.patch("/{filename}/extracted-data")
+async def update_extracted_data(filename: str, edits: OcrManualEdit):
+    """Mise à jour manuelle des données extraites OCR."""
+    updates = {k: v for k, v in edits.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=422, detail="Aucun champ à mettre à jour")
+    try:
+        result = ocr_service.update_extracted_data(filename, updates)
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/extract")
@@ -98,7 +111,9 @@ async def batch_upload(files: List[UploadFile] = File(...)):
 
         if filepath:
             try:
-                ocr_result = ocr_service.extract_or_cached(filepath)
+                ocr_result = ocr_service.extract_or_cached(
+                    filepath, original_filename=r.get("original_name")
+                )
                 if ocr_result and ocr_result.get("status") == "success":
                     ocr_data = ocr_result.get("extracted_data", {})
                     ocr_success = True

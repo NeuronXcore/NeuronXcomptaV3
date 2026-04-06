@@ -6,6 +6,16 @@ from typing import Optional
 from datetime import date
 
 
+class VentilationLine(BaseModel):
+    index: int = 0
+    montant: float
+    categorie: str = ""
+    sous_categorie: str = ""
+    libelle: str = ""
+    justificatif: Optional[str] = None
+    lettre: bool = False
+
+
 class Operation(BaseModel):
     Date: str
     Libelle: str = Field(alias="Libellé")
@@ -22,6 +32,7 @@ class Operation(BaseModel):
     rapprochement_score: Optional[float] = None
     rapprochement_mode: Optional[str] = None
     rapprochement_date: Optional[str] = None
+    ventilation: list[VentilationLine] = []
 
     model_config = {"populate_by_name": True}
 

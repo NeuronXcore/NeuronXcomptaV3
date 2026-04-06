@@ -81,6 +81,11 @@ def load_operations(filename: str) -> list[dict]:
     for op in data:
         for key in op:
             op[key] = _sanitize_value(op[key])
+        # Sanitize ventilation sub-lines
+        for vline in op.get("ventilation", []):
+            if isinstance(vline, dict):
+                for vkey in vline:
+                    vline[vkey] = _sanitize_value(vline[vkey])
 
     return data
 

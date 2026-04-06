@@ -9,6 +9,8 @@ import {
 } from 'lucide-react'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 
+import type { VentilationLine } from '@/types'
+
 interface Props {
   isOpen: boolean
   onClose: () => void
@@ -19,6 +21,7 @@ interface Props {
     libelle: string
     debit: number
     credit: number
+    ventilation?: VentilationLine[]
   } | null
 }
 
@@ -46,6 +49,8 @@ export default function RapprochementManuelDrawer({
 }: Props) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [previewFile, setPreviewFile] = useState<string | null>(null)
+  const [selectedVentilationIndex, setSelectedVentilationIndex] = useState<number | null>(null)
+  const hasVentilation = (operation?.ventilation?.length ?? 0) > 0
 
   const {
     filters,
@@ -54,13 +59,14 @@ export default function RapprochementManuelDrawer({
     suggestions,
     isLoading,
     associate,
-  } = useRapprochementManuel(filename, operation?.index ?? null)
+  } = useRapprochementManuel(filename, operation?.index ?? null, selectedVentilationIndex)
 
   // Reset state on open
   useEffect(() => {
     if (isOpen) {
       setSelectedFile(null)
       setPreviewFile(null)
+      setSelectedVentilationIndex(hasVentilation ? 0 : null)
       resetFilters()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,6 +89,7 @@ export default function RapprochementManuelDrawer({
         operation_index: operation.index,
         justificatif_filename: selectedFile,
         rapprochement_score: suggestion?.score,
+        ventilation_index: selectedVentilationIndex ?? undefined,
       },
       {
         onSuccess: () => {
@@ -97,7 +104,9 @@ export default function RapprochementManuelDrawer({
   }
 
   const montant = operation
-    ? Math.max(operation.debit || 0, operation.credit || 0)
+    ? hasVentilation && selectedVentilationIndex !== null && operation.ventilation
+      ? operation.ventilation[selectedVentilationIndex]?.montant ?? 0
+      : Math.max(operation.debit || 0, operation.credit || 0)
     : 0
 
   return (
@@ -136,6 +145,29 @@ export default function RapprochementManuelDrawer({
             </button>
           </div>
         </div>
+
+        {/* Ventilation sub-line selector */}
+        {hasVentilation && operation?.ventilation && (
+          <div className="px-4 py-2 border-b border-border shrink-0">
+            <p className="text-[10px] text-text-muted uppercase mb-1">Rapprocher pour la sous-ligne :</p>
+            <div className="flex flex-wrap gap-1">
+              {operation.ventilation.map((vl, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedVentilationIndex(idx)}
+                  className={cn(
+                    'px-2 py-1 rounded text-xs border transition-colors',
+                    selectedVentilationIndex === idx
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-text-muted hover:border-primary/50'
+                  )}
+                >
+                  L{idx + 1}: {vl.libelle || vl.categorie || '—'} ({formatCurrency(vl.montant)})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* B. Filtres */}
         <div className="px-4 py-3 border-b border-border space-y-2 shrink-0">

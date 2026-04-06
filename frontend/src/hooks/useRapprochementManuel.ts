@@ -30,6 +30,7 @@ const EMPTY_FILTERS: SuggestionFilters = {
 export function useRapprochementManuel(
   filename: string | null,
   index: number | null,
+  ventilationIndex: number | null = null,
 ) {
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<SuggestionFilters>({ ...EMPTY_FILTERS })
@@ -41,9 +42,10 @@ export function useRapprochementManuel(
     if (filters.dateFrom) params.set('date_from', filters.dateFrom)
     if (filters.dateTo) params.set('date_to', filters.dateTo)
     if (filters.search) params.set('search', filters.search)
+    if (ventilationIndex !== null) params.set('ventilation_index', String(ventilationIndex))
     const qs = params.toString()
     return qs ? `?${qs}` : ''
-  }, [filters])
+  }, [filters, ventilationIndex])
 
   const suggestions = useQuery<JustificatifSuggestion[]>({
     queryKey: ['rapprochement-suggestions', filename, index, queryParams],
@@ -57,12 +59,14 @@ export function useRapprochementManuel(
       operation_index: number
       justificatif_filename: string
       rapprochement_score?: number
+      ventilation_index?: number
     }) =>
       api.post('/rapprochement/associate-manual', {
         justificatif_filename: data.justificatif_filename,
         operation_file: filename,
         operation_index: data.operation_index,
         rapprochement_score: data.rapprochement_score,
+        ventilation_index: data.ventilation_index,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rapprochement'] })

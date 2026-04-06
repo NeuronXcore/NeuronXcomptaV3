@@ -11,6 +11,16 @@ export interface AlerteSummary {
   par_fichier: { filename: string; nb_alertes: number; nb_operations: number; month?: number; year?: number }[]
 }
 
+export interface VentilationLine {
+  index: number
+  montant: number
+  categorie: string
+  sous_categorie: string
+  libelle: string
+  justificatif: string | null
+  lettre: boolean
+}
+
 export interface Operation {
   Date: string
   'Libellé': string
@@ -36,6 +46,7 @@ export interface Operation {
   immobilisation_id?: string
   immobilisation_candidate?: boolean
   immobilisation_ignored?: boolean
+  ventilation?: VentilationLine[]
 }
 
 export interface OperationFile {
@@ -282,6 +293,12 @@ export interface OCRExtractedData {
   best_amount?: number
 }
 
+export interface OCRFilenameParsed {
+  supplier?: string | null
+  date?: string | null
+  amount?: number | null
+}
+
 export interface OCRResult {
   filename: string
   processed_at: string
@@ -291,6 +308,16 @@ export interface OCRResult {
   extracted_data: OCRExtractedData
   page_count: number
   confidence: number
+  manual_edit?: boolean
+  manual_edit_at?: string
+  filename_parsed?: OCRFilenameParsed | null
+  original_filename?: string
+}
+
+export interface OcrManualEdit {
+  best_amount?: number | null
+  best_date?: string | null
+  supplier?: string | null
 }
 
 export interface OCRStatus {
@@ -320,6 +347,9 @@ export interface JustificatifInfo {
   status: 'en_attente' | 'traites'
   linked_operation?: string
   ocr_data?: OCRSummary
+  ocr_amount?: number | null
+  ocr_date?: string | null
+  ocr_supplier?: string | null
 }
 
 export interface JustificatifStats {

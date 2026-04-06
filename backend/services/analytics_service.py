@@ -13,8 +13,41 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def _expand_ventilation(operations: list[dict]) -> list[dict]:
+    """Explose les opérations ventilées en lignes virtuelles pour l'analytique.
+
+    Pour chaque op ventilée, crée une ligne par sous-ligne avec le montant
+    distribué sur Débit ou Crédit selon le sens de l'opération parente.
+    Les ops non ventilées passent telles quelles.
+    La catégorie "Ventilé" est exclue des résultats.
+    """
+    expanded = []
+    for op in operations:
+        vlines = op.get("ventilation", [])
+        if vlines:
+            is_debit = (op.get("Débit", 0) or 0) > 0
+            for vl in vlines:
+                virtual = {
+                    "Date": op.get("Date", ""),
+                    "Libellé": vl.get("libelle") or op.get("Libellé", ""),
+                    "Catégorie": vl.get("categorie", ""),
+                    "Sous-catégorie": vl.get("sous_categorie", ""),
+                    "Débit": vl.get("montant", 0) if is_debit else 0,
+                    "Crédit": vl.get("montant", 0) if not is_debit else 0,
+                    "Justificatif": bool(vl.get("justificatif")),
+                    "lettre": vl.get("lettre", False),
+                }
+                expanded.append(virtual)
+        else:
+            cat = op.get("Catégorie", "") or ""
+            if cat != "Ventilé":
+                expanded.append(op)
+    return expanded
+
+
 def get_category_summary(operations: list[dict]) -> list[dict]:
     """Résumé des dépenses par catégorie."""
+    operations = _expand_ventilation(operations)
     df = pd.DataFrame(operations)
     if df.empty:
         return []
@@ -41,6 +74,7 @@ def get_category_summary(operations: list[dict]) -> list[dict]:
 
 def get_monthly_trends(operations: list[dict], nb_months: int = 6) -> list[dict]:
     """Tendances mensuelles."""
+    operations = _expand_ventilation(operations)
     df = pd.DataFrame(operations)
     if df.empty:
         return []
@@ -68,6 +102,7 @@ def get_monthly_trends(operations: list[dict], nb_months: int = 6) -> list[dict]
 
 def get_dashboard_data(all_operations: list[dict]) -> dict:
     """Données agrégées pour le dashboard."""
+    all_operations = _expand_ventilation(all_operations)
     df = pd.DataFrame(all_operations)
     if df.empty:
         return {
@@ -121,6 +156,7 @@ def get_dashboard_data(all_operations: list[dict]) -> dict:
 
 def get_category_detail(operations: list[dict], category: str) -> dict:
     """Détail d'une catégorie : sous-catégories, évolution mensuelle, opérations."""
+    operations = _expand_ventilation(operations)
     df = pd.DataFrame(operations)
     if df.empty:
         return {
@@ -196,6 +232,7 @@ def get_category_detail(operations: list[dict], category: str) -> dict:
 
 def detect_anomalies(operations: list[dict], threshold_factor: float = 2.0) -> list[dict]:
     """Détecte les opérations anormales."""
+    operations = _expand_ventilation(operations)
     df = pd.DataFrame(operations)
     if df.empty:
         return []
@@ -222,6 +259,7 @@ def detect_anomalies(operations: list[dict], threshold_factor: float = 2.0) -> l
 
 def _period_totals(operations: list[dict]) -> dict:
     """Calcule les totaux pour une liste d'opérations."""
+    operations = _expand_ventilation(operations)
     df = pd.DataFrame(operations)
     if df.empty:
         return {"total_debit": 0.0, "total_credit": 0.0, "solde": 0.0, "nb_operations": 0}

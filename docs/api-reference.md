@@ -434,8 +434,51 @@ Upload batch de justificatifs PDF/JPG/PNG + OCR synchrone. Form-data : `files` (
 ]
 ```
 
+### `PATCH /{filename}/extracted-data`
+Mise à jour manuelle des données OCR extraites. Permet de corriger `best_amount`, `best_date` et `supplier` quand l'OCR échoue.
+
+**Body :**
+```json
+{
+  "best_amount": 1439.87,
+  "best_date": "2025-01-18",
+  "supplier": "FCE Bank plc"
+}
+```
+
+Tous les champs optionnels — seuls les champs fournis sont mis à jour. Ajoute `manual_edit: true` et `manual_edit_at` au `.ocr.json` pour traçabilité.
+
 ### `DELETE /cache/{filename}`
 Supprimer le cache OCR.
+
+---
+
+## Ventilation (`/api/ventilation`)
+
+Permet de ventiler une opération bancaire en N sous-lignes (≥2) avec catégorie, sous-catégorie, montant et justificatif individuels.
+
+### `PUT /{filename}/{op_index}`
+Créer ou remplacer la ventilation d'une opération.
+
+**Body :**
+```json
+{
+  "lines": [
+    { "montant": 1000.00, "categorie": "Matériel", "sous_categorie": "Informatique", "libelle": "Cartouches" },
+    { "montant": 439.87, "categorie": "Véhicule", "sous_categorie": "Entretien", "libelle": "Pneus" }
+  ]
+}
+```
+
+**Validation :** ≥ 2 lignes, chaque montant > 0, `sum(montants)` == montant opération (tolérance 0.01€). La catégorie parente est automatiquement mise à "Ventilé".
+
+### `DELETE /{filename}/{op_index}`
+Supprimer la ventilation. Remet la catégorie à "" (sera recatégorisée).
+
+### `PATCH /{filename}/{op_index}/{line_index}`
+Modifier une sous-ligne de ventilation.
+
+**Body :** champs partiels (ex: `{ "categorie": "Santé", "justificatif": "facture.pdf" }`)
 
 ---
 
@@ -491,7 +534,9 @@ Rapprochement automatique : parcourt tous les justificatifs en attente, auto-ass
 ### `POST /associate-manual`
 Association manuelle opération ↔ justificatif avec métadonnées.
 
-**Body :** `{ "justificatif_filename": "...", "operation_file": "...", "operation_index": 5, "rapprochement_score": 0.75 }`
+**Body :** `{ "justificatif_filename": "...", "operation_file": "...", "operation_index": 5, "rapprochement_score": 0.75, "ventilation_index": null }`
+
+Le champ `ventilation_index` est optionnel. Si fourni, l'association écrit le justificatif dans la sous-ligne de ventilation correspondante.
 
 ### `GET /unmatched`
 Compteurs : opérations sans justificatif / justificatifs en attente.
@@ -505,16 +550,16 @@ Best scores par index pour un fichier d'opérations.
 ### `GET /batch-justificatif-scores`
 Best score par justificatif en attente.
 
-### `GET /suggestions/operation/{file}/{index}`
-Suggestions de justificatifs pour une opération.
+### `GET /suggestions/operation/{file}/{index}?ventilation_index=`
+Suggestions de justificatifs pour une opération. Si `ventilation_index` fourni, score avec le montant de la sous-ligne. Si op ventilée sans `ventilation_index`, retourne `{ ventilated: true, ventilation_lines: [...] }`.
 
 ### `GET /suggestions/justificatif/{filename}`
-Suggestions d'opérations pour un justificatif.
+Suggestions d'opérations pour un justificatif. Inclut les sous-lignes ventilées.
 
 ### `GET /{filename}/{index}/suggestions`
 Suggestions filtrées pour le rapprochement manuel (drawer).
 
-**Paramètres :** `montant_min`, `montant_max`, `date_from`, `date_to`, `search` (tous optional)
+**Paramètres :** `montant_min`, `montant_max`, `date_from`, `date_to`, `search`, `ventilation_index` (tous optional)
 
 **Réponse :**
 ```json

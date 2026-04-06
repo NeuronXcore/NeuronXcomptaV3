@@ -92,8 +92,19 @@ def _get_justificatif_info(filepath: Path, status: str) -> dict:
         from backend.services import ocr_service
         ocr_summary = ocr_service.get_ocr_summary(filepath)
         info["ocr_data"] = ocr_summary
+        if ocr_summary:
+            info["ocr_amount"] = ocr_summary.get("best_amount")
+            info["ocr_date"] = ocr_summary.get("best_date")
+            info["ocr_supplier"] = ocr_summary.get("supplier")
+        else:
+            info["ocr_amount"] = None
+            info["ocr_date"] = None
+            info["ocr_supplier"] = None
     except Exception:
         info["ocr_data"] = None
+        info["ocr_amount"] = None
+        info["ocr_date"] = None
+        info["ocr_supplier"] = None
 
     return info
 

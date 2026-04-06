@@ -41,3 +41,9 @@ class OCRSummary(BaseModel):
     best_amount: Optional[float] = None
     supplier: Optional[str] = None
     processed: bool = False
+
+
+class OcrManualEdit(BaseModel):
+    best_amount: Optional[float] = None
+    best_date: Optional[str] = None
+    supplier: Optional[str] = None

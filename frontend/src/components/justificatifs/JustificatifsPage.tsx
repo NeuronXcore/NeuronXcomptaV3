@@ -16,7 +16,7 @@ import toast from 'react-hot-toast'
 import { cn, MOIS_FR } from '@/lib/utils'
 import {
   Upload, Clock, CheckCircle, FileText, Search,
-  Trash2, Eye, X, Loader2, AlertCircle, Link, ScanLine,
+  Trash2, Eye, X, Loader2, AlertCircle, Link, ScanLine, AlertTriangle,
 } from 'lucide-react'
 import type { JustificatifInfo } from '@/types'
 
@@ -298,6 +298,16 @@ export default function JustificatifsPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* OCR incomplet badge */}
+                  {(j.ocr_amount === null || j.ocr_amount === undefined || j.ocr_date === null || j.ocr_date === undefined) && j.ocr_data?.processed && (
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">
+                        <AlertTriangle size={10} />
+                        OCR incomplet
+                      </span>
+                    </div>
+                  )}
 
                   {/* Name */}
                   <p className="text-sm font-medium text-text truncate mb-1" title={j.original_name}>

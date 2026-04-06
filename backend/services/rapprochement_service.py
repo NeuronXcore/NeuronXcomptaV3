@@ -107,21 +107,24 @@ def _confidence_level(score: float) -> str:
     return "faible"
 
 
-def compute_score(justificatif_ocr: dict, operation: dict) -> dict:
+def compute_score(justificatif_ocr: dict, operation: dict, override_montant: Optional[float] = None) -> dict:
     """
     Calcule le score de correspondance entre un justificatif (données OCR) et une opération.
 
     justificatif_ocr: {"best_date": str|None, "best_amount": float|None, "supplier": str|None}
     operation: dict avec clés françaises (Débit, Crédit, Date, Libellé)
+    override_montant: si fourni, utiliser ce montant au lieu de celui de l'opération (pour ventilation)
     """
     j_amount = justificatif_ocr.get("best_amount")
     j_date = justificatif_ocr.get("best_date")
     j_supplier = justificatif_ocr.get("supplier")
 
-    # Montant de l'opération : max(Débit, Crédit)
-    o_debit = float(operation.get("Débit", 0) or 0)
-    o_credit = float(operation.get("Crédit", 0) or 0)
-    o_montant = max(o_debit, o_credit)
+    if override_montant is not None:
+        o_montant = override_montant
+    else:
+        o_debit = float(operation.get("Débit", 0) or 0)
+        o_credit = float(operation.get("Crédit", 0) or 0)
+        o_montant = max(o_debit, o_credit)
 
     o_date = operation.get("Date", "")
     o_libelle = operation.get("Libellé", "")
@@ -200,6 +203,7 @@ def get_filtered_suggestions(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     search: Optional[str] = None,
+    ventilation_index: Optional[int] = None,
 ) -> list:
     """Suggestions filtrées de justificatifs pour une opération (drawer manuel)."""
     ensure_directories()
@@ -214,7 +218,12 @@ def get_filtered_suggestions(
     if not JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
         return []
 
-    o_montant = _get_operation_montant(operation)
+    # Si ventilation_index fourni, utiliser le montant de la sous-ligne
+    vlines = operation.get("ventilation", [])
+    if ventilation_index is not None and 0 <= ventilation_index < len(vlines):
+        o_montant = vlines[ventilation_index].get("montant", 0)
+    else:
+        o_montant = _get_operation_montant(operation)
     o_date = operation.get("Date", "")
     o_libelle = operation.get("Libellé", "")
 
@@ -292,8 +301,13 @@ def get_suggestions_for_operation(
     operation_file: str,
     operation_index: int,
     max_results: int = 5,
+    ventilation_index: Optional[int] = None,
 ) -> list:
-    """Suggestions de justificatifs pour une opération donnée."""
+    """Suggestions de justificatifs pour une opération donnée.
+
+    Si ventilation_index est fourni, scorer avec le montant de la sous-ligne.
+    Si non fourni et op ventilée, retourne un flag ventilated avec les sous-lignes.
+    """
     ensure_directories()
     try:
         ops = operation_service.load_operations(operation_file)
@@ -303,6 +317,25 @@ def get_suggestions_for_operation(
     except Exception:
         return []
 
+    vlines = operation.get("ventilation", [])
+
+    # Si op ventilée et pas de ventilation_index, retourner les infos de ventilation
+    if vlines and ventilation_index is None:
+        return [{
+            "ventilated": True,
+            "ventilation_lines": [
+                {"index": vl.get("index", i), "montant": vl.get("montant", 0),
+                 "categorie": vl.get("categorie", ""), "libelle": vl.get("libelle", ""),
+                 "justificatif": vl.get("justificatif")}
+                for i, vl in enumerate(vlines)
+            ],
+        }]
+
+    # Déterminer le montant à utiliser pour le scoring
+    override_montant = None
+    if ventilation_index is not None and 0 <= ventilation_index < len(vlines):
+        override_montant = vlines[ventilation_index].get("montant", 0)
+
     # Scanner tous les justificatifs en attente
     suggestions = []
     if not JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
@@ -310,7 +343,7 @@ def get_suggestions_for_operation(
 
     for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
         ocr_data = _load_ocr_data(pdf_path.name)
-        score_result = compute_score(ocr_data, operation)
+        score_result = compute_score(ocr_data, operation, override_montant=override_montant)
 
         if score_result["confidence_level"] == "faible":
             continue
@@ -321,8 +354,9 @@ def get_suggestions_for_operation(
             "operation_index": operation_index,
             "operation_libelle": operation.get("Libellé", ""),
             "operation_date": operation.get("Date", "")[:10],
-            "operation_montant": _get_operation_montant(operation),
+            "operation_montant": override_montant if override_montant is not None else _get_operation_montant(operation),
             "score": score_result,
+            "ventilation_index": ventilation_index,
         })
 
     suggestions.sort(key=lambda s: s["score"]["total"], reverse=True)
@@ -347,22 +381,40 @@ def get_suggestions_for_justificatif(
             continue
 
         for idx, op in enumerate(ops):
-            if op.get("Justificatif"):
-                continue
-
-            score_result = compute_score(ocr_data, op)
-            if score_result["confidence_level"] == "faible":
-                continue
-
-            suggestions.append({
-                "justificatif_filename": justificatif_filename,
-                "operation_file": f["filename"],
-                "operation_index": idx,
-                "operation_libelle": op.get("Libellé", ""),
-                "operation_date": op.get("Date", "")[:10],
-                "operation_montant": _get_operation_montant(op),
-                "score": score_result,
-            })
+            vlines = op.get("ventilation", [])
+            if vlines:
+                # Op ventilée : scorer chaque sous-ligne
+                for vl_idx, vl in enumerate(vlines):
+                    if vl.get("justificatif"):
+                        continue
+                    score_result = compute_score(ocr_data, op, override_montant=vl.get("montant", 0))
+                    if score_result["confidence_level"] == "faible":
+                        continue
+                    suggestions.append({
+                        "justificatif_filename": justificatif_filename,
+                        "operation_file": f["filename"],
+                        "operation_index": idx,
+                        "operation_libelle": vl.get("libelle") or op.get("Libellé", ""),
+                        "operation_date": op.get("Date", "")[:10],
+                        "operation_montant": vl.get("montant", 0),
+                        "score": score_result,
+                        "ventilation_index": vl_idx,
+                    })
+            else:
+                if op.get("Justificatif"):
+                    continue
+                score_result = compute_score(ocr_data, op)
+                if score_result["confidence_level"] == "faible":
+                    continue
+                suggestions.append({
+                    "justificatif_filename": justificatif_filename,
+                    "operation_file": f["filename"],
+                    "operation_index": idx,
+                    "operation_libelle": op.get("Libellé", ""),
+                    "operation_date": op.get("Date", "")[:10],
+                    "operation_montant": _get_operation_montant(op),
+                    "score": score_result,
+                })
 
     suggestions.sort(key=lambda s: s["score"]["total"], reverse=True)
     return suggestions[:max_results]
@@ -415,23 +467,43 @@ def _run_auto_rapprochement_locked() -> dict:
 
         for op_file, ops in ops_cache.items():
             for idx, op in enumerate(ops):
-                if op.get("Justificatif"):
-                    continue
-
-                result = compute_score(ocr_data, op)
-                total = result["total"]
-
-                if total > best_score:
-                    second_best_score = best_score
-                    best_score = total
-                    best_match = {
-                        "op_file": op_file,
-                        "op_index": idx,
-                        "score": result,
-                        "op": op,
-                    }
-                elif total > second_best_score:
-                    second_best_score = total
+                vlines = op.get("ventilation", [])
+                if vlines:
+                    # Op ventilée : scorer chaque sous-ligne individuellement
+                    for vl_idx, vl in enumerate(vlines):
+                        if vl.get("justificatif"):
+                            continue
+                        result = compute_score(ocr_data, op, override_montant=vl.get("montant", 0))
+                        total = result["total"]
+                        if total > best_score:
+                            second_best_score = best_score
+                            best_score = total
+                            best_match = {
+                                "op_file": op_file,
+                                "op_index": idx,
+                                "score": result,
+                                "op": op,
+                                "ventilation_index": vl_idx,
+                            }
+                        elif total > second_best_score:
+                            second_best_score = total
+                else:
+                    if op.get("Justificatif"):
+                        continue
+                    result = compute_score(ocr_data, op)
+                    total = result["total"]
+                    if total > best_score:
+                        second_best_score = best_score
+                        best_score = total
+                        best_match = {
+                            "op_file": op_file,
+                            "op_index": idx,
+                            "score": result,
+                            "op": op,
+                            "ventilation_index": None,
+                        }
+                    elif total > second_best_score:
+                        second_best_score = total
 
         if best_score < 0.60:
             sans_correspondance += 1
@@ -440,32 +512,66 @@ def _run_auto_rapprochement_locked() -> dict:
         # Auto-association : score >= 0.95 et pas d'ex-aequo à ±0.02
         if best_score >= 0.95 and (best_score - second_best_score) > 0.02 and best_match:
             try:
-                success = justificatif_service.associate(
-                    filename,
-                    best_match["op_file"],
-                    best_match["op_index"],
-                )
-                if success:
-                    # Écrire métadonnées rapprochement dans l'opération
-                    write_rapprochement_metadata(
+                vl_idx = best_match.get("ventilation_index")
+                if vl_idx is not None:
+                    # Ventilée : écrire le justificatif dans la sous-ligne
+                    cached_ops = ops_cache.get(best_match["op_file"], [])
+                    if 0 <= best_match["op_index"] < len(cached_ops):
+                        cached_op = cached_ops[best_match["op_index"]]
+                        vlines = cached_op.get("ventilation", [])
+                        if 0 <= vl_idx < len(vlines):
+                            vlines[vl_idx]["justificatif"] = filename
+                            # Sauvegarder + déplacer le PDF
+                            success = justificatif_service.associate(
+                                filename,
+                                best_match["op_file"],
+                                best_match["op_index"],
+                            )
+                            if success:
+                                # Re-sauver avec la sous-ligne mise à jour
+                                operation_service.save_operations(cached_ops, filename=best_match["op_file"])
+                                write_rapprochement_metadata(
+                                    best_match["op_file"],
+                                    best_match["op_index"],
+                                    best_score,
+                                    "auto",
+                                    ventilation_index=vl_idx,
+                                )
+                                associations_auto += 1
+                                _log_auto_rapprochement(
+                                    action="associe",
+                                    justificatif=filename,
+                                    operation_file=best_match["op_file"],
+                                    operation_index=best_match["op_index"],
+                                    operation_libelle=best_match["op"].get("Libellé", ""),
+                                    score=best_score,
+                                )
+                                continue
+                else:
+                    success = justificatif_service.associate(
+                        filename,
                         best_match["op_file"],
                         best_match["op_index"],
-                        best_score,
-                        "auto",
                     )
-                    # Mettre à jour le cache pour ne pas réassocier
-                    if best_match["op_file"] in ops_cache:
-                        ops_cache[best_match["op_file"]][best_match["op_index"]]["Justificatif"] = True
-                    associations_auto += 1
-                    _log_auto_rapprochement(
-                        action="associe",
-                        justificatif=filename,
-                        operation_file=best_match["op_file"],
-                        operation_index=best_match["op_index"],
-                        operation_libelle=best_match["op"].get("Libellé", ""),
-                        score=best_score,
-                    )
-                    continue
+                    if success:
+                        write_rapprochement_metadata(
+                            best_match["op_file"],
+                            best_match["op_index"],
+                            best_score,
+                            "auto",
+                        )
+                        if best_match["op_file"] in ops_cache:
+                            ops_cache[best_match["op_file"]][best_match["op_index"]]["Justificatif"] = True
+                        associations_auto += 1
+                        _log_auto_rapprochement(
+                            action="associe",
+                            justificatif=filename,
+                            operation_file=best_match["op_file"],
+                            operation_index=best_match["op_index"],
+                            operation_libelle=best_match["op"].get("Libellé", ""),
+                            score=best_score,
+                        )
+                        continue
             except Exception as e:
                 logger.error(f"Erreur auto-association {filename}: {e}")
 
@@ -490,12 +596,17 @@ def get_unmatched_summary() -> dict:
     # Justificatifs en attente
     en_attente = len(list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf")))
 
-    # Opérations sans justificatif
+    # Opérations sans justificatif (compter sous-lignes pour ops ventilées)
     ops_sans = 0
     for f in operation_service.list_operation_files():
         try:
             ops = operation_service.load_operations(f["filename"])
-            ops_sans += sum(1 for op in ops if not op.get("Justificatif"))
+            for op in ops:
+                vlines = op.get("ventilation", [])
+                if vlines:
+                    ops_sans += sum(1 for vl in vlines if not vl.get("justificatif"))
+                elif not op.get("Justificatif"):
+                    ops_sans += 1
         except Exception:
             continue
 
@@ -555,19 +666,31 @@ def get_batch_hints(filename: str) -> dict:
     if not pending_ocr:
         return {}
 
-    hints: dict[int, float] = {}
+    hints: dict[str, float] = {}
     for idx, op in enumerate(ops):
-        if op.get("Justificatif"):
-            continue
-
-        best = 0.0
-        for _, ocr_data in pending_ocr:
-            result = compute_score(ocr_data, op)
-            if result["total"] > best:
-                best = result["total"]
-
-        if best >= 0.60:
-            hints[idx] = round(best, 4)
+        vlines = op.get("ventilation", [])
+        if vlines:
+            # Op ventilée : scorer chaque sous-ligne individuellement
+            for vl_idx, vl in enumerate(vlines):
+                if vl.get("justificatif"):
+                    continue
+                best = 0.0
+                for _, ocr_data in pending_ocr:
+                    result = compute_score(ocr_data, op, override_montant=vl.get("montant", 0))
+                    if result["total"] > best:
+                        best = result["total"]
+                if best >= 0.60:
+                    hints[f"{idx}:{vl_idx}"] = round(best, 4)
+        else:
+            if op.get("Justificatif"):
+                continue
+            best = 0.0
+            for _, ocr_data in pending_ocr:
+                result = compute_score(ocr_data, op)
+                if result["total"] > best:
+                    best = result["total"]
+            if best >= 0.60:
+                hints[str(idx)] = round(best, 4)
 
     return hints
 
@@ -581,26 +704,32 @@ def get_batch_justificatif_scores() -> dict:
     if not JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
         return {}
 
-    # Charger toutes les opérations non associées
-    all_ops: list[tuple[str, int, dict]] = []
+    # Charger toutes les opérations non associées (+ sous-lignes ventilées)
+    # Tuples: (filename, idx, op, override_montant_or_None)
+    all_targets: list[tuple[str, int, dict, Optional[float]]] = []
     for f in operation_service.list_operation_files():
         try:
             ops = operation_service.load_operations(f["filename"])
             for idx, op in enumerate(ops):
-                if not op.get("Justificatif"):
-                    all_ops.append((f["filename"], idx, op))
+                vlines = op.get("ventilation", [])
+                if vlines:
+                    for vl in vlines:
+                        if not vl.get("justificatif"):
+                            all_targets.append((f["filename"], idx, op, vl.get("montant", 0)))
+                elif not op.get("Justificatif"):
+                    all_targets.append((f["filename"], idx, op, None))
         except Exception:
             continue
 
-    if not all_ops:
+    if not all_targets:
         return {}
 
     scores: dict[str, float] = {}
     for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
         ocr_data = _load_ocr_data(pdf_path.name)
         best = 0.0
-        for _, _, op in all_ops:
-            result = compute_score(ocr_data, op)
+        for _, _, op, override in all_targets:
+            result = compute_score(ocr_data, op, override_montant=override)
             if result["total"] > best:
                 best = result["total"]
         if best >= 0.60:
@@ -616,14 +745,23 @@ def write_rapprochement_metadata(
     operation_index: int,
     score: float,
     mode: str,
+    ventilation_index: Optional[int] = None,
 ) -> None:
-    """Écrit les métadonnées de rapprochement dans l'opération."""
+    """Écrit les métadonnées de rapprochement dans l'opération ou une sous-ligne."""
     try:
         ops = operation_service.load_operations(operation_file)
         if 0 <= operation_index < len(ops):
-            ops[operation_index]["rapprochement_score"] = round(score, 4)
-            ops[operation_index]["rapprochement_mode"] = mode
-            ops[operation_index]["rapprochement_date"] = datetime.now().isoformat()
+            op = ops[operation_index]
+            if ventilation_index is not None:
+                vlines = op.get("ventilation", [])
+                if 0 <= ventilation_index < len(vlines):
+                    vlines[ventilation_index]["rapprochement_score"] = round(score, 4)
+                    vlines[ventilation_index]["rapprochement_mode"] = mode
+                    vlines[ventilation_index]["rapprochement_date"] = datetime.now().isoformat()
+            else:
+                op["rapprochement_score"] = round(score, 4)
+                op["rapprochement_mode"] = mode
+                op["rapprochement_date"] = datetime.now().isoformat()
             operation_service.save_operations(ops, filename=operation_file)
     except Exception as e:
         logger.error(f"Erreur écriture metadata rapprochement: {e}")

@@ -113,12 +113,110 @@ def delete_cached_result(pdf_path: Path) -> bool:
     return False
 
 
+def _find_ocr_cache_file(filename: str) -> Optional[Path]:
+    """Cherche le fichier .ocr.json dans en_attente/ et traites/."""
+    cache_name = filename.replace(".pdf", ".ocr.json") if filename.endswith(".pdf") else f"{filename}.ocr.json"
+    for dir_path in [JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR]:
+        cache = dir_path / cache_name
+        if cache.exists():
+            return cache
+    return None
+
+
+def update_extracted_data(filename: str, edits: dict) -> dict:
+    """Met à jour manuellement les données extraites OCR."""
+    cache_path = _find_ocr_cache_file(filename)
+    if not cache_path:
+        raise FileNotFoundError(f"Pas de résultat OCR pour {filename}")
+
+    with open(cache_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    ed = data.get("extracted_data", {})
+
+    # Mettre à jour les champs fournis
+    if edits.get("best_amount") is not None:
+        ed["best_amount"] = edits["best_amount"]
+        # Ajouter aux amounts si pas présent
+        amounts = ed.get("amounts", [])
+        if edits["best_amount"] not in amounts:
+            amounts.append(edits["best_amount"])
+            ed["amounts"] = amounts
+
+    if edits.get("best_date") is not None:
+        ed["best_date"] = edits["best_date"]
+        # Ajouter aux dates si pas présent
+        dates = ed.get("dates", [])
+        if edits["best_date"] not in dates:
+            dates.append(edits["best_date"])
+            ed["dates"] = dates
+
+    if edits.get("supplier") is not None:
+        ed["supplier"] = edits["supplier"]
+
+    data["extracted_data"] = ed
+    data["manual_edit"] = True
+    data["manual_edit_at"] = datetime.now().isoformat()
+
+    with open(cache_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    return ed
+
+
+# ─── Convention de nommage ───
+
+_MONTANT_FILENAME_RE = re.compile(r'^\d+\.\d{2}$')
+
+
+def _parse_filename_convention(filename: str) -> Optional[dict]:
+    """Parse la convention fournisseur_YYYYMMDD_montant.pdf.
+
+    Retourne {"supplier": ..., "date": ..., "amount": ...} ou None.
+    Chaque champ peut etre None si vide ou invalide.
+    Retourne None si le filename ne suit pas la convention (!= 3 segments).
+    """
+    stem = Path(filename).stem
+    parts = stem.split("_")
+    if len(parts) != 3:
+        return None
+
+    raw_supplier, raw_date, raw_amount = parts
+
+    # Fournisseur
+    supplier: Optional[str] = None
+    if raw_supplier:
+        supplier = raw_supplier.replace("-", " ").title()
+
+    # Date
+    date_iso: Optional[str] = None
+    if raw_date and len(raw_date) == 8 and raw_date.isdigit():
+        try:
+            parsed = datetime.strptime(raw_date, "%Y%m%d")
+            date_iso = parsed.strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    # Montant
+    amount: Optional[float] = None
+    if raw_amount and _MONTANT_FILENAME_RE.match(raw_amount):
+        try:
+            amount = float(raw_amount)
+        except ValueError:
+            pass
+
+    return {"supplier": supplier, "date": date_iso, "amount": amount}
+
+
 # ─── Extraction ───
 
-def extract_from_pdf(pdf_path: Path) -> dict:
+def extract_from_pdf(pdf_path: Path, original_filename: Optional[str] = None) -> dict:
     """Extraction OCR complète depuis un PDF."""
     start_time = time.time()
     filename = pdf_path.name
+
+    # Parser la convention de nommage (sur le nom original si disponible)
+    fn_parsed = _parse_filename_convention(original_filename or filename)
 
     try:
         # Convertir PDF en images
@@ -127,7 +225,8 @@ def extract_from_pdf(pdf_path: Path) -> dict:
         page_count = len(images)
 
         if page_count == 0:
-            return _make_result(filename, "no_text", "", 0, 0, start_time)
+            return _make_result(filename, "no_text", "", 0, 0, start_time,
+                                original_filename=original_filename, filename_parsed=fn_parsed)
 
         # OCR sur chaque page
         reader = _get_reader()
@@ -149,9 +248,10 @@ def extract_from_pdf(pdf_path: Path) -> dict:
         avg_confidence = total_confidence / total_items if total_items > 0 else 0.0
 
         if not raw_text.strip():
-            return _make_result(filename, "no_text", "", page_count, 0.0, start_time)
+            return _make_result(filename, "no_text", "", page_count, 0.0, start_time,
+                                original_filename=original_filename, filename_parsed=fn_parsed)
 
-        # Parsing
+        # Parsing OCR
         dates = _extract_dates(raw_text)
         amounts = _extract_amounts(raw_text)
         supplier = _extract_supplier(raw_text)
@@ -159,6 +259,7 @@ def extract_from_pdf(pdf_path: Path) -> dict:
         result = _make_result(
             filename, "success", raw_text, page_count, avg_confidence, start_time,
             dates=dates, amounts=amounts, supplier=supplier,
+            original_filename=original_filename, filename_parsed=fn_parsed,
         )
 
         # Sauvegarder le cache
@@ -169,7 +270,8 @@ def extract_from_pdf(pdf_path: Path) -> dict:
 
     except Exception as e:
         logger.error(f"Erreur OCR sur {filename}: {e}")
-        return _make_result(filename, "error", str(e), 0, 0.0, start_time)
+        return _make_result(filename, "error", str(e), 0, 0.0, start_time,
+                            original_filename=original_filename, filename_parsed=fn_parsed)
 
 
 def _make_result(
@@ -178,36 +280,63 @@ def _make_result(
     dates: Optional[List[str]] = None,
     amounts: Optional[List[float]] = None,
     supplier: Optional[str] = None,
+    original_filename: Optional[str] = None,
+    filename_parsed: Optional[dict] = None,
 ) -> dict:
-    """Construit le dict résultat OCR."""
+    """Construit le dict résultat OCR avec override filename si convention."""
     elapsed_ms = int((time.time() - start_time) * 1000)
     dates = dates or []
     amounts = amounts or []
 
-    return {
+    # Sélection OCR de base
+    best_date = _select_best_date(raw_text, dates)
+    best_amount = _select_best_amount(raw_text, amounts)
+
+    # Override par les valeurs du filename (priorité filename > OCR)
+    if filename_parsed:
+        fp_amount = filename_parsed.get("amount")
+        fp_date = filename_parsed.get("date")
+        fp_supplier = filename_parsed.get("supplier")
+
+        if fp_amount is not None:
+            best_amount = fp_amount
+            if fp_amount not in amounts:
+                amounts.insert(0, fp_amount)
+        if fp_date is not None:
+            best_date = fp_date
+            if fp_date not in dates:
+                dates.insert(0, fp_date)
+        if fp_supplier is not None:
+            supplier = fp_supplier
+
+    result = {
         "filename": filename,
         "processed_at": datetime.now().isoformat(),
         "status": status,
         "processing_time_ms": elapsed_ms,
-        "raw_text": raw_text[:5000],  # Limiter la taille
+        "raw_text": raw_text[:5000],
         "extracted_data": {
             "dates": dates,
             "amounts": amounts,
             "supplier": supplier,
-            "best_date": dates[0] if dates else None,
-            "best_amount": max(amounts) if amounts else None,
+            "best_date": best_date,
+            "best_amount": best_amount,
         },
         "page_count": page_count,
         "confidence": round(confidence, 3),
+        "filename_parsed": filename_parsed,
     }
+    if original_filename:
+        result["original_filename"] = original_filename
+    return result
 
 
-def extract_or_cached(pdf_path: Path) -> dict:
+def extract_or_cached(pdf_path: Path, original_filename: Optional[str] = None) -> dict:
     """Retourne le résultat caché ou lance l'extraction."""
     cached = get_cached_result(pdf_path)
     if cached:
         return cached
-    return extract_from_pdf(pdf_path)
+    return extract_from_pdf(pdf_path, original_filename=original_filename)
 
 
 # ─── Parsing : Dates ───
@@ -264,56 +393,311 @@ def _extract_dates(text: str) -> List[str]:
     return dates
 
 
+def _select_best_date(text: str, dates: List[str]) -> Optional[str]:
+    """Sélectionne la meilleure date (date de facture) parmi les dates extraites."""
+    if not dates:
+        return None
+    if len(dates) == 1:
+        return dates[0]
+
+    dates_set = set(dates)
+    lines = text.split("\n")
+
+    # Mots-clés d'exclusion (lignes à ignorer pour la sélection)
+    exclude_kw = ["échéance", "echeance", "règlement", "reglement",
+                   "mise en circulation", "naissance", "création", "creation", "prochaine"]
+    # Mots-clés de priorité
+    facture_kw = ["facture", "émission", "emission", ":", "du"]
+
+    def _find_date_in_lines(idx: int) -> Optional[str]:
+        """Cherche une date sur la ligne idx, puis sur les 3 lignes suivantes si vide."""
+        for d in dates:
+            if _date_in_line(d, lines[idx]):
+                return d
+        for offset in range(1, 4):
+            if idx + offset < len(lines):
+                for d in dates:
+                    if _date_in_line(d, lines[idx + offset]):
+                        return d
+        return None
+
+    # Passe 1 : ligne contenant "date" + mot-clé facture
+    for i, line in enumerate(lines):
+        low = line.lower()
+        if any(ek in low for ek in exclude_kw):
+            continue
+        if "date" in low:
+            has_facture_kw = any(fk in low for fk in facture_kw)
+            if has_facture_kw:
+                found = _find_date_in_lines(i)
+                if found:
+                    return found
+
+    # Passe 2 : ligne contenant "date" seul
+    for i, line in enumerate(lines):
+        low = line.lower()
+        if any(ek in low for ek in exclude_kw):
+            continue
+        if "date" in low:
+            found = _find_date_in_lines(i)
+            if found:
+                return found
+
+    # Fallback : date la plus récente ≤ aujourd'hui
+    today = datetime.now().date()
+    valid_dates = []
+    for d in dates:
+        try:
+            parsed = datetime.strptime(d, "%Y-%m-%d").date()
+            if parsed <= today:
+                valid_dates.append((parsed, d))
+        except ValueError:
+            continue
+    if valid_dates:
+        valid_dates.sort(reverse=True)
+        return valid_dates[0][1]
+
+    return dates[0]
+
+
+_MOIS_REVERSE = {
+    1: ["janvier", "jan"],
+    2: ["février", "fevrier", "fév", "fev"],
+    3: ["mars"],
+    4: ["avril", "avr"],
+    5: ["mai"],
+    6: ["juin"],
+    7: ["juillet", "juil"],
+    8: ["août", "aout"],
+    9: ["septembre", "sept"],
+    10: ["octobre", "oct"],
+    11: ["novembre", "nov"],
+    12: ["décembre", "decembre", "déc", "dec"],
+}
+
+
+def _date_in_line(iso_date: str, line: str) -> bool:
+    """Vérifie si une date ISO est présente dans une ligne (sous n'importe quel format)."""
+    try:
+        parsed = datetime.strptime(iso_date, "%Y-%m-%d")
+        # Formats numériques
+        for fmt in [
+            f"{parsed.day:02d}/{parsed.month:02d}/{parsed.year}",
+            f"{parsed.day}/{parsed.month:02d}/{parsed.year}",
+            f"{parsed.day:02d}-{parsed.month:02d}-{parsed.year}",
+            f"{parsed.day:02d}.{parsed.month:02d}.{parsed.year}",
+            f"{parsed.day:02d}/{parsed.month:02d}/{parsed.year % 100:02d}",
+        ]:
+            if fmt in line:
+                return True
+        # Format mois en toutes lettres : "18 juillet 2025"
+        low_line = line.lower()
+        for month_name in _MOIS_REVERSE.get(parsed.month, []):
+            if month_name in low_line and str(parsed.year) in line:
+                day_str = str(parsed.day)
+                if day_str in line:
+                    return True
+    except ValueError:
+        pass
+    return False
+
+
 # ─── Parsing : Montants ───
+
+_AMOUNT_RE = re.compile(r'\b(\d{1,3}(?:[\s\u00a0]?\d{3})*[.,]\d{2})\b')
+_DATE_LIKE_RE = re.compile(r'\d{2}[/\-]\d{2}[/\-]\d{2,4}')
+
 
 def _extract_amounts(text: str) -> List[float]:
     """Extrait les montants depuis le texte OCR."""
-    amounts = []
-    seen = set()
+    seen: set[float] = set()
+    amounts: List[float] = []
 
-    # Patterns : 1 234,56 € / 1234.56 EUR / 45,90€ / EUR 123.45
-    patterns = [
-        r"(\d[\d\s]*\d),(\d{2})\s*(?:€|EUR|eur)",  # 1 234,56 € ou 45,90€
-        r"(?:€|EUR|eur)\s*(\d[\d\s]*\d),(\d{2})",   # € 1 234,56
-        r"(\d[\d\s]*\d)\.(\d{2})\s*(?:€|EUR|eur)",  # 1234.56 EUR
-        r"(?:€|EUR|eur)\s*(\d[\d\s]*\d)\.(\d{2})",  # EUR 1234.56
-        r"(\d{1,6}),(\d{2})\s*€",                    # Simple: 45,90 €
-    ]
+    for line in text.split("\n"):
+        for match in _AMOUNT_RE.finditer(line):
+            raw = match.group(1)
+            end_pos = match.end()
 
-    for pattern in patterns:
-        for match in re.finditer(pattern, text, re.IGNORECASE):
-            try:
-                int_part = match.group(1).replace(" ", "").replace("\u00a0", "")
-                dec_part = match.group(2)
-                amount = float(f"{int_part}.{dec_part}")
-                if 0.01 <= amount <= 100000 and amount not in seen:
-                    amounts.append(amount)
-                    seen.add(amount)
-            except (ValueError, IndexError):
+            # Exclure si suivi de % → taux TVA
+            rest = line[end_pos:end_pos + 3].lstrip()
+            if rest.startswith("%"):
                 continue
 
-    return sorted(amounts, reverse=True)
+            # Exclure si le match fait partie d'un pattern date
+            span_text = line[max(0, match.start() - 5):match.end() + 5]
+            if _DATE_LIKE_RE.search(span_text):
+                continue
+
+            # Convertir en float
+            cleaned = raw.replace(" ", "").replace("\u00a0", "").replace(",", ".")
+            try:
+                value = float(cleaned)
+            except ValueError:
+                continue
+
+            if 0 < value < 1_000_000 and value not in seen:
+                amounts.append(value)
+                seen.add(value)
+
+    return amounts
+
+
+def _select_best_amount(text: str, amounts: List[float]) -> Optional[float]:
+    """Sélectionne le montant TTC parmi les montants extraits."""
+    if not amounts:
+        return None
+    if len(amounts) == 1:
+        return amounts[0]
+
+    amounts_set = set(amounts)
+    lines = text.split("\n")
+
+    def _get_nearby_amounts(idx: int) -> List[float]:
+        """Cherche les montants sur la ligne idx et les 3 lignes suivantes."""
+        found: List[float] = []
+        seen_nearby: set[float] = set()
+        for offset in range(0, 4):
+            if idx + offset >= len(lines):
+                break
+            for a in amounts:
+                if a not in seen_nearby and _amount_in_line(a, lines[idx + offset]):
+                    found.append(a)
+                    seen_nearby.add(a)
+        return found
+
+    # Collecter les candidats TTC depuis plusieurs sources
+    candidates: List[float] = []
+
+    # Source 1 : ligne contenant "total" + "facture"
+    for i, line in enumerate(lines):
+        low = line.lower()
+        if "total" in low and "facture" in low:
+            found = _get_nearby_amounts(i)
+            if found:
+                candidates.append(max(found))
+
+    # Source 2 : ligne contenant "ttc" AVEC un montant sur la même ligne
+    for i, line in enumerate(lines):
+        low = line.lower()
+        if ("ht" in low or "hors taxe" in low) and "ttc" not in low:
+            continue
+        if "ttc" in low:
+            same_line = [a for a in amounts if _amount_in_line(a, line)]
+            if same_line:
+                candidates.append(max(same_line))
+
+    # Source 3 : tous les "total" seuls (pas sous-total, pas total ht, pas total facture)
+    for i, line in enumerate(lines):
+        low = line.lower()
+        if "total" not in low:
+            continue
+        if "sous-total" in low or "sous total" in low:
+            continue
+        if ("ht" in low or "hors taxe" in low) and "ttc" not in low:
+            continue
+        if "facture" in low:
+            continue  # déjà traité en source 1
+        found = _get_nearby_amounts(i)
+        if found:
+            candidates.append(max(found))
+
+    # Retourner le max des candidats (le TTC est le plus grand)
+    if candidates:
+        return max(candidates)
+
+    # Priorité 4 : montant le plus proche de €
+    best_euro = _find_amount_near_euro(text, amounts)
+    if best_euro is not None:
+        return best_euro
+
+    # Fallback : max
+    return max(amounts)
+
+
+def _amount_in_line(amount: float, line: str) -> bool:
+    """Vérifie si un montant est présent dans une ligne."""
+    # Chercher sous forme virgule ou point
+    s_comma = f"{amount:,.2f}".replace(",", " ").replace(".", ",")  # 1 234,56
+    s_simple = f"{amount:.2f}".replace(".", ",")  # 1234,56
+    s_dot = f"{amount:.2f}"  # 1234.56
+    clean_line = line.replace("\u00a0", " ")
+    return s_comma in clean_line or s_simple in clean_line or s_dot in clean_line
+
+
+def _find_amount_near_euro(text: str, amounts: List[float]) -> Optional[float]:
+    """Trouve le montant le plus proche d'un symbole € dans le texte."""
+    euro_positions = [m.start() for m in re.finditer(r'€|EUR', text, re.IGNORECASE)]
+    if not euro_positions:
+        return None
+
+    best: Optional[float] = None
+    best_dist = 999999
+
+    for amt in amounts:
+        for match in _AMOUNT_RE.finditer(text):
+            cleaned = match.group(1).replace(" ", "").replace("\u00a0", "").replace(",", ".")
+            try:
+                val = float(cleaned)
+            except ValueError:
+                continue
+            if abs(val - amt) > 0.001:
+                continue
+            for ep in euro_positions:
+                dist = abs(match.start() - ep)
+                if dist < best_dist:
+                    best_dist = dist
+                    best = amt
+
+    return best
 
 
 # ─── Parsing : Fournisseur ───
 
 SUPPLIER_KEYWORDS = [
-    "SARL", "SA ", "SAS", "EURL", "SCI", "SASU",
+    "SARL", "SA ", "SAS", "EURL", "SCI", "SASU", "SCP", "SELARL",
     "ENTREPRISE", "SOCIÉTÉ", "SOCIETE", "CABINET",
     "PHARMACIE", "CLINIQUE", "LABORATOIRE",
     "EDF", "ENGIE", "ORANGE", "FREE", "SFR", "BOUYGUES",
 ]
 
+_SUPPLIER_FORM_RE = re.compile(
+    r'\b(?:Bank|SAS|SARL|SA|SCI|EURL|SCP|SELARL|plc|GmbH|Ltd|Inc)\b',
+    re.IGNORECASE,
+)
+_POSTAL_CODE_RE = re.compile(r'\b\d{5}\b')
+
 
 def _extract_supplier(text: str) -> Optional[str]:
     """Tente d'identifier le fournisseur depuis le texte OCR."""
     lines = text.split("\n")
+
+    # Première passe : mots-clés société connus
     for line in lines:
         line_upper = line.upper().strip()
         for keyword in SUPPLIER_KEYWORDS:
             if keyword in line_upper and len(line.strip()) > 3:
-                # Retourner la ligne nettoyée
-                return line.strip()[:80]
+                return re.sub(r'\s+', ' ', line.strip())[:80]
+
+    # Deuxième passe (fallback) : forme juridique dans les 10 premières lignes
+    non_empty_lines = [l.strip() for l in lines if l.strip()]
+    for line in non_empty_lines[:10]:
+        if _SUPPLIER_FORM_RE.search(line):
+            return re.sub(r'\s+', ' ', line.strip())[:80]
+
+    # Troisième passe : première ligne non-vide sans code postal, date ni montant seul
+    for line in non_empty_lines[:10]:
+        stripped = line.strip()
+        if len(stripped) < 3:
+            continue
+        if _POSTAL_CODE_RE.search(stripped):
+            continue
+        if _DATE_LIKE_RE.search(stripped):
+            continue
+        # Ignorer les lignes qui sont juste un montant
+        if _AMOUNT_RE.fullmatch(stripped):
+            continue
+        return re.sub(r'\s+', ' ', stripped)[:80]
+
     return None
 
 

@@ -161,16 +161,48 @@ Onglet Comparatif → sélection Période A + Période B
   → Légendes dynamiques avec périodes (ex: "2024" / "2025")
 ```
 
+### Ventilation d'opérations
+
+```
+EditorPage → bouton Scissors → VentilationDrawer (600px)
+  → Sous-lignes éditables : montant, catégorie, sous-catégorie, libellé
+  → Barre solde temps réel (vert si 0, rouge sinon)
+  → Validation : ≥ 2 lignes, sum == montant op (0.01€)
+  → PUT /api/ventilation/{file}/{idx} → ventilation_service.set_ventilation()
+    → Catégorie parente = "Ventilé"
+    → Sous-lignes stockées inline dans le JSON opération (champ ventilation: [])
+
+Impacts downstream :
+  → Clôture : taux lettrage/justificatifs comptent les sous-lignes individuellement
+  → Analytics : _expand_ventilation() explose en lignes virtuelles, "Ventilé" exclu
+  → Alertes : une alerte justificatif_manquant par sous-ligne sans justificatif
+  → Rapprochement auto : itère sous-lignes, score avec sous_ligne.montant
+  → Rapprochement manuel : sélecteur sous-ligne dans le drawer
+  → Batch hints : clés "idx:vl_idx" pour les sous-lignes
+  → Unmatched : compte les sous-lignes (pas l'op parente)
+```
+
 ### OCR automatique
 
 ```
 Upload justificatif → justificatifs router → upload_justificatifs()
-  → Background: ocr_service.extract_or_cached()
+  → Background: ocr_service.extract_or_cached(filepath, original_filename)
+    → _parse_filename_convention(original_filename) : parse fournisseur_YYYYMMDD_montant.pdf
     → pdf2image → convert_from_path() (PDF → images)
     → EasyOCR Reader.readtext() (images → texte)
-    → Parsing : dates, montants, fournisseur
-    → Cache : .ocr.json à côté du PDF
+    → Parsing : dates, montants, fournisseur (regex robuste)
+    → best_amount : priorité total facture > ttc > total > € > max(candidates)
+    → best_date : priorité ligne "date"+facture_kw, exclusion échéance/circulation
+    → Override : filename_parsed > OCR pour chaque champ individuellement
+    → Cache : .ocr.json à côté du PDF (avec filename_parsed + original_filename)
   → Suggestions améliorées (date OCR + montant OCR + fournisseur)
+
+Édition manuelle :
+  → PATCH /api/ocr/{filename}/extracted-data → update_extracted_data()
+  → Cherche .ocr.json dans en_attente/ ET traites/
+  → Ajoute manual_edit: true + manual_edit_at
+  → Frontend : OcrDataEditor (chips montants/dates + input manuel + fournisseur)
+  → Badge "OCR incomplet" dans la galerie si ocr_amount ou ocr_date null
 ```
 
 ### Sandbox Watchdog (OCR automatique par dépôt)
@@ -387,8 +419,8 @@ Page Dashboard (/dashboard) → DashboardPage
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Components** | UI et interactions | `src/components/` (60+ fichiers, incl. `pipeline/`, `ged/`, `amortissements/`, `reports/`, `dashboard/`) |
-| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (18 fichiers, incl. usePipeline, useGed, useReports, useAmortissements, useTemplates, usePrevisionnel) |
+| **Components** | UI et interactions | `src/components/` (65+ fichiers, incl. `pipeline/`, `ged/`, `amortissements/`, `reports/`, `dashboard/`, `editor/VentilationDrawer`, `justificatifs/OcrDataEditor`) |
+| **Hooks** | Data fetching, cache, mutations, SSE | `src/hooks/` (19 fichiers, incl. usePipeline, useGed, useReports, useAmortissements, useTemplates, usePrevisionnel, useVentilation) |
 | **API Client** | Abstraction fetch, gestion erreurs | `src/api/client.ts` |
 | **Types** | Interfaces TypeScript | `src/types/index.ts` |
 | **Utils** | Formatage, classes CSS | `src/lib/utils.ts` |
@@ -397,9 +429,9 @@ Page Dashboard (/dashboard) → DashboardPage
 
 | Couche | Responsabilité | Fichiers |
 |--------|----------------|----------|
-| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (19 fichiers, incl. ged.py, amortissements.py, templates.py, previsionnel.py) |
-| **Services** | Logique métier, I/O, watchdog, GED, prévisionnel | `backend/services/` (18 fichiers, incl. ged_service.py, amortissement_service.py, template_service.py, previsionnel_service.py) |
-| **Models** | Schémas Pydantic | `backend/models/` (13 fichiers, incl. ged.py, amortissement.py, template.py, previsionnel.py) |
+| **Routers** | Endpoints HTTP, validation, SSE | `backend/routers/` (20 fichiers, incl. ged.py, amortissements.py, templates.py, previsionnel.py, ventilation.py) |
+| **Services** | Logique métier, I/O, watchdog, GED, prévisionnel | `backend/services/` (20 fichiers, incl. ged_service.py, amortissement_service.py, template_service.py, previsionnel_service.py, ventilation_service.py) |
+| **Models** | Schémas Pydantic | `backend/models/` (15 fichiers, incl. ged.py, amortissement.py, template.py, previsionnel.py) |
 | **Config** | Chemins, constantes | `backend/core/config.py` |
 
 ## Stockage des données

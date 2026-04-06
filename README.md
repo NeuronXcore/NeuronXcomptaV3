@@ -12,15 +12,15 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 |--------|-------------|
 | **Tableau de bord** | **Cockpit exercice V2** : jauge segmentée 6 critères, KPIs avec sparkline BNC, grille 12 mois cliquables avec badges d'état, alertes pondérées, échéances fiscales, rappels rapports, bar chart recettes/dépenses |
 | **Importation** | Upload de relevés bancaires PDF, extraction automatique des opérations (dates YYYY-MM-DD, filtrage soldes/totaux) |
-| **Éditeur** | Édition inline, catégorisation IA (vides/tout), **vue année complète** (lecture seule), **filtres catégorie + sous-catégorie**, colonnes : Justificatif, Important, À revoir, Pointée |
+| **Éditeur** | Édition inline, catégorisation IA (vides/tout), **vue année complète** (lecture seule), **filtres catégorie + sous-catégorie**, colonnes : Justificatif, Important, À revoir, Pointée, **ventilation** (bouton Scissors, sous-lignes indentées) |
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
 | **Rapports** | Génération PDF/CSV/Excel, 3 templates, bibliothèque triple vue (année/catégorie/format), favoris, comparaison, format EUR, déduplication |
 | **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, **comparatif périodes avec séparation recettes/dépenses**, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
-| **Rapprochement** | Rapprochement auto + drawer manuel avec filtres, scores, preview PDF |
+| **Rapprochement** | Rapprochement auto + drawer manuel avec filtres, scores, preview PDF, **support ventilation** (sous-lignes individuelles, sélecteur sous-ligne) |
 | **Justificatifs** | Galerie, association aux opérations, suggestions automatiques (upload via page OCR) |
 | **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups |
 | **Export Comptable** | Archive ZIP mensuelle (opérations + relevé + justificatifs) |
-| **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique, **templates justificatifs** (création depuis scan, bibliothèque fournisseurs, génération reconstitués) |
+| **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique, **templates justificatifs**, **édition manuelle** (chips montants/dates cliquables, badge OCR incomplet), **convention nommage** (`fournisseur_YYYYMMDD_montant.pdf`) |
 | **Templates** | Bibliothèque de templates par fournisseur, génération de justificatifs reconstitués (PDF A5 via ReportLab) quand l'original est manquant, suggestion automatique par alias, bouton intégré dans 4 pages |
 | **GED** | Bibliothèque documentaire : double vue arbre (année/type), thumbnails PDF, postes comptables avec % déductibilité, upload documents libres, recherche full-text, OCR auto |
 | **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |

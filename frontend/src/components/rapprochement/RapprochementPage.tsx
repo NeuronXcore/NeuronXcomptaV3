@@ -15,9 +15,9 @@ import { useOperationFiles, useOperations } from '@/hooks/useOperations'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
   Paperclip, Clock, Zap, History, Link, Loader2, Check,
-  AlertCircle, X, ChevronRight, FileText, Search,
+  AlertCircle, X, ChevronRight, FileText, Search, Scissors,
 } from 'lucide-react'
-import type { Operation, AutoRapprochementReport, RapprochementSuggestion } from '@/types'
+import type { Operation, AutoRapprochementReport, RapprochementSuggestion, VentilationLine } from '@/types'
 
 export default function RapprochementPage() {
   const { data: unmatched, isLoading: unmatchedLoading } = useUnmatched()
@@ -36,6 +36,7 @@ export default function RapprochementPage() {
     libelle: string
     debit: number
     credit: number
+    ventilation?: VentilationLine[]
   } | null>(null)
 
   // UI state
@@ -58,13 +59,25 @@ export default function RapprochementPage() {
   // Unassociated operations from the selected file
   const unmatchedOps = (fileOperations || [])
     .map((op, idx) => ({ op, idx }))
-    .filter(({ op }) => !op.Justificatif)
+    .filter(({ op }) => {
+      const vlines = op.ventilation ?? []
+      if (vlines.length > 0) {
+        // Ventilée : visible si au moins une sous-ligne sans justificatif
+        return vlines.some(vl => !vl.justificatif)
+      }
+      return !op.Justificatif
+    })
     .filter(({ op }) => {
       if (monthFilter) {
         const m = op.Date?.slice(5, 7)
         if (m !== monthFilter) return false
       }
       if (catFilter) {
+        const vlines = op.ventilation ?? []
+        if (vlines.length > 0) {
+          // Pour ops ventilées, matcher si une sous-ligne a la catégorie
+          return vlines.some(vl => vl.categorie === catFilter)
+        }
         if ((op['Catégorie'] || '') !== catFilter) return false
       }
       return true
@@ -196,53 +209,94 @@ export default function RapprochementPage() {
               </div>
             ) : (
               <div className="divide-y divide-border/30">
-                {unmatchedOps.map(({ op, idx }) => (
-                  <div
-                    key={idx}
-                    onClick={() => {
-                      setSelectedOpIndex(idx)
-                      setSelectedOp(op)
-                    }}
-                    className={cn(
-                      'w-full text-left px-4 py-2.5 transition-colors cursor-pointer',
-                      selectedOpIndex === idx
-                        ? 'bg-primary/10 border-l-2 border-l-primary'
-                        : 'hover:bg-surface-hover'
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <p className="text-xs text-text truncate flex-1">{op['Libellé']}</p>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDrawerOp({
-                            index: idx,
-                            date: op.Date || '',
-                            libelle: op['Libellé'] || '',
-                            debit: op['Débit'] || 0,
-                            credit: op['Crédit'] || 0,
-                          })
+                {unmatchedOps.map(({ op, idx }) => {
+                  const vlines = op.ventilation ?? []
+                  const isVentilated = vlines.length > 0
+                  return (
+                    <div key={idx}>
+                      <div
+                        onClick={() => {
+                          setSelectedOpIndex(idx)
+                          setSelectedOp(op)
                         }}
-                        className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors shrink-0"
-                        title="Rapprochement manuel"
+                        className={cn(
+                          'w-full text-left px-4 py-2.5 transition-colors cursor-pointer',
+                          selectedOpIndex === idx
+                            ? 'bg-primary/10 border-l-2 border-l-primary'
+                            : 'hover:bg-surface-hover'
+                        )}
                       >
-                        <Search size={10} />
-                        Associer
-                      </button>
-                      <ChevronRight size={12} className="text-text-muted shrink-0" />
-                    </div>
-                    <div className="flex items-center gap-3 text-[10px] text-text-muted mt-0.5">
-                      <span>{op.Date?.slice(0, 10)}</span>
-                      {(op['Débit'] || 0) > 0 && (
-                        <span className="text-red-400">{formatCurrency(op['Débit'])}</span>
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5 truncate flex-1">
+                            {isVentilated && <Scissors size={11} className="text-primary shrink-0" />}
+                            <p className="text-xs text-text truncate">{op['Libellé']}</p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDrawerOp({
+                                index: idx,
+                                date: op.Date || '',
+                                libelle: op['Libellé'] || '',
+                                debit: op['Débit'] || 0,
+                                credit: op['Crédit'] || 0,
+                                ventilation: isVentilated ? vlines : undefined,
+                              })
+                            }}
+                            className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors shrink-0"
+                            title="Rapprochement manuel"
+                          >
+                            <Search size={10} />
+                            Associer
+                          </button>
+                          <ChevronRight size={12} className="text-text-muted shrink-0" />
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-text-muted mt-0.5">
+                          <span>{op.Date?.slice(0, 10)}</span>
+                          {(op['Débit'] || 0) > 0 && (
+                            <span className="text-red-400">{formatCurrency(op['Débit'])}</span>
+                          )}
+                          {(op['Crédit'] || 0) > 0 && (
+                            <span className="text-emerald-400">{formatCurrency(op['Crédit'])}</span>
+                          )}
+                          {isVentilated ? (
+                            <span className="text-primary/70">Ventilé ({vlines.length} lignes)</span>
+                          ) : (
+                            op['Catégorie'] && <span className="text-primary">{op['Catégorie']}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sous-lignes ventilées */}
+                      {isVentilated && (
+                        <div className="bg-background/50">
+                          {vlines.map((vl, vlIdx) => (
+                            <div
+                              key={vlIdx}
+                              className={cn(
+                                'flex items-center gap-2 px-4 py-1.5 pl-8 text-[10px] border-t border-border/10',
+                                vl.justificatif ? 'opacity-50' : ''
+                              )}
+                            >
+                              <div className="w-0.5 h-3 bg-border rounded-full shrink-0" />
+                              <span className="text-text-muted">L{vlIdx + 1}</span>
+                              <span className="text-text truncate flex-1">{vl.libelle || vl.categorie || '—'}</span>
+                              <span className="font-mono text-text-muted">{formatCurrency(vl.montant)}</span>
+                              {vl.categorie && (
+                                <span className="text-primary/70">{vl.categorie}</span>
+                              )}
+                              {vl.justificatif ? (
+                                <Paperclip size={10} className="text-emerald-400 shrink-0" />
+                              ) : (
+                                <span className="text-red-400/60 text-[9px]">manquant</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
-                      {(op['Crédit'] || 0) > 0 && (
-                        <span className="text-emerald-400">{formatCurrency(op['Crédit'])}</span>
-                      )}
-                      {op['Catégorie'] && <span className="text-primary">{op['Catégorie']}</span>}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

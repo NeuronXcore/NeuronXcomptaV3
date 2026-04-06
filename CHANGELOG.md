@@ -9,6 +9,37 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 ## [Unreleased]
 
 ### Added (2026-04-06)
+- **Ventilation d'operations** : une operation bancaire peut etre ventilee en N sous-lignes (>=2) avec categorie, sous-categorie, montant et justificatif individuels
+  - Backend : modele `VentilationLine`, service `ventilation_service.py`, router `/api/ventilation` (PUT/DELETE/PATCH)
+  - `sum(montants)` doit egaler le montant de l'operation (tolerance 0.01)
+  - Categorie parente automatiquement mise a "Ventile"
+  - Cloture/analytics/alertes iterent sur les sous-lignes individuellement
+  - Rapprochement auto et manuel supportent les sous-lignes (`ventilation_index`)
+  - Frontend : bouton Scissors dans EditorPage, `VentilationDrawer` (600px) avec barre solde temps reel, `VentilationLines` indentees sous l'op parente
+  - Selecteur sous-ligne dans `RapprochementManuelDrawer` et `RapprochementPage`
+  - Mode annee complete : sous-lignes visibles, Scissors masque
+
+- **Fix extraction OCR** : refonte complete du parsing des justificatifs
+  - Regex montants robuste : capture `1163.08`, `1439.87` (4+ chiffres sans espace)
+  - `best_amount` = montant TTC : priorite total facture > ttc > total > euro > max, avec collecte multi-sources et max(candidates)
+  - `best_date` = date facture : priorite ligne "date" + mot-cle facture, exclusion echeance/circulation, detection mois en lettres ("18 juillet 2025")
+  - `supplier` : fallback formes juridiques (Bank, plc, GmbH, Ltd, SCP, SELARL) + premiere ligne non-vide
+  - Recherche multi-ligne (3 lignes apres le mot-cle) pour les PDF ou les valeurs sont sur des lignes separees
+
+- **Convention de nommage justificatifs** : parsing `fournisseur_YYYYMMDD_montant.pdf`
+  - `_parse_filename_convention()` : pure function, 3 segments exactement
+  - Priorite filename > OCR pour chaque champ individuellement
+  - Tracabilite `filename_parsed` et `original_filename` dans le `.ocr.json`
+  - Propage dans batch upload et sandbox watchdog
+  - Fichiers existants (`justificatif_YYYYMMDD_HHMMSS_*.pdf`) non impactes (4+ segments → null)
+
+- **Edition manuelle des donnees OCR** : correction des valeurs extraites depuis le frontend
+  - Endpoint `PATCH /api/ocr/{filename}/extracted-data` avec modele `OcrManualEdit`
+  - Composant `OcrDataEditor` : chips cliquables montants (EUR) + dates (DD/MM/YYYY), input manuel, badge Manuel/OCR
+  - Badge "OCR incomplet" (ambre) dans la galerie justificatifs quand `ocr_amount` ou `ocr_date` sont null
+  - Integration dans le drawer justificatif (sous le PDF preview)
+  - Invalidation TanStack Query sur ocr, justificatifs, rapprochement
+
 - **ML Monitoring** : systeme complet de monitoring de l'agent IA
   - Logging automatique des predictions a chaque categorisation (source, confiance, risque hallucination)
   - Tracking des corrections manuelles au save dans l'editeur (detection par comparaison avec derniere prediction)

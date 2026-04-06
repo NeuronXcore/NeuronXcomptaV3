@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import {
@@ -18,12 +18,15 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
-  CheckCircle2, Circle,
+  CheckCircle2, Circle, Scissors,
 } from 'lucide-react'
+import { api } from '@/api/client'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
+import VentilationDrawer from '@/components/editor/VentilationDrawer'
+import VentilationLines from '@/components/editor/VentilationLines'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
@@ -143,7 +146,7 @@ export default function EditorPage() {
   const [undoStack, setUndoStack] = useState<Operation[][]>([])
 
   // TanStack Table state
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'Date', desc: true }])
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'Date', desc: false }])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -152,10 +155,16 @@ export default function EditorPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [pageSize, setPageSize] = useState(50)
+  const [pageIndex, setPageIndex] = useState(0)
+
+  // Reset pagination when file or filters change
+  useEffect(() => { setPageIndex(0) }, [selectedFile, allYearMode, globalFilter])
 
   // PDF preview state
   const { data: pdfStatus } = useHasPdf(selectedFile)
   const [pdfDrawerOpen, setPdfDrawerOpen] = useState(false)
+  const [pdfDrawerWidth, setPdfDrawerWidth] = useState(700)
+  const pdfResizing = useRef(false)
 
   // Lettrage
   const { data: lettrageStats } = useLettrageStats(selectedFile)
@@ -165,6 +174,8 @@ export default function EditorPage() {
   // Rapprochement state
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerOpIndex, setDrawerOpIndex] = useState<number | null>(null)
+  const [ventilationOpen, setVentilationOpen] = useState(false)
+  const [ventilationOpIndex, setVentilationOpIndex] = useState<number | null>(null)
   const { data: batchHints } = useBatchHints(selectedFile)
 
   const saveMutation = useSaveOperations()
@@ -446,14 +457,17 @@ export default function EditorPage() {
     {
       accessorKey: 'Débit',
       header: 'Débit',
-      size: 100,
+      size: 110,
       cell: ({ row }) => (
-        <EditableCell
-          type="number"
-          value={row.original['Débit'] || ''}
-          onChange={val => updateOperation(row.index, 'Débit', val)}
-          className="text-right text-danger"
-        />
+        <div className="flex items-center justify-end gap-0.5">
+          <EditableCell
+            type="number"
+            value={row.original['Débit'] || ''}
+            onChange={val => updateOperation(row.index, 'Débit', val)}
+            className="text-right text-danger"
+          />
+          {row.original['Débit'] ? <span className="text-danger/60 text-xs shrink-0">€</span> : null}
+        </div>
       ),
       meta: { align: 'right' },
     },
@@ -461,14 +475,17 @@ export default function EditorPage() {
     {
       accessorKey: 'Crédit',
       header: 'Crédit',
-      size: 100,
+      size: 110,
       cell: ({ row }) => (
-        <EditableCell
-          type="number"
-          value={row.original['Crédit'] || ''}
-          onChange={val => updateOperation(row.index, 'Crédit', val)}
-          className="text-right text-success"
-        />
+        <div className="flex items-center justify-end gap-0.5">
+          <EditableCell
+            type="number"
+            value={row.original['Crédit'] || ''}
+            onChange={val => updateOperation(row.index, 'Crédit', val)}
+            className="text-right text-success"
+          />
+          {row.original['Crédit'] ? <span className="text-success/60 text-xs shrink-0">€</span> : null}
+        </div>
       ),
       meta: { align: 'right' },
     },
@@ -670,19 +687,38 @@ export default function EditorPage() {
       },
       enableSorting: false,
     },
-    // Delete
+    // Ventilation + Delete
     {
       id: 'actions',
       header: '',
-      size: 40,
+      size: 70,
       cell: ({ row }) => (
-        <button
-          onClick={() => deleteRow(row.index)}
-          className="text-text-muted hover:text-danger transition-colors p-1 rounded hover:bg-danger/10"
-          title="Supprimer"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div className="flex items-center gap-0.5">
+          {!allYearMode && (
+            <button
+              onClick={() => {
+                setVentilationOpIndex(row.index)
+                setVentilationOpen(true)
+              }}
+              className={cn(
+                'p-1 rounded transition-colors',
+                (row.original.ventilation?.length ?? 0) > 0
+                  ? 'text-primary hover:bg-primary/10'
+                  : 'text-text-muted hover:text-primary hover:bg-primary/10'
+              )}
+              title="Ventiler"
+            >
+              <Scissors size={14} />
+            </button>
+          )}
+          <button
+            onClick={() => deleteRow(row.index)}
+            className="text-text-muted hover:text-danger transition-colors p-1 rounded hover:bg-danger/10"
+            title="Supprimer"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       ),
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -697,12 +733,17 @@ export default function EditorPage() {
       columnFilters,
       globalFilter,
       rowSelection,
-      pagination: { pageIndex: 0, pageSize },
+      pagination: { pageIndex, pageSize },
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    onPaginationChange: (updater) => {
+      const next = typeof updater === 'function' ? updater({ pageIndex, pageSize }) : updater
+      setPageIndex(next.pageIndex)
+      setPageSize(next.pageSize)
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -1095,33 +1136,51 @@ export default function EditorPage() {
                 ))}
               </thead>
               <tbody>
-                {table.getRowModel().rows.map(row => (
-                  <tr
-                    key={row.id}
-                    className={cn(
-                      'border-b border-border/20 transition-colors',
-                      row.getIsSelected() ? 'bg-primary/5' : 'hover:bg-surface-hover',
-                      row.original.Important ? 'border-l-2 border-l-warning' : '',
-                      row.original.A_revoir ? 'border-l-2 border-l-danger' : '',
-                      row.original.lettre ? 'opacity-60' : '',
-                    )}
-                  >
-                    {row.getVisibleCells().map(cell => {
-                      const meta = cell.column.columnDef.meta as { align?: string } | undefined
-                      return (
-                        <td
-                          key={cell.id}
-                          className={cn(
-                            'py-1 px-2',
-                            meta?.align === 'right' ? 'text-right' : ''
-                          )}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
+                {table.getRowModel().rows.map(row => {
+                  const hasVentilation = (row.original.ventilation?.length ?? 0) > 0
+                  const totalCols = row.getVisibleCells().length
+                  return (
+                    <React.Fragment key={row.id}>
+                      <tr
+                        className={cn(
+                          'border-b border-border/20 transition-colors editor-row',
+                          row.getIsSelected() ? 'bg-primary/5' : '',
+                          row.original.Important ? 'border-l-2 border-l-warning' : '',
+                          row.original.A_revoir ? 'border-l-2 border-l-danger' : '',
+                          row.original.lettre ? 'opacity-60' : '',
+                        )}
+                      >
+                        {row.getVisibleCells().map(cell => {
+                          const meta = cell.column.columnDef.meta as { align?: string } | undefined
+                          return (
+                            <td
+                              key={cell.id}
+                              className={cn(
+                                'py-1 px-2',
+                                meta?.align === 'right' ? 'text-right' : ''
+                              )}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                      {hasVentilation && (
+                        <VentilationLines
+                          lines={row.original.ventilation!}
+                          colSpan={totalCols}
+                          categoryColors={categoryColors}
+                          onClick={() => {
+                            if (!allYearMode) {
+                              setVentilationOpIndex(row.index)
+                              setVentilationOpen(true)
+                            }
+                          }}
+                        />
+                      )}
+                    </React.Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -1203,18 +1262,57 @@ export default function EditorPage() {
       {pdfDrawerOpen && (
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setPdfDrawerOpen(false)} />
-          <div className="fixed right-0 top-0 h-full w-[700px] max-w-[90vw] bg-surface border-l border-border z-50 flex flex-col shadow-2xl">
+          <div
+            className="fixed right-0 top-0 h-full bg-surface border-l border-border z-50 flex flex-col shadow-2xl"
+            style={{ width: Math.min(Math.max(pdfDrawerWidth, 400), 1200) }}
+          >
+            {/* Resize handle */}
+            <div
+              className="absolute left-0 top-0 h-full w-2 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 transition-colors z-10"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                pdfResizing.current = true
+                const startX = e.clientX
+                const startW = pdfDrawerWidth
+                const onMove = (ev: MouseEvent) => {
+                  if (!pdfResizing.current) return
+                  const delta = startX - ev.clientX
+                  setPdfDrawerWidth(Math.min(Math.max(startW + delta, 400), 1200))
+                }
+                const onUp = () => {
+                  pdfResizing.current = false
+                  document.removeEventListener('mousemove', onMove)
+                  document.removeEventListener('mouseup', onUp)
+                }
+                document.addEventListener('mousemove', onMove)
+                document.addEventListener('mouseup', onUp)
+              }}
+            />
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <FileText size={18} />
                 Relevé PDF original
               </h2>
-              <button
-                onClick={() => setPdfDrawerOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (selectedFile) {
+                      api.post(`/operations/${selectedFile}/pdf/open-native`)
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/20 hover:bg-primary/30 text-sm transition-colors"
+                  title="Ouvrir dans Aperçu (macOS)"
+                >
+                  <Download size={14} />
+                  Ouvrir dans Aperçu
+                </button>
+                <button
+                  onClick={() => setPdfDrawerOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
             <iframe
               src={`/api/operations/${selectedFile}/pdf`}
@@ -1233,6 +1331,15 @@ export default function EditorPage() {
         operationFile={selectedFile || undefined}
         operationIndex={drawerOpIndex ?? undefined}
         operation={drawerOpIndex !== null ? operations[drawerOpIndex] : undefined}
+      />
+
+      {/* Ventilation Drawer */}
+      <VentilationDrawer
+        open={ventilationOpen}
+        onClose={() => { setVentilationOpen(false); setVentilationOpIndex(null) }}
+        filename={selectedFile}
+        opIndex={ventilationOpIndex}
+        operation={ventilationOpIndex !== null ? operations[ventilationOpIndex] : null}
       />
     </div>
   )

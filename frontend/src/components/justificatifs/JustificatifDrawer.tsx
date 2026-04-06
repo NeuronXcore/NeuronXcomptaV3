@@ -13,6 +13,7 @@ import {
   CheckCircle, AlertCircle, ChevronDown, ChevronUp, ScanLine,
 } from 'lucide-react'
 import type { JustificatifInfo, OperationSuggestion } from '@/types'
+import OcrDataEditor from '@/components/justificatifs/OcrDataEditor'
 
 interface JustificatifDrawerProps {
   open: boolean
@@ -407,67 +408,67 @@ function OcrSection({ justificatif }: { justificatif: JustificatifInfo }) {
   }
 
   return (
-    <div className="bg-surface rounded-lg border border-border p-3.5">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-semibold flex items-center gap-1.5 text-text">
-          <ScanLine size={13} className="text-primary" />
-          Données OCR
-        </h4>
-        {ocr?.processed && (
-          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-400 font-medium">
-            Traité
-          </span>
-        )}
-      </div>
-
-      {ocr?.processed ? (
-        <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <p className="text-[10px] text-text-muted">Date</p>
-              <p className="text-xs text-text font-medium">{ocr.best_date || '-'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-text-muted">Montant</p>
-              <p className="text-xs text-text font-medium">
-                {ocr.best_amount ? formatCurrency(ocr.best_amount) : '-'}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-text-muted">Fournisseur</p>
-              <p className="text-xs text-text font-medium truncate" title={ocr.supplier || ''}>
-                {ocr.supplier || '-'}
-              </p>
-            </div>
+    <div>
+      {!ocr?.processed && (
+        <div className="bg-surface rounded-lg border border-border p-3.5">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-semibold flex items-center gap-1.5 text-text">
+              <ScanLine size={13} className="text-primary" />
+              Donnees OCR
+            </h4>
           </div>
+          <button
+            onClick={handleExtract}
+            disabled={extractOcr.isPending}
+            className="flex items-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors w-full justify-center"
+          >
+            {extractOcr.isPending ? (
+              <>
+                <Loader2 size={12} className="animate-spin" />
+                Extraction en cours...
+              </>
+            ) : (
+              <>
+                <ScanLine size={12} />
+                Lancer l'OCR
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {ocr?.processed && ocrResult && (
+        <div>
+          <OcrDataEditor
+            filename={justificatif.filename}
+            currentData={{
+              best_amount: ocrResult.extracted_data.best_amount ?? null,
+              best_date: ocrResult.extracted_data.best_date ?? null,
+              supplier: ocrResult.extracted_data.supplier ?? null,
+              amounts: ocrResult.extracted_data.amounts || [],
+              dates: ocrResult.extracted_data.dates || [],
+            }}
+            isManualEdit={ocrResult.manual_edit}
+          />
           {/* Re-extract button */}
           <button
             onClick={handleExtract}
             disabled={extractOcr.isPending}
-            className="flex items-center gap-1.5 text-[10px] text-text-muted hover:text-primary transition-colors"
+            className="flex items-center gap-1.5 text-[10px] text-text-muted hover:text-primary transition-colors mt-2"
           >
             {extractOcr.isPending ? <Loader2 size={10} className="animate-spin" /> : <ScanLine size={10} />}
             Relancer l'OCR
           </button>
         </div>
-      ) : (
-        <button
-          onClick={handleExtract}
-          disabled={extractOcr.isPending}
-          className="flex items-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors w-full justify-center"
-        >
-          {extractOcr.isPending ? (
-            <>
-              <Loader2 size={12} className="animate-spin" />
-              Extraction en cours...
-            </>
-          ) : (
-            <>
-              <ScanLine size={12} />
-              Lancer l'OCR
-            </>
-          )}
-        </button>
+      )}
+
+      {ocr?.processed && !ocrResult && (
+        <div className="bg-surface rounded-lg border border-border p-3.5">
+          <div className="flex items-center gap-1.5 text-xs text-text-muted">
+            <Loader2 size={12} className="animate-spin" />
+            Chargement des donnees OCR...
+          </div>
+        </div>
       )}
     </div>
   )
