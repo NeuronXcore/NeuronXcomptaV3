@@ -1,5 +1,7 @@
-import { TrendingUp, TrendingDown, Calculator, Landmark } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { TrendingUp, TrendingDown, Calculator, Landmark, Brain, Minus } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
+import { useMLHealthKPI } from '@/hooks/useApi'
 import type { DashboardKPIs, DeltaN1 } from '@/types'
 
 interface KpiCardsProps {
@@ -41,10 +43,12 @@ function Sparkline({ data }: { data: number[] }) {
 }
 
 export default function KpiCards({ kpis, delta }: KpiCardsProps) {
+  const navigate = useNavigate()
+  const { data: health } = useMLHealthKPI()
   const chargesSociales = Math.round(kpis.bnc_estime * 0.39)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       {/* Recettes */}
       <div className="bg-surface rounded-lg p-4 border border-border">
         <div className="flex items-center gap-2 mb-2">
@@ -96,6 +100,43 @@ export default function KpiCards({ kpis, delta }: KpiCardsProps) {
         </div>
         <p className="text-xl font-bold text-text">{formatCurrency(chargesSociales)}</p>
         <p className="text-[10px] text-text-muted mt-1">URSSAF + CARMF + ODM (~39%)</p>
+      </div>
+
+      {/* Agent IA */}
+      <div
+        className="bg-surface rounded-lg p-4 border border-border cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all"
+        onClick={() => navigate('/agent-ai')}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+            <Brain size={16} className="text-purple-400" />
+          </div>
+          <span className="text-xs text-text-muted">Agent IA</span>
+          {health?.correction_trend === 'improving' && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center gap-0.5">
+              <TrendingDown size={8} /> amél.
+            </span>
+          )}
+          {health?.correction_trend === 'degrading' && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 flex items-center gap-0.5">
+              <TrendingUp size={8} /> dégr.
+            </span>
+          )}
+          {health?.correction_trend === 'stable' && (
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-500/15 text-text-muted flex items-center gap-0.5">
+              <Minus size={8} /> stable
+            </span>
+          )}
+        </div>
+        <p className="text-xl font-bold text-text">
+          {health ? `${Math.round(health.coverage_rate * 100)}%` : '—'}
+        </p>
+        <p className="text-[10px] text-text-muted mt-1">
+          {health ? `Corrections : ${Math.round(health.correction_rate * 100)}%` : 'Couverture IA'}
+        </p>
+        {health?.alert && (
+          <p className="text-[10px] text-red-400 mt-1 truncate">{health.alert}</p>
+        )}
       </div>
     </div>
   )

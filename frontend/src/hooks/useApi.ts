@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { DashboardData, OperationFile, CategoryGroup, CategoryRaw, AppSettings, MLModelInfo, MLModelFull, TrainingExample, TrendRecord, AnomalyRecord, YearOverviewResponse } from '@/types'
+import type { DashboardData, OperationFile, CategoryGroup, CategoryRaw, AppSettings, MLModelInfo, MLModelFull, TrainingExample, TrendRecord, AnomalyRecord, YearOverviewResponse, MLMonitoringStats, MLHealthKPI } from '@/types'
 
 function _periodParams(year?: number | null, quarter?: number | null, month?: number | null): string {
   const params = new URLSearchParams()
@@ -65,6 +65,29 @@ export function useTrainingData() {
   return useQuery<{ count: number; examples: TrainingExample[] }>({
     queryKey: ['ml-training-data'],
     queryFn: () => api.get('/ml/training-data'),
+  })
+}
+
+export function useMLMonitoringStats(year?: number) {
+  const qs = year != null ? `?year=${year}` : ''
+  return useQuery<MLMonitoringStats>({
+    queryKey: ['ml-monitoring', year ?? 'all'],
+    queryFn: () => api.get(`/ml/monitoring/stats${qs}`),
+  })
+}
+
+export function useMLHealthKPI() {
+  return useQuery<MLHealthKPI>({
+    queryKey: ['ml-health'],
+    queryFn: () => api.get('/ml/monitoring/health'),
+    staleTime: 30_000,
+  })
+}
+
+export function useCorrectionHistory() {
+  return useQuery<Array<{ month: string; rate: number }>>({
+    queryKey: ['ml-correction-history'],
+    queryFn: () => api.get('/ml/monitoring/correction-history'),
   })
 }
 

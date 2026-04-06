@@ -132,8 +132,66 @@ Créer une sauvegarde du modèle.
 ### `GET /backups`
 Lister les sauvegardes.
 
+### `POST /train-and-apply`
+Entraîner le modèle puis recatégoriser (mode empty_only) toutes les opérations.
+
+**Query :** `?year=2026` (optionnel, sinon toutes les années)
+
+**Réponse :**
+```json
+{
+  "success": true,
+  "train_metrics": { "acc_train": 0.91, "acc_test": 0.87, "f1": 0.85, ... },
+  "apply_results": { "files_processed": 12, "total_operations": 340, "total_modified": 47, "year": 2026 }
+}
+```
+
 ### `POST /restore/{backup_name}`
 Restaurer une sauvegarde. Query : `?restore_training_data=true`
+
+### `GET /monitoring/stats`
+Stats agrégées du monitoring ML.
+
+**Query :** `?year=2026` (optionnel)
+
+**Réponse :**
+```json
+{
+  "coverage_rate": 0.68,
+  "avg_confidence": 0.75,
+  "confidence_distribution": { "high": 120, "medium": 30, "low": 5 },
+  "correction_rate": 0.08,
+  "hallucination_rate": 0.03,
+  "top_errors": [{ "libelle": "...", "predicted": "...", "corrected": "...", "count": 3 }],
+  "training_history": [{ "timestamp": "...", "examples_count": 150, "accuracy": 0.87, ... }],
+  "correction_rate_history": [{ "month": "2026-01", "rate": 0.12 }],
+  "knowledge_base": { "rules": 111, "keywords": 50, "examples": 150 },
+  "confusion_pairs": [{ "from": "Véhicule", "to": "Matériel", "count": 5 }],
+  "orphan_categories": [{ "category": "Poste", "examples_count": 2 }],
+  "unknown_libelles_count": 3
+}
+```
+
+### `GET /monitoring/health`
+KPI résumé pour le Dashboard.
+
+**Réponse :**
+```json
+{
+  "coverage_rate": 0.68,
+  "correction_rate": 0.08,
+  "correction_trend": "improving",
+  "hallucination_rate": 0.03,
+  "last_training": "2026-04-06T10:30:00",
+  "alert": null
+}
+```
+
+### `GET /monitoring/confusion`
+Matrice de confusion depuis les corrections loggées. Query : `?year=2026`
+
+### `GET /monitoring/correction-history`
+Taux de correction par mois.
 
 ---
 

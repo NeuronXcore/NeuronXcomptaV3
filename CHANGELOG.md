@@ -8,6 +8,36 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-06)
+- **ML Monitoring** : systeme complet de monitoring de l'agent IA
+  - Logging automatique des predictions a chaque categorisation (source, confiance, risque hallucination)
+  - Tracking des corrections manuelles au save dans l'editeur (detection par comparaison avec derniere prediction)
+  - Logging des entrainements (accuracy, nb exemples, nb regles)
+  - Nouvel onglet "Monitoring" dans la page Agent IA avec 4 sections :
+    - Performance : taux de couverture, confiance moyenne, distribution confiance
+    - Fiabilite : taux de correction, taux d'hallucination, libelles inconnus, table top erreurs
+    - Progression : courbe accuracy (LineChart Recharts), courbe taux correction/mois, base de connaissances
+    - Diagnostic : paires confuses (matrice confusion simplifiee), categories orphelines
+  - Carte KPI "Agent IA" dans le Dashboard : couverture, corrections, trend, alerte, clic → Agent IA
+  - `backend/models/ml.py` : PredictionSource enum, PredictionLog, PredictionBatchLog, CorrectionLog, TrainingLog, MLMonitoringStats, MLHealthKPI
+  - `backend/services/ml_monitoring_service.py` : logging, detection corrections, stats agregees, health KPI
+  - 4 endpoints monitoring : `GET /api/ml/monitoring/stats`, `/health`, `/confusion`, `/correction-history`
+  - Stockage logs dans `data/ml/logs/predictions/` et `data/ml/logs/corrections/`
+  - Systeme d'onglets dans AgentIAPage (Dashboard ML | Monitoring)
+
+- **Entrainer + Appliquer** : bouton bulk recategorisation dans Agent IA
+  - Bouton vert "Entrainer + Appliquer" dans la page Agent IA (section Actions rapides)
+  - En un clic : entraine le modele sklearn puis recategorise (mode empty_only) toutes les operations de l'annee
+  - Checkbox "Toutes les annees" pour traiter tous les fichiers
+  - `POST /api/ml/train-and-apply?year=` : endpoint combine entrainement + categorisation bulk
+  - Toast avec stats concretes (nb fichiers traites, nb operations modifiees)
+  - Utilise `useFiscalYearStore` pour l'annee par defaut
+  - Extraction de `categorize_file()` dans `operation_service.py` (logique deplacee du router vers le service)
+
+- **Badge Agent IA sidebar** : badge violet dans la sidebar quand l'agent IA necessite attention
+  - Affiche le nombre d'operations non categorisees
+  - Visible uniquement si operations non categorisees > 0 ET dernier entrainement > 7 jours
+
 ### Added (2026-04-05)
 - **Module Tâches Kanban** : suivi des actions comptables avec vue kanban 3 colonnes
   - 3 colonnes : To do / In progress / Done avec drag & drop via @dnd-kit

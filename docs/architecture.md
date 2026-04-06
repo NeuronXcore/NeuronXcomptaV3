@@ -119,6 +119,19 @@ Auto-catégorisation (EditorPage) :
   → Seules les opérations sans catégorie ou "Autres" sont traitées
   → useRef anti-boucle empêche le re-déclenchement (lastAutoCategorizedFile)
   → Bouton "Recatégoriser IA" : force mode "all" (recatégorise toutes les lignes)
+
+Entraîner + Appliquer (AgentIAPage) :
+  → POST /api/ml/train-and-apply?year=YYYY
+  → Entraîne sklearn puis categorize_file() sur tous les fichiers de l'année (mode empty_only)
+  → Logique de catégorisation extraite dans operation_service.categorize_file() (source unique)
+
+ML Monitoring :
+  → Chaque catégorisation logge un PredictionBatchLog dans data/ml/logs/predictions/
+  → Chaque save éditeur (PUT /{filename}) détecte les corrections par comparaison
+  → Corrections loggées dans data/ml/logs/corrections/corrections_YYYY_MM.json
+  → Entraînements loggés dans data/ml/logs/trainings.json
+  → GET /monitoring/stats agrège : couverture, confiance, corrections, hallucinations, confusion
+  → GET /monitoring/health : KPI résumé pour Dashboard (coverage, correction_trend, alert)
 ```
 
 ### Vue année complète (EditorPage)
@@ -412,7 +425,11 @@ data/
 │   ├── sklearn_model.pkl       # Modèle ML entraîné
 │   ├── vectorizer.pkl          # TF-IDF vectorizer
 │   ├── training_examples.json  # Exemples d'entraînement
-│   └── backups/                # Sauvegardes horodatées
+│   ├── backups/                # Sauvegardes horodatées
+│   └── logs/                   # Monitoring ML
+│       ├── predictions/        # PredictionBatchLog par catégorisation
+│       ├── corrections/        # CorrectionLog[] mensuels
+│       └── trainings.json      # TrainingLog[] (append)
 ├── ged/
 │   ├── ged_metadata.json       # Index des documents GED (chemins, types, postes, tags)
 │   ├── ged_postes.json         # Postes comptables avec % déductibilité

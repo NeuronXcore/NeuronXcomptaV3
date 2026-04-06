@@ -19,6 +19,7 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Templates Justificatifs**: Bibliothèque de templates par fournisseur créés depuis des justificatifs scannés. Génération de PDF reconstitués via ReportLab quand l'original est manquant. Aucune mention de reconstitution sur le PDF — traçabilité uniquement dans les métadonnées `.ocr.json`. Templates stockés dans `data/templates/justificatifs_templates.json`. Fichiers générés préfixés `reconstitue_` dans `data/justificatifs/en_attente/`.
 - **Tâches Kanban**: Module de suivi des actions comptables avec vue kanban 3 colonnes (To do / In progress / Done). Tâches auto-générées par scan de l'état applicatif (5 détections : opérations non catégorisées, justificatifs en attente, clôture incomplète, mois sans relevé, alertes non résolues) + tâches manuelles. Drag & drop via @dnd-kit. Scopé par année (store Zustand global). Badge compteur dans la sidebar. Données dans `data/tasks.json`.
 - **Sélecteur Année Global**: Store Zustand (`useFiscalYearStore`) avec persistance localStorage. Sélecteur `◀ ANNÉE ▶` dans la sidebar, synchronisé bidirectionnellement avec les sélecteurs année de chaque page (EditorPage, AlertesPage, CloturePage, DashboardPage, ExportPage, ReportsPage, PrevisionnelPage, ComptaAnalytiquePage).
+- **ML Monitoring**: Système de monitoring de l'agent IA avec logging des prédictions (source, confiance, hallucination), tracking des corrections manuelles, stats agrégées (couverture, correction rate, confusion matrix). Onglet Monitoring dans Agent IA (4 sections : Performance, Fiabilité, Progression, Diagnostic). Carte KPI "Agent IA" dans le Dashboard. Logs dans `data/ml/logs/`.
 - **GED**: Document library indexing existing files (relevés, justificatifs, rapports) without duplication. Supports free document uploads in `data/ged/{year}/{month}/`. Each document linked to a *poste comptable* with configurable deductibility % (slider 0-100, step 5). Metadata stored in `data/ged/ged_metadata.json`, postes in `data/ged/ged_postes.json`. PDF thumbnails cached in `data/ged/thumbnails/` via pdf2image. Dual tree view (by year / by type).
 
 ## PDF Import Pipeline
@@ -56,9 +57,9 @@ neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
 │   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR, BAREMES_DIR, TASKS_FILE
-│   ├── models/                 # Pydantic schemas (14 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py, template.py, previsionnel.py, task.py)
+│   ├── models/                 # Pydantic schemas (15 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py, template.py, previsionnel.py, task.py, ml.py)
 │   ├── routers/                # API endpoints (20 routers, incl. ged.py, amortissements.py, simulation.py, templates.py, previsionnel.py, tasks.py)
-│   └── services/               # Business logic (19 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py, previsionnel_service.py, task_service.py)
+│   └── services/               # Business logic (20 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py, previsionnel_service.py, task_service.py, ml_monitoring_service.py)
 ├── frontend/
 │   └── src/
 │       ├── App.tsx             # All 19 routes (Pipeline=/, Dashboard=/dashboard, Tasks=/tasks)
@@ -119,7 +120,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 |--------|--------|---------------|
 | operations | `/api/operations` | GET /files, GET/PUT/DELETE /{filename}, POST /import, POST /{filename}/categorize, GET /{filename}/has-pdf, GET /{filename}/pdf |
 | categories | `/api/categories` | GET, POST, PUT /{name}, DELETE /{name}, GET /{name}/subcategories |
-| ml | `/api/ml` | GET /model, POST /predict, POST /train, POST /rules, POST /backup, POST /restore/{name} |
+| ml | `/api/ml` | GET /model, POST /predict, POST /train, POST /train-and-apply, POST /rules, POST /backup, POST /restore/{name}, GET /monitoring/stats, GET /monitoring/health, GET /monitoring/confusion, GET /monitoring/correction-history |
 | analytics | `/api/analytics` | GET /dashboard, GET /summary, GET /trends, GET /anomalies, GET /category-detail, GET /compare, GET /year-overview |
 | reports | `/api/reports` | GET /gallery, GET /tree, GET /templates, GET /pending, POST /generate, POST /{filename}/regenerate, POST /{filename}/favorite, POST /compare, PUT /{filename}, GET /preview/{filename}, GET /download/{filename}, DELETE /{filename} |
 | queries | `/api/queries` | POST /query, GET/POST/DELETE /queries |
@@ -151,7 +152,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | `/reports` | ReportsPage | **Rapports V2** : 2 onglets (Générer avec templates rapides + filtres avancés, Bibliothèque avec triple vue arbre par année/catégorie/format), favoris épinglés, comparaison side-by-side de 2 rapports (drawer delta), rappels dans le dashboard, formats PDF (EUR, ligne totaux)/CSV (`;` FR)/Excel (formules SUM), déduplication, index JSON, preview drawer 800px avec édition titre/description |
 | `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie (drawer sous-catégories), **comparatif périodes avec séparation recettes/dépenses** (2 graphiques, 2 tableaux, delta badges inversés pour revenus, clic catégorie → drawer), tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | `/justificatifs` | JustificatifsPage | Galerie, association, PDF preview drawer, sandbox SSE badge (upload retiré — passe par OCR) |
-| `/agent-ai` | AgentIAPage | ML model dashboard, rules, training, backups |
+| `/agent-ai` | AgentIAPage | **2 onglets** (Dashboard ML : gauges, actions rapides avec Entraîner + Appliquer bulk, courbe apprentissage, règles, backups \| Monitoring : performance/fiabilité/progression/diagnostic avec tables + Recharts), badge sidebar violet (ops non catégorisées si entraînement > 7j) |
 | `/export` | ExportPage | Monthly ZIP export with calendar grid |
 | `/rapprochement` | RapprochementPage | Auto/manual bank-justificatif reconciliation avec drawer rapprochement manuel (filtres, scores, preview PDF) |
 | `/alertes` | AlertesPage | Compte d'attente avec badge alertes, **sélecteur année + boutons mois** |

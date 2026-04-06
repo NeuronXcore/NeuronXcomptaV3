@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { cn } from '@/lib/utils'
-import { Brain, Play, Save, Loader2, CheckCircle, AlertTriangle, XCircle, Zap } from 'lucide-react'
-import type { PredictionResult, TrainResult } from '@/types'
+import { Brain, BrainCircuit, Play, Save, Loader2, CheckCircle, AlertTriangle, XCircle, Zap } from 'lucide-react'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import toast from 'react-hot-toast'
+import type { PredictionResult, TrainResult, TrainAndApplyResult } from '@/types'
 
 export default function ActionsRapides() {
   const queryClient = useQueryClient()
@@ -38,6 +40,33 @@ export default function ActionsRapides() {
       setBackupMsg(`Backup créé : ${data.backup_name}`)
       queryClient.invalidateQueries({ queryKey: ['ml-backups'] })
       setTimeout(() => setBackupMsg(''), 5000)
+    },
+  })
+
+  // --- Train + Apply ---
+  const { selectedYear } = useFiscalYearStore()
+  const [allYears, setAllYears] = useState(false)
+  const [applyResult, setApplyResult] = useState<TrainAndApplyResult | null>(null)
+
+  const trainAndApplyMutation = useMutation({
+    mutationFn: () => {
+      const qs = allYears ? '' : `?year=${selectedYear}`
+      return api.post<TrainAndApplyResult>(`/ml/train-and-apply${qs}`)
+    },
+    onSuccess: (data) => {
+      setApplyResult(data)
+      toast.dismiss('train-apply')
+      toast.success(
+        `Modèle entraîné. ${data.apply_results.total_modified} opérations recatégorisées sur ${data.apply_results.files_processed} fichiers.`
+      )
+      queryClient.invalidateQueries({ queryKey: ['ml-model'] })
+      queryClient.invalidateQueries({ queryKey: ['ml-model-full'] })
+      queryClient.invalidateQueries({ queryKey: ['operations'] })
+      queryClient.invalidateQueries({ queryKey: ['operation-files'] })
+    },
+    onError: (error) => {
+      toast.dismiss('train-apply')
+      toast.error(`Erreur : ${error.message}`)
     },
   })
 
@@ -198,6 +227,72 @@ export default function ActionsRapides() {
         {trainMutation.isError && (
           <p className="text-xs text-red-400 flex items-center gap-1">
             <XCircle size={12} /> {trainMutation.error.message}
+          </p>
+        )}
+      </div>
+
+      {/* Entraîner + Appliquer */}
+      <div className="space-y-3 pt-3 border-t border-border/30">
+        <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Entraîner + Appliquer</p>
+
+        <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={allYears}
+            onChange={(e) => setAllYears(e.target.checked)}
+            className="rounded border-border"
+          />
+          Toutes les années {!allYears && <span className="text-text/60">({selectedYear})</span>}
+        </label>
+
+        <button
+          onClick={() => { setApplyResult(null); toast.loading('Entraînement + recatégorisation en cours...', { id: 'train-apply' }); trainAndApplyMutation.mutate() }}
+          disabled={trainAndApplyMutation.isPending}
+          className="w-full bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-green-500 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {trainAndApplyMutation.isPending ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Entraînement + application en cours...
+            </>
+          ) : (
+            <>
+              <BrainCircuit size={14} />
+              Entraîner + Appliquer {allYears ? '(toutes)' : selectedYear}
+            </>
+          )}
+        </button>
+
+        {applyResult && applyResult.success && (
+          <div className="bg-background rounded-lg p-3 border border-green-500/30 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle size={14} className="text-green-400" />
+              <span className="text-xs font-medium text-green-400">Entraînement + application réussis</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-text-muted">Accuracy (test)</span>
+                <span className="text-text font-medium">{(applyResult.train_metrics.acc_test * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-muted">F1 Score</span>
+                <span className="text-text font-medium">{(applyResult.train_metrics.f1 * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-muted">Fichiers traités</span>
+                <span className="text-text font-medium">{applyResult.apply_results.files_processed}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-text-muted">Ops modifiées</span>
+                <span className="text-text font-medium">{applyResult.apply_results.total_modified} / {applyResult.apply_results.total_operations}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {trainAndApplyMutation.isError && (
+          <p className="text-xs text-red-400 flex items-center gap-1">
+            <XCircle size={12} /> {trainAndApplyMutation.error.message}
           </p>
         )}
       </div>

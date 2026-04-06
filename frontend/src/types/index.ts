@@ -145,6 +145,55 @@ export interface TrainResult {
   }
 }
 
+export interface TrainAndApplyResult {
+  success: boolean
+  train_metrics: {
+    acc_train: number
+    acc_test: number
+    f1: number
+    precision: number
+    recall: number
+    n_samples: number
+    n_classes: number
+  }
+  apply_results: {
+    files_processed: number
+    total_operations: number
+    total_modified: number
+    year: number | null
+  }
+}
+
+export interface MLMonitoringStats {
+  coverage_rate: number
+  avg_confidence: number
+  confidence_distribution: { high: number; medium: number; low: number }
+  correction_rate: number
+  hallucination_rate: number
+  top_errors: Array<{ libelle: string; predicted: string; corrected: string; count: number }>
+  training_history: Array<{
+    timestamp: string
+    examples_count: number
+    accuracy: number | null
+    rules_count: number
+    keywords_count: number
+  }>
+  correction_rate_history: Array<{ month: string; rate: number }>
+  knowledge_base: { rules: number; keywords: number; examples: number }
+  confusion_pairs: Array<{ from: string; to: string; count: number }>
+  orphan_categories: Array<{ category: string; examples_count: number }>
+  unknown_libelles_count: number
+}
+
+export interface MLHealthKPI {
+  coverage_rate: number
+  correction_rate: number
+  correction_trend: 'improving' | 'stable' | 'degrading'
+  hallucination_rate: number
+  last_training: string | null
+  alert: string | null
+}
+
 export interface TrainingExample {
   libelle: string
   categorie: string

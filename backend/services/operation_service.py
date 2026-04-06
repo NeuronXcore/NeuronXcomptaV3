@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Service pour la gestion des opérations.
 Refactoré depuis utils/file_operations.py de V2 (sans dépendance Streamlit).
@@ -392,3 +394,101 @@ def _categorize_simple(libelle: str) -> str:
             if mot in libelle_upper:
                 return categorie
     return "Autres"
+
+
+# ── Catégorisation IA d'un fichier ───────────────────────────────────────
+
+def categorize_file(filename: str, mode: str = "empty_only") -> dict:
+    """Catégorise les opérations d'un fichier via IA (rules + sklearn).
+
+    Args:
+        filename: nom du fichier d'opérations
+        mode: "empty_only" (défaut) ou "all"
+
+    Returns:
+        {"filename": str, "modified": int, "total": int}
+    """
+    from backend.services import ml_service, ml_monitoring_service
+    from backend.models.ml import PredictionLog, PredictionBatchLog, PredictionSource
+
+    operations = load_operations(filename)
+    model = ml_service.load_rules_model()
+    modified = 0
+    prediction_logs: list[PredictionLog] = []
+    high = medium = low = hallucination_flags = 0
+
+    for op in operations:
+        libelle = op.get("Libellé", "")
+        current_cat = op.get("Catégorie", "")
+
+        if mode == "empty_only" and current_cat and current_cat != "Autres":
+            continue
+
+        clean = ml_service.clean_libelle(libelle)
+
+        # Predict with source tracking
+        predicted = ml_service.predict_category(clean, model)
+        source = PredictionSource.keywords
+        confidence = 1.0
+        risk = False
+
+        if predicted is None:
+            predicted = ml_service.predict_category_sklearn(clean)
+            source = PredictionSource.sklearn
+            if predicted:
+                _, confidence, risk = ml_service.evaluate_hallucination_risk(clean)
+        else:
+            # Rules-based: check if exact match
+            clean_lower = clean.lower() if clean else ""
+            exact = model.get("exact_matches", {})
+            if clean_lower in exact or clean in exact:
+                source = PredictionSource.exact_match
+
+        if predicted:
+            op["Catégorie"] = predicted
+            sub = ml_service.predict_subcategory(clean, model)
+            if sub:
+                op["Sous-catégorie"] = sub
+            modified += 1
+
+            # Log this prediction
+            if confidence >= 0.8:
+                high += 1
+            elif confidence >= 0.5:
+                medium += 1
+            else:
+                low += 1
+            if risk:
+                hallucination_flags += 1
+
+            prediction_logs.append(PredictionLog(
+                libelle=libelle,
+                predicted_category=predicted,
+                predicted_subcategory=sub,
+                confidence=confidence,
+                source=source,
+                hallucination_risk=risk,
+            ))
+
+    save_operations(operations, filename=filename)
+
+    # Log prediction batch
+    if prediction_logs:
+        try:
+            batch = PredictionBatchLog(
+                timestamp=datetime.now().isoformat(),
+                filename=filename,
+                mode=mode,
+                total_operations=len(operations),
+                predicted=len(prediction_logs),
+                high_confidence=high,
+                medium_confidence=medium,
+                low_confidence=low,
+                hallucination_flags=hallucination_flags,
+                predictions=prediction_logs,
+            )
+            ml_monitoring_service.log_prediction_batch(batch)
+        except Exception as e:
+            logger.warning("Failed to log prediction batch: %s", e)
+
+    return {"filename": filename, "modified": modified, "total": len(operations)}

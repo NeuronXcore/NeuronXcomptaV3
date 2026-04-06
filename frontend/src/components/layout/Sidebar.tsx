@@ -12,6 +12,7 @@ import { usePipeline } from '@/hooks/usePipeline'
 import { useOperationFiles } from '@/hooks/useOperations'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useTasks } from '@/hooks/useTasks'
+import { useMLModel } from '@/hooks/useApi'
 import SidebarLogo from './SidebarLogo'
 
 const NAV_SECTIONS = [
@@ -94,6 +95,16 @@ export default function Sidebar() {
     if (!tasksList) return 0
     return tasksList.filter(t => t.status !== 'done').length
   }, [tasksList])
+
+  const { data: mlModel } = useMLModel()
+  const agentBadgeCount = useMemo(() => {
+    const uncategorized = alertesSummary?.par_type?.a_categoriser ?? 0
+    if (uncategorized === 0) return 0
+    const lastTraining = mlModel?.stats?.last_training
+    if (!lastTraining) return uncategorized
+    const daysSince = (Date.now() - new Date(lastTraining).getTime()) / (1000 * 60 * 60 * 24)
+    return daysSince > 7 ? uncategorized : 0
+  }, [alertesSummary, mlModel])
 
   return (
     <aside className="w-64 h-screen bg-surface border-r border-border flex flex-col fixed left-0 top-0">
@@ -197,6 +208,11 @@ export default function Sidebar() {
                 {to === '/tasks' && tasksToDoCount > 0 && (
                   <span className="ml-auto bg-amber-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                     {tasksToDoCount}
+                  </span>
+                )}
+                {to === '/agent-ai' && agentBadgeCount > 0 && (
+                  <span className="ml-auto bg-purple-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {agentBadgeCount}
                   </span>
                 )}
               </NavLink>
