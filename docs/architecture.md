@@ -339,55 +339,66 @@ Sélection mois → exports router → export_service.generate_export()
   → Package ZIP → data/exports/
 ```
 
-### GED (Gestion Électronique de Documents)
+### GED V2 (Hub Documentaire Unifié)
 
 ```
 Page Bibliothèque (/ged) → GedPage (split layout)
-  ├─ Arbre gauche (260px) : double vue (onglets "Par année" / "Par type")
-  │   → GET /api/ged/tree → { by_type: [...], by_year: [...] }
+  ├─ Arbre gauche (260px) : 5 onglets
+  │   → GET /api/ged/tree → { by_period, by_category, by_vendor, by_type, by_year }
+  │   → GedTreePanel : 5 icônes (Calendar, Layers, Tag, Building2, FolderTree)
+  │   → deriveFiltersFromNode() convertit nodeId → GedFilters
   │   → scan_all_sources() indexe : relevés, justificatifs, rapports, docs libres
-  │   → Aucune duplication : métadonnées dans ged_metadata.json, fichiers restent en place
+  │   → backfill_justificatifs_metadata() enrichit les traités existants
+  │   → migrate_reports_index() migre reports_index.json (one-shot)
   │
-  ├─ Contenu droit : grille thumbnails (5-6 cols) ou tableau liste
-  │   → Thumbnails : GET /api/ged/documents/{id}/thumbnail → pdf2image (1ère page, 200px)
-  │   → Cache : data/ged/thumbnails/{md5}.png (régénéré si PDF plus récent)
+  ├─ Barre filtres croisés (GedFilterBar)
+  │   → Dropdowns : type, catégorie (avec compteurs), fournisseur (avec compteurs)
+  │   → Recherche full-text enrichie (noms + OCR + titres rapports + fournisseur)
+  │   → Bouton reset quand filtre actif
+  │   → Init filtres via URL params (/ged?type=rapport&year=2026)
   │
-  ├─ Drawer document (redimensionnable 400-1200px, poignée drag bord gauche)
-  │   → Preview PDF (iframe) + section Fiscalité
-  │   → Poste comptable (select) → % déductible hérité ou surchargé
-  │   → Montant déductible = montant_brut × effective_pct / 100
-  │   → Bouton "Ouvrir dans Aperçu" → POST /open-native → subprocess.Popen(["open", path])
+  ├─ Contenu : grille cartes enrichies (GedDocumentCard) ou tableau liste
+  │   → Thumbnail PDF + badge catégorie + fournisseur + période + montant
+  │   → Badge "RECONSTITUÉ" si is_reconstitue
+  │   → Étoile favori pour rapports
+  │   → Mode comparaison (checkbox sélection 2 rapports)
   │
-  ├─ Drawer postes comptables (600px)
-  │   → 16 postes par défaut (loyer, véhicule, téléphone, etc.)
-  │   → Slider input[type=range] 0-100 step 5, couleur dynamique (vert/orange/rouge)
-  │   → Stats par poste : nb docs, total brut, total déduit
+  ├─ Drawer contextuel selon type :
+  │   → Document (GedDocumentDrawer) : preview PDF + fiscalité + postes
+  │   → Rapport (GedReportDrawer) : preview PDF + favori + re-génération + suppression
   │
-  └─ Upload documents libres → data/ged/{year}/{month}/
-      → Images (JPG/PNG) converties en PDF à l'intake
-      → Recherche full-text : noms fichiers + tags + notes + contenu .ocr.json
+  ├─ Enrichissement automatique metadata :
+  │   → Rapprochement auto/manuel → enrich_metadata_on_association()
+  │   → OCR extraction → enrich_metadata_on_ocr()
+  │   → Save éditeur → propagate_category_change()
+  │   → Dissociation → clear_metadata_on_dissociation()
+  │   → Génération rapport → register_rapport()
+  │   → Suppression rapport → remove_document()
+  │
+  └─ Mapping POSTE_TO_CATEGORIE (16 postes → catégorie comptable)
+      → Classement docs libres dans l'arbre catégorie
 ```
 
 ### Rapports V2
 
 ```
-Page Rapports (/reports) → ReportsPage (2 onglets)
-  ├─ Onglet "Générer"
-  │   → 3 templates rapides (BNC annuel, Ventilation charges, Récapitulatif social)
+Page Rapports (/reports) → ReportsPage (génération uniquement)
+  ├─ 3 templates rapides (BNC annuel, Ventilation charges, Récapitulatif social)
   │   → Filtres avancés (période, catégories multi-select, type, montant, format)
   │   → Formats : PDF (EUR, ligne totaux), CSV (;/virgule/BOM), Excel (formules SUM)
   │   → Déduplication : même clé (filtres+format) = remplacement ancien rapport
   │
-  ├─ Onglet "Bibliothèque" (layout split comme GED)
-  │   → Arbre triple vue (par année / par catégorie / par format)
-  │   → Grille cartes avec favoris (étoile dorée, tri en premier)
-  │   → Sélection multiple pour comparaison (checkbox)
-  │   → Drawer preview 800px (PDF iframe, metadata, édition titre, re-génération)
-  │   → Drawer comparaison 700px (side-by-side, deltas montants/ops/%)
+  ├─ Bouton "Voir dans la bibliothèque →" → /ged?type=rapport
+  │   → Toast post-génération avec lien vers GED
   │
-  └─ Index JSON (data/reports/reports_index.json)
-      → Réconciliation au boot (sync filesystem ↔ index)
-      → Titre auto-généré (catégorie + période)
+  ├─ Génération → register_rapport() → GED metadata enrichi
+  │   → rapport_meta : title, description, filters, format, favorite, generated_at
+  │   → period déduit depuis filters (year, month, quarter)
+  │   → categorie déduit si filtre mono-catégorie
+  │
+  └─ Bibliothèque migrée vers GED V2 (/ged?type=rapport)
+      → Favoris, comparaison, re-génération via endpoints GED
+      → Migration one-shot : reports_index.json → ged_metadata.json (.migrated)
 ```
 
 ### Dotations aux Amortissements

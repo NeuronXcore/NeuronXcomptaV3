@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, ChevronDown, FileText, Receipt, BarChart3, FolderOpen, Calendar } from 'lucide-react'
+import { ChevronRight, ChevronDown, FileText, Receipt, BarChart3, FolderOpen, Calendar, AlertTriangle, Building2, Tag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GedTreeNode } from '@/types'
 
@@ -15,6 +15,9 @@ const ICON_MAP: Record<string, typeof FileText> = {
   BarChart3,
   FolderOpen,
   Calendar,
+  AlertTriangle,
+  Building2,
+  Tag,
 }
 
 export default function GedTree({ tree, selectedNode, onSelect }: GedTreeProps) {

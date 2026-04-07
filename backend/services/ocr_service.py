@@ -266,6 +266,20 @@ def extract_from_pdf(pdf_path: Path, original_filename: Optional[str] = None) ->
         _save_cache(pdf_path, result)
         logger.info(f"OCR extrait: {filename} → {len(dates)} dates, {len(amounts)} montants")
 
+        # GED V2: enrich metadata with OCR data
+        try:
+            from backend.services import ged_service
+            extracted = result.get("extracted_data", {})
+            ged_service.enrich_metadata_on_ocr(
+                justificatif_filename=filename,
+                fournisseur=extracted.get("supplier"),
+                date_document=extracted.get("best_date"),
+                montant=extracted.get("best_amount"),
+                is_reconstitue=(filename or "").startswith("reconstitue_"),
+            )
+        except Exception:
+            pass
+
         return result
 
     except Exception as e:

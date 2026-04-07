@@ -555,6 +555,24 @@ def _run_auto_rapprochement_locked() -> dict:
                                     "auto",
                                     ventilation_index=vl_idx,
                                 )
+                                # GED V2 enrichment
+                                try:
+                                    from backend.services import ged_service
+                                    _op = best_match["op"]
+                                    _amount = float(vlines[vl_idx].get("montant", 0)) if vlines and 0 <= vl_idx < len(vlines) else 0
+                                    ged_service.enrich_metadata_on_association(
+                                        justificatif_filename=filename,
+                                        operation_file=best_match["op_file"],
+                                        operation_index=best_match["op_index"],
+                                        categorie=vlines[vl_idx].get("categorie", "") if vlines and 0 <= vl_idx < len(vlines) else _op.get("Catégorie", ""),
+                                        sous_categorie=vlines[vl_idx].get("sous_categorie", "") if vlines and 0 <= vl_idx < len(vlines) else _op.get("Sous-catégorie", ""),
+                                        fournisseur=ocr_data.get("supplier", "") if ocr_data else "",
+                                        date_operation=_op.get("Date", ""),
+                                        montant=_amount,
+                                        ventilation_index=vl_idx,
+                                    )
+                                except Exception:
+                                    pass
                                 associations_auto += 1
                                 _log_auto_rapprochement(
                                     action="associe",
@@ -580,6 +598,24 @@ def _run_auto_rapprochement_locked() -> dict:
                         )
                         if best_match["op_file"] in ops_cache:
                             ops_cache[best_match["op_file"]][best_match["op_index"]]["Justificatif"] = True
+                        # GED V2 enrichment
+                        try:
+                            from backend.services import ged_service
+                            _op = best_match["op"]
+                            _amount = abs(float(_op.get("Débit", 0) or 0)) or abs(float(_op.get("Crédit", 0) or 0))
+                            ged_service.enrich_metadata_on_association(
+                                justificatif_filename=filename,
+                                operation_file=best_match["op_file"],
+                                operation_index=best_match["op_index"],
+                                categorie=_op.get("Catégorie", ""),
+                                sous_categorie=_op.get("Sous-catégorie", ""),
+                                fournisseur=ocr_data.get("supplier", "") if ocr_data else "",
+                                date_operation=_op.get("Date", ""),
+                                montant=_amount,
+                                ventilation_index=None,
+                            )
+                        except Exception:
+                            pass
                         associations_auto += 1
                         _log_auto_rapprochement(
                             action="associe",

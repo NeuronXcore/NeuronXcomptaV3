@@ -19,6 +19,24 @@ class PostesConfig(BaseModel):
     postes: list[PosteComptable]
 
 
+class PeriodInfo(BaseModel):
+    year: int
+    month: Optional[int] = None
+    quarter: Optional[int] = None
+
+
+class RapportMeta(BaseModel):
+    template_id: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    filters: Optional[dict] = None
+    format: Optional[str] = None  # pdf, csv, xlsx
+    favorite: bool = False
+    generated_at: Optional[str] = None
+    can_regenerate: bool = True
+    can_compare: bool = True
+
+
 class GedDocument(BaseModel):
     doc_id: str  # chemin relatif = clé unique
     type: str  # "releve", "justificatif", "rapport", "document_libre"
@@ -34,6 +52,17 @@ class GedDocument(BaseModel):
     added_at: str = ""
     original_name: Optional[str] = None
     ocr_file: Optional[str] = None
+    # Champs enrichis GED V2
+    fournisseur: Optional[str] = None
+    date_document: Optional[str] = None
+    date_operation: Optional[str] = None
+    period: Optional[PeriodInfo] = None
+    montant: Optional[float] = None
+    ventilation_index: Optional[int] = None
+    is_reconstitue: bool = False
+    operation_ref: Optional[dict] = None  # {"file": "...", "index": 5, "ventilation_index": null}
+    # Rapport metadata
+    rapport_meta: Optional[RapportMeta] = None
 
 
 class GedMetadata(BaseModel):

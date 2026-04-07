@@ -24,6 +24,12 @@ export function useGedDocuments(filters: GedFilters) {
   if (filters.type) params.set('type', filters.type)
   if (filters.year) params.set('year', String(filters.year))
   if (filters.month) params.set('month', String(filters.month))
+  if (filters.quarter) params.set('quarter', String(filters.quarter))
+  if (filters.categorie) params.set('categorie', filters.categorie)
+  if (filters.sous_categorie) params.set('sous_categorie', filters.sous_categorie)
+  if (filters.fournisseur) params.set('fournisseur', filters.fournisseur)
+  if (filters.format_type) params.set('format_type', filters.format_type)
+  if (filters.favorite !== undefined) params.set('favorite', String(filters.favorite))
   if (filters.poste_comptable) params.set('poste_comptable', filters.poste_comptable)
   if (filters.tags?.length) params.set('tags', filters.tags.join(','))
   if (filters.search) params.set('search', filters.search)
@@ -178,5 +184,47 @@ export function useGedOpenNative() {
     mutationFn: (docId: string) => api.post(`/ged/documents/${docId}/open-native`),
     onSuccess: () => toast.success('Document ouvert dans Aperçu'),
     onError: () => toast.error("Impossible d'ouvrir le document"),
+  })
+}
+
+// ─── GED V2 Hooks ───
+
+export function useGedPendingReports(year: number) {
+  return useQuery({
+    queryKey: ['ged', 'pending-reports', year],
+    queryFn: () => api.get(`/ged/pending-reports?year=${year}`),
+  })
+}
+
+export function useToggleReportFavorite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (docId: string) => api.post(`/ged/documents/${encodeURIComponent(docId)}/favorite`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-stats'] })
+      toast.success('Favori mis à jour')
+    },
+  })
+}
+
+export function useRegenerateReport() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (docId: string) => api.post(`/ged/documents/${encodeURIComponent(docId)}/regenerate`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-stats'] })
+      toast.success('Rapport re-généré')
+    },
+  })
+}
+
+export function useCompareReports() {
+  return useMutation({
+    mutationFn: (body: { doc_id_a: string; doc_id_b: string }) =>
+      api.post('/ged/documents/compare-reports', body),
   })
 }

@@ -6,11 +6,13 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
+from fastapi import APIRouter, Body, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse
 
 from backend.models.ged import GedDocumentUpdate, PostesConfig
 from backend.services import ged_service
+
+
 
 router = APIRouter(prefix="/api/ged", tags=["ged"])
 
@@ -29,6 +31,12 @@ async def list_documents(
     type: Optional[str] = Query(None, description="releve, justificatif, rapport, document_libre"),
     year: Optional[int] = Query(None),
     month: Optional[int] = Query(None),
+    quarter: Optional[int] = Query(None),
+    categorie: Optional[str] = Query(None),
+    sous_categorie: Optional[str] = Query(None),
+    fournisseur: Optional[str] = Query(None),
+    format_type: Optional[str] = Query(None),
+    favorite: Optional[bool] = Query(None),
     poste_comptable: Optional[str] = Query(None),
     tags: Optional[str] = Query(None, description="Comma-separated tags"),
     search: Optional[str] = Query(None),
@@ -42,6 +50,12 @@ async def list_documents(
         type_filter=type,
         year=year,
         month=month,
+        quarter=quarter,
+        categorie=categorie,
+        sous_categorie=sous_categorie,
+        fournisseur=fournisseur,
+        format_type=format_type,
+        favorite=favorite,
         poste_comptable=poste_comptable,
         tags=tags_list,
         search=search,
@@ -210,3 +224,38 @@ async def force_scan():
         "success": True,
         "total_documents": len(metadata.get("documents", {})),
     }
+
+
+# ─── GED V2: Rapport actions ───
+
+@router.get("/pending-reports")
+async def get_pending_reports(year: int = Query(...)):
+    """Rapports mensuels non générés pour les mois passés."""
+    return ged_service.get_pending_reports(year)
+
+
+@router.post("/documents/{doc_id:path}/favorite")
+async def toggle_favorite(doc_id: str):
+    """Toggle favori sur un rapport."""
+    try:
+        return ged_service.toggle_rapport_favorite(doc_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/documents/{doc_id:path}/regenerate")
+async def regenerate_rapport(doc_id: str):
+    """Re-générer un rapport avec données actualisées."""
+    try:
+        return ged_service.regenerate_rapport(doc_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/documents/compare-reports")
+async def compare_reports(body: dict = Body(...)):
+    """Compare 2 rapports. Body: { doc_id_a, doc_id_b }"""
+    try:
+        return ged_service.compare_reports(body["doc_id_a"], body["doc_id_b"])
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -751,6 +751,24 @@ export interface PostesConfig {
   postes: PosteComptable[]
 }
 
+export interface PeriodInfo {
+  year: number
+  month?: number
+  quarter?: number
+}
+
+export interface RapportMeta {
+  template_id?: string
+  title?: string
+  description?: string
+  filters?: Record<string, any>
+  format?: string
+  favorite: boolean
+  generated_at?: string
+  can_regenerate: boolean
+  can_compare: boolean
+}
+
 export interface GedDocument {
   doc_id: string
   type: 'releve' | 'justificatif' | 'rapport' | 'document_libre'
@@ -766,6 +784,16 @@ export interface GedDocument {
   added_at: string
   original_name: string | null
   ocr_file: string | null
+  // GED V2 enriched fields
+  fournisseur?: string | null
+  date_document?: string | null
+  date_operation?: string | null
+  period?: PeriodInfo | null
+  montant?: number | null
+  ventilation_index?: number | null
+  is_reconstitue?: boolean
+  operation_ref?: { file: string; index: number; ventilation_index?: number } | null
+  rapport_meta?: RapportMeta | null
 }
 
 export interface GedTreeNode {
@@ -777,6 +805,9 @@ export interface GedTreeNode {
 }
 
 export interface GedTreeResponse {
+  by_period: GedTreeNode[]
+  by_category: GedTreeNode[]
+  by_vendor: GedTreeNode[]
   by_type: GedTreeNode[]
   by_year: GedTreeNode[]
 }
@@ -801,6 +832,11 @@ export interface GedStats {
     total_brut: number
     total_deductible: number
   }>
+  par_categorie: Array<{ categorie: string; count: number; total_montant: number }>
+  par_fournisseur: Array<{ fournisseur: string; count: number; total_montant: number }>
+  par_type: Record<string, number>
+  non_classes: number
+  rapports_favoris: number
 }
 
 // ─── Dashboard V2 (Year Overview) ───
@@ -875,6 +911,12 @@ export interface GedFilters {
   type?: string
   year?: number
   month?: number
+  quarter?: number
+  categorie?: string
+  sous_categorie?: string
+  fournisseur?: string
+  format_type?: string
+  favorite?: boolean
   poste_comptable?: string
   tags?: string[]
   search?: string

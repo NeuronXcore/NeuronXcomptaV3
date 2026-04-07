@@ -132,12 +132,34 @@ async def associate_justificatif(request: AssociateRequest):
 @router.post("/dissociate")
 async def dissociate_justificatif(request: DissociateRequest):
     """Dissocie un justificatif d'une opération."""
+    # GED V2: capture justificatif filename before dissociation clears the link
+    justif_filename_for_ged = None
+    try:
+        from backend.services import operation_service
+        ops = operation_service.load_operations(request.operation_file)
+        if 0 <= request.operation_index < len(ops):
+            lien = ops[request.operation_index].get("Lien justificatif", "")
+            if lien:
+                from pathlib import Path as _Path
+                justif_filename_for_ged = _Path(lien).name
+    except Exception:
+        pass
+
     success = justificatif_service.dissociate(
         request.operation_file,
         request.operation_index,
     )
     if not success:
         raise HTTPException(status_code=400, detail="Échec de la dissociation")
+
+    # GED V2: clear enriched metadata
+    if justif_filename_for_ged:
+        try:
+            from backend.services import ged_service
+            ged_service.clear_metadata_on_dissociation(justif_filename_for_ged)
+        except Exception:
+            pass
+
     return {"success": True, "message": "Justificatif dissocié"}
 
 

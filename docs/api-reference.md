@@ -275,17 +275,10 @@ Compare deux périodes avec KPIs et ventilation par catégorie.
 
 ## Reports V2 (`/api/reports`)
 
-### `GET /gallery`
-Liste complète des rapports avec années disponibles et nombre total.
-
-### `GET /tree`
-Arbre triple vue : `{ by_year: [...], by_category: [...], by_format: [...] }`.
+> **Note** : Les endpoints gallery, tree, pending, favorite, compare et update titre ont ete migres vers la GED V2 (`/api/ged`). Voir section GED ci-dessous.
 
 ### `GET /templates`
-3 templates prédéfinis (BNC annuel, Ventilation charges, Récapitulatif social).
-
-### `GET /pending?year=2025`
-Rapports mensuels/trimestriels non générés pour les mois passés (rappels dashboard).
+3 templates predefinis (BNC annuel, Ventilation charges, Recapitulatif social).
 
 ### `POST /generate`
 Générer un rapport avec déduplication (même filtres+format = remplacement).
@@ -318,14 +311,8 @@ Régénère tous les rapports existants (met à jour logo, colonnes, format).
 { "regenerated": 15, "errors": 0, "total": 15 }
 ```
 
-### `POST /{filename}/favorite`
-Toggle le favori d'un rapport.
-
 ### `POST /{filename}/open-native`
-Ouvre le rapport dans l'application native macOS (Aperçu pour PDF, Numbers pour CSV, Excel pour XLSX).
-
-### `POST /compare`
-Compare 2 rapports. Body : `{ "filename_a": "...", "filename_b": "..." }`. Retourne deltas montants, ops, %.
+Ouvre le rapport dans l'application native macOS (Apercu pour PDF, Numbers pour CSV, Excel pour XLSX).
 
 ### `POST /export-zip`
 Crée un ZIP contenant les rapports sélectionnés (pour envoi au comptable).
@@ -742,30 +729,54 @@ Recalcule les alertes pour un fichier. Retourne `{ "nb_alertes": 18, "nb_operati
 
 ---
 
-## GED (`/api/ged`)
+## GED V2 (`/api/ged`)
 
 ### `GET /tree`
-Arborescence complète. Scanne les sources (relevés, justificatifs, rapports, documents libres) puis construit deux vues.
+Arborescence complete. Scanne les sources (releves, justificatifs, rapports, documents libres), backfill les justificatifs traites, migre les rapports, puis construit 5 vues.
 
-**Réponse :**
+**Reponse :**
 ```json
 {
+  "by_period": [
+    { "id": "period-2025", "label": "2025", "count": 60, "icon": "Calendar", "children": [
+      { "id": "period-2025-T1", "label": "T1", "count": 24, "children": [
+        { "id": "period-2025-1", "label": "Janvier", "count": 8, "children": [] }
+      ]}
+    ]}
+  ],
+  "by_category": [
+    { "id": "cat-non-classes", "label": "Non classes", "count": 5, "icon": "AlertTriangle" },
+    { "id": "cat-Vehicule", "label": "Vehicule", "count": 18, "children": [
+      { "id": "cat-Vehicule-Carburant", "label": "Carburant", "count": 6 }
+    ]}
+  ],
+  "by_vendor": [
+    { "id": "vendor-orange", "label": "Orange", "count": 27, "icon": "Building2", "children": [
+      { "id": "vendor-orange-2025", "label": "2025", "count": 20 }
+    ]}
+  ],
   "by_type": [
-    { "id": "releves", "label": "Relevés bancaires", "count": 26, "icon": "FileText", "children": [...] },
-    { "id": "justificatifs", "label": "Justificatifs", "count": 0, "icon": "Receipt", "children": [...] },
-    { "id": "rapports", "label": "Rapports", "count": 0, "icon": "BarChart3", "children": [...] },
-    { "id": "documents-libres", "label": "Documents libres", "count": 0, "icon": "FolderOpen", "children": [...] }
+    { "id": "releves", "label": "Releves bancaires", "count": 26, "icon": "FileText", "children": [...] },
+    { "id": "justificatifs", "label": "Justificatifs", "count": 78, "icon": "Receipt", "children": [
+      { "id": "justificatifs-en-attente", "label": "En attente", "count": 19 },
+      { "id": "justificatifs-traites", "label": "Traites", "count": 59, "children": [...] }
+    ]},
+    { "id": "rapports", "label": "Rapports", "count": 0, "icon": "BarChart3", "children": [
+      { "id": "rapport-pdf", "label": "PDF", "count": 0 }
+    ]},
+    { "id": "documents-libres", "label": "Documents libres", "count": 0, "icon": "FolderOpen" }
   ],
   "by_year": [
-    { "id": "year-2025", "label": "2025", "count": 12, "icon": "Calendar", "children": [
-      { "id": "year-2025-releve", "label": "Relevés", "count": 12, "icon": "FileText", "children": [...] }
+    { "id": "year-2025", "label": "2025", "count": 60, "icon": "Calendar", "children": [
+      { "id": "year-2025-releve", "label": "Releves", "count": 12, "icon": "FileText", "children": [...] },
+      { "id": "year-2025-justificatif", "label": "Justificatifs", "count": 48, "children": [...] }
     ]}
   ]
 }
 ```
 
-### `GET /documents?type=&year=&month=&poste_comptable=&tags=&search=&sort_by=added_at&sort_order=desc`
-Liste filtrée des documents indexés. Tags séparés par virgule.
+### `GET /documents?type=&year=&month=&quarter=&categorie=&sous_categorie=&fournisseur=&format_type=&favorite=&poste_comptable=&tags=&search=&sort_by=added_at&sort_order=desc`
+Liste filtree des documents indexes. Filtres croises : tous combinables. Tags separes par virgule. Recherche full-text inclut noms, OCR, titres/descriptions rapports, fournisseur.
 
 ### `POST /upload`
 Upload document libre. Form-data : `file` + `metadata_json` (JSON string avec type, year, month, poste_comptable, tags, notes). Images (JPG/PNG) converties en PDF.
@@ -802,18 +813,27 @@ Ouvre le fichier dans l'application macOS par défaut (Aperçu pour les PDF) via
 Recherche full-text (min 2 chars) dans noms de fichiers, tags, notes, contenu OCR. Retourne max 50 résultats triés par score.
 
 ### `GET /stats`
-Statistiques globales par poste comptable.
+Statistiques globales enrichies.
 
-**Réponse :**
+**Reponse :**
 ```json
 {
-  "total_documents": 26,
+  "total_documents": 104,
   "total_brut": 5000.00,
   "total_deductible": 3500.00,
-  "disk_size_human": "7.3 Mo",
+  "disk_size_human": "14.0 Mo",
   "par_poste": [
-    { "poste_id": "vehicule", "poste_label": "Véhicule", "deductible_pct": 70, "nb_docs": 3, "total_brut": 1200, "total_deductible": 840 }
-  ]
+    { "poste_id": "vehicule", "poste_label": "Vehicule", "deductible_pct": 70, "nb_docs": 3, "total_brut": 1200, "total_deductible": 840 }
+  ],
+  "par_categorie": [
+    { "categorie": "Vehicule", "count": 18, "total_montant": 15000 }
+  ],
+  "par_fournisseur": [
+    { "fournisseur": "Orange", "count": 27, "total_montant": 2500 }
+  ],
+  "par_type": { "releve": 26, "justificatif": 78, "rapport": 0, "document_libre": 0 },
+  "non_classes": 22,
+  "rapports_favoris": 0
 }
 ```
 
@@ -833,9 +853,28 @@ Supprimer un poste custom (pas les postes système).
 Tagger plusieurs documents. Body : `{ "doc_ids": [...], "tags": [...] }`
 
 ### `POST /scan`
-Force un re-scan des sources. Utile après import/OCR.
+Force un re-scan des sources + backfill justificatifs traites + migration rapports.
 
-**Réponse :** `{ "success": true, "total_documents": 26 }`
+**Reponse :** `{ "success": true, "total_documents": 104 }`
+
+### `GET /pending-reports?year=2025`
+Rapports mensuels non generes pour les mois passes de l'annee (remplace l'ancien `GET /reports/pending`).
+
+**Reponse :**
+```json
+[
+  { "type": "mensuel", "year": 2025, "month": 3, "label": "Rapport mensuel — Mars 2025" }
+]
+```
+
+### `POST /documents/{doc_id:path}/favorite`
+Toggle le favori sur un rapport. Sync avec le report_service index.
+
+### `POST /documents/{doc_id:path}/regenerate`
+Re-genere un rapport avec donnees actualisees (delegue a report_service).
+
+### `POST /documents/compare-reports`
+Compare 2 rapports. Body : `{ "doc_id_a": "...", "doc_id_b": "..." }`. Retourne deltas montants/ops/%.
 
 ---
 

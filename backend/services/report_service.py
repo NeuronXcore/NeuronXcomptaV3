@@ -365,6 +365,22 @@ def generate_report(request: dict) -> dict:
     index["reports"].append(meta)
     _save_index(index)
 
+    # Register in GED V2
+    try:
+        from backend.services import ged_service
+        ged_service.register_rapport(
+            filename=filename,
+            path=str(filepath),
+            title=title,
+            description=description,
+            filters=filters,
+            format_type=fmt,
+            template_id=template_id,
+            replaced_filename=replaced,
+        )
+    except Exception:
+        pass
+
     result = {**meta, "replaced": replaced}
     return result
 

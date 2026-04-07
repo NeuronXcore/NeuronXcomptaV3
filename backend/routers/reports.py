@@ -176,6 +176,12 @@ async def delete_all_reports():
     for r in reports:
         try:
             report_service.delete_report(r["filename"])
+            # GED V2: remove from GED metadata
+            try:
+                from backend.services import ged_service
+                ged_service.remove_document(r["filename"])
+            except Exception:
+                pass
             deleted += 1
         except Exception:
             pass
@@ -187,4 +193,12 @@ async def delete_report(filename: str):
     success = report_service.delete_report(filename)
     if not success:
         raise HTTPException(status_code=404, detail="Rapport non trouvé")
+
+    # GED V2: remove from GED metadata
+    try:
+        from backend.services import ged_service
+        ged_service.remove_document(filename)
+    except Exception:
+        pass
+
     return {"success": True, "message": "Rapport supprimé"}

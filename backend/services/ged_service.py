@@ -28,6 +28,7 @@ from backend.core.config import (
     JUSTIFICATIFS_TRAITES_DIR,
     REPORTS_DIR,
     RAPPORTS_DIR,
+    MOIS_FR,
     ALLOWED_JUSTIFICATIF_EXTENSIONS,
     IMAGE_EXTENSIONS,
     MAGIC_BYTES,
@@ -111,6 +112,615 @@ def get_default_postes(exercice: int) -> dict:
     }
 
 
+def _clean_fournisseur(name: Optional[str]) -> Optional[str]:
+    """Nettoie un nom de fournisseur (trim, retire guillemets parasites, capitalise)."""
+    if not name:
+        return None
+    clean = name.strip().strip('"').strip("'").strip()
+    if not clean:
+        return None
+    # Capitalize first letter of each word
+    return clean.title() if clean == clean.lower() or clean == clean.upper() else clean
+
+
+# ─── Mapping poste → catégorie ───
+
+POSTE_TO_CATEGORIE: dict[str, tuple[str, Optional[str]]] = {
+    "loyer-cabinet": ("Locaux", None),
+    "loyer-domicile": ("Locaux", "Domicile"),
+    "vehicule": ("Véhicule", None),
+    "telephone": ("Télécom", "Téléphone"),
+    "internet-domicile": ("Télécom", "Internet"),
+    "assurance-rcp": ("Assurances", "RC Pro"),
+    "charges-sociales": ("Charges sociales", None),
+    "frais-personnel": ("Personnel", None),
+    "fournitures": ("Fournitures", None),
+    "formation": ("Formation", "DPC"),
+    "cotisations-pro": ("Cotisations", "Ordre"),
+    "repas": ("Frais de repas", None),
+    "honoraires-retrocedes": ("Rétrocession", None),
+    "frais-financiers": ("Frais bancaires", None),
+    "madelin-prevoyance": ("Madelin", "Prévoyance"),
+    "divers": ("Divers", None),
+}
+
+
+# ─── GED V2 Enrichment functions ───
+
+def _find_doc_id_for_justificatif(metadata: dict, justificatif_filename: str) -> Optional[str]:
+    """Trouve le doc_id GED correspondant à un nom de fichier justificatif."""
+    docs = metadata.get("documents", {})
+    basename = Path(justificatif_filename).name
+    for doc_id, doc in docs.items():
+        if doc.get("type") != "justificatif":
+            continue
+        if Path(doc_id).name == basename or (doc.get("original_name") or "") == basename:
+            return doc_id
+    return None
+
+
+def enrich_metadata_on_association(
+    justificatif_filename: str,
+    operation_file: str,
+    operation_index: int,
+    categorie: str,
+    sous_categorie: Optional[str],
+    fournisseur: Optional[str],
+    date_operation: str,
+    montant: float,
+    ventilation_index: Optional[int] = None,
+) -> None:
+    """Enrichit le metadata GED du justificatif avec les infos de l'opération."""
+    metadata = load_metadata()
+    doc_id = _find_doc_id_for_justificatif(metadata, justificatif_filename)
+    if not doc_id:
+        return
+
+    doc = metadata["documents"][doc_id]
+    doc["categorie"] = categorie
+    doc["sous_categorie"] = sous_categorie
+    doc["fournisseur"] = fournisseur
+    doc["date_operation"] = date_operation
+    doc["montant"] = montant
+    doc["ventilation_index"] = ventilation_index
+    doc["operation_ref"] = {
+        "file": operation_file,
+        "index": operation_index,
+        "ventilation_index": ventilation_index,
+    }
+
+    # Calculer period depuis date_operation
+    if date_operation:
+        try:
+            dt = datetime.strptime(date_operation, "%Y-%m-%d")
+            doc["period"] = {
+                "year": dt.year,
+                "month": dt.month,
+                "quarter": (dt.month - 1) // 3 + 1,
+            }
+            doc["year"] = dt.year
+            doc["month"] = dt.month
+        except ValueError:
+            pass
+
+    save_metadata(metadata)
+
+
+def clear_metadata_on_dissociation(justificatif_filename: str) -> None:
+    """Reset les champs enrichis après dissociation."""
+    metadata = load_metadata()
+    doc_id = _find_doc_id_for_justificatif(metadata, justificatif_filename)
+    if not doc_id:
+        return
+
+    doc = metadata["documents"][doc_id]
+    for field in ["categorie", "sous_categorie", "fournisseur", "date_operation",
+                   "montant", "ventilation_index", "operation_ref"]:
+        doc[field] = None
+
+    # Garder period si date_document existe
+    if not doc.get("date_document"):
+        doc["period"] = None
+        doc["year"] = None
+        doc["month"] = None
+
+    save_metadata(metadata)
+
+
+def enrich_metadata_on_ocr(
+    justificatif_filename: str,
+    fournisseur: Optional[str] = None,
+    date_document: Optional[str] = None,
+    montant: Optional[float] = None,
+    is_reconstitue: bool = False,
+) -> None:
+    """Enrichit le metadata GED après OCR."""
+    metadata = load_metadata()
+    doc_id = _find_doc_id_for_justificatif(metadata, justificatif_filename)
+    if not doc_id:
+        return
+
+    doc = metadata["documents"][doc_id]
+    if fournisseur:
+        doc["fournisseur"] = fournisseur
+    if date_document:
+        doc["date_document"] = date_document
+        try:
+            dt = datetime.strptime(date_document, "%Y-%m-%d")
+            if not doc.get("period"):
+                doc["period"] = {
+                    "year": dt.year,
+                    "month": dt.month,
+                    "quarter": (dt.month - 1) // 3 + 1,
+                }
+        except ValueError:
+            pass
+    if montant is not None:
+        doc["montant"] = montant
+    doc["is_reconstitue"] = is_reconstitue
+    save_metadata(metadata)
+
+
+def register_rapport(
+    filename: str,
+    path: str,
+    title: str,
+    description: Optional[str],
+    filters: dict,
+    format_type: str,
+    template_id: Optional[str] = None,
+    replaced_filename: Optional[str] = None,
+) -> None:
+    """Enregistre un rapport dans le metadata GED."""
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+
+    # Supprimer ancien si remplacement
+    if replaced_filename:
+        old_id = f"rapports/{replaced_filename}"
+        docs.pop(old_id, None)
+        # Aussi chercher avec le chemin complet
+        for doc_id in list(docs.keys()):
+            if docs[doc_id].get("type") == "rapport" and Path(doc_id).name == replaced_filename:
+                docs.pop(doc_id)
+                break
+
+    # Construire doc_id
+    doc_id = _relative_path(Path(path)) if Path(path).is_absolute() else path
+
+    # Déduire period depuis filters
+    period = None
+    if filters.get("year"):
+        period = {
+            "year": filters["year"],
+            "month": filters.get("month"),
+            "quarter": filters.get("quarter"),
+        }
+
+    # Déduire categorie
+    categorie = None
+    cats = filters.get("categories", [])
+    if isinstance(cats, list) and len(cats) == 1:
+        categorie = cats[0]
+
+    now = datetime.now().isoformat()
+    docs[doc_id] = {
+        "doc_id": doc_id,
+        "type": "rapport",
+        "filename": filename,
+        "year": filters.get("year"),
+        "month": filters.get("month"),
+        "poste_comptable": None,
+        "categorie": categorie,
+        "sous_categorie": None,
+        "montant_brut": None,
+        "deductible_pct_override": None,
+        "tags": [],
+        "notes": "",
+        "added_at": now,
+        "original_name": filename,
+        "ocr_file": None,
+        "fournisseur": None,
+        "date_document": None,
+        "date_operation": None,
+        "period": period,
+        "montant": None,
+        "ventilation_index": None,
+        "is_reconstitue": False,
+        "operation_ref": None,
+        "rapport_meta": {
+            "template_id": template_id,
+            "title": title,
+            "description": description,
+            "filters": filters,
+            "format": format_type,
+            "favorite": False,
+            "generated_at": now,
+            "can_regenerate": True,
+            "can_compare": True,
+        },
+    }
+
+    metadata["documents"] = docs
+    save_metadata(metadata)
+
+
+def propagate_category_change(
+    operation_file: str,
+    operation_index: int,
+    new_categorie: str,
+    new_sous_categorie: Optional[str],
+) -> None:
+    """Propage le changement de catégorie aux justificatifs liés."""
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+    changed = False
+
+    for doc_id, doc in docs.items():
+        if doc.get("type") != "justificatif":
+            continue
+        ref = doc.get("operation_ref")
+        if not ref:
+            continue
+        if ref.get("file") == operation_file and ref.get("index") == operation_index:
+            doc["categorie"] = new_categorie
+            doc["sous_categorie"] = new_sous_categorie
+            changed = True
+
+    if changed:
+        save_metadata(metadata)
+
+
+def remove_document(doc_id: str) -> None:
+    """Supprime une entrée du metadata GED (sans toucher au fichier)."""
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+    # Essayer match exact puis par filename
+    if doc_id in docs:
+        del docs[doc_id]
+    else:
+        for did in list(docs.keys()):
+            if Path(did).name == doc_id or docs[did].get("original_name") == doc_id:
+                del docs[did]
+                break
+    save_metadata(metadata)
+
+
+def toggle_rapport_favorite(doc_id: str) -> dict:
+    """Toggle favori sur un rapport."""
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+    doc = docs.get(doc_id)
+    if not doc or doc.get("type") != "rapport":
+        raise ValueError(f"Rapport non trouvé: {doc_id}")
+
+    rm = doc.get("rapport_meta") or {}
+    rm["favorite"] = not rm.get("favorite", False)
+    doc["rapport_meta"] = rm
+    save_metadata(metadata)
+
+    # Sync with report_service index
+    try:
+        from backend.services import report_service
+        report_service.toggle_favorite(Path(doc_id).name)
+    except Exception:
+        pass
+
+    return doc
+
+
+def regenerate_rapport(doc_id: str) -> dict:
+    """Re-génère un rapport via le service rapports."""
+    metadata = load_metadata()
+    doc = metadata.get("documents", {}).get(doc_id)
+    if not doc or doc.get("type") != "rapport":
+        raise ValueError(f"Rapport non trouvé: {doc_id}")
+
+    filename = Path(doc_id).name
+    from backend.services import report_service
+    return report_service.regenerate_report(filename)
+
+
+def compare_reports(doc_id_a: str, doc_id_b: str) -> dict:
+    """Compare 2 rapports."""
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+    a = docs.get(doc_id_a)
+    b = docs.get(doc_id_b)
+    if not a or not b:
+        raise ValueError("Un ou plusieurs rapports non trouvés")
+
+    filename_a = Path(doc_id_a).name
+    filename_b = Path(doc_id_b).name
+    from backend.services import report_service
+    return report_service.compare_reports(filename_a, filename_b)
+
+
+def get_pending_reports(year: int) -> list[dict]:
+    """Identifie les rapports mensuels manquants pour les mois passés."""
+    from datetime import date
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+
+    # Rapports existants pour l'année
+    existing_months: set[int] = set()
+    for doc_id, doc in docs.items():
+        if doc.get("type") != "rapport":
+            continue
+        rm = doc.get("rapport_meta")
+        if not rm:
+            continue
+        period = doc.get("period") or {}
+        if period.get("year") == year and period.get("month"):
+            existing_months.add(period["month"])
+
+    # Mois passés sans rapport
+    today = date.today()
+    pending = []
+    for month in range(1, 13):
+        if year > today.year or (year == today.year and month >= today.month):
+            break
+        if month not in existing_months:
+            label_m = MOIS_FR[month - 1].capitalize() if 1 <= month <= 12 else str(month)
+            pending.append({
+                "type": "mensuel",
+                "year": year,
+                "month": month,
+                "label": f"Rapport mensuel — {label_m} {year}",
+            })
+
+    return pending
+
+
+def backfill_justificatifs_metadata() -> int:
+    """Backfill: enrichit les justificatifs traités existants avec les infos de l'opération liée."""
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+    count = 0
+
+    # Collect all justificatifs traités without enrichment
+    to_enrich: list[tuple[str, dict]] = []
+    for doc_id, doc in docs.items():
+        if doc.get("type") != "justificatif":
+            continue
+        if "traites" not in doc_id:
+            continue
+        # Already enriched?
+        if doc.get("categorie") or doc.get("period") or doc.get("operation_ref"):
+            continue
+        to_enrich.append((doc_id, doc))
+
+    if not to_enrich:
+        return 0
+
+    # Load all operations and build a reverse index: justificatif_filename -> operation info
+    justif_to_op: dict[str, dict] = {}
+    if IMPORTS_OPERATIONS_DIR.exists():
+        for op_file in sorted(IMPORTS_OPERATIONS_DIR.glob("*.json")):
+            try:
+                with open(op_file, "r", encoding="utf-8") as f:
+                    ops = json.load(f)
+                for idx, op in enumerate(ops):
+                    lien = op.get("Lien justificatif", "")
+                    if not lien:
+                        continue
+                    # Extract basename from lien (may contain folder prefix like "traites/...")
+                    lien_basename = Path(lien).name
+                    justif_to_op[lien_basename] = {
+                        "file": op_file.name,
+                        "index": idx,
+                        "categorie": op.get("Catégorie", ""),
+                        "sous_categorie": op.get("Sous-catégorie", ""),
+                        "date": op.get("Date", ""),
+                        "debit": op.get("Débit", 0),
+                        "credit": op.get("Crédit", 0),
+                        "libelle": op.get("Libellé", ""),
+                    }
+                    # Also check ventilation sub-lines
+                    for vi, vline in enumerate(op.get("ventilation", [])):
+                        vlien = vline.get("justificatif", "")
+                        if vlien:
+                            justif_to_op[Path(vlien).name] = {
+                                "file": op_file.name,
+                                "index": idx,
+                                "ventilation_index": vi,
+                                "categorie": vline.get("categorie", ""),
+                                "sous_categorie": vline.get("sous_categorie", ""),
+                                "date": op.get("Date", ""),
+                                "debit": vline.get("montant", 0),
+                                "credit": 0,
+                                "libelle": op.get("Libellé", ""),
+                            }
+            except Exception:
+                continue
+
+    # Enrich each justificatif
+    for doc_id, doc in to_enrich:
+        basename = Path(doc_id).name
+        op_info = justif_to_op.get(basename)
+        if not op_info:
+            continue
+
+        doc["categorie"] = op_info.get("categorie") or None
+        doc["sous_categorie"] = op_info.get("sous_categorie") or None
+        doc["date_operation"] = op_info.get("date") or None
+        montant = float(op_info.get("debit") or 0) or float(op_info.get("credit") or 0)
+        doc["montant"] = montant if montant else None
+        doc["operation_ref"] = {
+            "file": op_info["file"],
+            "index": op_info["index"],
+            "ventilation_index": op_info.get("ventilation_index"),
+        }
+
+        # Compute period from date
+        date_str = op_info.get("date", "")
+        if date_str:
+            try:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                doc["period"] = {
+                    "year": dt.year,
+                    "month": dt.month,
+                    "quarter": (dt.month - 1) // 3 + 1,
+                }
+                doc["year"] = dt.year
+                doc["month"] = dt.month
+            except ValueError:
+                pass
+
+        # Try to get fournisseur from OCR cache
+        ocr_file = doc.get("ocr_file")
+        if ocr_file and not doc.get("fournisseur"):
+            ocr_path = BASE_DIR / ocr_file
+            if ocr_path.exists():
+                try:
+                    with open(ocr_path, "r", encoding="utf-8") as f:
+                        ocr_data = json.load(f)
+                    supplier = ocr_data.get("extracted_data", {}).get("supplier")
+                    if supplier:
+                        doc["fournisseur"] = _clean_fournisseur(supplier)
+                except Exception:
+                    pass
+
+        doc["is_reconstitue"] = basename.startswith("reconstitue_")
+        count += 1
+
+    if count > 0:
+        save_metadata(metadata)
+        logger.info(f"GED: backfill justificatifs — {count} documents enrichis")
+
+    return count
+
+
+def migrate_reports_index() -> int:
+    """Migre reports_index.json vers ged_metadata.json. Retourne le nb migrés."""
+    index_path = REPORTS_DIR / "reports_index.json"
+    if not index_path.exists():
+        return 0
+
+    migrated_path = index_path.with_suffix(".json.migrated")
+    if migrated_path.exists():
+        return 0  # Déjà migré
+
+    try:
+        with open(index_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return 0
+
+    reports_list = data.get("reports", []) if isinstance(data, dict) else data
+    if not reports_list:
+        return 0
+
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+    count = 0
+
+    for report in reports_list:
+        filename = report.get("filename", "")
+        if not filename:
+            continue
+
+        # Check path on disk
+        report_path = REPORTS_DIR / filename
+        if not report_path.exists():
+            # Also check RAPPORTS_DIR
+            report_path = RAPPORTS_DIR / filename
+            if not report_path.exists():
+                continue
+
+        doc_id = _relative_path(report_path)
+        if doc_id in docs:
+            # Enrich existing entry with rapport_meta
+            if not docs[doc_id].get("rapport_meta"):
+                filters = report.get("filters", {})
+                docs[doc_id]["rapport_meta"] = {
+                    "template_id": report.get("template_id"),
+                    "title": report.get("title", filename),
+                    "description": report.get("description"),
+                    "filters": filters,
+                    "format": report.get("format", "pdf"),
+                    "favorite": report.get("favorite", False),
+                    "generated_at": report.get("generated_at"),
+                    "can_regenerate": True,
+                    "can_compare": True,
+                }
+                # Also set period/categorie if missing
+                if not docs[doc_id].get("period") and filters.get("year"):
+                    docs[doc_id]["period"] = {
+                        "year": filters["year"],
+                        "month": filters.get("month"),
+                        "quarter": filters.get("quarter"),
+                    }
+                cats = filters.get("categories", [])
+                if not docs[doc_id].get("categorie") and isinstance(cats, list) and len(cats) == 1:
+                    docs[doc_id]["categorie"] = cats[0]
+                count += 1
+            continue
+
+        # Create new entry
+        filters = report.get("filters", {})
+        period = None
+        if filters.get("year"):
+            period = {
+                "year": filters["year"],
+                "month": filters.get("month"),
+                "quarter": filters.get("quarter"),
+            }
+        categorie = None
+        cats = filters.get("categories", [])
+        if isinstance(cats, list) and len(cats) == 1:
+            categorie = cats[0]
+
+        docs[doc_id] = {
+            "doc_id": doc_id,
+            "type": "rapport",
+            "year": filters.get("year"),
+            "month": filters.get("month"),
+            "poste_comptable": None,
+            "categorie": categorie,
+            "sous_categorie": None,
+            "montant_brut": None,
+            "deductible_pct_override": None,
+            "tags": [],
+            "notes": "",
+            "added_at": report.get("generated_at", datetime.now().isoformat()),
+            "original_name": filename,
+            "ocr_file": None,
+            "fournisseur": None,
+            "date_document": None,
+            "date_operation": None,
+            "period": period,
+            "montant": None,
+            "ventilation_index": None,
+            "is_reconstitue": False,
+            "operation_ref": None,
+            "rapport_meta": {
+                "template_id": report.get("template_id"),
+                "title": report.get("title", filename),
+                "description": report.get("description"),
+                "filters": filters,
+                "format": report.get("format", "pdf"),
+                "favorite": report.get("favorite", False),
+                "generated_at": report.get("generated_at"),
+                "can_regenerate": True,
+                "can_compare": True,
+            },
+        }
+        count += 1
+
+    metadata["documents"] = docs
+    save_metadata(metadata)
+
+    # Renommer pour ne pas re-migrer
+    try:
+        index_path.rename(migrated_path)
+    except Exception as e:
+        logger.warning(f"GED: impossible de renommer reports_index.json: {e}")
+
+    logger.info(f"GED: migration rapports terminée — {count} rapports migrés")
+    return count
+
+
 # ─── Document scanning ───
 
 def _relative_path(p: Path) -> str:
@@ -166,6 +776,16 @@ def _human_size(size: int) -> str:
 def scan_all_sources() -> dict:
     """Scanne les sources existantes, merge avec le metadata."""
     ensure_ged_directories()
+    # Migration one-shot des rapports
+    try:
+        migrate_reports_index()
+    except Exception as e:
+        logger.warning(f"GED: erreur migration rapports: {e}")
+    # Backfill justificatifs traités existants
+    try:
+        backfill_justificatifs_metadata()
+    except Exception as e:
+        logger.warning(f"GED: erreur backfill justificatifs: {e}")
     metadata = load_metadata()
     docs = metadata.get("documents", {})
     seen_ids: set[str] = set()
@@ -251,202 +871,256 @@ def scan_all_sources() -> dict:
 
 # ─── Tree building ───
 
-def build_tree(metadata: dict, postes: dict) -> list[dict]:
+def build_tree(metadata: dict, postes: dict) -> dict:
     docs = metadata.get("documents", {})
     postes_list = postes.get("postes", [])
     postes_map = {p["id"]: p for p in postes_list}
 
-    # Helpers
-    def _count(predicate) -> int:
-        return sum(1 for d in docs.values() if predicate(d))
+    return {
+        "by_period": _build_period_tree(docs),
+        "by_category": _build_category_tree(docs, postes_map),
+        "by_vendor": _build_vendor_tree(docs),
+        "by_type": _build_type_tree(docs, postes_map),
+        "by_year": _build_tree_by_year(docs),
+    }
 
-    # Root: Relevés bancaires
+
+def _build_period_tree(docs: dict) -> list[dict]:
+    """Arbre par année → trimestre → mois (tous types mélangés)."""
+    by_year: dict[int, dict[int, dict[int, int]]] = {}
+    no_date_count = 0
+
+    for d in docs.values():
+        period = d.get("period")
+        if period and period.get("year"):
+            y = period["year"]
+            q = period.get("quarter") or ((period.get("month", 1) - 1) // 3 + 1)
+            m = period.get("month") or 0
+            by_year.setdefault(y, {}).setdefault(q, {})
+            by_year[y][q][m] = by_year[y][q].get(m, 0) + 1
+        elif d.get("year"):
+            y = d["year"]
+            m = d.get("month") or 0
+            q = ((m - 1) // 3 + 1) if m > 0 else 1
+            by_year.setdefault(y, {}).setdefault(q, {})
+            by_year[y][q][m] = by_year[y][q].get(m, 0) + 1
+        else:
+            no_date_count += 1
+
+    year_nodes = []
+    for y in sorted(by_year.keys(), reverse=True):
+        q_nodes = []
+        year_total = 0
+        for q in sorted(by_year[y].keys()):
+            m_nodes = []
+            q_total = 0
+            for m in sorted(by_year[y][q].keys()):
+                cnt = by_year[y][q][m]
+                q_total += cnt
+                label = _month_label(m) if m > 0 else "Non daté"
+                m_nodes.append({"id": f"period-{y}-{m}", "label": label, "count": cnt, "children": []})
+            year_total += q_total
+            q_nodes.append({"id": f"period-{y}-T{q}", "label": f"T{q}", "count": q_total, "children": m_nodes})
+        year_nodes.append({"id": f"period-{y}", "label": str(y), "count": year_total, "children": q_nodes, "icon": "Calendar"})
+
+    if no_date_count > 0:
+        year_nodes.append({"id": "period-none", "label": "Non daté", "count": no_date_count, "children": []})
+
+    return year_nodes
+
+
+def _build_category_tree(docs: dict, postes_map: dict) -> list[dict]:
+    """Arbre par catégorie → sous-catégorie."""
+    by_cat: dict[str, dict[str, int]] = {}
+    non_classes = 0
+
+    for d in docs.values():
+        cat = d.get("categorie")
+        # For docs libres with poste but no categorie, use mapping
+        if not cat and d.get("poste_comptable"):
+            mapping = POSTE_TO_CATEGORIE.get(d["poste_comptable"])
+            if mapping:
+                cat = mapping[0]
+
+        if not cat:
+            non_classes += 1
+            continue
+
+        sous_cat = d.get("sous_categorie") or "—"
+        by_cat.setdefault(cat, {})
+        by_cat[cat][sous_cat] = by_cat[cat].get(sous_cat, 0) + 1
+
+    nodes = []
+    if non_classes > 0:
+        nodes.append({"id": "cat-non-classes", "label": "\u26a0 Non classés", "count": non_classes, "children": [], "icon": "AlertTriangle"})
+
+    for cat in sorted(by_cat.keys()):
+        sub_nodes = []
+        cat_total = 0
+        for sc, cnt in sorted(by_cat[cat].items()):
+            cat_total += cnt
+            if sc != "—":
+                sub_nodes.append({"id": f"cat-{cat}-{sc}", "label": sc, "count": cnt, "children": []})
+            else:
+                cat_total += 0  # counted above
+        # If only "—" sub-category, don't show sub-nodes
+        if len(by_cat[cat]) == 1 and "—" in by_cat[cat]:
+            cat_total = by_cat[cat]["—"]
+            sub_nodes = []
+        else:
+            cat_total = sum(by_cat[cat].values())
+        nodes.append({"id": f"cat-{cat}", "label": cat, "count": cat_total, "children": sub_nodes})
+
+    return nodes
+
+
+def _build_vendor_tree(docs: dict) -> list[dict]:
+    """Arbre par fournisseur → année. Exclut relevés et rapports."""
+    by_vendor: dict[str, dict[int, int]] = {}
+    unknown = 0
+
+    for d in docs.values():
+        if d.get("type") in ("releve", "rapport"):
+            continue
+        vendor = d.get("fournisseur")
+        if not vendor:
+            unknown += 1
+            continue
+        period = d.get("period") or {}
+        y = period.get("year") or d.get("year") or 0
+        by_vendor.setdefault(vendor, {})
+        by_vendor[vendor][y] = by_vendor[vendor].get(y, 0) + 1
+
+    nodes = []
+    for vendor in sorted(by_vendor.keys()):
+        year_nodes = []
+        vendor_total = 0
+        for y in sorted(by_vendor[vendor].keys(), reverse=True):
+            cnt = by_vendor[vendor][y]
+            vendor_total += cnt
+            label = str(y) if y > 0 else "Non daté"
+            slug = re.sub(r"[^a-zA-Z0-9]", "-", vendor.lower()).strip("-")
+            year_nodes.append({"id": f"vendor-{slug}-{y}", "label": label, "count": cnt, "children": []})
+        slug = re.sub(r"[^a-zA-Z0-9]", "-", vendor.lower()).strip("-")
+        nodes.append({"id": f"vendor-{slug}", "label": vendor, "count": vendor_total, "children": year_nodes, "icon": "Building2"})
+
+    if unknown > 0:
+        nodes.append({"id": "vendor-unknown", "label": "Fournisseur inconnu", "count": unknown, "children": []})
+
+    return nodes
+
+
+def _build_type_tree(docs: dict, postes_map: dict) -> list[dict]:
+    """Arbre par type enrichi (rétrocompatible)."""
+    # Relevés par année/mois
     releves_by_year: dict[int, dict[int, int]] = {}
     for d in docs.values():
-        if d["type"] == "releve" and d.get("year"):
-            y = d["year"]
-            m = d.get("month", 0) or 0
-            releves_by_year.setdefault(y, {})
-            releves_by_year[y][m] = releves_by_year[y].get(m, 0) + 1
+        if d["type"] != "releve":
+            continue
+        y = d.get("year") or 0
+        m = d.get("month") or 0
+        releves_by_year.setdefault(y, {})
+        releves_by_year[y][m] = releves_by_year[y].get(m, 0) + 1
 
     releves_children = []
     for y in sorted(releves_by_year.keys(), reverse=True):
         month_children = []
         for m in sorted(releves_by_year[y].keys()):
             label = _month_label(m) if m > 0 else "Non daté"
-            month_children.append({
-                "id": f"releve-{y}-{m}",
-                "label": label,
-                "count": releves_by_year[y][m],
-                "children": [],
-            })
-        releves_children.append({
-            "id": f"releve-{y}",
-            "label": str(y),
-            "count": sum(releves_by_year[y].values()),
-            "children": month_children,
-        })
+            month_children.append({"id": f"releve-{y}-{m}", "label": label, "count": releves_by_year[y][m], "children": []})
+        releves_children.append({"id": f"releve-{y}", "label": str(y) if y > 0 else "Non daté", "count": sum(releves_by_year[y].values()), "children": month_children})
 
     releves_node = {
-        "id": "releves",
-        "label": "Relevés bancaires",
-        "count": _count(lambda d: d["type"] == "releve"),
-        "children": releves_children,
-        "icon": "FileText",
+        "id": "releves", "label": "Relevés bancaires",
+        "count": sum(sum(m.values()) for m in releves_by_year.values()),
+        "children": releves_children, "icon": "FileText",
     }
 
-    # Root: Justificatifs
-    just_by_year: dict[int, dict[str, int]] = {}
-    just_en_attente_count = 0
-    just_by_poste: dict[str, int] = {}
-    just_no_poste = 0
-
+    # Justificatifs: en attente / traités par année/mois
+    en_attente_count = 0
+    traites_by_year: dict[int, dict[int, int]] = {}
     for d in docs.values():
         if d["type"] != "justificatif":
             continue
-        # Par date
-        y = d.get("year")
-        if y:
-            just_by_year.setdefault(y, {})
-            status = "traites" if "traites" in d.get("doc_id", "") else "en_attente"
-            if status == "en_attente":
-                just_en_attente_count += 1
-            m_key = str(d.get("month", 0) or 0)
-            just_by_year[y][m_key] = just_by_year[y].get(m_key, 0) + 1
+        if "en_attente" in d.get("doc_id", ""):
+            en_attente_count += 1
         else:
-            if "en_attente" in d.get("doc_id", ""):
-                just_en_attente_count += 1
+            y = d.get("year") or 0
+            m = d.get("month") or 0
+            traites_by_year.setdefault(y, {})
+            traites_by_year[y][m] = traites_by_year[y].get(m, 0) + 1
 
-        # Par poste
-        poste_id = _resolve_poste_for_doc(d, postes_map)
-        if poste_id:
-            just_by_poste[poste_id] = just_by_poste.get(poste_id, 0) + 1
-        else:
-            just_no_poste += 1
-
-    # Justificatifs par date
-    just_date_children = []
-    for y in sorted(just_by_year.keys(), reverse=True):
+    traites_children = []
+    for y in sorted(traites_by_year.keys(), reverse=True):
         month_children = []
-        for m_str in sorted(just_by_year[y].keys(), key=lambda x: int(x)):
-            m = int(m_str)
+        for m in sorted(traites_by_year[y].keys()):
             label = _month_label(m) if m > 0 else "Non daté"
-            month_children.append({
-                "id": f"justificatif-date-{y}-{m}",
-                "label": label,
-                "count": just_by_year[y][m_str],
-                "children": [],
-            })
-        just_date_children.append({
-            "id": f"justificatif-date-{y}",
-            "label": str(y),
-            "count": sum(just_by_year[y].values()),
-            "children": month_children,
-        })
+            month_children.append({"id": f"justificatif-date-{y}-{m}", "label": label, "count": traites_by_year[y][m], "children": []})
+        traites_children.append({"id": f"justificatif-date-{y}", "label": str(y) if y > 0 else "Non daté", "count": sum(traites_by_year[y].values()), "children": month_children})
 
-    # Justificatifs par poste
-    just_poste_children = []
-    for pid, count in sorted(just_by_poste.items(), key=lambda x: x[1], reverse=True):
-        p = postes_map.get(pid)
-        label = p["label"] if p else pid
-        just_poste_children.append({
-            "id": f"justificatif-poste-{pid}",
-            "label": label,
-            "count": count,
-            "children": [],
-        })
-    if just_no_poste > 0:
-        just_poste_children.append({
-            "id": "justificatif-poste-none",
-            "label": "Non associés",
-            "count": just_no_poste,
-            "children": [],
-        })
-
-    just_total = _count(lambda d: d["type"] == "justificatif")
+    just_total = en_attente_count + sum(sum(m.values()) for m in traites_by_year.values())
     justificatifs_node = {
-        "id": "justificatifs",
-        "label": "Justificatifs",
-        "count": just_total,
-        "icon": "Receipt",
+        "id": "justificatifs", "label": "Justificatifs", "count": just_total, "icon": "Receipt",
         "children": [
-            {"id": "justificatifs-par-date", "label": "Par date", "count": just_total, "children": just_date_children},
-            {"id": "justificatifs-par-poste", "label": "Par poste comptable", "count": just_total, "children": just_poste_children},
+            {"id": "justificatifs-en-attente", "label": "En attente", "count": en_attente_count, "children": []},
+            {"id": "justificatifs-traites", "label": "Traités", "count": just_total - en_attente_count, "children": traites_children},
         ],
     }
 
-    # Root: Rapports
-    rapports_children = []
-    rapports_by_poste: dict[str, int] = {}
-    rapports_no_poste = 0
+    # Rapports: par format
+    rapports_by_format: dict[str, int] = {}
+    rapports_favoris = 0
     for d in docs.values():
         if d["type"] != "rapport":
             continue
-        poste_id = d.get("poste_comptable")
-        if poste_id:
-            rapports_by_poste[poste_id] = rapports_by_poste.get(poste_id, 0) + 1
-        else:
-            rapports_no_poste += 1
+        rm = d.get("rapport_meta") or {}
+        fmt = rm.get("format") or _guess_format(d.get("doc_id", ""))
+        rapports_by_format[fmt] = rapports_by_format.get(fmt, 0) + 1
+        if rm.get("favorite"):
+            rapports_favoris += 1
 
-    if rapports_no_poste > 0:
-        rapports_children.append({
-            "id": "rapport-tous",
-            "label": "Tous postes",
-            "count": rapports_no_poste,
-            "children": [],
-        })
-    for pid, count in sorted(rapports_by_poste.items(), key=lambda x: x[1], reverse=True):
-        p = postes_map.get(pid)
-        label = p["label"] if p else pid
-        rapports_children.append({
-            "id": f"rapport-poste-{pid}",
-            "label": label,
-            "count": count,
-            "children": [],
-        })
+    FORMAT_LABELS = {"pdf": "PDF", "csv": "CSV", "excel": "Excel", "xlsx": "Excel"}
+    rapports_children = []
+    for fmt in ["pdf", "csv", "excel", "xlsx"]:
+        if fmt in rapports_by_format:
+            rapports_children.append({"id": f"rapport-{fmt}", "label": FORMAT_LABELS.get(fmt, fmt.upper()), "count": rapports_by_format[fmt], "children": []})
 
     rapports_node = {
-        "id": "rapports",
-        "label": "Rapports",
-        "count": _count(lambda d: d["type"] == "rapport"),
-        "children": rapports_children,
-        "icon": "BarChart3",
+        "id": "rapports", "label": "Rapports",
+        "count": sum(rapports_by_format.values()),
+        "children": rapports_children, "icon": "BarChart3",
     }
 
-    # Root: Documents libres
-    libre_children_map: dict[str, int] = {}
+    # Documents libres par année/mois
+    libre_by_year: dict[int, dict[int, int]] = {}
     for d in docs.values():
         if d["type"] != "document_libre":
             continue
-        # Groupe par sous-dossier ou "Divers"
-        doc_path = d.get("doc_id", "")
-        parts = doc_path.replace("data/ged/", "").split("/")
-        group = parts[0] if len(parts) > 1 and not parts[0].isdigit() else "Divers"
-        if parts[0].isdigit():
-            group = parts[0]  # année
-        libre_children_map[group] = libre_children_map.get(group, 0) + 1
+        y = d.get("year") or 0
+        m = d.get("month") or 0
+        libre_by_year.setdefault(y, {})
+        libre_by_year[y][m] = libre_by_year[y].get(m, 0) + 1
 
     libre_children = []
-    for group, count in sorted(libre_children_map.items()):
-        libre_children.append({
-            "id": f"libre-{group}",
-            "label": group,
-            "count": count,
-            "children": [],
-        })
+    for y in sorted(libre_by_year.keys(), reverse=True):
+        month_children = []
+        for m in sorted(libre_by_year[y].keys()):
+            label = _month_label(m) if m > 0 else "Non daté"
+            month_children.append({"id": f"libre-{y}-{m}", "label": label, "count": libre_by_year[y][m], "children": []})
+        libre_children.append({"id": f"libre-{y}", "label": str(y) if y > 0 else "Non daté", "count": sum(libre_by_year[y].values()), "children": month_children})
 
     libres_node = {
-        "id": "documents-libres",
-        "label": "Documents libres",
-        "count": _count(lambda d: d["type"] == "document_libre"),
-        "children": libre_children,
-        "icon": "FolderOpen",
+        "id": "documents-libres", "label": "Documents libres",
+        "count": sum(sum(m.values()) for m in libre_by_year.values()),
+        "children": libre_children, "icon": "FolderOpen",
     }
 
-    by_type = [releves_node, justificatifs_node, rapports_node, libres_node]
-    by_year = _build_tree_by_year(docs)
+    return [releves_node, justificatifs_node, rapports_node, libres_node]
 
-    return {"by_type": by_type, "by_year": by_year}
+
+def _guess_format(doc_id: str) -> str:
+    ext = Path(doc_id).suffix.lower()
+    return {"pdf": "pdf", ".csv": "csv", ".xlsx": "excel"}.get(ext, "pdf")
 
 
 def _build_tree_by_year(docs: dict) -> list[dict]:
@@ -542,7 +1216,6 @@ def _build_tree_by_year(docs: dict) -> list[dict]:
 
 
 def _month_label(month: int) -> str:
-    from backend.core.config import MOIS_FR
     if 1 <= month <= 12:
         return MOIS_FR[month - 1].capitalize()
     return str(month)
@@ -582,6 +1255,12 @@ def get_documents(
     type_filter: Optional[str] = None,
     year: Optional[int] = None,
     month: Optional[int] = None,
+    quarter: Optional[int] = None,
+    categorie: Optional[str] = None,
+    sous_categorie: Optional[str] = None,
+    fournisseur: Optional[str] = None,
+    format_type: Optional[str] = None,
+    favorite: Optional[bool] = None,
     poste_comptable: Optional[str] = None,
     tags: Optional[list[str]] = None,
     search: Optional[str] = None,
@@ -593,9 +1272,21 @@ def get_documents(
     if type_filter:
         docs = [d for d in docs if d["type"] == type_filter]
     if year:
-        docs = [d for d in docs if d.get("year") == year]
+        docs = [d for d in docs if d.get("year") == year or (d.get("period") or {}).get("year") == year]
     if month:
-        docs = [d for d in docs if d.get("month") == month]
+        docs = [d for d in docs if d.get("month") == month or (d.get("period") or {}).get("month") == month]
+    if quarter:
+        docs = [d for d in docs if (d.get("period") or {}).get("quarter") == quarter]
+    if categorie:
+        docs = [d for d in docs if d.get("categorie") == categorie]
+    if sous_categorie:
+        docs = [d for d in docs if d.get("sous_categorie") == sous_categorie]
+    if fournisseur:
+        docs = [d for d in docs if d.get("fournisseur") == fournisseur]
+    if format_type:
+        docs = [d for d in docs if (d.get("rapport_meta") or {}).get("format") == format_type]
+    if favorite is not None:
+        docs = [d for d in docs if (d.get("rapport_meta") or {}).get("favorite") == favorite]
     if poste_comptable:
         docs = [d for d in docs if d.get("poste_comptable") == poste_comptable]
     if tags:
@@ -605,7 +1296,10 @@ def get_documents(
         docs = [d for d in docs if q in d.get("doc_id", "").lower()
                 or q in (d.get("original_name") or "").lower()
                 or q in (d.get("notes") or "").lower()
-                or any(q in t.lower() for t in d.get("tags", []))]
+                or any(q in t.lower() for t in d.get("tags", []))
+                or q in ((d.get("rapport_meta") or {}).get("title") or "").lower()
+                or q in ((d.get("rapport_meta") or {}).get("description") or "").lower()
+                or q in (d.get("fournisseur") or "").lower()]
 
     reverse = sort_order == "desc"
     docs.sort(key=lambda d: d.get(sort_by) or "", reverse=reverse)
@@ -849,12 +1543,48 @@ def get_stats(metadata: dict, postes: dict) -> dict:
         par_poste[poste_id]["total_brut"] += montant
         par_poste[poste_id]["total_deductible"] += deductible
 
+    # Stats enrichies V2
+    par_categorie: dict[str, dict] = {}
+    par_fournisseur: dict[str, dict] = {}
+    par_type: dict[str, int] = {}
+    non_classes = 0
+    rapports_favoris = 0
+
+    for doc in docs.values():
+        dtype = doc.get("type", "document_libre")
+        par_type[dtype] = par_type.get(dtype, 0) + 1
+
+        cat = doc.get("categorie")
+        if cat:
+            if cat not in par_categorie:
+                par_categorie[cat] = {"categorie": cat, "count": 0, "total_montant": 0}
+            par_categorie[cat]["count"] += 1
+            par_categorie[cat]["total_montant"] += doc.get("montant") or doc.get("montant_brut") or 0
+        else:
+            non_classes += 1
+
+        fournisseur = doc.get("fournisseur")
+        if fournisseur:
+            if fournisseur not in par_fournisseur:
+                par_fournisseur[fournisseur] = {"fournisseur": fournisseur, "count": 0, "total_montant": 0}
+            par_fournisseur[fournisseur]["count"] += 1
+            par_fournisseur[fournisseur]["total_montant"] += doc.get("montant") or doc.get("montant_brut") or 0
+
+        rm = doc.get("rapport_meta") or {}
+        if rm.get("favorite"):
+            rapports_favoris += 1
+
     return {
         "total_documents": len(docs),
         "total_brut": round(total_brut, 2),
         "total_deductible": round(total_deductible, 2),
         "disk_size_human": _human_size(total_size),
         "par_poste": sorted(par_poste.values(), key=lambda x: x["total_brut"], reverse=True),
+        "par_categorie": sorted(par_categorie.values(), key=lambda x: x["total_montant"], reverse=True),
+        "par_fournisseur": sorted(par_fournisseur.values(), key=lambda x: x["total_montant"], reverse=True),
+        "par_type": par_type,
+        "non_classes": non_classes,
+        "rapports_favoris": rapports_favoris,
     }
 
 

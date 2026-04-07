@@ -1,14 +1,15 @@
-import { useState, useMemo } from 'react'
-import { Upload, Settings2, RefreshCw, Calendar, FolderTree } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Upload, Settings2, RefreshCw, Grid3X3, List, GitCompare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
-import GedTree from './GedTree'
-import GedSearchBar from './GedSearchBar'
-import GedToolbar from './GedToolbar'
-import GedBreadcrumb from './GedBreadcrumb'
+import GedTreePanel, { type TreeTab } from './GedTreePanel'
+import GedFilterBar from './GedFilterBar'
+import GedDocumentCard from './GedDocumentCard'
 import GedDocumentGrid from './GedDocumentGrid'
 import GedDocumentList from './GedDocumentList'
 import GedDocumentDrawer from './GedDocumentDrawer'
+import GedReportDrawer from './GedReportDrawer'
 import GedUploadZone from './GedUploadZone'
 import GedPostesDrawer from './GedPostesDrawer'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -19,144 +20,123 @@ import {
   useGedStats,
   useGedScan,
 } from '@/hooks/useGed'
-import type { GedFilters, GedTreeNode } from '@/types'
-
-type TreeMode = 'by_year' | 'by_type'
+import type { GedFilters, GedDocument } from '@/types'
 
 export default function GedPage() {
-  const [treeMode, setTreeMode] = useState<TreeMode>('by_year')
-  const [selectedNode, setSelectedNode] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<TreeTab>('period')
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [filters, setFilters] = useState<GedFilters>({ sort_by: 'added_at', sort_order: 'desc' })
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [selectedDoc, setSelectedDoc] = useState<string | null>(null)
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
   const [showPostesDrawer, setShowPostesDrawer] = useState(false)
   const [showUploadZone, setShowUploadZone] = useState(false)
-  const [filters, setFilters] = useState<GedFilters>({ sort_by: 'added_at', sort_order: 'desc' })
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareSelection, setCompareSelection] = useState<string[]>([])
 
-  const { data: treeData, isLoading: treeLoading } = useGedTree()
+  const { data: tree, isLoading: treeLoading } = useGedTree()
   const { data: documents, isLoading: docsLoading } = useGedDocuments(filters)
   const { data: postesConfig } = useGedPostes()
   const { data: stats } = useGedStats()
   const scanMutation = useGedScan()
 
   const postes = postesConfig?.postes ?? []
-  const activeTree = treeData ? treeData[treeMode] ?? [] : []
 
-  // Derive breadcrumb path from selected node
-  const breadcrumbPath = useMemo(() => {
-    if (!selectedNode || !activeTree.length) return [{ id: 'root', label: 'Bibliothèque' }]
-    const path = [{ id: 'root', label: 'Bibliothèque' }]
-    const findNode = (nodes: GedTreeNode[], targetId: string, trail: { id: string; label: string }[]): boolean => {
-      for (const node of nodes) {
-        const current = [...trail, { id: node.id, label: node.label }]
-        if (node.id === targetId) {
-          path.push(...current)
-          return true
-        }
-        if (node.children?.length && findNode(node.children, targetId, current)) return true
-      }
-      return false
+  // Initialize filters from URL params on mount
+  useEffect(() => {
+    const initial: GedFilters = { sort_by: 'added_at', sort_order: 'desc' }
+    if (searchParams.get('type')) initial.type = searchParams.get('type')!
+    if (searchParams.get('year')) initial.year = parseInt(searchParams.get('year')!)
+    if (searchParams.get('month')) initial.month = parseInt(searchParams.get('month')!)
+    if (searchParams.get('categorie')) initial.categorie = searchParams.get('categorie')!
+    if (searchParams.get('fournisseur')) initial.fournisseur = searchParams.get('fournisseur')!
+    if (searchParams.get('format_type')) initial.format_type = searchParams.get('format_type')!
+
+    const hasUrlFilters = !!(initial.type || initial.year || initial.categorie || initial.fournisseur)
+    if (hasUrlFilters) {
+      setFilters(initial)
+      // Auto-select best tab
+      if (initial.categorie) setActiveTab('category')
+      else if (initial.fournisseur) setActiveTab('vendor')
+      else if (initial.year && !initial.type) setActiveTab('period')
+      else if (initial.type) setActiveTab('type')
     }
-    findNode(activeTree, selectedNode, [])
-    return path
-  }, [selectedNode, activeTree])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleNodeSelect = (nodeId: string) => {
-    setSelectedNode(nodeId === selectedNode ? null : nodeId)
-    const newFilters: GedFilters = { sort_by: filters.sort_by, sort_order: filters.sort_order }
-
-    // ── "Par année" tree IDs: year-{y}, year-{y}-{type}, year-{y}-{type}-{m}
-    if (nodeId.startsWith('year-')) {
-      const parts = nodeId.replace('year-', '').split('-')
-      // year-{y}
-      if (parts.length === 1 && parts[0] !== 'none') {
-        newFilters.year = parseInt(parts[0])
-      }
-      // year-none
-      if (parts[0] === 'none' && parts.length === 1) {
-        // All docs without year — no specific filter, handled by backend
-      }
-      // year-{y}-{type} or year-none-{type}
-      if (parts.length === 2) {
-        if (parts[0] !== 'none') newFilters.year = parseInt(parts[0])
-        const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', 'document_libre': 'document_libre' }
-        if (typeMap[parts[1]]) newFilters.type = typeMap[parts[1]]
-      }
-      // year-{y}-{type}-{m}
-      if (parts.length === 3) {
-        newFilters.year = parseInt(parts[0])
-        const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', 'document_libre': 'document_libre' }
-        if (typeMap[parts[1]]) newFilters.type = typeMap[parts[1]]
-        const m = parseInt(parts[2])
-        if (!isNaN(m) && m > 0) newFilters.month = m
-      }
-    }
-    // ── "Par type" tree IDs (existing logic)
-    else if (nodeId.startsWith('releve')) {
-      newFilters.type = 'releve'
-      const parts = nodeId.split('-')
-      if (parts.length >= 2 && parts[1] !== 'releve') {
-        newFilters.year = parseInt(parts[1])
-      }
-      if (parts.length >= 3) {
-        const m = parseInt(parts[2])
-        if (!isNaN(m) && m > 0) newFilters.month = m
-      }
-    } else if (nodeId.startsWith('justificatif-date-')) {
-      newFilters.type = 'justificatif'
-      const parts = nodeId.replace('justificatif-date-', '').split('-')
-      if (parts[0]) newFilters.year = parseInt(parts[0])
-      if (parts[1]) {
-        const m = parseInt(parts[1])
-        if (!isNaN(m) && m > 0) newFilters.month = m
-      }
-    } else if (nodeId.startsWith('justificatif-poste-')) {
-      newFilters.type = 'justificatif'
-      const posteId = nodeId.replace('justificatif-poste-', '')
-      if (posteId !== 'none') newFilters.poste_comptable = posteId
-    } else if (nodeId === 'justificatifs' || nodeId.startsWith('justificatifs-par-')) {
-      newFilters.type = 'justificatif'
-    } else if (nodeId.startsWith('rapport')) {
-      newFilters.type = 'rapport'
-      if (nodeId.startsWith('rapport-poste-')) {
-        newFilters.poste_comptable = nodeId.replace('rapport-poste-', '')
-      }
-    } else if (nodeId === 'documents-libres' || nodeId.startsWith('libre-')) {
-      newFilters.type = 'document_libre'
-    } else if (nodeId === 'releves') {
-      newFilters.type = 'releve'
-    } else if (nodeId === 'rapports') {
-      newFilters.type = 'rapport'
-    }
-
-    setFilters(newFilters)
+  // Tree node selection → update filters
+  const handleNodeSelect = (nodeId: string, nodeFilters: Partial<GedFilters>) => {
+    setSelectedNodeId(nodeId)
+    setFilters(prev => ({
+      sort_by: prev.sort_by,
+      sort_order: prev.sort_order,
+      ...nodeFilters,
+    }))
   }
 
-  const handleBreadcrumbNav = (nodeId: string) => {
-    if (nodeId === 'root') {
-      setSelectedNode(null)
-      setFilters({ sort_by: filters.sort_by, sort_order: filters.sort_order })
-    } else {
-      handleNodeSelect(nodeId)
-    }
+  // Filter bar changes
+  const handleFiltersChange = (newFilters: GedFilters) => {
+    setFilters({ sort_by: newFilters.sort_by || 'added_at', sort_order: newFilters.sort_order || 'desc', ...newFilters })
+    // Clear tree selection when filters change from the bar
+    setSelectedNodeId(null)
   }
 
-  const handleSearch = (query: string) => {
-    setFilters(prev => ({ ...prev, search: query || undefined }))
-  }
-
-  const handleTreeModeChange = (mode: TreeMode) => {
-    setTreeMode(mode)
-    setSelectedNode(null)
+  // Tab change → reset
+  const handleTabChange = (tab: TreeTab) => {
+    setActiveTab(tab)
+    setSelectedNodeId(null)
     setFilters({ sort_by: filters.sort_by, sort_order: filters.sort_order })
   }
+
+  // Compare mode
+  const toggleCompareSelection = (docId: string) => {
+    setCompareSelection(prev =>
+      prev.includes(docId)
+        ? prev.filter(id => id !== docId)
+        : prev.length < 2 ? [...prev, docId] : prev
+    )
+  }
+
+  // Selected document for drawer
+  const selectedDoc = useMemo(() => {
+    if (!selectedDocId || !documents) return null
+    return documents.find(d => d.doc_id === selectedDocId) || null
+  }, [selectedDocId, documents])
 
   return (
     <div className="h-full">
       <PageHeader
-        title="Bibliothèque Documents"
-        description="Gestion électronique de documents — indexation, recherche et fiscalité"
+        title="Bibliothèque"
+        description={`${stats?.total_documents ?? 0} documents · ${stats?.disk_size_human ?? ''}`}
         actions={
           <div className="flex items-center gap-2">
+            {/* Compare mode toggle */}
+            <button
+              onClick={() => { setCompareMode(!compareMode); setCompareSelection([]) }}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors',
+                compareMode
+                  ? 'bg-primary/10 border-primary text-primary'
+                  : 'bg-surface border-border text-text hover:bg-surface-hover'
+              )}
+            >
+              <GitCompare size={16} />
+              Comparer
+            </button>
+            {/* View mode */}
+            <div className="flex border border-border rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn('p-2', viewMode === 'grid' ? 'bg-primary/10 text-primary' : 'text-text-muted hover:text-text')}
+              >
+                <Grid3X3 size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn('p-2', viewMode === 'list' ? 'bg-primary/10 text-primary' : 'text-text-muted hover:text-text')}
+              >
+                <List size={16} />
+              </button>
+            </div>
             <button
               onClick={() => setShowUploadZone(true)}
               className="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 transition-colors"
@@ -183,68 +163,25 @@ export default function GedPage() {
         }
       />
 
-      <div className="flex mt-6" style={{ height: 'calc(100vh - 200px)' }}>
-        {/* Left panel: tabs + search + tree */}
-        <div className="w-[260px] shrink-0 border-r border-border flex flex-col">
-          {/* Tree mode tabs */}
-          <div className="flex border-b border-border">
-            <button
-              onClick={() => handleTreeModeChange('by_year')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors',
-                treeMode === 'by_year'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-text-muted hover:text-text'
-              )}
-            >
-              <Calendar size={13} />
-              Par année
-            </button>
-            <button
-              onClick={() => handleTreeModeChange('by_type')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors',
-                treeMode === 'by_type'
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-text-muted hover:text-text'
-              )}
-            >
-              <FolderTree size={13} />
-              Par type
-            </button>
-          </div>
+      <div className="flex mt-4" style={{ height: 'calc(100vh - 200px)' }}>
+        {/* Left: Tree panel with 4 tabs */}
+        <GedTreePanel
+          tree={tree}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          selectedNodeId={selectedNodeId}
+          onNodeSelect={handleNodeSelect}
+        />
 
-          <div className="p-3 border-b border-border">
-            <GedSearchBar onSearch={handleSearch} onSelect={setSelectedDoc} />
-          </div>
-          <div className="flex-1 overflow-y-auto p-2">
-            {treeLoading ? (
-              <LoadingSpinner text="Chargement..." />
-            ) : (
-              <GedTree
-                tree={activeTree}
-                selectedNode={selectedNode}
-                onSelect={handleNodeSelect}
-              />
-            )}
-          </div>
-        </div>
+        {/* Right: Filter bar + content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <GedFilterBar
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            stats={stats}
+          />
 
-        {/* Right panel: content */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-4 pt-3 pb-2 border-b border-border">
-            <GedBreadcrumb path={breadcrumbPath} onNavigate={handleBreadcrumbNav} />
-          </div>
-          <div className="px-4 py-2 border-b border-border">
-            <GedToolbar
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              filters={filters}
-              onFiltersChange={setFilters}
-              totalCount={documents?.length ?? 0}
-              totalSize={stats?.disk_size_human ?? ''}
-            />
-          </div>
+          {/* Content area */}
           <div className="flex-1 overflow-y-auto p-4">
             {docsLoading ? (
               <LoadingSpinner text="Chargement des documents..." />
@@ -254,28 +191,46 @@ export default function GedPage() {
                 <p className="text-sm mt-1">Sélectionnez un dossier ou lancez un scan</p>
               </div>
             ) : viewMode === 'grid' ? (
-              <GedDocumentGrid
-                documents={documents}
-                postes={postes}
-                onSelect={setSelectedDoc}
-              />
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {documents.map(doc => (
+                  <GedDocumentCard
+                    key={doc.doc_id}
+                    document={doc}
+                    isSelected={compareSelection.includes(doc.doc_id)}
+                    onSelect={() => toggleCompareSelection(doc.doc_id)}
+                    onClick={() => setSelectedDocId(doc.doc_id)}
+                    compareMode={compareMode}
+                  />
+                ))}
+              </div>
             ) : (
               <GedDocumentList
                 documents={documents}
                 postes={postes}
-                onSelect={setSelectedDoc}
+                onSelect={setSelectedDocId}
               />
             )}
           </div>
         </div>
       </div>
 
-      {/* Drawers & modals */}
-      <GedDocumentDrawer
-        docId={selectedDoc}
-        postes={postes}
-        onClose={() => setSelectedDoc(null)}
-      />
+      {/* Contextual drawer: report vs document */}
+      {selectedDoc && (
+        selectedDoc.type === 'rapport' && selectedDoc.rapport_meta ? (
+          <GedReportDrawer
+            document={selectedDoc}
+            onClose={() => setSelectedDocId(null)}
+          />
+        ) : (
+          <GedDocumentDrawer
+            docId={selectedDocId}
+            postes={postes}
+            onClose={() => setSelectedDocId(null)}
+          />
+        )
+      )}
+
+      {/* Upload & Postes drawers */}
       <GedPostesDrawer
         open={showPostesDrawer}
         onClose={() => setShowPostesDrawer(false)}

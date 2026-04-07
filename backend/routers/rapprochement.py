@@ -116,4 +116,42 @@ def associate_manual(req: ManualAssociateRequest):
         "manuel",
         ventilation_index=req.ventilation_index,
     )
+
+    # GED V2 enrichment
+    try:
+        from backend.services import ged_service, operation_service as _op_svc
+        _ops = _op_svc.load_operations(req.operation_file)
+        if 0 <= req.operation_index < len(_ops):
+            _op = _ops[req.operation_index]
+            if req.ventilation_index is not None:
+                _vlines = _op.get("ventilation", [])
+                if 0 <= req.ventilation_index < len(_vlines):
+                    _vl = _vlines[req.ventilation_index]
+                    _cat = _vl.get("categorie", "")
+                    _scat = _vl.get("sous_categorie", "")
+                    _amount = float(_vl.get("montant", 0))
+                else:
+                    _cat = _op.get("Catégorie", "")
+                    _scat = _op.get("Sous-catégorie", "")
+                    _amount = abs(float(_op.get("Débit", 0) or 0)) or abs(float(_op.get("Crédit", 0) or 0))
+            else:
+                _cat = _op.get("Catégorie", "")
+                _scat = _op.get("Sous-catégorie", "")
+                _amount = abs(float(_op.get("Débit", 0) or 0)) or abs(float(_op.get("Crédit", 0) or 0))
+            from backend.services.rapprochement_service import _load_ocr_data
+            _ocr = _load_ocr_data(req.justificatif_filename)
+            ged_service.enrich_metadata_on_association(
+                justificatif_filename=req.justificatif_filename,
+                operation_file=req.operation_file,
+                operation_index=req.operation_index,
+                categorie=_cat,
+                sous_categorie=_scat,
+                fournisseur=_ocr.get("supplier", "") if _ocr else "",
+                date_operation=_op.get("Date", ""),
+                montant=_amount,
+                ventilation_index=req.ventilation_index,
+            )
+    except Exception:
+        pass
+
     return {"success": True}

@@ -101,7 +101,31 @@ async def save_operations(filename: str, operations: list[dict]):
     except Exception:
         pass  # Ne jamais bloquer le save
 
+    # GED V2: charger les anciennes opérations AVANT le save pour détecter les changements
+    try:
+        old_ops = operation_service.load_operations(filename)
+    except Exception:
+        old_ops = []
+
     saved = operation_service.save_operations(operations, filename=filename)
+
+    # GED V2: propager les changements de catégorie aux justificatifs liés
+    try:
+        from backend.services import ged_service
+        for idx, op in enumerate(operations):
+            if idx < len(old_ops):
+                old_cat = old_ops[idx].get("Catégorie", "")
+                new_cat = op.get("Catégorie", "")
+                if old_cat != new_cat and op.get("Lien justificatif"):
+                    ged_service.propagate_category_change(
+                        operation_file=filename,
+                        operation_index=idx,
+                        new_categorie=new_cat,
+                        new_sous_categorie=op.get("Sous-catégorie", ""),
+                    )
+    except Exception:
+        pass  # Ne jamais bloquer le save
+
     return {"filename": saved, "count": len(operations)}
 
 
