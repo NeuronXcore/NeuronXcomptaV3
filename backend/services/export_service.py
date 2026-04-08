@@ -44,9 +44,9 @@ def _format_amount_fr(amount: float) -> str:
 
 
 def _export_filename(year: int, month: int, ext: str) -> str:
-    """-> 'Export_Comptable_2025-01_Janvier.csv'"""
+    """-> 'Export_Comptable_2025_Janvier.csv'"""
     mois_label = MOIS_FR[month - 1].capitalize() if 1 <= month <= 12 else f"{month:02d}"
-    return f"Export_Comptable_{year}-{month:02d}_{mois_label}.{ext}"
+    return f"Export_Comptable_{year}_{mois_label}.{ext}"
 
 
 def _get_justificatif_name(op: dict) -> str:
@@ -208,7 +208,7 @@ def _has_export(year: int, month: int) -> bool:
     if not EXPORTS_DIR.exists():
         return False
     # Nouveau format
-    pattern_new = f"Export_Comptable_{year}-{month:02d}_*"
+    pattern_new = f"Export_Comptable_{year}_{MOIS_FR[month - 1].capitalize() if 1 <= month <= 12 else f'{month:02d}'}*"
     # Ancien format (retrocompatibilite)
     pattern_old = f"export_{year}_{month:02d}_*"
     return (
@@ -244,8 +244,18 @@ def list_exports() -> list:
 
 
 def _parse_export_filename(filename: str) -> tuple:
-    """Parse le nom d'export (nouveau ou ancien format)."""
-    # Nouveau format: Export_Comptable_2025-01_Janvier_...
+    """Parse le nom d'export (nouveau, intermédiaire ou ancien format)."""
+    # Nouveau format: Export_Comptable_2025_Janvier...
+    match = re.match(r"Export_Comptable_(\d{4})_([A-Za-zéèêûôàù]+)", filename)
+    if match:
+        mois_name = match.group(2).capitalize()
+        month_num = None
+        for i, m in enumerate(MOIS_FR):
+            if m.capitalize() == mois_name:
+                month_num = i + 1
+                break
+        return int(match.group(1)), month_num, mois_name
+    # Format intermédiaire: Export_Comptable_2025-01_Janvier_...
     match = re.match(r"Export_Comptable_(\d{4})-(\d{2})_(\w+)", filename)
     if match:
         return int(match.group(1)), int(match.group(2)), match.group(3)
@@ -289,7 +299,7 @@ def generate_export(
 
     month_name = MOIS_FR[month - 1].capitalize() if 1 <= month <= 12 else str(month)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_name = f"Export_Comptable_{year}-{month:02d}_{month_name}_{timestamp}.zip"
+    zip_name = f"Export_Comptable_{year}_{month_name}_{timestamp}.zip"
     zip_path = EXPORTS_DIR / zip_name
 
     # Preparer les operations classees

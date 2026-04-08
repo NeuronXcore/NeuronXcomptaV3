@@ -124,6 +124,47 @@ def _find_linked_operation(justificatif_filename: str) -> Optional[str]:
     return None
 
 
+def find_operations_by_justificatif(justificatif_filename: str) -> list[dict]:
+    """Parcourt tous les fichiers d'opérations pour trouver ceux liés au justificatif."""
+    results = []
+    basename = justificatif_filename.split("/")[-1]
+
+    for file_info in operation_service.list_operation_files():
+        try:
+            ops = operation_service.load_operations(file_info["filename"])
+        except Exception:
+            continue
+        for idx, op in enumerate(ops):
+            lien = op.get("Lien justificatif", "") or ""
+            if lien and lien.split("/")[-1] == basename:
+                results.append({
+                    "operation_file": file_info["filename"],
+                    "operation_index": idx,
+                    "date": op.get("Date", ""),
+                    "libelle": op.get("Libellé", ""),
+                    "debit": op.get("Débit", 0) or 0,
+                    "credit": op.get("Crédit", 0) or 0,
+                    "categorie": op.get("Catégorie", ""),
+                    "sous_categorie": op.get("Sous-catégorie", ""),
+                    "ventilation_index": None,
+                })
+            for vl_idx, vl in enumerate(op.get("ventilation", []) or []):
+                vl_lien = vl.get("justificatif", "") or ""
+                if vl_lien and vl_lien.split("/")[-1] == basename:
+                    results.append({
+                        "operation_file": file_info["filename"],
+                        "operation_index": idx,
+                        "date": op.get("Date", ""),
+                        "libelle": vl.get("libelle", op.get("Libellé", "")),
+                        "debit": vl.get("montant", 0) if op.get("Débit") else 0,
+                        "credit": vl.get("montant", 0) if op.get("Crédit") else 0,
+                        "categorie": vl.get("categorie", ""),
+                        "sous_categorie": vl.get("sous_categorie", ""),
+                        "ventilation_index": vl_idx,
+                    })
+    return results
+
+
 # ─── Listing ───
 
 def list_justificatifs(

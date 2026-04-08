@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useFiscalYearStore } from '../stores/useFiscalYearStore'
 import { useOperationFiles, useOperations, useYearOperations } from './useOperations'
 import type { Operation, OperationFile } from '@/types'
@@ -13,6 +14,7 @@ export interface EnrichedOperation extends Operation {
 }
 
 export function useJustificatifsPage() {
+  const [searchParams] = useSearchParams()
   const { selectedYear: year, setYear } = useFiscalYearStore()
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
   const [search, setSearch] = useState('')
@@ -25,6 +27,17 @@ export function useJustificatifsPage() {
 
   // Fichiers disponibles
   const { data: files = [] } = useOperationFiles()
+
+  // Synchroniser le mois depuis URL ?file= (pipeline → justificatifs)
+  const fileParam = searchParams.get('file')
+  useEffect(() => {
+    if (!fileParam || files.length === 0) return
+    const match = files.find(f => f.filename === fileParam)
+    if (match) {
+      if (match.year && match.year !== year) setYear(match.year)
+      if (match.month !== selectedMonth) setSelectedMonth(match.month ?? null)
+    }
+  }, [fileParam, files]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Années et mois disponibles
   const availableYears = useMemo(() => {
@@ -42,9 +55,14 @@ export function useJustificatifsPage() {
 
   // Fichier sélectionné
   const selectedFile = useMemo((): OperationFile | null => {
+    // Priorité au fileParam URL si présent et valide
+    if (fileParam) {
+      const match = files.find(f => f.filename === fileParam)
+      if (match) return match
+    }
     if (selectedMonth === null || selectedMonth === 0) return monthsForYear[0] ?? null
     return monthsForYear.find(f => f.month === selectedMonth) ?? null
-  }, [monthsForYear, selectedMonth])
+  }, [fileParam, files, monthsForYear, selectedMonth])
 
   // Chargement opérations
   const isYearWide = selectedMonth === 0

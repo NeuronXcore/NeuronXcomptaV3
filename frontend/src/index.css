@@ -27,10 +27,10 @@ tr.editor-row:hover > td {
   background-color: var(--color-surface-hover);
 }
 tr.editor-row:focus-within > td {
-  background-color: rgba(37, 99, 235, 0.45);
+  background-color: color-mix(in srgb, var(--color-amber-400) 15%, transparent);
 }
 tr.editor-row:focus-within {
-  box-shadow: inset 0 0 0 2px #60a5fa, 0 0 16px rgba(96, 165, 250, 0.35);
+  box-shadow: inset 0 0 0 2px var(--color-amber-400), 0 0 12px rgba(245, 158, 11, 0.2);
 }
 
 ::-webkit-scrollbar {
@@ -119,11 +119,10 @@ tr.editor-row:focus-within {
 .animate-electric-spark-2 { animation: electric-spark 1.8s ease-in-out 0.3s infinite; }
 
 .flash-highlight {
-  animation: flash 1.5s ease-out;
-}
-@keyframes flash {
-  0% { background-color: color-mix(in srgb, var(--color-amber-400) 20%, transparent); }
-  100% { background-color: transparent; }
+  background-color: color-mix(in srgb, var(--color-amber-400) 20%, transparent);
+  outline: 2px solid var(--color-amber-400);
+  outline-offset: -2px;
+  border-radius: 4px;
 }
 .animate-electric-spark-3 { animation: electric-spark 1.8s ease-in-out 0.6s infinite; }
 .animate-electric-spark-4 { animation: electric-spark 1.8s ease-in-out 0.9s infinite; }

@@ -21,6 +21,7 @@ from backend.core.config import (
     ensure_directories,
 )
 from backend.models.template import (
+    FieldCoordinates,
     JustificatifTemplate,
     TemplateCreateRequest,
     TemplateField,
@@ -179,39 +180,107 @@ def extract_fields_from_justificatif(filename: str) -> dict:
             "suggested_source": "ocr",
         })
 
-    # Ajouter champs TVA standards
-    fields.extend([
-        {
-            "key": "tva_rate",
-            "label": "Taux TVA",
-            "value": "20",
-            "type": "percent",
-            "confidence": 0.5,
-            "suggested_source": "fixed",
-        },
-        {
-            "key": "montant_ht",
-            "label": "Montant HT",
-            "value": "",
-            "type": "currency",
-            "confidence": 0.5,
-            "suggested_source": "computed",
-        },
-        {
-            "key": "tva",
-            "label": "TVA",
-            "value": "",
-            "type": "currency",
-            "confidence": 0.5,
-            "suggested_source": "computed",
-        },
-    ])
+    # Note: pas de champs TVA (non assujetti à la TVA)
+
+    # Enrichir avec les coordonnées PDF si possible
+    _enrich_field_coordinates(fields, pdf_path)
 
     return {
         "vendor": vendor,
         "suggested_aliases": aliases,
         "detected_fields": fields,
     }
+
+
+def _enrich_field_coordinates(fields: list[dict], pdf_path: Path) -> None:
+    """Localise les coordonnées des champs date et montant dans le PDF source via pdfplumber."""
+    try:
+        import pdfplumber
+    except ImportError:
+        return
+
+    try:
+        with pdfplumber.open(str(pdf_path)) as pdf:
+            for page_idx, page in enumerate(pdf.pages):
+                words = page.extract_words(keep_blank_chars=True, extra_attrs=["fontname", "size"])
+                if not words:
+                    continue
+                for field in fields:
+                    if field.get("coordinates"):
+                        continue  # déjà trouvé
+                    value = str(field.get("value", "")).strip()
+                    if not value:
+                        continue
+                    coords = _match_value_in_words(value, words, field["key"])
+                    if coords:
+                        field["coordinates"] = {
+                            "x": coords[0],
+                            "y": coords[1],
+                            "w": coords[2],
+                            "h": coords[3],
+                            "page": page_idx,
+                        }
+    except Exception as e:
+        logger.warning(f"Erreur localisation coordonnées PDF: {e}")
+
+
+def _match_value_in_words(value: str, words: list[dict], field_key: str) -> Optional[tuple]:
+    """Cherche une valeur dans les mots extraits du PDF et retourne (x, y, w, h) ou None.
+    Coordonnées en points PDF, origine en haut-gauche (pdfplumber convention)."""
+    # Normaliser la valeur recherchée
+    search_variants = [value]
+
+    if field_key == "montant_ttc":
+        # Chercher différents formats : 188.95, 188,95, 188.95€, etc.
+        try:
+            num = float(value.replace(",", "."))
+            search_variants = [
+                f"{num:.2f}",
+                f"{num:.2f}".replace(".", ","),
+                f"{num:,.2f}".replace(",", " ").replace(".", ","),
+                str(int(num)) if num == int(num) else "",
+            ]
+            search_variants = [v for v in search_variants if v]
+        except (ValueError, TypeError):
+            pass
+
+    if field_key == "date":
+        # Chercher différents formats de date
+        try:
+            from datetime import datetime as _dt
+            for fmt_in in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y"):
+                try:
+                    dt = _dt.strptime(value, fmt_in)
+                    search_variants = [
+                        dt.strftime("%d/%m/%Y"),
+                        dt.strftime("%d/%m/%y"),
+                        dt.strftime("%d-%m-%Y"),
+                        dt.strftime("%d %m %Y"),
+                        value,
+                    ]
+                    break
+                except ValueError:
+                    continue
+        except Exception:
+            pass
+
+    for variant in search_variants:
+        if not variant:
+            continue
+        # Chercher un mot exact ou une séquence de mots consécutifs
+        variant_clean = variant.strip()
+        for w in words:
+            word_text = w.get("text", "").strip()
+            if variant_clean in word_text or word_text in variant_clean:
+                x0 = w["x0"]
+                top = w["top"]
+                x1 = w["x1"]
+                bottom = w["bottom"]
+                # Ajouter une petite marge
+                margin = 2
+                return (x0 - margin, top - margin, (x1 - x0) + margin * 2, (bottom - top) + margin * 2)
+
+    return None
 
 
 def _try_ollama_extraction(pdf_path: Path) -> Optional[dict]:
@@ -392,7 +461,17 @@ def generate_reconstitue(request: GenerateRequest) -> dict:
     pdf_filename = f"reconstitue_{timestamp}_{vendor_slug}.pdf"
     pdf_path = JUSTIFICATIFS_EN_ATTENTE_DIR / pdf_filename
 
-    _generate_pdf(pdf_path, tpl.vendor, field_values)
+    # Tenter le fac-similé si le template a un source_justificatif avec coordonnées
+    source_pdf = _find_justificatif(tpl.source_justificatif) if tpl.source_justificatif else None
+    fields_with_coords = [f for f in tpl.fields if f.coordinates] if source_pdf else []
+    if source_pdf and fields_with_coords:
+        try:
+            _generate_pdf_facsimile(pdf_path, source_pdf, field_values, fields_with_coords)
+        except Exception as e:
+            logger.warning(f"Fac-similé échoué, fallback ReportLab: {e}")
+            _generate_pdf(pdf_path, tpl.vendor, field_values)
+    else:
+        _generate_pdf(pdf_path, tpl.vendor, field_values)
 
     # 5. Créer le .ocr.json compagnon
     ocr_data = {
@@ -510,6 +589,135 @@ def _evaluate_formula(formula: str, values: dict) -> Optional[float]:
         return None
 
 
+def _blank_embedded_images(c, source_pdf_path: Path, page_idx: int, page_height: float) -> None:
+    """Masque les images embarquées (photos produits) dans le PDF source avec des rectangles blancs."""
+    try:
+        import pdfplumber
+        from reportlab.lib import colors
+
+        with pdfplumber.open(str(source_pdf_path)) as pdf:
+            if page_idx >= len(pdf.pages):
+                return
+            page = pdf.pages[page_idx]
+            page_w = float(page.width)
+            page_h = float(page.height)
+
+            for img in (page.images or []):
+                x0 = float(img.get("x0", 0))
+                top = float(img.get("top", 0))
+                x1 = float(img.get("x1", x0))
+                bottom = float(img.get("bottom", top))
+                w = x1 - x0
+                h = bottom - top
+
+                # Ignorer les images très petites (icônes, puces) et très larges (fond de page)
+                if w < 20 or h < 20:
+                    continue
+                if w > page_w * 0.95 and h > page_h * 0.95:
+                    continue
+
+                # Convertir : pdfplumber top→ ReportLab bottom-left
+                y_bottom = page_height - bottom
+                margin = 2
+                c.setFillColor(colors.white)
+                c.setStrokeColor(colors.white)
+                c.rect(x0 - margin, y_bottom - margin, w + margin * 2, h + margin * 2, fill=1, stroke=1)
+
+    except Exception as e:
+        logger.debug(f"Masquage images échoué: {e}")
+
+
+def _generate_pdf_facsimile(
+    path: Path,
+    source_pdf_path: Path,
+    field_values: dict,
+    fields_with_coords: list,
+) -> None:
+    """Génère un fac-similé : image du PDF source + remplacement date/montant."""
+    from pdf2image import convert_from_path
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    import io
+    from PIL import Image as PILImage
+
+    # 1. Convertir le PDF source en image(s) haute résolution
+    dpi = 200
+    images = convert_from_path(str(source_pdf_path), dpi=dpi)
+    if not images:
+        raise ValueError("Impossible de convertir le PDF source en image")
+
+    # 2. Créer le canvas aux mêmes dimensions que la première page
+    first_img = images[0]
+    page_width_pt = first_img.width * 72.0 / dpi
+    page_height_pt = first_img.height * 72.0 / dpi
+
+    c = canvas.Canvas(str(path), pagesize=(page_width_pt, page_height_pt))
+
+    for page_idx, img in enumerate(images):
+        if page_idx > 0:
+            c.showPage()
+            pw = img.width * 72.0 / dpi
+            ph = img.height * 72.0 / dpi
+            c.setPageSize((pw, ph))
+        else:
+            pw = page_width_pt
+            ph = page_height_pt
+
+        # 3. Dessiner l'image source comme fond pleine page
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        from reportlab.lib.utils import ImageReader
+        c.drawImage(ImageReader(img_buffer), 0, 0, width=pw, height=ph)
+
+        # 3b. Masquer les images embarquées (photos produits, logos secondaires)
+        _blank_embedded_images(c, source_pdf_path, page_idx, ph)
+
+        # 4. Appliquer les remplacements sur cette page
+        scale = 72.0 / dpi  # ne pas re-scaler, les coordonnées pdfplumber sont en pts
+        for field in fields_with_coords:
+            coords = field.coordinates
+            if coords.page != page_idx:
+                continue
+
+            field_key = field.key
+            new_value = field_values.get(field_key, "")
+            if new_value is None or new_value == "":
+                continue
+
+            # pdfplumber: origine en haut-gauche. ReportLab: origine en bas-gauche.
+            x = coords.x
+            y_top = coords.y  # distance depuis le haut
+            w = coords.w
+            h = coords.h
+            y_bottom = ph - y_top - h  # convertir en bas-gauche
+
+            # a. Rectangle blanc pour effacer l'ancienne valeur
+            c.setFillColor(colors.white)
+            c.setStrokeColor(colors.white)
+            c.rect(x, y_bottom, w, h, fill=1, stroke=1)
+
+            # b. Écrire la nouvelle valeur
+            c.setFillColor(colors.black)
+            font_size = min(h * 0.8, 11)
+            c.setFont("Helvetica", max(font_size, 7))
+
+            # Formater la valeur
+            formatted = str(new_value)
+            if field_key == "montant_ttc":
+                formatted = _format_currency(new_value)
+            elif field_key == "date":
+                formatted = _format_date_fr(str(new_value))
+
+            # Centrer verticalement dans la zone
+            text_y = y_bottom + (h - font_size) / 2
+            c.drawString(x + 1, text_y, formatted)
+
+    c.save()
+    logger.info(f"PDF fac-similé généré: {path.name} (source: {source_pdf_path.name})")
+
+
 def _generate_pdf(path: Path, vendor: str, field_values: dict) -> None:
     """Génère un PDF justificatif sobre au format A5 via ReportLab."""
     from reportlab.lib.pagesizes import A5
@@ -570,21 +778,6 @@ def _generate_pdf(path: Path, vendor: str, field_values: dict) -> None:
 
     c.setFillColor(colors.Color(0, 0, 0))
     c.setFont("Helvetica", 10)
-
-    # Montant HT
-    montant_ht = field_values.get("montant_ht")
-    if montant_ht is not None:
-        c.drawString(col_label, y, "Montant HT")
-        c.drawRightString(col_value, y, _format_currency(montant_ht))
-        y -= 5 * mm
-
-    # TVA
-    tva = field_values.get("tva")
-    tva_rate = field_values.get("tva_rate", 20)
-    if tva is not None:
-        c.drawString(col_label, y, f"TVA ({tva_rate}%)")
-        c.drawRightString(col_value, y, _format_currency(tva))
-        y -= 5 * mm
 
     # Ligne séparatrice
     y -= 2 * mm

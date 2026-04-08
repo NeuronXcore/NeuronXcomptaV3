@@ -82,6 +82,12 @@ def _run_ocr_background(filename: str):
         logger.warning(f"OCR/rapprochement background échoué pour {filename}: {e}")
 
 
+@router.get("/reverse-lookup/{filename:path}")
+async def reverse_lookup_justificatif(filename: str):
+    """Trouve les opérations associées à un justificatif donné."""
+    return justificatif_service.find_operations_by_justificatif(filename)
+
+
 @router.get("/{filename}/preview")
 async def preview_justificatif(filename: str):
     """Sert le fichier PDF pour preview dans iframe."""
@@ -126,6 +132,17 @@ async def associate_justificatif(request: AssociateRequest):
     )
     if not success:
         raise HTTPException(status_code=400, detail="Échec de l'association")
+
+    # Auto-pointage après association
+    try:
+        from backend.services import operation_service
+        ops = operation_service.load_operations(request.operation_file)
+        pointed = operation_service.maybe_auto_lettre(ops)
+        if pointed > 0:
+            operation_service.save_operations(ops, filename=request.operation_file)
+    except Exception:
+        pass
+
     return {"success": True, "message": "Justificatif associé"}
 
 

@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Upload, Pencil, Tags, BarChart3,
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
-  GitCompareArrows, CalendarCheck, AlertTriangle, TrendingUp,
+  CalendarCheck, AlertTriangle, TrendingUp,
   Library, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -29,7 +29,6 @@ const NAV_SECTIONS = [
     label: 'Traitement',
     items: [
       { to: '/justificatifs', label: 'Justificatifs', icon: Paperclip },
-      { to: '/rapprochement', label: 'Rapprochement', icon: GitCompareArrows },
       { to: '/alertes', label: "Compte d'attente", icon: AlertTriangle },
     ],
   },
@@ -122,34 +121,24 @@ export default function Sidebar() {
             end
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 px-6 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-4 py-2.5 mx-3 rounded-lg text-sm font-semibold transition-all',
                 isActive
-                  ? 'text-primary bg-primary/10 border-r-2 border-primary'
-                  : 'text-text hover:text-primary hover:bg-surface-hover'
+                  ? 'bg-warning/15 text-warning border border-warning/30'
+                  : 'bg-warning/10 text-warning hover:bg-warning/20 border border-warning/20'
               )
             }
           >
             <ListChecks size={18} />
             <span className="flex-1">Pipeline</span>
-          </NavLink>
-          {/* Pipeline progress badge */}
-          <button
-            onClick={() => navigate('/')}
-            className={cn(
-              'flex items-center gap-2 mx-6 mt-1 px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer',
-              'transition-colors hover:bg-primary/20',
+            <span className={cn(
+              'px-2 py-0.5 rounded-full text-[10px] font-bold',
               globalProgress === 100
-                ? 'bg-emerald-900/20 text-emerald-400'
-                : globalProgress > 50
-                ? 'bg-amber-900/20 text-amber-400'
-                : 'bg-gray-700/50 text-gray-400'
-            )}
-          >
-            <div className="w-2 h-2 rounded-full" style={{
-              background: globalProgress === 100 ? '#0F6E56' : globalProgress > 50 ? '#BA7517' : '#5F5E5A'
-            }} />
-            {globalProgress}%
-          </button>
+                ? 'bg-emerald-500/20 text-emerald-400'
+                : 'bg-warning/20 text-warning'
+            )}>
+              {globalProgress}%
+            </span>
+          </NavLink>
         </div>
 
         {/* Year selector */}

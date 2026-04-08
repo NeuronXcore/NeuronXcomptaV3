@@ -245,8 +245,29 @@ def get_filtered_suggestions(
     o_date = operation.get("Date", "")
     o_libelle = operation.get("Libellé", "")
 
+    # Extraire année/mois de l'opération pour pré-filtrer les justificatifs
+    op_year, op_month = None, None
+    if o_date and len(o_date) >= 7:
+        try:
+            op_year = int(o_date[:4])
+            op_month = int(o_date[5:7])
+        except (ValueError, IndexError):
+            pass
+
     suggestions = []
     for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
+        # Pré-filtre par mois : extraire la date du nom de fichier (convention fournisseur_YYYYMMDD_montant.pdf)
+        if op_year and op_month:
+            fname_match = re.search(r"(\d{4})(\d{2})\d{2}", pdf_path.stem)
+            if fname_match:
+                f_year = int(fname_match.group(1))
+                f_month = int(fname_match.group(2))
+                # Tolérance ±1 mois
+                op_total = op_year * 12 + op_month
+                f_total = f_year * 12 + f_month
+                if abs(op_total - f_total) > 1:
+                    continue
+
         ocr_data = _load_ocr_data(pdf_path.name)
         ocr_montant = ocr_data.get("best_amount")
         ocr_date = ocr_data.get("best_date")
@@ -634,11 +655,15 @@ def _run_auto_rapprochement_locked() -> dict:
         else:
             sans_correspondance += 1
 
+    # Compter les justificatifs restants en attente après traitement
+    justificatifs_restants = len(list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf")))
+
     return {
         "total_justificatifs_traites": len(pending_pdfs),
         "associations_auto": associations_auto,
         "suggestions_fortes": suggestions_fortes,
         "sans_correspondance": sans_correspondance,
+        "justificatifs_restants": justificatifs_restants,
         "ran_at": now,
     }
 

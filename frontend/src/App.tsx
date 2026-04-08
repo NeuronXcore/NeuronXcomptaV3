@@ -12,7 +12,7 @@ import AgentIAPage from '@/components/agent-ia/AgentIAPage'
 import JustificatifsPage from '@/components/justificatifs/JustificatifsPage'
 import OcrPage from '@/components/ocr/OcrPage'
 import ExportPage from '@/components/export/ExportPage'
-import RapprochementPage from '@/components/rapprochement/RapprochementPage'
+import { Navigate } from 'react-router-dom'
 import CloturePage from '@/components/cloture/CloturePage'
 import AlertesPage from '@/pages/AlertesPage'
 import SettingsPage from '@/components/settings/SettingsPage'
@@ -45,7 +45,7 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/visualization" element={<ComptaAnalytiquePage />} />
         <Route path="/justificatifs" element={<JustificatifsPage />} />
-        <Route path="/rapprochement" element={<RapprochementPage />} />
+        <Route path="/rapprochement" element={<Navigate to="/justificatifs" replace />} />
         <Route path="/alertes" element={<AlertesPage />} />
         <Route path="/agent-ai" element={<AgentIAPage />} />
         <Route path="/export" element={<ExportPage />} />

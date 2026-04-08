@@ -46,10 +46,11 @@ PIPELINE (hors-groupe, page d'accueil /)
 
 SAISIE → TRAITEMENT → ANALYSE → CLÔTURE → DOCUMENTS → OUTILS
 
-Importation      Justificatifs      Tableau de bord     Export Comptable    Bibliothèque    Agent IA
-Édition          Rapprochement      Compta Analytique   Clôture             (GED)           Paramètres
-Catégories       Compte d'attente   Rapports            Amortissements
-OCR              Prévisionnel       Simulation BNC
+Importation      Justificatifs      Tableau de bord     Export Comptable    Bibliothèque    Tâches
+Édition          Compte d'attente   Prévisionnel        Clôture             (GED)           Agent IA
+Catégories                          Compta Analytique   Amortissements                      Paramètres
+OCR                                 Rapports
+                                    Simulation BNC
 ```
 
 ### Importation d'un relevé

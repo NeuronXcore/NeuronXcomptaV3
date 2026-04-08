@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import PageHeader from '@/components/shared/PageHeader'
@@ -9,13 +9,16 @@ import {
 } from '@/hooks/useOcr'
 import type { BatchUploadResult } from '@/hooks/useOcr'
 import { useJustificatifs } from '@/hooks/useJustificatifs'
-import { formatCurrency, cn } from '@/lib/utils'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
-  ArrowRight, DollarSign, Calendar, User,
+  ArrowRight, DollarSign, Calendar, User, Filter,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
+import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
+import { useReverseLookup } from '@/hooks/useJustificatifs'
 import type { OCRResult, OCRHistoryItem } from '@/types'
 
 type Tab = 'upload' | 'test' | 'historique' | 'templates'
@@ -29,10 +32,10 @@ export default function OcrPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>(preFile ? 'templates' : 'upload')
   const { data: status } = useOcrStatus()
-  const { data: history, isLoading: historyLoading } = useOcrHistory(30)
+  const { data: history, isLoading: historyLoading } = useOcrHistory(100)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6">
       <PageHeader
         title="OCR - Reconnaissance Optique"
         description="Point d'entrée des justificatifs : upload, extraction automatique des données"
@@ -588,10 +591,72 @@ function OcrResultPanel({ result }: { result: OCRResult }) {
 }
 
 
+// ──── Helpers ────
+
+/** Extrait année et mois depuis le nom de fichier (convention: fournisseur_YYYYMMDD_montant.pdf) */
+function parseDateFromFilename(filename: string): { year: number | null; month: number | null } {
+  const m = filename.match(/(\d{4})(\d{2})\d{2}/)
+  if (m) return { year: parseInt(m[1]), month: parseInt(m[2]) }
+  return { year: null, month: null }
+}
+
 // ──── Historique Tab ────
 
 function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLoading: boolean }) {
+  const { selectedYear } = useFiscalYearStore()
   const extractOcr = useExtractOcr()
+  const [filterMonth, setFilterMonth] = useState<number | null>(null)
+  const [filterSupplier, setFilterSupplier] = useState('')
+  const [sortField, setSortField] = useState<'date' | 'supplier' | 'confidence'>('date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  // Enrichir avec date parsée du filename
+  const enriched = useMemo(() => {
+    return (history || []).map(item => {
+      const { year, month } = parseDateFromFilename(item.filename)
+      return { ...item, _year: year, _month: month }
+    })
+  }, [history])
+
+  // Filtrer par année de la sidebar + mois + fournisseur
+  const filtered = useMemo(() => {
+    let items = enriched.filter(item => item._year === selectedYear)
+    if (filterMonth) items = items.filter(item => item._month === filterMonth)
+    if (filterSupplier) items = items.filter(item => (item.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()))
+    // Tri
+    items.sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'date') {
+        const da = a.filename, db = b.filename
+        cmp = da.localeCompare(db)
+      } else if (sortField === 'supplier') {
+        cmp = (a.supplier || '').localeCompare(b.supplier || '')
+      } else if (sortField === 'confidence') {
+        cmp = a.confidence - b.confidence
+      }
+      return sortDir === 'desc' ? -cmp : cmp
+    })
+    return items
+  }, [enriched, selectedYear, filterMonth, filterSupplier, sortField, sortDir])
+
+  // Extraire les fournisseurs uniques pour le filtre
+  const suppliers = useMemo(() => {
+    const set = new Set<string>()
+    enriched.filter(i => i._year === selectedYear).forEach(i => { if (i.supplier) set.add(i.supplier) })
+    return [...set].sort()
+  }, [enriched, selectedYear])
+
+  // Extraire les mois disponibles
+  const availableMonths = useMemo(() => {
+    const set = new Set<number>()
+    enriched.filter(i => i._year === selectedYear).forEach(i => { if (i._month) set.add(i._month) })
+    return [...set].sort((a, b) => a - b)
+  }, [enriched, selectedYear])
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('desc') }
+  }
 
   if (isLoading) {
     return (
@@ -602,106 +667,155 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
     )
   }
 
-  if (history.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-3 text-text-muted py-12">
-        <Clock size={40} className="opacity-30" />
-        <p className="text-sm">Aucune extraction OCR réalisée</p>
-      </div>
-    )
-  }
-
   return (
-    <div className="bg-surface rounded-xl border border-border overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-text-muted text-xs">
-              <th className="text-left px-4 py-3 font-medium">Fichier</th>
-              <th className="text-left px-4 py-3 font-medium">Date</th>
-              <th className="text-left px-4 py-3 font-medium">Dates trouvées</th>
-              <th className="text-left px-4 py-3 font-medium">Montants</th>
-              <th className="text-left px-4 py-3 font-medium">Fournisseur</th>
-              <th className="text-center px-4 py-3 font-medium">Confiance</th>
-              <th className="text-right px-4 py-3 font-medium">Temps</th>
-              <th className="text-center px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.map((item, i) => (
-              <tr key={i} className="border-b border-border/50 hover:bg-surface-hover transition-colors">
-                <td className="px-4 py-3">
-                  <span className="text-text text-xs truncate max-w-[180px] block" title={item.filename}>
-                    {item.filename.length > 30
-                      ? item.filename.slice(0, 15) + '...' + item.filename.slice(-12)
-                      : item.filename}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-text-muted text-xs">
-                  {item.processed_at ? new Date(item.processed_at).toLocaleDateString('fr-FR') : '-'}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {item.dates_found.slice(0, 2).map((d, j) => (
-                      <span key={j} className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[10px]">{d}</span>
-                    ))}
-                    {item.dates_found.length > 2 && (
-                      <span className="text-[10px] text-text-muted">+{item.dates_found.length - 2}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {item.amounts_found.slice(0, 2).map((a, j) => (
-                      <span key={j} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px]">
-                        {formatCurrency(a)}
-                      </span>
-                    ))}
-                    {item.amounts_found.length > 2 && (
-                      <span className="text-[10px] text-text-muted">+{item.amounts_found.length - 2}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-xs text-text-muted max-w-[120px] truncate" title={item.supplier || ''}>
-                  {item.supplier || '-'}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <div className="w-10 h-1.5 bg-background rounded-full overflow-hidden">
-                      <div
-                        className={cn(
-                          'h-full rounded-full',
-                          item.confidence >= 0.8 ? 'bg-emerald-500' :
-                          item.confidence >= 0.5 ? 'bg-amber-500' : 'bg-red-400'
-                        )}
-                        style={{ width: `${Math.round(item.confidence * 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-[10px] text-text-muted">{Math.round(item.confidence * 100)}%</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-right text-xs text-text-muted">
-                  {item.processing_time_ms}ms
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => extractOcr.mutate(item.filename)}
-                    disabled={extractOcr.isPending}
-                    className="p-1.5 text-text-muted hover:text-primary transition-colors"
-                    title="Relancer l'extraction"
-                  >
-                    {extractOcr.isPending ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <RotateCcw size={13} />
-                    )}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-3">
+      {/* Barre de filtres */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs text-text-muted">
+          <Filter size={12} />
+          <span className="font-medium">{selectedYear}</span>
+        </div>
+        <select
+          value={filterMonth ?? ''}
+          onChange={(e) => setFilterMonth(e.target.value ? parseInt(e.target.value) : null)}
+          className="bg-background border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary"
+        >
+          <option value="">Tous les mois</option>
+          {availableMonths.map(m => (
+            <option key={m} value={m}>{MOIS_FR[m - 1]}</option>
+          ))}
+        </select>
+        <select
+          value={filterSupplier}
+          onChange={(e) => setFilterSupplier(e.target.value)}
+          className="bg-background border border-border rounded-md px-2 py-1 text-xs text-text focus:outline-none focus:border-primary"
+        >
+          <option value="">Tous les fournisseurs</option>
+          {suppliers.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <span className="text-[10px] text-text-muted ml-auto">
+          {filtered.length} justificatif{filtered.length !== 1 ? 's' : ''}
+        </span>
       </div>
+
+      {/* Tableau */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 text-text-muted py-12">
+          <Clock size={40} className="opacity-30" />
+          <p className="text-sm">Aucune extraction OCR pour {selectedYear}{filterMonth ? ` — ${MOIS_FR[filterMonth - 1]}` : ''}</p>
+        </div>
+      ) : (
+        <div className="bg-surface rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-text-muted text-xs">
+                  <th className="text-left px-4 py-3 font-medium">Fichier</th>
+                  <th
+                    className="text-left px-4 py-3 font-medium cursor-pointer hover:text-text"
+                    onClick={() => toggleSort('date')}
+                  >
+                    Date {sortField === 'date' && (sortDir === 'desc' ? '↓' : '↑')}
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium">Montants</th>
+                  <th
+                    className="text-left px-4 py-3 font-medium cursor-pointer hover:text-text"
+                    onClick={() => toggleSort('supplier')}
+                  >
+                    Fournisseur {sortField === 'supplier' && (sortDir === 'desc' ? '↓' : '↑')}
+                  </th>
+                  <th
+                    className="text-center px-4 py-3 font-medium cursor-pointer hover:text-text"
+                    onClick={() => toggleSort('confidence')}
+                  >
+                    Confiance {sortField === 'confidence' && (sortDir === 'desc' ? '↓' : '↑')}
+                  </th>
+                  <th className="text-center px-4 py-3 font-medium">Actions</th>
+                  <th className="text-left px-4 py-3 font-medium">Opération</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item, i) => (
+                  <tr key={i} className="border-b border-border/50 hover:bg-surface-hover transition-colors">
+                    <td className="px-4 py-3">
+                      <span className="text-text text-xs truncate max-w-[200px] block" title={item.filename}>
+                        {item.filename.length > 35
+                          ? item.filename.slice(0, 18) + '...' + item.filename.slice(-14)
+                          : item.filename}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-text-muted">
+                      {item._month && item._year
+                        ? `${String(item._month).padStart(2, '0')}/${item._year}`
+                        : item.processed_at ? new Date(item.processed_at).toLocaleDateString('fr-FR') : '-'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {item.amounts_found.slice(0, 2).map((a, j) => (
+                          <span key={j} className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px]">
+                            {formatCurrency(a)}
+                          </span>
+                        ))}
+                        {item.amounts_found.length > 2 && (
+                          <span className="text-[10px] text-text-muted">+{item.amounts_found.length - 2}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-text-muted max-w-[140px] truncate" title={item.supplier || ''}>
+                      {item.supplier || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <div className="w-10 h-1.5 bg-background rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              'h-full rounded-full',
+                              item.confidence >= 0.8 ? 'bg-emerald-500' :
+                              item.confidence >= 0.5 ? 'bg-amber-500' : 'bg-red-400'
+                            )}
+                            style={{ width: `${Math.round(item.confidence * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-text-muted">{Math.round(item.confidence * 100)}%</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => extractOcr.mutate(item.filename)}
+                        disabled={extractOcr.isPending}
+                        className="p-1.5 text-text-muted hover:text-primary transition-colors"
+                        title="Relancer l'extraction"
+                      >
+                        {extractOcr.isPending ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <RotateCcw size={13} />
+                        )}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <HistoriqueOperationCell filename={item.filename} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+function HistoriqueOperationCell({ filename }: { filename: string }) {
+  const { data: results } = useReverseLookup(filename)
+  const isAssociated = (results?.length ?? 0) > 0
+  return (
+    <JustificatifOperationLink
+      justificatifFilename={filename}
+      isAssociated={isAssociated}
+    />
   )
 }

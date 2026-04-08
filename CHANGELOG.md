@@ -8,6 +8,85 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-08) — Session 5
+
+- **Navigation bidirectionnelle Justificatif <-> Operation**
+  - Nouveau endpoint `GET /api/justificatifs/reverse-lookup/{filename}` : trouve les operations liees a un justificatif
+  - Composant `JustificatifOperationLink` : bouton "Voir l'operation" (orange) pour justificatifs associes, suggestions d'operations pour justificatifs en attente
+  - Integration dans GED drawer, OCR historique, Rapprochement log
+  - EditorPage : support `?file=X&highlight=Y` avec scroll + surbrillance permanente (outline orange)
+
+- **GED V3 — Arborescence fournisseur + justificatifs en attente**
+  - Fix arborescence fournisseur : clics fonctionnels sur tous les onglets (bug `parentLabel` non destructure)
+  - Justificatifs en attente inclus dans la GED (237 docs au lieu de 104)
+  - Badge "EN ATTENTE" ambre sur les cartes de justificatifs non attribues
+  - Enrichissement automatique des metadata depuis le nom de fichier (convention `fournisseur_YYYYMMDD_montant.pdf`)
+  - Suppression de rapports depuis la GED (delegation a `report_service.delete_report()`)
+
+- **Templates justificatifs — Fac-simile PDF**
+  - Modele `FieldCoordinates` (x, y, w, h, page) sur `TemplateField`
+  - Extraction automatique des coordonnees via pdfplumber `extract_words()`
+  - Generation fac-simile : rasterisation du PDF source + masquage images produits + remplacement date/montant
+  - Fallback sur PDF sobre ReportLab si pas de coordonnees
+  - Preview templates dans la bibliotheque (thumbnail + drawer detail avec champs et coordonnees)
+  - Section "Generer" : dropdowns fichier/operation (filtre par annee + sans justificatif uniquement)
+  - Suppression des champs TVA (non assujetti)
+  - Fix page noire (bug `key={s}` sur objets sous-categories)
+
+- **Rapprochement / Justificatifs — Fusion et ameliorations**
+  - Page Rapprochement supprimee de la sidebar (redirection `/rapprochement` -> `/justificatifs`)
+  - Page Justificatifs utilise le `RapprochementManuelDrawer` (filtres, scores, preview PDF)
+  - EditorPage utilise le meme drawer pour l'attribution de justificatifs
+  - Clic trombone vert dans Editeur/Justificatifs : preview PDF + bouton Dissocier + bouton Ouvrir Apercu
+  - Clic trombone gris/ambre : drawer attribution (inchange)
+  - Suggestions filtrees par mois de l'operation (tolerance +/- 1 mois)
+  - Surbrillance orange sur la ligne selectionnee dans Editeur et Justificatifs
+
+- **Pipeline — Navigation contextuelle**
+  - Toutes les etapes passent `?file=operationsXXX.json` aux pages destination
+  - Page Justificatifs lit `?file=` pour pre-selectionner le bon mois
+  - Etape 4 renommee "Lettrage" (pointe vers `/justificatifs`)
+  - Pipeline en evidence dans la sidebar (badge orange avec %)
+  - Bouton "Voir justificatifs" en badge orange dans l'etape 3
+  - Etape 2 Categorisation : passe `?file=X&filter=uncategorized`
+
+- **Auto-pointage des operations completes**
+  - Setting `auto_pointage: bool = True` dans `AppSettings`
+  - `auto_lettre_complete()` : pointe les ops avec categorie + sous-categorie + justificatif (ventilees : toutes sous-lignes completes)
+  - Integre dans 4 points : PUT operations, POST categorize, POST associate, POST associate-manual
+  - Toggle "Auto-pointage" dans le header Dashboard (vert/gris)
+  - Toast informatif dans EditorPage apres save
+
+- **Operations "Perso" auto-justifiees**
+  - `_mark_perso_as_justified()` : auto-marque `Justificatif=true` pour les ops categorie "Perso"
+  - Appele automatiquement a chaque save d'operations
+
+- **Rapports — Categories Perso et Non categorise**
+  - Checkboxes "Perso" et "Non categorise" dans le selecteur de categories
+  - Backend `_apply_filters` gere `__non_categorise__` (ops sans categorie ou "Autres")
+
+- **Sandbox — Traitement parallele**
+  - `process_existing_files()` utilise `ThreadPoolExecutor(max_workers=3)` au lieu de sequentiel
+  - Nouveau endpoint `POST /api/sandbox/process` pour declenchement manuel
+
+- **OCR Historique — Filtres et pleine largeur**
+  - Filtres par annee (store global), mois, fournisseur
+  - Date extraite du nom de fichier (convention YYYYMMDD)
+  - Colonnes triables (date, fournisseur, confiance)
+  - Page OCR en pleine largeur
+
+- **Toast rapprochement auto design**
+  - Toast avec icone, compteurs colores (associations auto + suggestions manuelles + restants en attente)
+  - Reste visible 15 secondes avec bouton fermer
+
+- **Export Comptable — Nommage simplifie**
+  - Format `Export_Comptable_ANNEE_Mois.{csv,pdf,zip}` (sans le numero de mois)
+
+- **UI/UX**
+  - Focus-within orange dans l'editeur (remplace le bleu)
+  - Surbrillance orange permanente pour la ligne highlight depuis la GED
+  - Selection checkbox orange dans l'editeur
+
 ### Added (2026-04-07) — Session 4
 
 - **GED V2 — Hub documentaire unifie** : refonte complete de la bibliotheque documents

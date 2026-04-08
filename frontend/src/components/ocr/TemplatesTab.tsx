@@ -5,12 +5,14 @@ import {
 } from '@/hooks/useTemplates'
 import { useCategories } from '@/hooks/useApi'
 import { useJustificatifs } from '@/hooks/useJustificatifs'
-import { cn, formatCurrency } from '@/lib/utils'
+import { useOperationFiles, useOperations } from '@/hooks/useOperations'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import { cn, formatCurrency, formatFileTitle, MOIS_FR } from '@/lib/utils'
 import {
   Search, Plus, Trash2, FileText, Loader2, X, ScanLine,
-  CheckCircle, Tag, Hash, Calendar, DollarSign,
+  CheckCircle, Tag, Hash, Calendar, DollarSign, Crosshair, Eye, Image,
 } from 'lucide-react'
-import type { TemplateField, ExtractedFields } from '@/types'
+import type { TemplateField, ExtractedFields, JustificatifTemplate } from '@/types'
 
 interface Props {
   preFile?: string | null
@@ -161,14 +163,15 @@ function CreateSection() {
                 className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
               >
                 <option value="">—</option>
-                {catData?.categories?.map((g) => (
+                {catData?.categories?.map((g: any) => (
                   <optgroup key={g.name} label={g.name}>
-                    {g.subcategories?.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
+                    {g.subcategories?.map((s: any, si: number) => {
+                      const name = s.name || s
+                      return <option key={`${g.name}-${name}-${si}`} value={name}>{name}</option>
+                    })}
                   </optgroup>
-                )) ?? catData?.raw?.map((c) => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
+                )) ?? catData?.raw?.map((c: any, i: number) => (
+                  <option key={`${c['Catégorie']}-${i}`} value={c['Catégorie']}>{c['Catégorie']}</option>
                 ))}
               </select>
             </div>
@@ -222,6 +225,7 @@ function CreateSection() {
                     <th className="text-left px-3 py-2">Valeur</th>
                     <th className="text-left px-3 py-2">Source</th>
                     <th className="text-center px-3 py-2">Confiance</th>
+                    <th className="text-center px-3 py-2 w-10" title="Position détectée dans le PDF">Pos.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -265,6 +269,13 @@ function CreateSection() {
                           <span className="text-[9px] text-text-muted">{Math.round(f.confidence * 100)}%</span>
                         </div>
                       </td>
+                      <td className="px-3 py-1.5 text-center">
+                        {f.coordinates ? (
+                          <Crosshair size={12} className="text-emerald-400 mx-auto" title={`Page ${(f.coordinates.page || 0) + 1} — x:${Math.round(f.coordinates.x)} y:${Math.round(f.coordinates.y)}`} />
+                        ) : (
+                          <span className="text-text-muted/30">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -301,6 +312,7 @@ function CreateSection() {
 function LibrarySection() {
   const { data: templates, isLoading } = useTemplates()
   const deleteTemplate = useDeleteTemplate()
+  const [previewTpl, setPreviewTpl] = useState<JustificatifTemplate | null>(null)
 
   if (isLoading) {
     return (
@@ -321,7 +333,6 @@ function LibrarySection() {
     )
   }
 
-  // Couleurs avatar selon la première lettre
   const colors = [
     'bg-violet-500/20 text-violet-400',
     'bg-emerald-500/20 text-emerald-400',
@@ -331,67 +342,205 @@ function LibrarySection() {
     'bg-cyan-500/20 text-cyan-400',
   ]
 
+  const sourceTypes: Record<string, { label: string; color: string }> = {
+    operation: { label: 'Opération', color: 'bg-blue-500/10 text-blue-400' },
+    ocr: { label: 'OCR', color: 'bg-emerald-500/10 text-emerald-400' },
+    manual: { label: 'Manuel', color: 'bg-amber-500/10 text-amber-400' },
+    computed: { label: 'Calculé', color: 'bg-violet-500/10 text-violet-400' },
+    fixed: { label: 'Fixe', color: 'bg-surface text-text-muted' },
+  }
+
   return (
     <div>
       <h3 className="text-sm font-semibold text-text mb-4 flex items-center gap-2">
         <Tag size={16} className="text-violet-400" />
         Bibliothèque ({templates.length})
       </h3>
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
         {templates.map((tpl, i) => {
           const initials = tpl.vendor.slice(0, 2).toUpperCase()
           const colorClass = colors[i % colors.length]
+          const hasSource = !!tpl.source_justificatif
+          const hasCoords = tpl.fields.some((f) => f.coordinates)
           return (
             <div
               key={tpl.id}
-              className="bg-surface rounded-xl border border-border p-4 hover:border-violet-500/40 transition-colors group"
+              className="bg-surface rounded-xl border border-border overflow-hidden hover:border-violet-500/40 transition-colors group cursor-pointer"
+              onClick={() => setPreviewTpl(tpl)}
             >
-              {/* Avatar + vendor */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold', colorClass)}>
-                    {initials}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-text">{tpl.vendor}</p>
-                    {tpl.category && (
-                      <p className="text-[10px] text-text-muted">{tpl.category}</p>
-                    )}
-                  </div>
+              {/* Thumbnail du PDF source */}
+              {hasSource ? (
+                <div className="h-32 bg-white overflow-hidden border-b border-border flex items-center justify-center">
+                  <img
+                    src={`/api/ged/documents/${encodeURIComponent('data/justificatifs/traites/' + tpl.source_justificatif)}/thumbnail`}
+                    alt={tpl.vendor}
+                    className="h-full w-auto object-contain"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement
+                      if (!img.dataset.retried) {
+                        img.dataset.retried = '1'
+                        img.src = `/api/ged/documents/${encodeURIComponent('data/justificatifs/en_attente/' + tpl.source_justificatif)}/thumbnail`
+                      } else {
+                        img.style.display = 'none'
+                      }
+                    }}
+                  />
                 </div>
-                <button
-                  onClick={() => deleteTemplate.mutate(tpl.id)}
-                  className="p-1 text-text-muted/30 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
+              ) : (
+                <div className="h-32 bg-surface-hover flex items-center justify-center border-b border-border">
+                  <Image size={28} className="text-text-muted/20" />
+                </div>
+              )}
 
-              {/* Aliases */}
-              <div className="flex flex-wrap gap-1 mb-2">
-                {tpl.vendor_aliases.slice(0, 3).map((a) => (
-                  <span key={a} className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 rounded text-[9px]">{a}</span>
-                ))}
-                {tpl.vendor_aliases.length > 3 && (
-                  <span className="text-[9px] text-text-muted">+{tpl.vendor_aliases.length - 3}</span>
-                )}
-              </div>
+              <div className="p-3">
+                {/* Vendor + delete */}
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold', colorClass)}>
+                      {initials}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-text">{tpl.vendor}</p>
+                      {tpl.category && (
+                        <p className="text-[10px] text-text-muted">{tpl.category}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteTemplate.mutate(tpl.id) }}
+                    className="p-1 text-text-muted/30 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
 
-              {/* Badges */}
-              <div className="flex items-center gap-3 text-[10px] text-text-muted">
-                <span className="flex items-center gap-0.5">
-                  <Hash size={9} />
-                  {tpl.fields.length} champs
-                </span>
-                <span className="flex items-center gap-0.5">
-                  <FileText size={9} />
-                  {tpl.usage_count} utilisé{tpl.usage_count !== 1 ? 's' : ''}
-                </span>
+                {/* Badges */}
+                <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                  <span className="flex items-center gap-0.5">
+                    <Hash size={9} />
+                    {tpl.fields.length} champs
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    <FileText size={9} />
+                    {tpl.usage_count}x
+                  </span>
+                  {hasCoords && (
+                    <span className="flex items-center gap-0.5 text-emerald-400" title="Fac-similé disponible">
+                      <Crosshair size={9} />
+                      fac-similé
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )
         })}
       </div>
+
+      {/* Drawer aperçu template */}
+      {previewTpl && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setPreviewTpl(null)} />
+          <div className="fixed top-0 right-0 h-full w-[600px] max-w-[95vw] bg-background border-l border-border z-50 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-3">
+                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold', colors[templates.indexOf(previewTpl) % colors.length])}>
+                  {previewTpl.vendor.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-text">{previewTpl.vendor}</p>
+                  <p className="text-xs text-text-muted">{previewTpl.category || 'Sans catégorie'}</p>
+                </div>
+              </div>
+              <button onClick={() => setPreviewTpl(null)} className="p-1 text-text-muted hover:text-text">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Preview PDF source */}
+              {previewTpl.source_justificatif && (
+                <div className="rounded-lg border border-border overflow-hidden bg-white flex items-center justify-center p-2">
+                  <img
+                    src={`/api/ged/documents/${encodeURIComponent('data/justificatifs/traites/' + previewTpl.source_justificatif)}/thumbnail`}
+                    alt={previewTpl.vendor}
+                    className="max-h-[40vh] w-auto object-contain"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement
+                      if (!img.dataset.retried) {
+                        img.dataset.retried = '1'
+                        img.src = `/api/ged/documents/${encodeURIComponent('data/justificatifs/en_attente/' + previewTpl.source_justificatif)}/thumbnail`
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Infos */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-surface rounded-lg border border-border p-3">
+                  <p className="text-[10px] text-text-muted mb-1">Alias de matching</p>
+                  <div className="flex flex-wrap gap-1">
+                    {previewTpl.vendor_aliases.map((a) => (
+                      <span key={a} className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 rounded text-[10px]">{a}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-surface rounded-lg border border-border p-3">
+                  <p className="text-[10px] text-text-muted mb-1">Statistiques</p>
+                  <p className="text-sm text-text">{previewTpl.usage_count} utilisation{previewTpl.usage_count !== 1 ? 's' : ''}</p>
+                  <p className="text-[10px] text-text-muted mt-0.5">Créé le {previewTpl.created_at?.slice(0, 10)}</p>
+                </div>
+              </div>
+
+              {/* Table des champs */}
+              <div>
+                <p className="text-xs font-medium text-text-muted mb-2">Champs du template ({previewTpl.fields.length})</p>
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-surface-hover text-text-muted">
+                        <th className="text-left px-3 py-2">Champ</th>
+                        <th className="text-left px-3 py-2">Type</th>
+                        <th className="text-left px-3 py-2">Source</th>
+                        <th className="text-center px-3 py-2 w-10">Pos.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewTpl.fields.map((f) => (
+                        <tr key={f.key} className="border-t border-border/30">
+                          <td className="px-3 py-1.5 text-text font-medium">{f.label}</td>
+                          <td className="px-3 py-1.5 text-text-muted">{f.type}</td>
+                          <td className="px-3 py-1.5">
+                            <span className={cn('px-1.5 py-0.5 rounded text-[10px]', sourceTypes[f.source]?.color || 'bg-surface text-text-muted')}>
+                              {sourceTypes[f.source]?.label || f.source}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1.5 text-center">
+                            {f.coordinates ? (
+                              <Crosshair size={11} className="text-emerald-400 mx-auto" />
+                            ) : (
+                              <span className="text-text-muted/30">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Source PDF */}
+              {previewTpl.source_justificatif && (
+                <p className="text-[10px] text-text-muted">
+                  Source : {previewTpl.source_justificatif}
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -400,10 +549,22 @@ function LibrarySection() {
 // ──── Section Générer ────
 
 function GenerateSection({ preFile, preIndex, preTemplate }: Props) {
+  const { selectedYear } = useFiscalYearStore()
   const [operationFile, setOperationFile] = useState(preFile || '')
   const [operationIndex, setOperationIndex] = useState(preIndex ? parseInt(preIndex) : 0)
   const [templateId, setTemplateId] = useState(preTemplate || '')
   const [fieldValues, setFieldValues] = useState<Record<string, string | number>>({})
+
+  const { data: opFiles } = useOperationFiles()
+  const { data: operations } = useOperations(operationFile || null)
+
+  // Filtrer les fichiers par année comptable
+  const filesForYear = opFiles?.filter((f: any) => f.year === selectedYear)
+    ?.sort((a: any, b: any) => (a.month ?? 0) - (b.month ?? 0)) || []
+
+  // Filtrer les opérations sans justificatif
+  const opsWithoutJustif = operations?.map((op: any, idx: number) => ({ ...op, _idx: idx }))
+    .filter((op: any) => !op['Lien justificatif']) || []
 
   const { data: suggestions } = useTemplateSuggestion(
     operationFile || null,
@@ -415,6 +576,9 @@ function GenerateSection({ preFile, preIndex, preTemplate }: Props) {
   // Auto-select si suggestion
   const effectiveTemplateId = templateId || (suggestions?.[0]?.template_id ?? '')
   const selectedTemplate = templates?.find((t) => t.id === effectiveTemplateId)
+
+  // Exclure les champs TVA (non assujetti)
+  const TVA_KEYS = new Set(['tva_rate', 'tva', 'montant_ht'])
 
   const handleGenerate = (autoAssociate: boolean) => {
     if (!effectiveTemplateId || !operationFile) return
@@ -436,22 +600,42 @@ function GenerateSection({ preFile, preIndex, preTemplate }: Props) {
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div>
-          <label className="text-[10px] text-text-muted mb-1 block">Fichier opération</label>
-          <input
+          <label className="text-[10px] text-text-muted mb-1 block">Mois ({selectedYear})</label>
+          <select
             value={operationFile}
-            onChange={(e) => setOperationFile(e.target.value)}
-            placeholder="operations_20260320_xxx.json"
+            onChange={(e) => { setOperationFile(e.target.value); setOperationIndex(0) }}
             className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-          />
+          >
+            <option value="">Sélectionner un mois...</option>
+            {filesForYear.map((f: any) => (
+              <option key={f.filename} value={f.filename}>
+                {f.month ? MOIS_FR[f.month - 1] : formatFileTitle(f)} ({f.count} ops)
+              </option>
+            ))}
+          </select>
         </div>
         <div>
-          <label className="text-[10px] text-text-muted mb-1 block">Index opération</label>
-          <input
-            type="number"
+          <label className="text-[10px] text-text-muted mb-1 block">
+            Opération sans justificatif
+            {opsWithoutJustif.length > 0 && <span className="ml-1 text-warning">({opsWithoutJustif.length})</span>}
+          </label>
+          <select
             value={operationIndex}
             onChange={(e) => setOperationIndex(parseInt(e.target.value) || 0)}
-            className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-          />
+            disabled={!operationFile || !opsWithoutJustif.length}
+            className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary disabled:opacity-50"
+          >
+            <option value="">Sélectionner une opération...</option>
+            {opsWithoutJustif.map((op: any) => {
+              const montant = op['Débit'] || op['Crédit'] || 0
+              const sign = op['Débit'] ? '-' : '+'
+              return (
+                <option key={op._idx} value={op._idx}>
+                  {op.Date} — {(op['Libellé'] || '').slice(0, 35)} — {sign}{formatCurrency(montant)}
+                </option>
+              )
+            })}
+          </select>
         </div>
       </div>
 
@@ -475,44 +659,50 @@ function GenerateSection({ preFile, preIndex, preTemplate }: Props) {
         </select>
       </div>
 
-      {/* Champs manuels */}
+      {/* Champs manuels (hors TVA) */}
       {selectedTemplate && (
         <div className="space-y-3 mb-4">
-          <p className="text-[10px] text-text-muted uppercase tracking-wide">Champs manuels</p>
-          <div className="grid grid-cols-2 gap-3">
-            {selectedTemplate.fields
-              .filter((f) => f.source === 'manual' || f.source === 'fixed')
-              .map((f) => (
-                <div key={f.key}>
-                  <label className="text-[10px] text-text-muted mb-0.5 block">{f.label}</label>
-                  {f.type === 'select' && f.options ? (
-                    <select
-                      value={String(fieldValues[f.key] ?? '')}
-                      onChange={(e) => setFieldValues({ ...fieldValues, [f.key]: e.target.value })}
-                      className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-                    >
-                      <option value="">—</option>
-                      {f.options.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={f.type === 'currency' || f.type === 'number' || f.type === 'percent' ? 'number' : 'text'}
-                      step={f.type === 'currency' ? '0.01' : undefined}
-                      value={fieldValues[f.key] ?? (f.default ?? '')}
-                      onChange={(e) => setFieldValues({
-                        ...fieldValues,
-                        [f.key]: f.type === 'currency' || f.type === 'number' || f.type === 'percent'
-                          ? parseFloat(e.target.value) || 0
-                          : e.target.value,
-                      })}
-                      className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-                    />
-                  )}
-                </div>
-              ))}
-          </div>
+          {selectedTemplate.fields
+            .filter((f) => (f.source === 'manual' || f.source === 'fixed') && !TVA_KEYS.has(f.key))
+            .length > 0 && (
+            <>
+              <p className="text-[10px] text-text-muted uppercase tracking-wide">Champs manuels</p>
+              <div className="grid grid-cols-2 gap-3">
+                {selectedTemplate.fields
+                  .filter((f) => (f.source === 'manual' || f.source === 'fixed') && !TVA_KEYS.has(f.key))
+                  .map((f) => (
+                    <div key={f.key}>
+                      <label className="text-[10px] text-text-muted mb-0.5 block">{f.label}</label>
+                      {f.type === 'select' && f.options ? (
+                        <select
+                          value={String(fieldValues[f.key] ?? '')}
+                          onChange={(e) => setFieldValues({ ...fieldValues, [f.key]: e.target.value })}
+                          className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+                        >
+                          <option value="">—</option>
+                          {f.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={f.type === 'currency' || f.type === 'number' || f.type === 'percent' ? 'number' : 'text'}
+                          step={f.type === 'currency' ? '0.01' : undefined}
+                          value={fieldValues[f.key] ?? (f.default ?? '')}
+                          onChange={(e) => setFieldValues({
+                            ...fieldValues,
+                            [f.key]: f.type === 'currency' || f.type === 'number' || f.type === 'percent'
+                              ? parseFloat(e.target.value) || 0
+                              : e.target.value,
+                          })}
+                          className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+                        />
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

@@ -276,6 +276,7 @@ export interface AppSettings {
   export_format: string
   include_graphs: boolean
   compress_exports: boolean
+  auto_pointage: boolean
 }
 
 export interface OCRSummary {
@@ -378,7 +379,27 @@ export interface OperationSuggestion {
   score_detail: string
 }
 
+export interface ReverseLookupResult {
+  operation_file: string
+  operation_index: number
+  date: string
+  libelle: string
+  debit: number
+  credit: number
+  categorie: string
+  sous_categorie: string
+  ventilation_index: number | null
+}
+
 // ─── Templates justificatifs ───
+
+export interface FieldCoordinates {
+  x: number
+  y: number
+  w: number
+  h: number
+  page: number
+}
 
 export interface TemplateField {
   key: string
@@ -390,6 +411,7 @@ export interface TemplateField {
   formula?: string
   options?: string[]
   ocr_confidence?: number
+  coordinates?: FieldCoordinates | null
 }
 
 export interface JustificatifTemplate {
@@ -792,6 +814,7 @@ export interface GedDocument {
   montant?: number | null
   ventilation_index?: number | null
   is_reconstitue?: boolean
+  statut_justificatif?: 'traite' | 'en_attente' | null
   operation_ref?: { file: string; index: number; ventilation_index?: number } | null
   rapport_meta?: RapportMeta | null
 }

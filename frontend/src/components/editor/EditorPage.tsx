@@ -18,18 +18,20 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
-  CheckCircle2, Circle, Scissors,
+  CheckCircle2, Circle, Scissors, Unlink,
 } from 'lucide-react'
 import { api } from '@/api/client'
+import toast from 'react-hot-toast'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import RapprochementDrawer from '@/components/rapprochement/RapprochementDrawer'
+import RapprochementManuelDrawer from '@/components/rapprochement/RapprochementManuelDrawer'
 import VentilationDrawer from '@/components/editor/VentilationDrawer'
 import VentilationLines from '@/components/editor/VentilationLines'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
+import { useDissociate } from '@/hooks/useJustificatifs'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
 import { formatCurrency, formatFileTitle, cn, MOIS_FR } from '@/lib/utils'
 import AlerteBadge from '@/components/AlerteBadge'
@@ -200,6 +202,8 @@ export default function EditorPage() {
   // PDF preview state
   const { data: pdfStatus } = useHasPdf(selectedFile)
   const [pdfDrawerOpen, setPdfDrawerOpen] = useState(false)
+  const [previewJustifFile, setPreviewJustifFile] = useState<string | null>(null)
+  const [previewJustifOpIndex, setPreviewJustifOpIndex] = useState<number | null>(null)
   const [pdfDrawerWidth, setPdfDrawerWidth] = useState(700)
   const pdfResizing = useRef(false)
 
@@ -216,6 +220,7 @@ export default function EditorPage() {
   const { data: batchHints } = useBatchHints(selectedFile)
 
   const saveMutation = useSaveOperations()
+  const dissociateMutation = useDissociate()
   const categorizeMutation = useCategorizeOperations()
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -300,6 +305,36 @@ export default function EditorPage() {
       { onSuccess: () => setHasChanges(false) }
     )
   }, [selectedFile, rawOperations])
+
+  // Highlight navigation: ?file=X&highlight=Y → navigate to correct page + highlight row
+  const highlightDoneRef = useRef(false)
+
+  useEffect(() => {
+    const highlightIndex = searchParams.get('highlight')
+    if (highlightIndex == null || !operations || operations.length === 0 || highlightDoneRef.current) return
+    const idx = parseInt(highlightIndex)
+    if (isNaN(idx)) return
+    highlightDoneRef.current = true
+
+    // Jump to the page containing this row so it's in the DOM
+    const sortedRows = table.getSortedRowModel().rows
+    const rowPos = sortedRows.findIndex(r => (r.original._index ?? r.index) === idx)
+    if (rowPos >= 0) {
+      setPageIndex(Math.floor(rowPos / pageSize))
+    }
+
+    // Wait for render, then scroll into view + flash highlight
+    const tryHighlight = (attempts: number) => {
+      const row = document.querySelector(`[data-row-index="${idx}"]`) as HTMLElement | null
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        row.classList.add('flash-highlight')
+      } else if (attempts > 0) {
+        setTimeout(() => tryHighlight(attempts - 1), 200)
+      }
+    }
+    setTimeout(() => tryHighlight(10), 300)
+  }, [operations, searchParams])
 
   // Category lists
   const categoryNames = useMemo(() => {
@@ -404,10 +439,13 @@ export default function EditorPage() {
     saveMutation.mutate(
       { filename: selectedFile, operations },
       {
-        onSuccess: () => {
+        onSuccess: (result: any) => {
           setHasChanges(false)
           setSaveSuccess(true)
           setTimeout(() => setSaveSuccess(false), 3000)
+          if (result?.auto_pointed > 0) {
+            toast.success(`${result.auto_pointed} opération${result.auto_pointed > 1 ? 's' : ''} auto-pointée${result.auto_pointed > 1 ? 's' : ''}`)
+          }
         },
       }
     )
@@ -636,13 +674,22 @@ export default function EditorPage() {
           <div className="flex items-center justify-center gap-0.5 group/justif">
             <button
               onClick={() => {
-                setDrawerOpIndex(row.index)
-                setDrawerOpen(true)
+                if (hasJustif) {
+                  const lien = row.original['Lien justificatif'] || ''
+                  const basename = lien.split('/').pop() || ''
+                  if (basename) {
+                    setPreviewJustifFile(basename)
+                    setPreviewJustifOpIndex(row.index)
+                  }
+                } else {
+                  setDrawerOpIndex(row.index)
+                  setDrawerOpen(true)
+                }
               }}
               className="relative p-0.5 rounded hover:bg-surface-hover transition-colors"
               title={
                 hasJustif
-                  ? `Associé${row.original.rapprochement_mode === 'auto' ? ' (auto)' : ''}`
+                  ? `Associé${row.original.rapprochement_mode === 'auto' ? ' (auto)' : ''} — cliquer pour voir`
                   : hasStrongHint
                     ? `Correspondance ${Math.round(hintScore! * 100)}%`
                     : 'Aucun justificatif'
@@ -1250,9 +1297,12 @@ export default function EditorPage() {
                   return (
                     <React.Fragment key={row.id}>
                       <tr
+                        data-row-index={row.original._index ?? row.index}
                         className={cn(
                           'border-b border-border/20 transition-colors editor-row',
-                          row.getIsSelected() ? 'bg-primary/5' : '',
+                          drawerOpen && drawerOpIndex === row.index
+                            ? 'bg-warning/15 outline outline-2 outline-warning/40 outline-offset-[-2px] rounded'
+                            : row.getIsSelected() ? 'bg-warning/10' : '',
                           row.original.Important ? 'border-l-2 border-l-warning' : '',
                           row.original.A_revoir ? 'border-l-2 border-l-danger' : '',
                           row.original.lettre ? 'opacity-60' : '',
@@ -1431,14 +1481,80 @@ export default function EditorPage() {
         </>
       )}
 
-      {/* Rapprochement Drawer */}
-      <RapprochementDrawer
-        open={drawerOpen}
+      {/* Preview justificatif attribué */}
+      {previewJustifFile && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setPreviewJustifFile(null)} />
+          <div className="fixed top-0 right-0 h-full w-[600px] max-w-[95vw] bg-background border-l border-border z-50 flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText size={18} className="text-emerald-400 shrink-0" />
+                <p className="text-sm font-semibold text-text truncate">{previewJustifFile}</p>
+              </div>
+              <button onClick={() => setPreviewJustifFile(null)} className="p-1 text-text-muted hover:text-text">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 bg-white">
+              <object
+                data={`/api/justificatifs/${previewJustifFile}/preview`}
+                type="application/pdf"
+                className="w-full h-full"
+              >
+                <p className="text-center text-text-muted text-sm p-8">Aperçu PDF non disponible</p>
+              </object>
+            </div>
+            <div className="px-5 py-3 border-t border-border flex items-center justify-between shrink-0">
+              <button
+                onClick={() => {
+                  if (previewJustifFile) {
+                    api.post(`/justificatifs/${previewJustifFile}/open-native`)
+                  }
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm text-text border border-border rounded-lg hover:bg-surface-hover transition-colors"
+              >
+                <Download size={14} />
+                Ouvrir dans Aperçu
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedFile && previewJustifOpIndex !== null) {
+                    dissociateMutation.mutate(
+                      { operation_file: selectedFile, operation_index: previewJustifOpIndex },
+                      {
+                        onSuccess: () => {
+                          toast.success('Justificatif dissocié')
+                          setPreviewJustifFile(null)
+                          setPreviewJustifOpIndex(null)
+                        },
+                      }
+                    )
+                  }
+                }}
+                disabled={dissociateMutation.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+              >
+                <Unlink size={14} />
+                {dissociateMutation.isPending ? 'Dissociation...' : 'Dissocier'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Attribution justificatif Drawer (ops sans justificatif uniquement) */}
+      <RapprochementManuelDrawer
+        isOpen={drawerOpen}
         onClose={() => { setDrawerOpen(false); setDrawerOpIndex(null) }}
-        mode="operation"
-        operationFile={selectedFile || undefined}
-        operationIndex={drawerOpIndex ?? undefined}
-        operation={drawerOpIndex !== null ? operations[drawerOpIndex] : undefined}
+        filename={selectedFile}
+        operation={drawerOpIndex !== null && operations[drawerOpIndex] ? {
+          index: drawerOpIndex,
+          date: operations[drawerOpIndex].Date || '',
+          libelle: operations[drawerOpIndex]['Libellé'] || '',
+          debit: operations[drawerOpIndex]['Débit'] || 0,
+          credit: operations[drawerOpIndex]['Crédit'] || 0,
+          ventilation: operations[drawerOpIndex].ventilation,
+        } : null}
       />
 
       {/* Ventilation Drawer */}

@@ -180,6 +180,9 @@ export function usePipeline() {
       statut === 'complet' ? 'complete' :
       statut === 'partiel' ? 'in_progress' : 'not_started'
 
+    // Construire les routes avec le fichier du mois sélectionné
+    const fileParam = currentFile ? `file=${encodeURIComponent(currentFile.filename)}` : ''
+
     return [
       {
         id: 'import',
@@ -201,7 +204,7 @@ export function usePipeline() {
           }] : []),
         ],
         actionLabel: currentFile ? 'Voir les opérations' : 'Importer un relevé',
-        actionRoute: currentFile ? '/editor' : '/import',
+        actionRoute: currentFile ? `/editor?${fileParam}` : '/import',
       },
       {
         id: 'categorization',
@@ -224,7 +227,7 @@ export function usePipeline() {
           },
         ],
         actionLabel: 'Ouvrir l\'éditeur',
-        actionRoute: '/editor?filter=uncategorized',
+        actionRoute: fileParam ? `/editor?${fileParam}&filter=uncategorized` : '/editor?filter=uncategorized',
       },
       {
         id: 'justificatifs',
@@ -248,13 +251,13 @@ export function usePipeline() {
         ],
         actionLabel: 'Upload & OCR',
         actionRoute: '/ocr',
-        secondaryActions: [{ label: 'Voir justificatifs', route: '/justificatifs' }],
+        secondaryActions: [{ label: 'Voir justificatifs', route: fileParam ? `/justificatifs?${fileParam}` : '/justificatifs' }],
       },
       {
-        id: 'rapprochement',
+        id: 'lettrage',
         number: 4,
-        title: 'Rapprochement bancaire',
-        description: 'Lettrer les opérations en les associant aux justificatifs correspondants. Le rapprochement auto gère les cas évidents (score ≥ 0.95).',
+        title: 'Lettrage des opérations',
+        description: 'Pointer les opérations en les associant aux justificatifs correspondants. Le rapprochement auto gère les cas évidents.',
         status: step4Status,
         progress: step4Progress,
         metrics: [
@@ -270,8 +273,8 @@ export function usePipeline() {
             variant: 'default',
           },
         ],
-        actionLabel: 'Rapprochement',
-        actionRoute: '/rapprochement',
+        actionLabel: 'Justificatifs',
+        actionRoute: fileParam ? `/justificatifs?${fileParam}` : '/justificatifs',
       },
       {
         id: 'verification',

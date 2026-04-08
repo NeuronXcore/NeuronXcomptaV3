@@ -154,4 +154,14 @@ def associate_manual(req: ManualAssociateRequest):
     except Exception:
         pass
 
+    # Auto-pointage après association manuelle
+    try:
+        from backend.services import operation_service
+        _ops_reload = operation_service.load_operations(req.operation_file)
+        pointed = operation_service.maybe_auto_lettre(_ops_reload)
+        if pointed > 0:
+            operation_service.save_operations(_ops_reload, filename=req.operation_file)
+    except Exception:
+        pass
+
     return {"success": True}

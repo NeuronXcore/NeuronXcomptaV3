@@ -10,9 +10,12 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+import threading
+
 from backend.services.sandbox_service import (
     delete_sandbox_file,
     list_sandbox_files,
+    process_existing_files,
     sandbox_event_queue,
 )
 
@@ -55,6 +58,17 @@ async def sandbox_events():
 async def sandbox_list():
     """Liste les PDF actuellement dans le dossier sandbox."""
     return list_sandbox_files()
+
+
+@router.post("/process")
+async def sandbox_process():
+    """Déclenche le traitement de tous les fichiers en attente dans le sandbox."""
+    files = list_sandbox_files()
+    if not files:
+        return {"status": "empty", "count": 0}
+    thread = threading.Thread(target=process_existing_files, daemon=True)
+    thread.start()
+    return {"status": "started", "count": len(files)}
 
 
 @router.delete("/{filename}")

@@ -422,7 +422,14 @@ def _apply_filters(operations: list[dict], filters: dict) -> list[dict]:
 
     cats = filters.get("categories")
     if cats:
-        result = [op for op in result if op.get("Catégorie") in cats]
+        include_uncategorized = "__non_categorise__" in cats
+        real_cats = [c for c in cats if c != "__non_categorise__"]
+        result = [
+            op for op in result
+            if op.get("Catégorie") in real_cats
+            or (include_uncategorized and not op.get("Catégorie"))
+            or (include_uncategorized and op.get("Catégorie") in ("", "Autres"))
+        ]
 
     subcats = filters.get("subcategories")
     if subcats:

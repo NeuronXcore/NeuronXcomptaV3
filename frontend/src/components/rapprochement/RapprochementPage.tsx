@@ -17,6 +17,7 @@ import {
   Paperclip, Clock, Zap, History, Link, Loader2, Check,
   AlertCircle, X, ChevronRight, FileText, Search, Scissors,
 } from 'lucide-react'
+import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import type { Operation, AutoRapprochementReport, RapprochementSuggestion, VentilationLine } from '@/types'
 
 export default function RapprochementPage() {
@@ -530,6 +531,14 @@ function LogDrawer({ onClose }: { onClose: () => void }) {
                   <p className="text-[10px] text-text-muted mt-0.5">
                     {entry.timestamp?.slice(0, 16).replace('T', ' ')}
                   </p>
+                  {entry.action === 'associe' && (
+                    <div className="mt-2 pt-2 border-t border-border/30">
+                      <JustificatifOperationLink
+                        justificatifFilename={entry.justificatif}
+                        isAssociated={true}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

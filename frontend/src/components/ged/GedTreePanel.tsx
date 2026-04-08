@@ -21,7 +21,7 @@ const TABS: { key: TreeTab; icon: typeof Calendar; label: string }[] = [
   { key: 'type', icon: FolderTree, label: 'Type' },
 ]
 
-function deriveFiltersFromNode(nodeId: string, tab: TreeTab): Partial<GedFilters> {
+function deriveFiltersFromNode(nodeId: string, tab: TreeTab, nodeLabel?: string): Partial<GedFilters> {
   // Period tab: period-{y}, period-{y}-T{q}, period-{y}-{m}
   if (tab === 'period') {
     const m = nodeId.match(/^period-(\d+)-(\d+)$/)
@@ -68,8 +68,16 @@ function deriveFiltersFromNode(nodeId: string, tab: TreeTab): Partial<GedFilters
   }
   // Vendor tab: vendor-{slug}, vendor-{slug}-{year}
   if (tab === 'vendor') {
-    // We can't reverse slug→fournisseur, but we use it as text filter
-    // Better: store fournisseur in tree node label
+    if (!nodeLabel) return {}
+    // Extract year from child nodes: vendor-{slug}-{year}
+    const yearMatch = nodeId.match(/-(\d{4})$/)
+    if (yearMatch) {
+      return { fournisseur: nodeLabel, year: parseInt(yearMatch[1]) }
+    }
+    // Root vendor node
+    if (nodeId.startsWith('vendor-')) {
+      return { fournisseur: nodeLabel }
+    }
     return {}
   }
   // Type tab: releves, justificatifs, rapports, etc.
@@ -121,8 +129,8 @@ export default function GedTreePanel({
       }[activeTab] || []
     : []
 
-  const handleSelect = (nodeId: string) => {
-    const filters = deriveFiltersFromNode(nodeId, activeTab)
+  const handleSelect = (nodeId: string, label: string) => {
+    const filters = deriveFiltersFromNode(nodeId, activeTab, label)
     onNodeSelect(nodeId, filters)
   }
 

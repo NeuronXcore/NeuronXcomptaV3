@@ -6,7 +6,7 @@ import type { GedTreeNode } from '@/types'
 interface GedTreeProps {
   tree: GedTreeNode[]
   selectedNode: string | null
-  onSelect: (nodeId: string) => void
+  onSelect: (nodeId: string, label: string) => void
 }
 
 const ICON_MAP: Record<string, typeof FileText> = {
@@ -30,6 +30,7 @@ export default function GedTree({ tree, selectedNode, onSelect }: GedTreeProps) 
           depth={0}
           selectedNode={selectedNode}
           onSelect={onSelect}
+          parentLabel={null}
         />
       ))}
     </div>
@@ -41,11 +42,13 @@ function TreeNode({
   depth,
   selectedNode,
   onSelect,
+  parentLabel,
 }: {
   node: GedTreeNode
   depth: number
   selectedNode: string | null
-  onSelect: (nodeId: string) => void
+  onSelect: (nodeId: string, label: string) => void
+  parentLabel: string | null
 }) {
   const [expanded, setExpanded] = useState(depth === 0)
   const hasChildren = node.children && node.children.length > 0
@@ -53,7 +56,8 @@ function TreeNode({
   const Icon = (node.icon && ICON_MAP[node.icon]) || FolderOpen
 
   const handleClick = () => {
-    onSelect(node.id)
+    // For child nodes (e.g. year under vendor), pass the parent label
+    onSelect(node.id, parentLabel || node.label)
     if (hasChildren) setExpanded(prev => !prev)
   }
 
@@ -91,6 +95,7 @@ function TreeNode({
               depth={depth + 1}
               selectedNode={selectedNode}
               onSelect={onSelect}
+              parentLabel={node.label}
             />
           ))}
         </div>

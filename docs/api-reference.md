@@ -386,8 +386,11 @@ Sert le PDF pour iframe.
 ### `GET /{filename}/suggestions`
 Suggestions d'association (score date + montant + fournisseur OCR).
 
+### `GET /reverse-lookup/{filename}`
+Trouve les operations liees a un justificatif donne. Retourne une liste avec `operation_file`, `operation_index`, `date`, `libelle`, `debit`, `credit`, `categorie`, `sous_categorie`, `ventilation_index`.
+
 ### `POST /associate`
-Associer un justificatif.
+Associer un justificatif. Declenche auto-pointage si le setting `auto_pointage` est actif.
 
 **Body :** `{ "justificatif_filename": "...", "operation_file": "...", "operation_index": 5 }`
 
@@ -688,6 +691,11 @@ Liste les fichiers (PDF/JPG/PNG) actuellement dans le dossier sandbox (non encor
   }
 ]
 ```
+
+### `POST /process`
+Declenche le traitement de tous les fichiers en attente dans le sandbox (OCR + deplacement vers en_attente). Traitement parallele (3 threads).
+
+**Réponse :** `{ "status": "started", "count": 42 }`
 
 ### `DELETE /{filename}`
 Supprime un fichier du sandbox sans le traiter.

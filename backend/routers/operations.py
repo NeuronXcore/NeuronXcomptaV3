@@ -101,6 +101,9 @@ async def save_operations(filename: str, operations: list[dict]):
     except Exception:
         pass  # Ne jamais bloquer le save
 
+    # Auto-pointage des opérations complètes
+    auto_pointed = operation_service.maybe_auto_lettre(operations)
+
     # GED V2: charger les anciennes opérations AVANT le save pour détecter les changements
     try:
         old_ops = operation_service.load_operations(filename)
@@ -126,7 +129,7 @@ async def save_operations(filename: str, operations: list[dict]):
     except Exception:
         pass  # Ne jamais bloquer le save
 
-    return {"filename": saved, "count": len(operations)}
+    return {"filename": saved, "count": len(operations), "auto_pointed": auto_pointed}
 
 
 @router.delete("/{filename}")

@@ -5,6 +5,7 @@ import type {
   JustificatifStats,
   JustificatifUploadResult,
   OperationSuggestion,
+  ReverseLookupResult,
 } from '@/types'
 
 interface JustificatifFilters {
@@ -93,5 +94,21 @@ export function useSuggestions(filename: string | null) {
     queryKey: ['justificatif-suggestions', filename],
     queryFn: () => api.get(`/justificatifs/${filename}/suggestions`),
     enabled: !!filename,
+  })
+}
+
+export function useReverseLookup(justificatifFilename: string | null) {
+  return useQuery<ReverseLookupResult[]>({
+    queryKey: ['justificatif-reverse-lookup', justificatifFilename],
+    queryFn: () => api.get(`/justificatifs/reverse-lookup/${justificatifFilename}`),
+    enabled: !!justificatifFilename,
+  })
+}
+
+export function useJustificatifOperationSuggestions(justificatifFilename: string | null) {
+  return useQuery<OperationSuggestion[]>({
+    queryKey: ['justificatif-operation-suggestions', justificatifFilename],
+    queryFn: () => api.get(`/rapprochement/suggestions/justificatif/${justificatifFilename}`),
+    enabled: !!justificatifFilename,
   })
 }

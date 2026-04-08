@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import GedMetadataEditor from './GedMetadataEditor'
+import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import { useGedUpdateDocument, useGedDeleteDocument, useGedOpenNative } from '@/hooks/useGed'
 import type { GedDocument, PosteComptable } from '@/types'
 
@@ -166,6 +167,15 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
           {/* Metadata editor */}
           {localDoc && (
             <GedMetadataEditor document={localDoc} postes={postes} onChange={handleChange} />
+          )}
+
+          {/* Lien opération (justificatifs uniquement) */}
+          {docId && docId.includes('justificatifs/') && (
+            <JustificatifOperationLink
+              justificatifFilename={docId.split('/').pop() || ''}
+              isAssociated={docId.includes('/traites/')}
+              className="mt-3"
+            />
           )}
 
           {/* Actions */}

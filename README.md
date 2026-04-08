@@ -16,13 +16,12 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
 | **Rapports** | Generation PDF/CSV/Excel avec logo, colonnes Justificatif et Commentaire, 3 templates, checkboxes modernes categories, batch 12 mois, export ZIP comptable. Bibliotheque migree vers GED V2 (favoris, comparaison, re-generation accessibles depuis `/ged?type=rapport`) |
 | **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, **comparatif périodes avec séparation recettes/dépenses**, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
-| **Rapprochement** | Rapprochement auto + drawer manuel avec filtres, scores, preview PDF, **support ventilation** (sous-lignes individuelles, sélecteur sous-ligne) |
-| **Justificatifs** | **Vue opérations-centrée** : tableau triable 7 colonnes, filtre sans/avec justificatif, drawer attribution 800px split resizable (suggestions scorées, preview PDF inline, navigation post-attribution), 4 KPIs couverture, sandbox SSE |
+| **Justificatifs** | **Vue opérations-centrée** avec drawer rapprochement manuel (filtres, scores, preview PDF), auto-rapprochement, preview justificatif attribué avec dissociation, suggestions filtrées par mois de l'opération, 4 KPIs couverture, sandbox SSE. Navigation bidirectionnelle Justificatif ↔ Opération |
 | **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups, **auto-alimentation ML** depuis corrections manuelles (dédupliqué, effet immédiat sur les règles exactes) |
-| **Export Comptable** | Archive ZIP mensuelle avec **règles comptables** : 3 sections (pro/perso/attente), ventilations explosées, montants FR, logo, footer paginé, colonnes Justificatif + Commentaire. Nommage `Export_Comptable_YYYY-MM_Mois` |
+| **Export Comptable** | Archive ZIP mensuelle avec **règles comptables** : 3 sections (pro/perso/attente), ventilations explosées, montants FR, logo, footer paginé, colonnes Justificatif + Commentaire. Nommage `Export_Comptable_ANNEE_Mois` |
 | **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique, **templates justificatifs**, **édition manuelle** (chips montants/dates cliquables, badge OCR incomplet), **convention nommage** (`fournisseur_YYYYMMDD_montant.pdf`) |
-| **Templates** | Bibliothèque de templates par fournisseur, génération de justificatifs reconstitués (PDF A5 via ReportLab) quand l'original est manquant, suggestion automatique par alias, bouton intégré dans 4 pages |
-| **GED V2** | Hub documentaire unifie : **5 vues arbre** (periode, annee/type, categorie, fournisseur, type), cartes enrichies (thumbnail, badge categorie, fournisseur, montant, badge reconstitue), barre filtres croises, rapports integres (favori, re-generation, comparaison), enrichissement auto metadata via rapprochement/OCR/editeur, backfill justificatifs traites, postes comptables avec % deductibilite, recherche full-text enrichie, URL params |
+| **Templates** | Bibliothèque de templates par fournisseur avec preview PDF, génération de justificatifs reconstitués (**fac-similé** du PDF source avec remplacement date/montant, ou PDF sobre en fallback), extraction auto des coordonnées via pdfplumber, masquage des images produits, suggestion automatique par alias |
+| **GED V2** | Hub documentaire unifie : **5 vues arbre** (periode, annee/type, categorie, fournisseur, type), cartes enrichies (thumbnail, badge categorie, fournisseur, montant, badge reconstitue, **badge EN ATTENTE**), justificatifs traites ET en attente, barre filtres croises, rapports integres (favori, re-generation, comparaison, **suppression**), enrichissement auto metadata via rapprochement/OCR/editeur/nom de fichier, postes comptables avec % deductibilite, recherche full-text enrichie, URL params, navigation bidirectionnelle justificatif ↔ operation |
 | **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |
 | **Prévisionnel** | Calendrier de trésorerie 12 mois : timeline charges/recettes (barres Recharts), fournisseurs récurrents (facture/échéancier), parsing OCR prélèvements, scan automatique documents, régression recettes + saisonnalité, paramètres catégories |
 | **Simulation BNC** | Simulateur fiscal : leviers Madelin/PER/CARMF/investissement/remplacement, dépenses détaillées par catégorie, taux marginal réel, comparatif charge/immobilisation, prévisions d'honoraires avec profil saisonnier |
@@ -240,7 +239,9 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `POST` | `/api/tasks/` | Créer une tâche manuelle |
 | `PATCH` | `/api/tasks/{id}` | Modifier une tâche (status, priority, dismiss) |
 | `POST` | `/api/tasks/refresh?year=` | Régénérer les tâches auto pour l'année |
-| `PUT` | `/api/settings` | Sauvegarder les paramètres |
+| `PUT` | `/api/settings` | Sauvegarder les paramètres (incl. `auto_pointage`) |
+| `GET` | `/api/justificatifs/reverse-lookup/{file}` | Trouver les opérations liées à un justificatif |
+| `POST` | `/api/sandbox/process` | Déclencher le traitement des fichiers en attente dans le sandbox |
 
 ---
 

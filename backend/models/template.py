@@ -8,6 +8,14 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class FieldCoordinates(BaseModel):
+    x: float       # position X en points PDF (origine bas-gauche)
+    y: float       # position Y en points PDF (origine bas-gauche)
+    w: float       # largeur de la zone
+    h: float       # hauteur de la zone
+    page: int = 0  # page (0-indexed)
+
+
 class TemplateField(BaseModel):
     key: str
     label: str
@@ -18,6 +26,7 @@ class TemplateField(BaseModel):
     formula: Optional[str] = None
     options: Optional[list[str]] = None
     ocr_confidence: Optional[float] = None
+    coordinates: Optional[FieldCoordinates] = None  # position dans le PDF source pour fac-simile
 
 
 class JustificatifTemplate(BaseModel):

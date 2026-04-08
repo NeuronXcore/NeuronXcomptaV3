@@ -31,17 +31,26 @@ export function useReportTemplates() {
   })
 }
 
+export interface GenerateReportResult {
+  filename: string
+  title: string
+  format: string
+  nb_operations: number
+  total_debit: number
+  total_credit: number
+  file_size_human: string
+  replaced?: string
+}
+
 export function useGenerateReport() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: ReportGenerateRequest) =>
-      api.post<{ replaced?: string }>('/reports/generate', data),
-    onSuccess: (result) => {
+      api.post<GenerateReportResult>('/reports/generate', data),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['reports-gallery'] })
-      toast.success('Rapport généré')
-      if (result && typeof result === 'object' && 'replaced' in result && result.replaced) {
-        toast('Rapport précédent remplacé', { icon: 'ℹ️' })
-      }
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
     },
     onError: (e: Error) => toast.error(e.message),
   })

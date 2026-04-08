@@ -90,6 +90,62 @@ def load_operations(filename: str) -> list[dict]:
     return data
 
 
+def auto_lettre_complete(operations: list[dict]) -> int:
+    """Auto-pointe les opérations complètes (catégorie + sous-catégorie + justificatif).
+    One-way: ne dé-pointe jamais. Retourne le nombre d'opérations auto-pointées."""
+    _EXCLUDED_CATS = {"", "Autres", "Ventilé"}
+    count = 0
+    for op in operations:
+        if op.get("lettre"):
+            continue  # déjà pointée
+        cat = (op.get("Catégorie") or "").strip()
+        sous_cat = (op.get("Sous-catégorie") or "").strip()
+        lien = (op.get("Lien justificatif") or "").strip()
+        ventilation = op.get("ventilation") or []
+
+        if ventilation:
+            # Op ventilée : pointer si TOUTES les sous-lignes sont complètes
+            all_complete = all(
+                (vl.get("categorie") or "").strip() not in _EXCLUDED_CATS
+                and (vl.get("categorie") or "").strip()
+                and (vl.get("sous_categorie") or "").strip()
+                and (vl.get("justificatif") or "").strip()
+                for vl in ventilation
+            )
+            if all_complete and ventilation:
+                op["lettre"] = True
+                count += 1
+        else:
+            # Op simple
+            if cat and cat not in _EXCLUDED_CATS and sous_cat and lien:
+                op["lettre"] = True
+                count += 1
+    return count
+
+
+def maybe_auto_lettre(operations: list[dict]) -> int:
+    """Auto-pointe si le setting auto_pointage est activé. Retourne le count."""
+    try:
+        from backend.core.config import SETTINGS_FILE
+        settings_data = {}
+        if SETTINGS_FILE.exists():
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                settings_data = json.load(f)
+        if not settings_data.get("auto_pointage", True):
+            return 0
+    except Exception:
+        pass  # En cas d'erreur, on active par défaut
+    return auto_lettre_complete(operations)
+
+
+def _mark_perso_as_justified(operations: list[dict]) -> None:
+    """Auto-marque les opérations 'Perso' comme ayant un justificatif (pas besoin de justif)."""
+    for op in operations:
+        cat = (op.get("Catégorie") or "").strip().lower()
+        if cat == "perso" and not op.get("Justificatif"):
+            op["Justificatif"] = True
+
+
 def save_operations(
     operations: list[dict],
     filename: Optional[str] = None,
@@ -98,6 +154,9 @@ def save_operations(
 ) -> str:
     """Sauvegarde les opérations dans un fichier JSON."""
     ensure_directories()
+
+    # Auto-marquer les ops Perso comme justifiées
+    _mark_perso_as_justified(operations)
 
     if filename is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -474,6 +533,9 @@ def categorize_file(filename: str, mode: str = "empty_only") -> dict:
                 source=source,
                 hallucination_risk=risk,
             ))
+
+    # Auto-pointage après catégorisation
+    maybe_auto_lettre(operations)
 
     save_operations(operations, filename=filename)
 

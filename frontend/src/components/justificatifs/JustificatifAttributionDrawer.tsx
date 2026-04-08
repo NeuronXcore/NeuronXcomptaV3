@@ -54,23 +54,34 @@ export default function JustificatifAttributionDrawer({
   const splitXRef = useRef(splitX)
   splitXRef.current = splitX
 
+  // Extraire année/mois de la date de l'opération
+  const opDate = operation?.Date || ''
+  const opYear = opDate ? parseInt(opDate.slice(0, 4)) : undefined
+  const opMonth = opDate ? parseInt(opDate.slice(5, 7)) : undefined
+
   // Suggestions par scoring
   const { data: suggestions = [], isLoading: suggestionsLoading } = useOperationSuggestions(
     open ? operationFile : null,
     open ? operationIndex : null
   )
 
-  // Recherche libre dans tous les justificatifs en attente (debounced)
+  // Recherche libre dans les justificatifs en attente — filtrés par mois de l'opération
   const [debouncedSearch, setDebouncedSearch] = useState('')
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300)
     return () => clearTimeout(timer)
   }, [search])
 
+  const searchParams = new URLSearchParams()
+  searchParams.set('status', 'en_attente')
+  if (opYear) searchParams.set('year', String(opYear))
+  if (opMonth) searchParams.set('month', String(opMonth))
+  if (debouncedSearch) searchParams.set('search', debouncedSearch)
+
   const { data: allPending = [] } = useQuery<JustificatifInfo[]>({
-    queryKey: ['justificatifs-search', debouncedSearch],
-    queryFn: () => api.get(`/justificatifs/?status=en_attente&search=${encodeURIComponent(debouncedSearch)}`),
-    enabled: open && debouncedSearch.trim().length >= 2,
+    queryKey: ['justificatifs-search', debouncedSearch, opYear, opMonth],
+    queryFn: () => api.get(`/justificatifs/?${searchParams.toString()}`),
+    enabled: open && (debouncedSearch.trim().length >= 2 || !!(opYear && opMonth)),
   })
 
   // Mutations

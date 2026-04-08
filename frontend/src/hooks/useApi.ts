@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import type { DashboardData, OperationFile, CategoryGroup, CategoryRaw, AppSettings, MLModelInfo, MLModelFull, TrainingExample, TrendRecord, AnomalyRecord, YearOverviewResponse, MLMonitoringStats, MLHealthKPI } from '@/types'
 
@@ -44,6 +44,16 @@ export function useSettings() {
   return useQuery<AppSettings>({
     queryKey: ['settings'],
     queryFn: () => api.get('/settings'),
+  })
+}
+
+export function useUpdateSettings() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Partial<AppSettings>) => api.put('/settings', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings'] })
+    },
   })
 }
 

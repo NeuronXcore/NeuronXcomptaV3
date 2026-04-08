@@ -22,7 +22,11 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Sélecteur Année Global**: Store Zustand (`useFiscalYearStore`) avec persistance localStorage. Sélecteur `◀ ANNÉE ▶` dans la sidebar, synchronisé bidirectionnellement avec les sélecteurs année de chaque page (EditorPage, AlertesPage, CloturePage, DashboardPage, ExportPage, ReportsPage, PrevisionnelPage, ComptaAnalytiquePage).
 - **ML Monitoring**: Système de monitoring de l'agent IA avec logging des prédictions (source, confiance, hallucination), tracking des corrections manuelles, stats agrégées (couverture, correction rate, confusion matrix). Onglet Monitoring dans Agent IA (4 sections : Performance, Fiabilité, Progression, Diagnostic). Carte KPI "Agent IA" dans le Dashboard. Logs dans `data/ml/logs/`.
 - **GED V2**: Hub documentaire unifie. 5 vues arbre (periode, annee/type, categorie, fournisseur, type). Metadata enrichi automatiquement : categorie, fournisseur, montant, period, operation_ref — via rapprochement, OCR, save editeur. Rapports integres dans la GED (migration one-shot `reports_index.json`). Backfill automatique des justificatifs traites existants au scan. Barre filtres croises (type, categorie, fournisseur, recherche). Cartes document enrichies (thumbnail, badge categorie, fournisseur, montant, badge reconstitue). Drawer rapport specifique (preview PDF, favori, re-generation, suppression). Mode comparaison rapports. Stats enrichies (par_categorie, par_fournisseur, par_type, non_classes, rapports_favoris). Pending reports via `/api/ged/pending-reports`. URL params `/ged?type=rapport&year=X`. Mapping `POSTE_TO_CATEGORIE` pour classement docs libres. Metadata stored in `data/ged/ged_metadata.json`, postes in `data/ged/ged_postes.json`. PDF thumbnails cached in `data/ged/thumbnails/` via pdf2image.
-- **Export Comptable V2**: Règles comptables strictes — ops "perso" exclues du BNC (section séparée), ops sans catégorie en compte d'attente, ventilations explosées en sous-lignes. CSV : séparateur `;`, UTF-8 BOM, CRLF, montants FR (`1 234,56`), colonne Justificatif = nom fichier PDF. PDF : logo, 3 sections colorées (pro/perso/attente), récapitulatif BNC, footer paginé. Nommage `Export_Comptable_YYYY-MM_Mois.{csv,pdf}`. Fonctions clés : `_prepare_export_operations()`, `_format_amount_fr()`, `_export_filename()`.
+- **Export Comptable V2**: Règles comptables strictes — ops "perso" exclues du BNC (section séparée), ops sans catégorie en compte d'attente, ventilations explosées en sous-lignes. CSV : séparateur `;`, UTF-8 BOM, CRLF, montants FR (`1 234,56`), colonne Justificatif = nom fichier PDF. PDF : logo, 3 sections colorées (pro/perso/attente), récapitulatif BNC, footer paginé. Nommage `Export_Comptable_ANNEE_Mois.{csv,pdf}`. Fonctions clés : `_prepare_export_operations()`, `_format_amount_fr()`, `_export_filename()`.
+- **Auto-pointage**: Setting `auto_pointage` (défaut true). `auto_lettre_complete()` pointe les ops avec catégorie + sous-catégorie + justificatif. `maybe_auto_lettre()` vérifie le setting. Intégré dans PUT operations, POST categorize, POST associate, POST associate-manual. Toggle dans le header Dashboard.
+- **Navigation bidirectionnelle Justificatif ↔ Opération**: `find_operations_by_justificatif()` dans justificatif_service. Endpoint `GET /reverse-lookup/{filename}`. Composant `JustificatifOperationLink` (2 états : associé → "Voir l'opération", en attente → suggestions scorées). EditorPage supporte `?file=X&highlight=Y` avec surbrillance permanente.
+- **Ops Perso auto-justifiées**: `_mark_perso_as_justified()` marque `Justificatif=true` au save pour la catégorie "Perso".
+- **Templates fac-similé**: `FieldCoordinates` sur `TemplateField`. `_enrich_field_coordinates()` via pdfplumber. `_generate_pdf_facsimile()` rasterise le PDF source + masque images produits + remplace date/montant. `_blank_embedded_images()` masque les photos produits.
 - **ML Auto-learning**: Les corrections manuelles de catégories dans l'éditeur alimentent automatiquement les données d'entraînement ML au save. `add_training_examples_batch()` déduplique par couple `(libelle, categorie)`. `update_rules_from_operations()` met à jour les `exact_matches` du modèle à règles pour effet immédiat. Filtre : exclut vide, "Autres", "Ventilé".
 - **Rapports V2 améliorés**: Checkboxes modernes (toggle 18px) pour sélection catégories avec "Tout sélectionner" + état intermédiaire. Génération batch 12 mois. Bibliothèque : arbre par date/catégorie, sélection multi-rapports avec export ZIP pour comptable (`POST /reports/export-zip`), suppression individuelle/totale avec toast confirmation centré. Logo dans les PDF. Colonnes Justificatif (☑/☐ + nom fichier) et Commentaire dans PDF/CSV.
 
@@ -112,7 +116,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 |--------|-------|
 | **—** | Pipeline (hors-groupe, en tête) |
 | **SAISIE** | Importation, Édition, Catégories, OCR |
-| **TRAITEMENT** | Justificatifs, Rapprochement, Compte d'attente |
+| **TRAITEMENT** | Justificatifs, Compte d'attente |
 | **ANALYSE** | Tableau de bord, Prévisionnel, Compta Analytique, Rapports, Simulation BNC |
 | **CLÔTURE** | Export Comptable, Clôture, Amortissements |
 | **DOCUMENTS** | Bibliothèque (GED) |
@@ -128,14 +132,14 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | analytics | `/api/analytics` | GET /dashboard, GET /summary, GET /trends, GET /anomalies, GET /category-detail, GET /compare, GET /year-overview |
 | reports | `/api/reports` | GET /gallery, GET /tree, GET /templates, GET /pending, POST /generate, POST /regenerate-all, POST /{filename}/regenerate, POST /{filename}/favorite, POST /{filename}/open-native, POST /compare, POST /export-zip, PUT /{filename}, GET /preview/{filename}, GET /download/{filename}, DELETE /all, DELETE /{filename} |
 | queries | `/api/queries` | POST /query, GET/POST/DELETE /queries |
-| justificatifs | `/api/justificatifs` | GET /, GET /stats, POST /upload, POST /associate, POST /dissociate |
+| justificatifs | `/api/justificatifs` | GET /, GET /stats, POST /upload, GET /reverse-lookup/{filename}, POST /associate, POST /dissociate |
 | ocr | `/api/ocr` | GET /status, GET /history, POST /extract, POST /extract-upload, POST /batch-upload |
 | exports | `/api/exports` | GET /periods, GET /list, POST /generate, GET /download/{filename} |
 | rapprochement | `/api/rapprochement` | POST /run-auto, POST /associate-manual, GET /unmatched, GET /{filename}/{index}/suggestions, GET /batch-hints/{filename} |
 | lettrage | `/api/lettrage` | POST /{filename}/{index}, POST /{filename}/bulk, GET /{filename}/stats |
 | cloture | `/api/cloture` | GET /years, GET /{year} |
 | alertes | `/api/alertes` | GET /summary, GET /{filename}, POST /{filename}/{index}/resolve, POST /{filename}/refresh |
-| sandbox | `/api/sandbox` | GET /events (SSE), GET /list, DELETE /{filename} |
+| sandbox | `/api/sandbox` | GET /events (SSE), GET /list, POST /process, DELETE /{filename} |
 | amortissements | `/api/amortissements` | GET /, GET /kpis, POST /, PATCH /{id}, DELETE /{id}, GET /dotations/{year}, GET /projections, GET /candidates, POST /candidates/immobiliser, POST /candidates/ignore, POST /cession/{id}, GET/PUT /config |
 | ged | `/api/ged` | GET /tree, GET /documents, POST /upload, PATCH /documents/{doc_id}, DELETE /documents/{doc_id}, GET /documents/{doc_id}/preview, GET /documents/{doc_id}/thumbnail, POST /documents/{doc_id}/open-native, GET /search, GET /stats, GET/PUT/POST/DELETE /postes, POST /bulk-tag, POST /scan |
 | simulation | `/api/simulation` | GET /baremes, GET /baremes/{type}, PUT /baremes/{type}, POST /calculate, GET /taux-marginal, GET /seuils, GET /historique, GET /previsions |
@@ -159,7 +163,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | `/justificatifs` | JustificatifsPage | **Vue opérations-centrée** : sélecteur année/mois (store Zustand), tableau triable 7 colonnes, filtre sans/avec justif (défaut: sans), 4 MetricCards, **bandeau CTA "Associer automatiquement"** (ambre, visible quand ops sans justif, toast cliquable pour association manuelle), `JustificatifAttributionDrawer` (800px split resizable, suggestions scorées + **recherche libre** dans tous les justificatifs en attente avec debounce, hover preview PDF, bouton Attribuer orange, score affiché en %), flash highlight, sandbox SSE |
 | `/agent-ai` | AgentIAPage | **2 onglets** (Dashboard ML : gauges, actions rapides avec Entraîner + Appliquer bulk, courbe apprentissage, règles, backups \| Monitoring : performance/fiabilité/progression/diagnostic avec tables + Recharts), badge sidebar violet (ops non catégorisées si entraînement > 7j) |
 | `/export` | ExportPage | Monthly ZIP export with calendar grid |
-| `/rapprochement` | RapprochementPage | Auto/manual bank-justificatif reconciliation avec drawer rapprochement manuel (filtres, scores, preview PDF) |
+| `/rapprochement` | *(redirige vers `/justificatifs`)* | Ancienne page rapprochement, fusionnée dans Justificatifs |
 | `/alertes` | AlertesPage | Compte d'attente avec badge alertes, **sélecteur année + boutons mois** |
 | `/cloture` | CloturePage | Annual calendar view of monthly accounting completeness |
 | `/ocr` | OcrPage | Point d'entrée justificatifs : batch upload **PDF/JPG/PNG** + OCR, test manuel, historique, **templates justificatifs** (création depuis scan, bibliothèque fournisseurs, génération reconstitués) (4 onglets) |
@@ -176,6 +180,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 - `PageHeader` — `{ title, description?, actions?: ReactNode }`
 - `MetricCard` — `{ title, value, icon?, trend?, className? }`
 - `LoadingSpinner` — `{ text? }`
+- `JustificatifOperationLink` — `{ justificatifFilename, isAssociated, className? }` — bouton "Voir l'opération" (associé) ou suggestions d'attribution (en attente)
 - `PipelineStepCard` — card expandable avec cercle statut, barre progression, métriques, actions
 
 ### Drawers (pattern commun : translateX + backdrop)

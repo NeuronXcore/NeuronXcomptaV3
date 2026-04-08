@@ -140,7 +140,9 @@ def _process_file(filepath: Path) -> None:
 
 
 def process_existing_files() -> None:
-    """Traite les fichiers (PDF/images) déjà présents dans sandbox/ au démarrage."""
+    """Traite les fichiers (PDF/images) déjà présents dans sandbox/."""
+    from concurrent.futures import ThreadPoolExecutor
+
     ensure_directories()
     if not JUSTIFICATIFS_SANDBOX_DIR.exists():
         return
@@ -157,10 +159,13 @@ def process_existing_files() -> None:
             seen.add(p.name)
             unique_files.append(p)
 
-    if unique_files:
-        logger.info("Sandbox: %d fichier(s) existant(s) à traiter au démarrage", len(unique_files))
-    for f in unique_files:
-        _process_file(f)
+    if not unique_files:
+        return
+
+    logger.info("Sandbox: %d fichier(s) existant(s) à traiter", len(unique_files))
+    # Traiter en parallèle (max 3 threads pour ne pas saturer OCR/CPU)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        pool.map(_process_file, unique_files)
 
 
 class _SandboxHandler:

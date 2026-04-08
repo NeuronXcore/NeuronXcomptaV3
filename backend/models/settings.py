@@ -18,6 +18,7 @@ class AppSettings(BaseModel):
     export_format: str = "PDF"
     include_graphs: bool = True
     compress_exports: bool = False
+    auto_pointage: bool = True
 
 
 class DiskSpaceInfo(BaseModel):

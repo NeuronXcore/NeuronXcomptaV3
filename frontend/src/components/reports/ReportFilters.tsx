@@ -44,8 +44,16 @@ export default function ReportFilters({
   }
 
   // ── Category checkbox helpers ──
+  // Ajouter les pseudo-catégories "Perso" (si pas déjà dans la liste) et "Non catégorisé"
+  const PSEUDO_UNCATEGORIZED = '__non_categorise__'
+  const allCatNames = useMemo(() => {
+    const names = categories.map(c => c.name)
+    if (!names.includes('Perso')) names.push('Perso')
+    names.push(PSEUDO_UNCATEGORIZED)
+    return names
+  }, [categories])
+
   const selectedCats = filters.categories ?? []
-  const allCatNames = categories.map(c => c.name)
   const allSelected = allCatNames.length > 0 && selectedCats.length === allCatNames.length
   const noneSelected = selectedCats.length === 0
 
@@ -188,35 +196,42 @@ export default function ReportFilters({
               {categories.length === 0 && (
                 <p className="text-[10px] text-text-muted py-2 text-center">Aucune catégorie</p>
               )}
-              {categories.map(c => {
-                const checked = selectedCats.includes(c.name)
-                return (
-                  <label
-                    key={c.name}
-                    className={cn(
-                      'flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer transition-colors text-xs',
-                      checked ? 'bg-primary/8 text-text' : 'text-text-muted hover:bg-surface-hover'
-                    )}
-                  >
-                    <button
-                      onClick={() => toggleCategory(c.name)}
+              <div className="max-h-[220px] overflow-y-auto space-y-0.5">
+                {allCatNames.map(name => {
+                  const checked = selectedCats.includes(name)
+                  const catData = categories.find(c => c.name === name)
+                  const isUncategorized = name === PSEUDO_UNCATEGORIZED
+                  const displayName = isUncategorized ? 'Non catégorisé' : name
+                  const dotColor = isUncategorized ? '#666' : (catData?.color || '#888')
+                  return (
+                    <label
+                      key={name}
                       className={cn(
-                        'w-[18px] h-[18px] rounded flex items-center justify-center transition-all duration-150 border-2 shrink-0',
-                        checked
-                          ? 'bg-primary border-transparent shadow-sm'
-                          : 'bg-surface border-text-muted/30 hover:border-primary/50'
+                        'flex items-center gap-2 px-2 py-1 rounded-md cursor-pointer transition-colors text-xs',
+                        checked ? 'bg-primary/8 text-text' : 'text-text-muted hover:bg-surface-hover',
+                        isUncategorized && 'border-t border-border/30 mt-1 pt-1.5',
                       )}
                     >
-                      {checked && <Check size={12} className="text-white drop-shadow-sm" />}
-                    </button>
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: c.color || '#888' }}
-                    />
-                    {c.name}
-                  </label>
-                )
-              })}
+                      <button
+                        onClick={() => toggleCategory(name)}
+                        className={cn(
+                          'w-[18px] h-[18px] rounded flex items-center justify-center transition-all duration-150 border-2 shrink-0',
+                          checked
+                            ? 'bg-primary border-transparent shadow-sm'
+                            : 'bg-surface border-text-muted/30 hover:border-primary/50'
+                        )}
+                      >
+                        {checked && <Check size={12} className="text-white drop-shadow-sm" />}
+                      </button>
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: dotColor }}
+                      />
+                      {displayName}
+                    </label>
+                  )
+                })}
+              </div>
             </div>
           </div>
           <div>

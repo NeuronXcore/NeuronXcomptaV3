@@ -1,9 +1,9 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import JustificatifAttributionDrawer from './JustificatifAttributionDrawer'
+import RapprochementManuelDrawer from '@/components/rapprochement/RapprochementManuelDrawer'
 import { useJustificatifsPage } from '@/hooks/useJustificatifsPage'
 import type { EnrichedOperation } from '@/hooks/useJustificatifsPage'
 import { useSandbox } from '@/hooks/useSandbox'
@@ -12,9 +12,11 @@ import { cn, formatCurrency, formatDate, MOIS_FR } from '@/lib/utils'
 import {
   FileText, Search, ScanLine, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, ArrowUpDown, ArrowUp, ArrowDown,
-  FileCheck, FileX, Percent, Hash, Zap, Loader2,
+  FileCheck, FileX, Percent, Hash, Zap, Loader2, X,
 } from 'lucide-react'
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
+import { useDissociate } from '@/hooks/useJustificatifs'
+import { Unlink } from 'lucide-react'
 
 type SortKey = 'date' | 'libelle' | 'debit' | 'credit' | 'categorie' | 'sous_categorie'
 
@@ -36,6 +38,13 @@ export default function JustificatifsPage() {
 
   // Sandbox watchdog SSE
   const { lastEvent, isConnected } = useSandbox()
+
+  // Preview justificatif existant
+  const [previewJustif, setPreviewJustif] = useState<string | null>(null)
+  const [previewOpFile, setPreviewOpFile] = useState<string | null>(null)
+  const [previewOpIndex, setPreviewOpIndex] = useState<number | null>(null)
+
+  const dissociateMutation = useDissociate()
 
   // Auto-rapprochement
   const autoRapprochement = useRunAutoRapprochement()
@@ -142,18 +151,17 @@ export default function JustificatifsPage() {
 
           {/* Sélecteur mois */}
           <select
-            value={selectedMonth ?? ''}
+            value={selectedFile?.month ?? selectedMonth ?? ''}
             onChange={e => {
               const v = e.target.value
               setSelectedMonth(v === '' ? null : Number(v))
+              // Nettoyer le fileParam URL pour ne pas bloquer la sélection manuelle
+              if (window.location.search.includes('file=')) {
+                window.history.replaceState(null, '', window.location.pathname)
+              }
             }}
             className="bg-surface border border-border rounded px-3 py-1.5 text-sm text-text"
           >
-            <option value="">
-              {monthsForYear.length > 0
-                ? `${MOIS_FR[(monthsForYear[0].month ?? 1) - 1]} (${monthsForYear[0].count} ops)`
-                : 'Aucun mois'}
-            </option>
             <option value={0}>Toute l&apos;année</option>
             {monthsForYear.map(f => (
               <option key={f.month} value={f.month}>
@@ -254,63 +262,75 @@ export default function JustificatifsPage() {
                     onSuccess: (report) => {
                       const auto = report.associations_auto ?? 0
                       const suggestions = report.suggestions_fortes ?? 0
-                      if (auto > 0 && suggestions > 0) {
-                        toast.success(`${auto} associé${auto > 1 ? 's' : ''} automatiquement`)
-                        toast.custom((t) => (
-                          <div
-                            className={cn(
-                              'flex items-center gap-3 bg-surface border border-warning/40 rounded-xl px-4 py-3 shadow-lg cursor-pointer transition-all hover:border-warning',
-                              t.visible ? 'animate-enter' : 'animate-leave'
-                            )}
-                            onClick={() => {
-                              toast.dismiss(t.id)
-                              setJustifFilter('sans')
-                              // Ouvrir le drawer sur la première opération sans justificatif
-                              const firstSans = operations.find(op => !op.Justificatif)
-                              if (firstSans) {
-                                openDrawer(firstSans)
-                              }
-                            }}
-                          >
-                            <span className="text-xl">💡</span>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-text">
-                                {suggestions} suggestion{suggestions > 1 ? 's' : ''} forte{suggestions > 1 ? 's' : ''}
-                              </p>
-                              <p className="text-xs text-text-muted">Cliquer pour associer manuellement →</p>
-                            </div>
-                          </div>
-                        ), { duration: 8000 })
-                      } else if (auto > 0) {
-                        toast.success(`${auto} justificatif${auto > 1 ? 's' : ''} associé${auto > 1 ? 's' : ''} automatiquement`)
-                      } else if (suggestions > 0) {
-                        toast.custom((t) => (
-                          <div
-                            className={cn(
-                              'flex items-center gap-3 bg-surface border border-warning/40 rounded-xl px-4 py-3 shadow-lg cursor-pointer transition-all hover:border-warning',
-                              t.visible ? 'animate-enter' : 'animate-leave'
-                            )}
-                            onClick={() => {
+                      const restants = (report as any).justificatifs_restants ?? 0
+
+                      toast.custom((t) => (
+                        <div
+                          className={cn(
+                            'max-w-md w-full bg-surface border rounded-2xl px-5 py-4 shadow-2xl transition-all',
+                            auto > 0 ? 'border-emerald-500/40' : suggestions > 0 ? 'border-warning/40' : 'border-border',
+                            t.visible ? 'animate-enter' : 'animate-leave'
+                          )}
+                          onClick={() => {
+                            if (suggestions > 0) {
                               toast.dismiss(t.id)
                               setJustifFilter('sans')
                               const firstSans = operations.find(op => !op.Justificatif)
-                              if (firstSans) {
-                                openDrawer(firstSans)
-                              }
-                            }}
-                          >
-                            <span className="text-xl">💡</span>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-text">
-                                {suggestions} suggestion{suggestions > 1 ? 's' : ''} forte{suggestions > 1 ? 's' : ''} — association manuelle requise
-                              </p>
-                              <p className="text-xs text-text-muted">Cliquer pour associer manuellement →</p>
+                              if (firstSans) openDrawer(firstSans)
+                            }
+                          }}
+                          style={{ cursor: suggestions > 0 ? 'pointer' : 'default' }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn(
+                              'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                              auto > 0 ? 'bg-emerald-500/15' : 'bg-warning/15'
+                            )}>
+                              <Zap size={20} className={auto > 0 ? 'text-emerald-400' : 'text-warning'} />
                             </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-text mb-1.5">
+                                Rapprochement terminé
+                              </p>
+                              <div className="space-y-1">
+                                {auto > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                                    <span className="text-xs text-text">
+                                      <span className="font-bold text-emerald-400">{auto}</span> opération{auto > 1 ? 's' : ''} associée{auto > 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                )}
+                                {suggestions > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-warning shrink-0" />
+                                    <span className="text-xs text-text">
+                                      <span className="font-bold text-warning">{suggestions}</span> suggestion{suggestions > 1 ? 's' : ''} manuelle{suggestions > 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                )}
+                                {auto === 0 && suggestions === 0 && (
+                                  <p className="text-xs text-text-muted">Aucune correspondance trouvée</p>
+                                )}
+                                <div className="flex items-center gap-2 pt-1 border-t border-border/30 mt-1.5">
+                                  <span className="text-[10px] text-text-muted">
+                                    {restants} justificatif{restants !== 1 ? 's' : ''} en attente
+                                  </span>
+                                </div>
+                              </div>
+                              {suggestions > 0 && (
+                                <p className="text-[10px] text-primary mt-2">Cliquer pour associer manuellement →</p>
+                              )}
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toast.dismiss(t.id) }}
+                              className="p-1 text-text-muted/40 hover:text-text-muted shrink-0"
+                            >
+                              <X size={14} />
+                            </button>
                           </div>
-                        ), { duration: 8000 })
-                      } else {
-                        toast('Aucune correspondance trouvée', { icon: 'ℹ️' })
-                      }
+                        </div>
+                      ), { duration: 15000 })
                     },
                     onError: () => toast.error('Erreur lors du rapprochement automatique'),
                   })
@@ -374,16 +394,30 @@ export default function JustificatifsPage() {
                   {operations.map((op) => {
                     const hasJustif = !!op['Lien justificatif']
                     const rowId = `op-row-${op._filename}-${op._originalIndex}`
-                    const isSelected = op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
+                    const isDrawerSelected = drawerOpen && op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
+                    const isPreviewSelected = previewJustif !== null && op._originalIndex === previewOpIndex && op._filename === previewOpFile
+                    const isSelected = isDrawerSelected || isPreviewSelected
 
                     return (
                       <tr
                         key={rowId}
                         id={rowId}
-                        onClick={() => openDrawer(op)}
+                        onClick={() => {
+                          if (hasJustif) {
+                            const lien = op['Lien justificatif'] || ''
+                            const basename = lien.split('/').pop() || ''
+                            if (basename) {
+                              setPreviewJustif(basename)
+                              setPreviewOpFile(op._filename)
+                              setPreviewOpIndex(op._originalIndex)
+                            }
+                          } else {
+                            openDrawer(op)
+                          }
+                        }}
                         className={cn(
                           'hover:bg-surface/50 transition-colors cursor-pointer',
-                          isSelected && 'bg-primary/5'
+                          isSelected && 'bg-warning/15 outline outline-2 outline-warning/40 outline-offset-[-2px]'
                         )}
                       >
                         <td className="px-4 py-2.5 text-text whitespace-nowrap">
@@ -406,7 +440,20 @@ export default function JustificatifsPage() {
                         </td>
                         <td className="px-4 py-2.5 text-center">
                           <button
-                            onClick={() => openDrawer(op)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (hasJustif) {
+                                const lien = op['Lien justificatif'] || ''
+                                const basename = lien.split('/').pop() || ''
+                                if (basename) {
+                                  setPreviewJustif(basename)
+                                  setPreviewOpFile(op._filename)
+                                  setPreviewOpIndex(op._originalIndex)
+                                }
+                              } else {
+                                openDrawer(op)
+                              }
+                            }}
                             title={hasJustif ? 'Justificatif attribué — cliquer pour voir' : 'Cliquer pour attribuer un justificatif'}
                             className={cn(
                               'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
@@ -431,14 +478,68 @@ export default function JustificatifsPage() {
         )}
       </div>
 
-      {/* Attribution Drawer */}
-      <JustificatifAttributionDrawer
-        open={drawerOpen}
+      {/* Preview justificatif existant */}
+      {previewJustif && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setPreviewJustif(null)} />
+          <div className="fixed top-0 right-0 h-full w-[600px] max-w-[95vw] bg-background border-l border-border z-50 flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <FileText size={18} className="text-emerald-400 shrink-0" />
+                <p className="text-sm font-semibold text-text truncate">{previewJustif}</p>
+              </div>
+              <button onClick={() => setPreviewJustif(null)} className="p-1 text-text-muted hover:text-text">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 bg-white">
+              <object
+                data={`/api/justificatifs/${previewJustif}/preview`}
+                type="application/pdf"
+                className="w-full h-full"
+              >
+                <p className="text-center text-text-muted text-sm p-8">Aperçu PDF non disponible</p>
+              </object>
+            </div>
+            <div className="px-5 py-3 border-t border-border flex items-center justify-end shrink-0">
+              <button
+                onClick={() => {
+                  if (previewOpFile && previewOpIndex !== null) {
+                    dissociateMutation.mutate(
+                      { operation_file: previewOpFile, operation_index: previewOpIndex },
+                      {
+                        onSuccess: () => {
+                          toast.success('Justificatif dissocié')
+                          setPreviewJustif(null)
+                        },
+                      }
+                    )
+                  }
+                }}
+                disabled={dissociateMutation.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+              >
+                <Unlink size={14} />
+                {dissociateMutation.isPending ? 'Dissociation...' : 'Dissocier'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Attribution Drawer (uniquement pour ops sans justificatif) */}
+      <RapprochementManuelDrawer
+        isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        operation={selectedOperation}
-        operationFile={selectedOpFilename ?? ''}
-        operationIndex={selectedOpIndex ?? -1}
-        onNextWithout={goToNextWithout}
+        filename={selectedOpFilename}
+        operation={selectedOperation ? {
+          index: selectedOpIndex ?? 0,
+          date: selectedOperation.Date || '',
+          libelle: selectedOperation['Libellé'] || '',
+          debit: selectedOperation['Débit'] || 0,
+          credit: selectedOperation['Crédit'] || 0,
+          ventilation: selectedOperation.ventilation,
+        } : null}
       />
     </div>
   )

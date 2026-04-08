@@ -140,7 +140,7 @@ export default function PipelineStepCard({ step, isLast, isExpanded, onToggle }:
                 <button
                   key={action.route}
                   onClick={() => navigate(action.route)}
-                  className="text-primary text-sm underline hover:text-primary/80 transition-colors"
+                  className="bg-warning/15 text-warning border border-warning/30 hover:bg-warning/25 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
                 >
                   {action.label}
                 </button>

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useNavigate } from 'react-router-dom'
-import { useYearOverview } from '@/hooks/useApi'
+import { useYearOverview, useSettings, useUpdateSettings } from '@/hooks/useApi'
+import { CheckCircle2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useClotureYears } from '@/hooks/useCloture'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -21,6 +23,8 @@ export default function DashboardPage() {
 
   const { data: years } = useClotureYears()
   const { data, isLoading, error } = useYearOverview(selectedYear)
+  const { data: settings } = useSettings()
+  const updateSettings = useUpdateSettings()
 
   if (isLoading) return <LoadingSpinner text="Chargement du cockpit..." />
   if (error) return <p className="text-danger">Erreur: {error.message}</p>
@@ -39,7 +43,22 @@ export default function DashboardPage() {
         title="Exercice comptable"
         description={`Cockpit ${selectedYear} — ${data.kpis.nb_mois_actifs} mois actifs, ${data.kpis.nb_operations} opérations`}
         actions={
-          <YearSelector year={selectedYear} years={allYears} onChange={setSelectedYear} />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => updateSettings.mutate({ auto_pointage: !settings?.auto_pointage })}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                settings?.auto_pointage
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  : 'bg-surface text-text-muted border-border hover:border-text-muted/50'
+              )}
+              title="Pointer automatiquement les opérations avec catégorie, sous-catégorie et justificatif"
+            >
+              <CheckCircle2 size={14} />
+              Auto-pointage
+            </button>
+            <YearSelector year={selectedYear} years={allYears} onChange={setSelectedYear} />
+          </div>
         }
       />
 

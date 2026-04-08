@@ -130,6 +130,11 @@ export default function GedDocumentCard({
             RECONSTITUÉ
           </span>
         )}
+        {doc.statut_justificatif === 'en_attente' && (
+          <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium">
+            EN ATTENTE
+          </span>
+        )}
       </div>
     </div>
   )

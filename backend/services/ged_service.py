@@ -472,21 +472,45 @@ def get_pending_reports(year: int) -> list[dict]:
     return pending
 
 
+def _enrich_from_filename(doc: dict, basename: str) -> None:
+    """Enrichit un document GED avec les données parsées du nom de fichier (convention fournisseur_YYYYMMDD_montant.pdf)."""
+    import re as _re
+    m = _re.match(r"^(.+?)_(\d{4})(\d{2})(\d{2})_(.+?)\.pdf$", basename)
+    if not m:
+        return
+    vendor_raw, year_s, month_s, day_s, amount_s = m.groups()
+    if not doc.get("fournisseur"):
+        doc["fournisseur"] = _clean_fournisseur(vendor_raw.replace("-", " ").replace("_", " ").title())
+    try:
+        y, mo = int(year_s), int(month_s)
+        if 2020 <= y <= 2030 and 1 <= mo <= 12:
+            if not doc.get("year"):
+                doc["year"] = y
+                doc["month"] = mo
+                doc["period"] = {"year": y, "month": mo, "quarter": (mo - 1) // 3 + 1}
+    except ValueError:
+        pass
+    try:
+        amt = float(amount_s.replace(",", "."))
+        if not doc.get("montant") and amt > 0:
+            doc["montant"] = amt
+    except ValueError:
+        pass
+
+
 def backfill_justificatifs_metadata() -> int:
-    """Backfill: enrichit les justificatifs traités existants avec les infos de l'opération liée."""
+    """Backfill: enrichit les justificatifs (traités ET en attente) avec les infos disponibles."""
     metadata = load_metadata()
     docs = metadata.get("documents", {})
     count = 0
 
-    # Collect all justificatifs traités without enrichment
+    # Collect all justificatifs without enrichment (traités + en_attente)
     to_enrich: list[tuple[str, dict]] = []
     for doc_id, doc in docs.items():
         if doc.get("type") != "justificatif":
             continue
-        if "traites" not in doc_id:
-            continue
-        # Already enriched?
-        if doc.get("categorie") or doc.get("period") or doc.get("operation_ref"):
+        # Already fully enriched?
+        if doc.get("categorie") and doc.get("period") and doc.get("operation_ref"):
             continue
         to_enrich.append((doc_id, doc))
 
@@ -537,35 +561,39 @@ def backfill_justificatifs_metadata() -> int:
     # Enrich each justificatif
     for doc_id, doc in to_enrich:
         basename = Path(doc_id).name
+        is_traite = "traites" in doc_id
         op_info = justif_to_op.get(basename)
-        if not op_info:
-            continue
 
-        doc["categorie"] = op_info.get("categorie") or None
-        doc["sous_categorie"] = op_info.get("sous_categorie") or None
-        doc["date_operation"] = op_info.get("date") or None
-        montant = float(op_info.get("debit") or 0) or float(op_info.get("credit") or 0)
-        doc["montant"] = montant if montant else None
-        doc["operation_ref"] = {
-            "file": op_info["file"],
-            "index": op_info["index"],
-            "ventilation_index": op_info.get("ventilation_index"),
-        }
+        # Enrichir depuis l'opération liée (traités uniquement)
+        if op_info and is_traite:
+            doc["categorie"] = op_info.get("categorie") or None
+            doc["sous_categorie"] = op_info.get("sous_categorie") or None
+            doc["date_operation"] = op_info.get("date") or None
+            montant = float(op_info.get("debit") or 0) or float(op_info.get("credit") or 0)
+            doc["montant"] = montant if montant else None
+            doc["operation_ref"] = {
+                "file": op_info["file"],
+                "index": op_info["index"],
+                "ventilation_index": op_info.get("ventilation_index"),
+            }
 
-        # Compute period from date
-        date_str = op_info.get("date", "")
-        if date_str:
-            try:
-                dt = datetime.strptime(date_str, "%Y-%m-%d")
-                doc["period"] = {
-                    "year": dt.year,
-                    "month": dt.month,
-                    "quarter": (dt.month - 1) // 3 + 1,
-                }
-                doc["year"] = dt.year
-                doc["month"] = dt.month
-            except ValueError:
-                pass
+            # Compute period from date
+            date_str = op_info.get("date", "")
+            if date_str:
+                try:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d")
+                    doc["period"] = {
+                        "year": dt.year,
+                        "month": dt.month,
+                        "quarter": (dt.month - 1) // 3 + 1,
+                    }
+                    doc["year"] = dt.year
+                    doc["month"] = dt.month
+                except ValueError:
+                    pass
+
+        # Enrichir depuis le nom de fichier (convention fournisseur_YYYYMMDD_montant.pdf)
+        _enrich_from_filename(doc, basename)
 
         # Try to get fournisseur from OCR cache
         ocr_file = doc.get("ocr_file")
@@ -582,6 +610,7 @@ def backfill_justificatifs_metadata() -> int:
                     pass
 
         doc["is_reconstitue"] = basename.startswith("reconstitue_")
+        doc["statut_justificatif"] = "traite" if is_traite else "en_attente"
         count += 1
 
     if count > 0:
@@ -1411,8 +1440,28 @@ def delete_document(doc_id: str) -> bool:
         return False
 
     doc = docs[doc_id]
-    if doc["type"] != "document_libre":
-        raise ValueError("Seuls les documents libres peuvent être supprimés via la GED")
+
+    # Rapports : déléguer à report_service puis nettoyer GED
+    if doc["type"] == "rapport":
+        try:
+            from backend.services import report_service
+            filename = Path(doc_id).name
+            report_service.delete_report(filename)
+            # Supprimer l'entrée GED
+            del docs[doc_id]
+            save_metadata(metadata)
+            # Supprimer le thumbnail
+            thumb = _thumbnail_cache_path(doc_id)
+            if thumb.exists():
+                thumb.unlink()
+            logger.info(f"GED: rapport supprimé → {doc_id}")
+            return True
+        except Exception as e:
+            logger.error(f"GED: erreur suppression rapport {doc_id}: {e}")
+            return False
+
+    if doc["type"] not in ("document_libre", "justificatif"):
+        raise ValueError("Ce type de document ne peut pas être supprimé via la GED")
 
     # Supprimer le fichier
     abs_path = BASE_DIR / doc_id
