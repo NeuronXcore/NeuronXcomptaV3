@@ -9,12 +9,16 @@ import { cn, MOIS_FR } from '@/lib/utils'
 import type { AppSettings } from '@/types'
 import {
   Settings, Palette, FileText, HardDrive, Server, Save,
-  Loader2, Check, Moon, Sun, Bell, BellOff, Eye,
+  Loader2, Check, Moon, Sun, Bell, BellOff, Eye, EyeOff,
   FolderOpen, Database, Paperclip, Brain, ScrollText,
   Archive, Clock, Info, Monitor, Pencil, Trash2, X, ChevronDown,
+  Mail, CheckCircle2, Send,
 } from 'lucide-react'
+import EmailChipsInput from '@/components/common/EmailChipsInput'
+import { useTestEmailConnection } from '@/hooks/useEmail'
+import toast from 'react-hot-toast'
 
-type Tab = 'general' | 'theme' | 'export' | 'storage' | 'system'
+type Tab = 'general' | 'theme' | 'export' | 'storage' | 'system' | 'email'
 
 interface DiskSpace {
   total_gb: number
@@ -57,6 +61,7 @@ export default function SettingsPage() {
     { key: 'export', label: 'Exportation', icon: FileText },
     { key: 'storage', label: 'Stockage', icon: HardDrive },
     { key: 'system', label: 'Système', icon: Server },
+    { key: 'email', label: 'Email', icon: Mail },
   ]
 
   return (
@@ -90,6 +95,7 @@ export default function SettingsPage() {
       {activeTab === 'export' && <ExportTab />}
       {activeTab === 'storage' && <StorageTab />}
       {activeTab === 'system' && <SystemTab />}
+      {activeTab === 'email' && <EmailTab />}
     </div>
   )
 }
@@ -886,6 +892,125 @@ function SystemTab() {
               </span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+// ──── Email Tab ────
+
+function EmailTab() {
+  const { settings: localSettings, update, save, saving, saved, isLoading } = useSettingsForm()
+  const testMutation = useTestEmailConnection()
+  const [showPassword, setShowPassword] = useState(false)
+
+  if (isLoading || !localSettings) return <LoadingSpinner text="Chargement..." />
+
+  const handleTest = () => {
+    testMutation.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.success) {
+          toast.success(result.message)
+        } else {
+          toast.error(result.message)
+        }
+      },
+      onError: (err) => toast.error(err.message),
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-surface rounded-2xl border border-border p-6">
+        <h2 className="text-lg font-semibold text-text flex items-center gap-2 mb-5">
+          <Mail size={20} className="text-primary" />
+          Email comptable
+        </h2>
+
+        <div className="space-y-4">
+          {/* SMTP User */}
+          <div>
+            <label className="text-xs font-medium text-text-muted block mb-1">Adresse Gmail expéditeur</label>
+            <input
+              type="email"
+              value={localSettings.email_smtp_user ?? ''}
+              onChange={e => update('email_smtp_user', e.target.value || null)}
+              placeholder="votre.email@gmail.com"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          {/* App Password */}
+          <div>
+            <label className="text-xs font-medium text-text-muted block mb-1">Mot de passe d'application Google</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={localSettings.email_smtp_app_password ?? ''}
+                onChange={e => update('email_smtp_app_password', e.target.value || null)}
+                placeholder="xxxx xxxx xxxx xxxx"
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 pr-10 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-primary font-mono"
+              />
+              <button
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text transition-colors"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-[10px] text-text-muted mt-1">
+              Google &rarr; Sécurité &rarr; Mots de passe des applications
+            </p>
+          </div>
+
+          {/* Sender Name */}
+          <div>
+            <label className="text-xs font-medium text-text-muted block mb-1">Nom expéditeur</label>
+            <input
+              type="text"
+              value={localSettings.email_default_nom ?? ''}
+              onChange={e => update('email_default_nom', e.target.value || null)}
+              placeholder="Dr Dupont"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          {/* Destinataires */}
+          <div>
+            <label className="text-xs font-medium text-text-muted block mb-1">Destinataires (comptable)</label>
+            <EmailChipsInput
+              emails={localSettings.email_comptable_destinataires ?? []}
+              onChange={emails => update('email_comptable_destinataires', emails)}
+              placeholder="comptable@cabinet.fr"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 mt-6 pt-4 border-t border-border">
+          <button
+            onClick={handleTest}
+            disabled={!localSettings.email_smtp_user || !localSettings.email_smtp_app_password || testMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-lg text-sm text-text hover:bg-surface-hover disabled:opacity-50 transition-colors"
+          >
+            {testMutation.isPending ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={14} className="text-info" />
+            )}
+            Tester la connexion
+          </button>
+
+          <button
+            onClick={save}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {saved ? 'Sauvegardé' : 'Sauvegarder'}
+          </button>
         </div>
       </div>
     </div>

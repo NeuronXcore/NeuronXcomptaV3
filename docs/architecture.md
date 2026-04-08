@@ -156,9 +156,20 @@ ML Auto-learning (au save éditeur) :
   → Tout en try/except : ne bloque jamais le save
 ```
 
-### Export Comptable V2
+### Export Comptable V3
 
 ```
+Architecture ZIP (generate_single_export) :
+  Export_Comptable_{YYYY}_{Mois}_{PDF|CSV}_{timestamp}.zip
+  ├── Export_Comptable_{YYYY}_{Mois}.pdf    (toujours inclus)
+  ├── Export_Comptable_{YYYY}_{Mois}.csv    (toujours inclus)
+  ├── releves/
+  │   └── pdf_{hash}.pdf                     (relevé bancaire si trouvé)
+  ├── rapports/
+  │   └── *.pdf, *.csv                       (auto-détectés ou sélectionnés)
+  └── justificatifs/
+      └── *.pdf                              (justificatifs associés aux opérations)
+
 _prepare_export_operations(operations, filename) :
   → Itère les opérations, explose les ventilations en sous-lignes [V1/N]
   → Classe en 3 groupes :
@@ -169,19 +180,64 @@ _prepare_export_operations(operations, filename) :
   → Calcule totaux : recettes_pro, charges_pro, solde_bnc, total_perso, total_attente
 
 CSV : séparateur ;, UTF-8 BOM, CRLF, montants FR via _format_amount_fr()
-  → 8 colonnes : Date, Libellé, Débit, Crédit, Catégorie, Sous-catégorie, Justificatif, Commentaire
-  → Sections : ops pro → TOTAL PROFESSIONNEL → ops perso → TOTAL PERSO → ops attente → TOTAL ATTENTE
-
 PDF : paysage A4, logo backend/assets/, footer Page X/Y + NeuronXcompta
-  → 8 colonnes avec montants alignés droite
-  → Sections headers fond #D5E8F0, totaux fond #E8E8E8 bold
-  → Justificatif : ☑ vert + nom fichier ou ☐ gris
-  → Commentaire : italique 6pt tronqué 40 chars
-  → Récapitulatif BNC en bas de page
 
-Nommage : Export_Comptable_{YYYY}-{MM}_{MoisFR}.{ext}
-  → _export_filename(year, month, ext)
-  → ZIP : Export_Comptable_{YYYY}-{MM}_{MoisFR}_{timestamp}.zip
+Statut mensuel (get_month_export_status) :
+  → 12 mois × { nb_operations, has_data, has_pdf, has_csv, nb_releves, nb_rapports, nb_justificatifs }
+  → Croisement fichiers opérations + exports_history.json
+
+Historique (exports_history.json) :
+  → Log automatique à chaque génération (_log_export)
+  → Entrées : id, year, month, format, filename, title, nb_operations, generated_at
+
+Batch (generate_batch_export) :
+  → ZIP multi-mois avec sous-dossiers {Mois}_{Année}/
+  → Chaque sous-dossier contient la même architecture que l'export unitaire
+```
+
+### Email Comptable
+
+```
+Envoi email au comptable (send_email) :
+  1. Résoudre les chemins (_resolve_document_path) par type :
+     - export → EXPORTS_DIR
+     - rapport → REPORTS_DIR, RAPPORTS_DIR
+     - releve → IMPORTS_RELEVES_DIR
+     - justificatif → JUSTIFICATIFS_TRAITES_DIR, JUSTIFICATIFS_EN_ATTENTE_DIR
+     - ged → GED_DIR (récursif)
+  2. Créer un ZIP temporaire (_create_zip) :
+     Documents_Comptables_{timestamp}.zip
+     ├── exports/
+     ├── rapports/
+     ├── releves/
+     ├── justificatifs/
+     └── documents/
+  3. Construire le mail MIME :
+     MIMEMultipart('mixed')
+     ├── MIMEMultipart('related')
+     │   ├── MIMEMultipart('alternative')
+     │   │   ├── MIMEText(corps, 'plain')      ← fallback texte
+     │   │   └── MIMEText(html, 'html')         ← email HTML avec logo
+     │   ├── MIMEImage(logo_lockup_light_400.png, CID: logo_neuronx)
+     │   └── MIMEImage(logo_mark_64.png, CID: logo_mark)
+     └── MIMEBase(ZIP)                           ← pièce jointe unique
+  4. Envoyer via SMTP Gmail (STARTTLS port 587)
+  5. Logger dans email_history.json
+
+Listing documents (list_available_documents) :
+  → Scan répertoires par type, exclure .json/.png/.DS_Store
+  → Enrichir noms relevés : hash → "Relevé Mois Année" via _build_releve_display_map()
+  → Filtres optionnels : type, année, mois
+
+Historique (email_history_service) :
+  → data/email_history.json (append-only, écriture atomique)
+  → Couverture par mois (get_send_coverage) : quels mois ont été envoyés
+
+Store Zustand (sendDrawerStore) :
+  → open({ preselected?: DocumentRef[], defaultFilter?: string })
+  → close()
+  → Monté globalement dans App.tsx
+  → Points d'entrée : sidebar (sous Pipeline), ExportPage, GedPage
 ```
 
 ### Checkboxes modernes et tri (EditorPage)

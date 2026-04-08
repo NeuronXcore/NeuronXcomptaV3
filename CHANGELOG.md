@@ -8,6 +8,49 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-08) — Session 6
+
+- **Titre automatique des rapports**
+  - Fonction `buildReportTitle()` dans ReportsPage : compose titre à partir catégories + période
+  - Règles : 1 cat = nom exact, 2-4 = liste virgule, 5+ = 3 premières + compteur, toutes = "Toutes catégories"
+  - Champ titre éditable avec flag `titleManuallyEdited` (auto-reprend si vidé)
+  - Batch 12 mois utilise `buildReportTitle` par mois
+
+- **Refonte Export Comptable V3**
+  - Réécriture complète de ExportPage : 2 onglets (Générer des exports / Historique)
+  - Grille calendrier 4×3 avec `ExportMonthCard` (3 états : pas de données / à générer / prêt)
+  - Badges toggle PDF + CSV par mois (les deux activés par défaut)
+  - Bouton unique "Exporter" → génère un ZIP contenant toujours PDF+CSV
+  - Architecture ZIP : racine (operations.pdf + operations.csv), dossiers `releves/`, `rapports/`, `justificatifs/`
+  - Preview contenu dans chaque carte (nb relevés, rapports, justificatifs)
+  - Historique : expander contenu ZIP avec noms enrichis (relevés → "Relevé Mois Année")
+  - Sélection multi-export dans l'historique + bouton "Envoyer au comptable"
+  - Bouton "Envoyer au comptable" dans le PageHeader
+  - Backend : `GET /status/{year}`, `POST /generate-month`, `POST /generate-batch`, `GET /contents/{filename}`, `GET /available-reports/{year}/{month}`
+  - `exports_history.json` pour le logging des exports
+  - Suppression du format Excel (XLSX)
+
+- **Email Comptable — Drawer universel d'envoi**
+  - Drawer 2 colonnes : sélection documents + composition email
+  - Filtres par type (chips toggleables : Exports, Rapports, Relevés, Justificatifs, Documents GED)
+  - Filtres par période (année + mois)
+  - Recherche texte
+  - Composition : destinataires chips (pré-remplis depuis settings), objet + corps auto-générés, pièces jointes listées, jauge 25 Mo
+  - Envoi : tous documents zippés en un seul `Documents_Comptables_*.zip`
+  - Email HTML avec logo en-tête (`logo_lockup_light_400.png` CID inline) + footer copyright (`logo_mark_64.png` + © année)
+  - Fallback texte brut pour clients email non-HTML
+  - Onglet Historique dans le drawer : cartes expansibles (date, destinataires, objet, statut, liste documents)
+  - Store Zustand `sendDrawerStore` pour ouverture globale avec pré-sélection
+  - Accessible depuis : sidebar (sous Pipeline, badge bleu), page Exports, page GED
+  - Configuration SMTP dans Paramètres > Email (nouvel onglet) : Gmail + app password + nom expéditeur + destinataires chips
+  - Backend : `email_service.py` (SMTP, résolution multi-type, listing documents), `email_history_service.py` (log/lecture/couverture)
+  - Endpoints : `POST /test-connection`, `GET /documents`, `POST /preview`, `POST /send`, `GET /history`, `GET /coverage/{year}`
+  - Composant réutilisable `EmailChipsInput` (validation email, ajout/suppression, Backspace)
+
+- **Noms enrichis des relevés bancaires**
+  - Mapping hash → "Relevé Mois Année" depuis les fichiers d'opérations
+  - Appliqué dans le drawer envoi, le contenu ZIP de l'historique, et le listing documents
+
 ### Added (2026-04-08) — Session 5
 
 - **Navigation bidirectionnelle Justificatif <-> Operation**

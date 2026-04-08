@@ -15,6 +15,9 @@ interface ReportFiltersProps {
   isGenerating: boolean
   isBatchGenerating?: boolean
   onTemplateSelect: (t: ReportTemplate) => void
+  title?: string
+  autoTitle?: string
+  onTitleChange?: (t: string) => void
 }
 
 const ICON_MAP: Record<string, typeof FileText> = { FileText, PieChart, Shield }
@@ -22,6 +25,7 @@ const ICON_MAP: Record<string, typeof FileText> = { FileText, PieChart, Shield }
 export default function ReportFilters({
   filters, onFiltersChange, format, onFormatChange,
   onGenerate, onBatchGenerate, isGenerating, isBatchGenerating, onTemplateSelect,
+  title, autoTitle, onTitleChange,
 }: ReportFiltersProps) {
   const { data: categoriesData } = useCategories()
   const { data: templates } = useReportTemplates()
@@ -120,6 +124,20 @@ export default function ReportFilters({
       {/* Filters */}
       <div className="bg-surface rounded-lg border border-border p-4 space-y-4">
         <h4 className="text-xs font-semibold text-text-muted uppercase">Filtres</h4>
+
+        {/* Title */}
+        {onTitleChange && (
+          <div>
+            <label className="text-[10px] text-text-muted block mb-1">Titre du rapport</label>
+            <input
+              type="text"
+              value={title ?? ''}
+              onChange={e => onTitleChange(e.target.value)}
+              placeholder={autoTitle || 'Titre auto-généré…'}
+              className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text placeholder:italic placeholder:text-text-muted/50 focus:outline-none focus:border-primary"
+            />
+          </div>
+        )}
 
         {/* Period */}
         <div className="grid grid-cols-3 gap-3">

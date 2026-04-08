@@ -21,6 +21,7 @@ import AmortissementsPage from '@/components/amortissements/AmortissementsPage'
 import SimulationPage from '@/components/simulation/SimulationPage'
 import PrevisionnelPage from '@/components/previsionnel/PrevisionnelPage'
 import TasksPage from '@/components/tasks/TasksPage'
+import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>
+    <SendToAccountantDrawer />
     </>
   )
 }

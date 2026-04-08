@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
-from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation
+from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email
 from backend.services.sandbox_service import start_sandbox_watchdog, stop_sandbox_watchdog
 
 # Initialiser les répertoires et migrer les fichiers existants
@@ -110,6 +110,7 @@ app.include_router(templates.router)
 app.include_router(previsionnel.router)
 app.include_router(tasks.router)
 app.include_router(ventilation.router)
+app.include_router(email.router)
 
 
 @app.get("/")

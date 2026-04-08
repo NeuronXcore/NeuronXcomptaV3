@@ -158,6 +158,429 @@ def _classify_line(line: dict, pro: list, perso: list, attente: list):
         pro.append(line)
 
 
+# ─── Titre auto ───
+
+MONTH_NAMES_FR = [
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+]
+
+
+def build_export_title(year: int, month: int) -> str:
+    """Construit le titre auto pour un export mensuel."""
+    return f"Toutes catégories — {MONTH_NAMES_FR[month - 1]} {year}"
+
+
+# ─── Historique des exports ───
+
+EXPORTS_HISTORY_FILE = EXPORTS_DIR / "exports_history.json"
+
+
+def _load_exports_history() -> list:
+    """Charge l'historique des exports."""
+    if not EXPORTS_HISTORY_FILE.exists():
+        return []
+    try:
+        data = json.loads(EXPORTS_HISTORY_FILE.read_text(encoding="utf-8"))
+        return data.get("exports", [])
+    except Exception:
+        return []
+
+
+def _save_exports_history(exports: list) -> None:
+    """Sauvegarde l'historique des exports."""
+    ensure_directories()
+    EXPORTS_HISTORY_FILE.write_text(
+        json.dumps({"exports": exports}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _log_export(
+    year: int,
+    month: int,
+    fmt: str,
+    filename: str,
+    title: str,
+    nb_operations: int,
+) -> None:
+    """Ajoute une entree dans l'historique des exports."""
+    history = _load_exports_history()
+    entry = {
+        "id": f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+        "year": year,
+        "month": month,
+        "format": fmt,
+        "filename": filename,
+        "title": title,
+        "nb_operations": nb_operations,
+        "generated_at": datetime.now().isoformat(),
+    }
+    history.append(entry)
+    _save_exports_history(history)
+
+
+def get_exports_history(year: Optional[int] = None) -> list:
+    """Retourne l'historique des exports, filtre optionnel par annee."""
+    history = _load_exports_history()
+    if year is not None:
+        history = [e for e in history if e.get("year") == year]
+    return history
+
+
+def get_month_export_status(year: int) -> dict:
+    """
+    Pour chaque mois 1-12, retourne le statut des exports avec preview du contenu.
+    Croise les fichiers d'operations avec l'historique.
+    """
+    ensure_directories()
+
+    # Compter les ops par mois et garder les fichiers
+    op_files = operation_service.list_operation_files()
+    ops_by_month: dict = {}
+    files_by_month: dict = {}
+    for f in op_files:
+        if f.get("year") == year:
+            m = f.get("month")
+            if m:
+                ops_by_month[m] = f.get("count", 0)
+                files_by_month[m] = f
+
+    # Charger l'historique
+    history = _load_exports_history()
+    year_history = [e for e in history if e.get("year") == year]
+
+    months = []
+    for m in range(1, 13):
+        nb_ops = ops_by_month.get(m, 0)
+        has_data = m in ops_by_month
+
+        # Trouver les derniers exports PDF et CSV
+        pdf_entries = [e for e in year_history if e["month"] == m and e["format"] == "pdf"]
+        csv_entries = [e for e in year_history if e["month"] == m and e["format"] == "csv"]
+
+        last_pdf = pdf_entries[-1] if pdf_entries else None
+        last_csv = csv_entries[-1] if csv_entries else None
+
+        # Verifier que les fichiers existent encore
+        has_pdf = bool(last_pdf and (EXPORTS_DIR / last_pdf["filename"]).exists())
+        has_csv = bool(last_csv and (EXPORTS_DIR / last_csv["filename"]).exists())
+
+        # Preview du contenu ZIP
+        nb_releves = 0
+        nb_rapports = 0
+        nb_justificatifs = 0
+        if has_data:
+            target = files_by_month.get(m)
+            if target:
+                bank_pdf = _find_bank_statement(target["filename"])
+                nb_releves = 1 if bank_pdf and bank_pdf.exists() else 0
+                month_name = MONTH_NAMES_FR[m - 1]
+                nb_rapports = len(_find_existing_reports(year, m, month_name))
+                try:
+                    operations = operation_service.load_operations(target["filename"])
+                    nb_justificatifs = len(_collect_justificatifs(operations))
+                except Exception:
+                    pass
+
+        months.append({
+            "month": m,
+            "label": MONTH_NAMES_FR[m - 1],
+            "nb_operations": nb_ops,
+            "has_data": has_data,
+            "has_pdf": has_pdf,
+            "has_csv": has_csv,
+            "last_pdf_filename": last_pdf["filename"] if has_pdf else None,
+            "last_pdf_date": last_pdf["generated_at"] if has_pdf else None,
+            "last_csv_filename": last_csv["filename"] if has_csv else None,
+            "last_csv_date": last_csv["generated_at"] if has_csv else None,
+            "nb_releves": nb_releves,
+            "nb_rapports": nb_rapports,
+            "nb_justificatifs": nb_justificatifs,
+        })
+
+    return {"year": year, "months": months}
+
+
+def _collect_justificatifs(operations: list) -> list:
+    """Collecte les chemins des justificatifs existants pour des operations."""
+    found = []
+    seen = set()
+    for op in operations:
+        lien = op.get("Lien justificatif", "")
+        if lien:
+            just_filename = Path(lien).name
+            if just_filename in seen:
+                continue
+            seen.add(just_filename)
+            just_path = JUSTIFICATIFS_TRAITES_DIR / just_filename
+            if just_path.exists():
+                found.append(just_path)
+    return found
+
+
+def get_export_preview(year: int, month: int) -> dict:
+    """
+    Retourne le contenu qui sera inclus dans le ZIP pour un mois donne.
+    """
+    ensure_directories()
+
+    op_files = operation_service.list_operation_files()
+    target_file = None
+    for f in op_files:
+        if f.get("year") == year and f.get("month") == month:
+            target_file = f
+            break
+
+    if not target_file:
+        return {"nb_operations": 0, "nb_releves": 0, "nb_rapports": 0, "nb_justificatifs": 0}
+
+    operations = operation_service.load_operations(target_file["filename"])
+
+    # Releve bancaire
+    bank_pdf = _find_bank_statement(target_file["filename"])
+    nb_releves = 1 if bank_pdf and bank_pdf.exists() else 0
+
+    # Rapports
+    month_name = MONTH_NAMES_FR[month - 1]
+    nb_rapports = len(_find_existing_reports(year, month, month_name))
+
+    # Justificatifs
+    justificatifs = _collect_justificatifs(operations)
+
+    return {
+        "nb_operations": len(operations),
+        "nb_releves": nb_releves,
+        "nb_rapports": nb_rapports,
+        "nb_justificatifs": len(justificatifs),
+    }
+
+
+def _find_existing_reports(year: int, month: int, month_name: str) -> list:
+    """Trouve les rapports existants pour un mois. Retourne une liste de Paths."""
+    found = []
+    month_name_lower = month_name.lower()
+    for reports_dir in [RAPPORTS_DIR, REPORTS_DIR]:
+        if not reports_dir.exists():
+            continue
+        for f in reports_dir.iterdir():
+            if f.suffix in (".pdf", ".csv", ".xlsx"):
+                name_lower = f.name.lower()
+                if (month_name_lower in name_lower or
+                    f"_{year}_{month:02d}_" in name_lower or
+                    f"_{month:02d}_{year}" in name_lower):
+                    found.append(f)
+    return found
+
+
+def get_available_reports_for_month(year: int, month: int) -> dict:
+    """Retourne les rapports disponibles pour inclusion dans un export mensuel."""
+    month_name = MONTH_NAMES_FR[month - 1]
+    auto_detected = _find_existing_reports(year, month, month_name)
+    auto_filenames = {f.name for f in auto_detected}
+
+    all_reports = report_service.get_all_reports()
+
+    results = []
+    seen: set = set()
+
+    # Auto-detected first
+    for f in auto_detected:
+        # Enrich with metadata from index if available
+        meta = next((r for r in all_reports if r.get("filename") == f.name), None)
+        results.append({
+            "filename": f.name,
+            "title": meta.get("title", f.stem) if meta else f.stem,
+            "auto_detected": True,
+            "format": f.suffix.lstrip("."),
+            "year": meta.get("year") if meta else year,
+            "month": meta.get("month") if meta else month,
+        })
+        seen.add(f.name)
+
+    # Gallery reports not auto-detected
+    for r in all_reports:
+        fn = r.get("filename", "")
+        if fn and fn not in seen:
+            results.append({
+                "filename": fn,
+                "title": r.get("title", fn),
+                "auto_detected": False,
+                "format": r.get("format", ""),
+                "year": r.get("year"),
+                "month": r.get("month"),
+            })
+
+    return {"year": year, "month": month, "reports": results}
+
+
+def generate_single_export(
+    year: int,
+    month: int,
+    fmt: str,
+    report_filenames: Optional[List[str]] = None,
+) -> dict:
+    """
+    Genere un export ZIP pour un mois donne.
+    Architecture : racine = CSV/PDF, dossiers releves/, rapports/, justificatifs/.
+    report_filenames: None = auto-discovery, [] = no reports, [...] = explicit list.
+    """
+    ensure_directories()
+
+    op_files = operation_service.list_operation_files()
+    target_file = None
+    for f in op_files:
+        if f.get("year") == year and f.get("month") == month:
+            target_file = f
+            break
+
+    if not target_file:
+        raise ValueError(f"Aucune opération trouvée pour {month:02d}/{year}")
+
+    operations = operation_service.load_operations(target_file["filename"])
+    if not operations:
+        raise ValueError(f"Fichier vide pour {month:02d}/{year}")
+
+    month_name = MONTH_NAMES_FR[month - 1]
+    title = build_export_title(year, month)
+    prepared = _prepare_export_operations(operations, target_file["filename"])
+    nb_ops = len(operations)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_name = f"Export_Comptable_{year}_{month_name}_{fmt.upper()}_{timestamp}.zip"
+    zip_path = EXPORTS_DIR / zip_name
+
+    files_included = []
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        # ── Operations PDF + CSV (toujours les deux) ──
+        pdf_bytes = _generate_pdf_content(prepared, month_name, year, month)
+        pdf_arc = _export_filename(year, month, "pdf")
+        zf.writestr(pdf_arc, pdf_bytes)
+        files_included.append({"name": pdf_arc, "type": "pdf"})
+
+        csv_content = _generate_csv_content(prepared, month_name, year)
+        csv_arc = _export_filename(year, month, "csv")
+        zf.writestr(csv_arc, csv_content)
+        files_included.append({"name": csv_arc, "type": "csv"})
+
+        # ── Releves bancaires ──
+        bank_pdf = _find_bank_statement(target_file["filename"])
+        if bank_pdf and bank_pdf.exists():
+            arc_name = f"releves/{bank_pdf.name}"
+            zf.write(str(bank_pdf), arcname=arc_name)
+            files_included.append({"name": arc_name, "type": "releve"})
+
+        # ── Rapports ──
+        if report_filenames is None:
+            reports = _find_existing_reports(year, month, month_name)
+        else:
+            reports = []
+            for fn in report_filenames:
+                rp = report_service.get_report_path(fn)
+                if rp and rp.exists():
+                    reports.append(rp)
+                else:
+                    logger.warning("Report file not found: %s", fn)
+        for rp in reports:
+            arc_name = f"rapports/{rp.name}"
+            zf.write(str(rp), arcname=arc_name)
+            files_included.append({"name": arc_name, "type": "rapport"})
+
+        # ── Justificatifs ──
+        justificatifs = _collect_justificatifs(operations)
+        for jp in justificatifs:
+            arc_name = f"justificatifs/{jp.name}"
+            zf.write(str(jp), arcname=arc_name)
+        if justificatifs:
+            files_included.append({"name": f"justificatifs/ ({len(justificatifs)} fichiers)", "type": "justificatifs"})
+
+    _log_export(year, month, fmt, zip_name, title, nb_ops)
+
+    return {
+        "filename": zip_name,
+        "title": title,
+        "nb_operations": nb_ops,
+        "generated": True,
+        "download_url": f"/api/exports/download/{zip_name}",
+        "size_human": _format_size(zip_path.stat().st_size),
+        "files_included": files_included,
+    }
+
+
+def generate_batch_export(year: int, months: list, fmt: str) -> dict:
+    """
+    Genere un lot d'exports pour plusieurs mois dans un seul ZIP.
+    Architecture: {Mois}/operations.{fmt}, {Mois}/releves/, {Mois}/rapports/, {Mois}/justificatifs/
+    """
+    ensure_directories()
+
+    generated_count = 0
+    already_existed = 0
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_name = f"Exports_Comptable_{year}_{timestamp}.zip"
+    zip_path = EXPORTS_DIR / zip_name
+
+    op_files = operation_service.list_operation_files()
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for m in months:
+            month_name = MONTH_NAMES_FR[m - 1]
+            prefix = f"{month_name}_{year}"
+
+            target_file = None
+            for f in op_files:
+                if f.get("year") == year and f.get("month") == m:
+                    target_file = f
+                    break
+            if not target_file:
+                continue
+
+            try:
+                operations = operation_service.load_operations(target_file["filename"])
+                if not operations:
+                    continue
+                prepared = _prepare_export_operations(operations, target_file["filename"])
+
+                # Operations
+                if fmt == "pdf":
+                    pdf_bytes = _generate_pdf_content(prepared, month_name, year, m)
+                    zf.writestr(f"{prefix}/{_export_filename(year, m, 'pdf')}", pdf_bytes)
+                else:
+                    csv_content = _generate_csv_content(prepared, month_name, year)
+                    zf.writestr(f"{prefix}/{_export_filename(year, m, 'csv')}", csv_content)
+
+                # Releves
+                bank_pdf = _find_bank_statement(target_file["filename"])
+                if bank_pdf and bank_pdf.exists():
+                    zf.write(str(bank_pdf), arcname=f"{prefix}/releves/{bank_pdf.name}")
+
+                # Rapports
+                reports = _find_existing_reports(year, m, month_name)
+                for rp in reports:
+                    zf.write(str(rp), arcname=f"{prefix}/rapports/{rp.name}")
+
+                # Justificatifs
+                justificatifs = _collect_justificatifs(operations)
+                for jp in justificatifs:
+                    zf.write(str(jp), arcname=f"{prefix}/justificatifs/{jp.name}")
+
+                generated_count += 1
+                title = build_export_title(year, m)
+                _log_export(year, m, fmt, zip_name, title, len(operations))
+
+            except Exception as e:
+                logger.warning("Batch export skip month %d: %s", m, e)
+
+    return {
+        "zip_filename": zip_name,
+        "generated_count": generated_count,
+        "already_existed": already_existed,
+        "total": len(months),
+        "download_url": f"/api/exports/download/{zip_name}",
+    }
+
+
 # ─── Periodes disponibles ───
 
 def get_available_periods() -> dict:
@@ -219,6 +642,59 @@ def _has_export(year: int, month: int) -> bool:
 
 # ─── Listing exports existants ───
 
+def _build_releve_display_map() -> dict:
+    """Construit un mapping hash → 'Relevé Mois Année' depuis les fichiers d'opérations."""
+    mapping: dict = {}
+    try:
+        op_files = operation_service.list_operation_files()
+        for f in op_files:
+            m = re.search(r"_([a-f0-9]{8})\.json$", f.get("filename", ""))
+            if m:
+                file_hash = m.group(1)
+                year = f.get("year")
+                month = f.get("month")
+                if year and month and 1 <= month <= 12:
+                    mapping[file_hash] = f"Relevé {MONTH_NAMES_FR[month - 1]} {year}"
+    except Exception:
+        pass
+    return mapping
+
+
+def _enrich_releve_name(name: str, releve_map: dict) -> str:
+    """Remplace pdf_HASH.pdf par 'Relevé Mois Année.pdf' si possible."""
+    basename = name.split("/")[-1]
+    m = re.match(r"pdf_([a-f0-9]+)\.pdf", basename)
+    if m and m.group(1) in releve_map:
+        display = releve_map[m.group(1)]
+        folder = name.rsplit("/", 1)[0] if "/" in name else ""
+        new_basename = f"{display}.pdf"
+        return f"{folder}/{new_basename}" if folder else new_basename
+    return name
+
+
+def list_zip_contents(filename: str) -> list:
+    """Liste les fichiers contenus dans un ZIP d'export avec noms enrichis."""
+    path = EXPORTS_DIR / filename
+    if not path.exists() or path.suffix != ".zip":
+        return []
+    try:
+        releve_map = _build_releve_display_map()
+        with zipfile.ZipFile(path, "r") as zf:
+            entries = []
+            for info in zf.infolist():
+                if info.is_dir():
+                    continue
+                display_name = _enrich_releve_name(info.filename, releve_map)
+                entries.append({
+                    "name": display_name,
+                    "size": info.file_size,
+                    "size_human": _format_size(info.file_size),
+                })
+            return entries
+    except Exception:
+        return []
+
+
 def list_exports() -> list:
     """Liste tous les exports generes."""
     ensure_directories()
@@ -273,7 +749,7 @@ def generate_export(
     month: int,
     include_csv: bool = True,
     include_pdf: bool = False,
-    include_excel: bool = False,
+    include_excel: bool = False,  # kept for backward compat, ignored
     include_bank_statement: bool = True,
     include_justificatifs: bool = True,
     include_reports: bool = False,
@@ -322,13 +798,6 @@ def generate_export(
             arc_name = _export_filename(year, month, "pdf")
             zf.writestr(arc_name, pdf_bytes)
             files_included.append({"name": arc_name, "type": "pdf"})
-
-        # ── Excel ──
-        if include_excel:
-            xlsx_bytes = _generate_excel_content(prepared, month_name, year)
-            arc_name = _export_filename(year, month, "xlsx")
-            zf.writestr(arc_name, xlsx_bytes)
-            files_included.append({"name": arc_name, "type": "xlsx"})
 
         # ── Releve bancaire ──
         if include_bank_statement:
@@ -870,21 +1339,10 @@ def _find_bank_statement(operation_filename: str) -> Optional[Path]:
 def _add_existing_reports(zf: zipfile.ZipFile, year: int, month: int, month_name: str) -> list:
     """Ajoute les rapports existants pour ce mois au ZIP."""
     added = []
-    month_name_lower = month_name.lower()
-
-    for reports_dir in [RAPPORTS_DIR, REPORTS_DIR]:
-        if not reports_dir.exists():
-            continue
-        for f in reports_dir.iterdir():
-            if f.suffix in (".pdf", ".csv", ".xlsx"):
-                name_lower = f.name.lower()
-                if (month_name_lower in name_lower or
-                    f"_{year}_{month:02d}_" in name_lower or
-                    f"_{month:02d}_{year}" in name_lower):
-                    arc_name = f"rapports/{f.name}"
-                    zf.write(str(f), arcname=arc_name)
-                    added.append(arc_name)
-
+    for f in _find_existing_reports(year, month, month_name):
+        arc_name = f"rapports/{f.name}"
+        zf.write(str(f), arcname=arc_name)
+        added.append(arc_name)
     return added
 
 
@@ -901,8 +1359,17 @@ def delete_export(filename: str) -> bool:
 
 # ─── Download path ───
 
+def delete_single_file(filename: str) -> bool:
+    """Supprime un fichier d'export individuel (PDF/CSV)."""
+    path = EXPORTS_DIR / filename
+    if path.exists() and path.suffix in (".pdf", ".csv", ".zip"):
+        path.unlink()
+        return True
+    return False
+
+
 def get_export_path(filename: str) -> Optional[Path]:
-    """Retourne le chemin absolu d'un export."""
+    """Retourne le chemin absolu d'un export (ZIP, PDF ou CSV)."""
     path = EXPORTS_DIR / filename
     if path.exists():
         return path

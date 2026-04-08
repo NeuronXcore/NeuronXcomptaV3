@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 18 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking. Includes a Dotations aux Amortissements module with registre des immobilisations, moteur de calcul linéaire/dégressif, et détection automatique des opérations candidates. Includes a Tasks Kanban module for tracking accounting actions (auto-generated + manual tasks) with drag & drop.
+NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Migrated from Streamlit (V2) to React + FastAPI. All 19 pages are fully implemented with zero placeholders. Includes a sandbox watchdog that auto-processes files (PDF/JPG/PNG) dropped into `data/justificatifs/sandbox/` with OCR and real-time SSE notifications. Includes a GED (Gestion Électronique de Documents) module for document library with accounting post deductibility tracking. Includes a Dotations aux Amortissements module with registre des immobilisations, moteur de calcul linéaire/dégressif, et détection automatique des opérations candidates. Includes a Tasks Kanban module for tracking accounting actions (auto-generated + manual tasks) with drag & drop. Includes an Export Comptable V3 module with calendar grid, per-month ZIP generation (PDF+CSV+relevés+rapports+justificatifs), export history with ZIP contents expander, and multi-export selection. Includes an Email Comptable module with universal drawer for sending documents to accountant via SMTP Gmail (HTML emails with logo, single ZIP attachment, document selection by type/period, email history with coverage tracking).
 
 ## Architecture
 
@@ -18,6 +18,9 @@ NeuronXcompta V3 is a full-stack accounting assistant for a dental practice. Mig
 - **Prévisionnel**: Calendrier de trésorerie annuel combinant charges attendues (providers récurrents + moyennes N-1), recettes projetées (régression linéaire + saisonnalité), et réalisé. Deux modes fournisseurs : facture récurrente (un document par période) et échéancier de prélèvements (parsing OCR, matching opérations bancaires). Timeline 12 mois Recharts avec barres empilées. Données dans `data/previsionnel/`. Background scan toutes les heures.
 - **Templates Justificatifs**: Bibliothèque de templates par fournisseur créés depuis des justificatifs scannés. Génération de PDF reconstitués via ReportLab quand l'original est manquant. Aucune mention de reconstitution sur le PDF — traçabilité uniquement dans les métadonnées `.ocr.json`. Templates stockés dans `data/templates/justificatifs_templates.json`. Fichiers générés préfixés `reconstitue_` dans `data/justificatifs/en_attente/`.
 - **Ventilation**: Une opération bancaire peut être ventilée en N sous-lignes (≥2) avec catégorie, sous-catégorie, montant et justificatif individuels. sum(montants) doit égaler le montant de l'opération. Catégorie parente = "Ventilé". Les analytics, lettrage, justificatifs et clôture itèrent sur les sous-lignes au lieu de l'op parente. Données inline dans l'opération JSON (champ `ventilation: []`).
+- **Export Comptable V3**: Refonte complète de la page Export. Grille calendrier 4×3 avec badges toggle PDF/CSV par mois. Génération ZIP contenant toujours PDF+CSV + relevés bancaires + rapports auto-détectés + justificatifs (architecture dossiers : `releves/`, `rapports/`, `justificatifs/`). Historique des exports avec expander contenu ZIP (noms relevés enrichis "Relevé Mois Année"). Sélection multi-export dans l'historique avec bouton "Envoyer au comptable". Titre auto des rapports via `buildReportTitle()`. Format Excel supprimé. Données dans `data/exports/` + `data/exports/exports_history.json`.
+- **Email Comptable**: Drawer universel d'envoi de documents au comptable par SMTP Gmail. Accessible depuis la sidebar (sous Pipeline), la page Exports et la GED. 2 colonnes : sélection documents (filtres type chips + année/mois + recherche) + composition email (destinataires chips, objet/corps auto-générés, pièces jointes, jauge 25 Mo). Tous les documents sélectionnés sont zippés en un seul `Documents_Comptables_*.zip` avant envoi. Email HTML avec logo en-tête (`logo_lockup_light_400.png` CID inline), footer copyright (`logo_mark_64.png` + © année). Historique des envois dans onglet dédié du drawer (cartes expansibles). Configuration SMTP dans Paramètres > Email (Gmail + app password + destinataires + nom). Données dans `data/email_history.json`. Store Zustand `sendDrawerStore` pour ouverture globale avec pré-sélection.
+- **Titre automatique des rapports**: Fonction `buildReportTitle()` compose le titre à partir des catégories sélectionnées + période. Règles : 1 cat → nom exact, 2-4 → liste virgule, 5+ → 3 premières + compteur, toutes → "Toutes catégories". Période : "Mois Année" ou "Année". Champ titre éditable manuellement avec flag `titleManuallyEdited`. Batch 12 mois utilise le titre auto par mois.
 - **Tâches Kanban**: Module de suivi des actions comptables avec vue kanban 3 colonnes (To do / In progress / Done). Tâches auto-générées par scan de l'état applicatif (5 détections : opérations non catégorisées, justificatifs en attente, clôture incomplète, mois sans relevé, alertes non résolues) + tâches manuelles. Drag & drop via @dnd-kit. Scopé par année (store Zustand global). Badge compteur dans la sidebar. Données dans `data/tasks.json`.
 - **Sélecteur Année Global**: Store Zustand (`useFiscalYearStore`) avec persistance localStorage. Sélecteur `◀ ANNÉE ▶` dans la sidebar, synchronisé bidirectionnellement avec les sélecteurs année de chaque page (EditorPage, AlertesPage, CloturePage, DashboardPage, ExportPage, ReportsPage, PrevisionnelPage, ComptaAnalytiquePage).
 - **ML Monitoring**: Système de monitoring de l'agent IA avec logging des prédictions (source, confiance, hallucination), tracking des corrections manuelles, stats agrégées (couverture, correction rate, confusion matrix). Onglet Monitoring dans Agent IA (4 sections : Performance, Fiabilité, Progression, Diagnostic). Carte KPI "Agent IA" dans le Dashboard. Logs dans `data/ml/logs/`.
@@ -65,16 +68,17 @@ neuronXcompta/
 ├── backend/
 │   ├── main.py                 # FastAPI entry point
 │   ├── core/config.py          # All paths, constants, MOIS_FR, ALLOWED_JUSTIFICATIF_EXTENSIONS, MAGIC_BYTES, GED_DIR, AMORTISSEMENTS_DIR, BAREMES_DIR, TASKS_FILE
-│   ├── models/                 # Pydantic schemas (15 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py, template.py, previsionnel.py, task.py, ml.py)
-│   ├── routers/                # API endpoints (20 routers, incl. ged.py, amortissements.py, simulation.py, templates.py, previsionnel.py, tasks.py)
-│   └── services/               # Business logic (20 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py, previsionnel_service.py, task_service.py, ml_monitoring_service.py)
+│   ├── models/                 # Pydantic schemas (16 files, incl. ged.py, report.py, analytics.py, amortissement.py, simulation.py, template.py, previsionnel.py, task.py, ml.py, email.py)
+│   ├── routers/                # API endpoints (21 routers, incl. ged.py, amortissements.py, simulation.py, templates.py, previsionnel.py, tasks.py, email.py)
+│   └── services/               # Business logic (22 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py, previsionnel_service.py, task_service.py, ml_monitoring_service.py, email_service.py, email_history_service.py)
 ├── frontend/
 │   └── src/
 │       ├── App.tsx             # All 19 routes (Pipeline=/, Dashboard=/dashboard, Tasks=/tasks)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
-│       ├── components/         # 67+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/, components/tasks/, components/justificatifs/)
-│       ├── hooks/              # 20 hook files (useApi, useOperations, useJustificatifs, useJustificatifsPage, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel, useTasks)
+│       ├── components/         # 70+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/, components/tasks/, components/justificatifs/, components/email/, components/common/)
+│       ├── hooks/              # 21 hook files (useApi, useOperations, useJustificatifs, useJustificatifsPage, useOcr, useExports, useRapprochement, useRapprochementManuel, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel, useTasks, useEmail)
 │       ├── stores/useFiscalYearStore.ts  # Zustand store — année globale persistée en localStorage
+│       ├── stores/sendDrawerStore.ts     # Zustand store — drawer envoi comptable (ouverture globale avec pré-sélection)
 │       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
 │       ├── lib/fiscal-engine.ts         # Moteur fiscal TypeScript (URSSAF, CARMF, IR, simulation multi-leviers)
 │       ├── types/index.ts      # All TypeScript interfaces
@@ -103,8 +107,11 @@ neuronXcompta/
 │   │   ├── carmf_2024.json       # Barème CARMF (régime base, complémentaire, ASV)
 │   │   ├── ir_2024.json          # Barème IR (tranches, décote, PER, Madelin)
 │   │   └── odm_2024.json         # Cotisation Ordre des Médecins
-│   └── tasks.json              # Tâches kanban (auto + manuelles, toutes années)
-├── settings.json               # App settings
+│   ├── tasks.json              # Tâches kanban (auto + manuelles, toutes années)
+│   ├── email_history.json      # Historique des envois email au comptable
+│   └── exports/
+│       └── exports_history.json  # Historique des exports générés
+├── settings.json               # App settings (incl. email_smtp_user, email_smtp_app_password, email_comptable_destinataires, email_default_nom)
 └── docs/                       # Documentation
 ```
 
@@ -114,7 +121,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 
 | Groupe | Pages |
 |--------|-------|
-| **—** | Pipeline (hors-groupe, en tête) |
+| **—** | Pipeline (hors-groupe, en tête), Envoi comptable (bouton drawer, badge bleu) |
 | **SAISIE** | Importation, Édition, Catégories, OCR |
 | **TRAITEMENT** | Justificatifs, Compte d'attente |
 | **ANALYSE** | Tableau de bord, Prévisionnel, Compta Analytique, Rapports, Simulation BNC |
@@ -134,7 +141,8 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | queries | `/api/queries` | POST /query, GET/POST/DELETE /queries |
 | justificatifs | `/api/justificatifs` | GET /, GET /stats, POST /upload, GET /reverse-lookup/{filename}, POST /associate, POST /dissociate |
 | ocr | `/api/ocr` | GET /status, GET /history, POST /extract, POST /extract-upload, POST /batch-upload |
-| exports | `/api/exports` | GET /periods, GET /list, POST /generate, GET /download/{filename} |
+| exports | `/api/exports` | GET /periods, GET /list, GET /status/{year}, GET /available-reports/{year}/{month}, GET /contents/{filename}, POST /generate, POST /generate-month, POST /generate-batch, GET /download/{filename}, DELETE /{filename} |
+| email | `/api/email` | POST /test-connection, GET /documents, POST /preview, POST /send, GET /history, GET /coverage/{year} |
 | rapprochement | `/api/rapprochement` | POST /run-auto, POST /associate-manual, GET /unmatched, GET /{filename}/{index}/suggestions, GET /batch-hints/{filename} |
 | lettrage | `/api/lettrage` | POST /{filename}/{index}, POST /{filename}/bulk, GET /{filename}/stats |
 | cloture | `/api/cloture` | GET /years, GET /{year} |
@@ -162,7 +170,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | `/visualization` | ComptaAnalytiquePage | Analytics avec filtres globaux, drill-down catégorie (drawer sous-catégories), **comparatif périodes avec séparation recettes/dépenses** (2 graphiques, 2 tableaux, delta badges inversés pour revenus, clic catégorie → drawer), tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | `/justificatifs` | JustificatifsPage | **Vue opérations-centrée** : sélecteur année/mois (store Zustand), tableau triable 7 colonnes, filtre sans/avec justif (défaut: sans), 4 MetricCards, **bandeau CTA "Associer automatiquement"** (ambre, visible quand ops sans justif, toast cliquable pour association manuelle), `JustificatifAttributionDrawer` (800px split resizable, suggestions scorées + **recherche libre** dans tous les justificatifs en attente avec debounce, hover preview PDF, bouton Attribuer orange, score affiché en %), flash highlight, sandbox SSE |
 | `/agent-ai` | AgentIAPage | **2 onglets** (Dashboard ML : gauges, actions rapides avec Entraîner + Appliquer bulk, courbe apprentissage, règles, backups \| Monitoring : performance/fiabilité/progression/diagnostic avec tables + Recharts), badge sidebar violet (ops non catégorisées si entraînement > 7j) |
-| `/export` | ExportPage | Monthly ZIP export with calendar grid |
+| `/export` | ExportPage | **Export Comptable V3** : 2 onglets (Générer/Historique), grille calendrier 4×3 avec badges toggle PDF+CSV + bouton Exporter, chaque ZIP contient PDF+CSV+relevés+rapports+justificatifs (dossiers), historique avec expander contenu ZIP + checkboxes multi-sélection + bouton "Envoyer au comptable", bouton PageHeader "Envoyer au comptable" → drawer universel |
 | `/rapprochement` | *(redirige vers `/justificatifs`)* | Ancienne page rapprochement, fusionnée dans Justificatifs |
 | `/alertes` | AlertesPage | Compte d'attente avec badge alertes, **sélecteur année + boutons mois** |
 | `/cloture` | CloturePage | Annual calendar view of monthly accounting completeness |

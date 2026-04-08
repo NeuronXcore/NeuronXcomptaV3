@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useNavigate } from 'react-router-dom'
 import { ExternalLink } from 'lucide-react'
@@ -6,8 +6,45 @@ import toast from 'react-hot-toast'
 import PageHeader from '@/components/shared/PageHeader'
 import ReportFilters from './ReportFilters'
 import { useGenerateReport } from '@/hooks/useReports'
+import { useCategories } from '@/hooks/useApi'
 import { api } from '@/api/client'
+import { MOIS_FR } from '@/lib/utils'
 import type { ReportFiltersV2, ReportTemplate, ReportGenerateRequest } from '@/types'
+
+const PSEUDO_UNCATEGORIZED = '__non_categorise__'
+
+function buildReportTitle(
+  selectedCategories: string[],
+  allCategoriesCount: number,
+  year?: number,
+  month?: number
+): string {
+  // Partie catégories
+  const displayNames = selectedCategories.map(c =>
+    c === PSEUDO_UNCATEGORIZED ? 'Non catégorisé' : c
+  )
+  let catPart: string
+  if (displayNames.length === 0) {
+    catPart = 'Rapport'
+  } else if (displayNames.length === allCategoriesCount) {
+    catPart = 'Toutes catégories'
+  } else if (displayNames.length <= 4) {
+    catPart = displayNames.join(', ')
+  } else {
+    const displayed = displayNames.slice(0, 3).join(', ')
+    catPart = `${displayed}… (+${displayNames.length - 3})`
+  }
+
+  // Partie période
+  let periodPart = ''
+  if (year && month) {
+    periodPart = `${MOIS_FR[month - 1]} ${year}`
+  } else if (year) {
+    periodPart = `${year}`
+  }
+
+  return periodPart ? `${catPart} — ${periodPart}` : catPart
+}
 
 export default function ReportsPage() {
   const navigate = useNavigate()
@@ -16,12 +53,39 @@ export default function ReportsPage() {
   const [format, setFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf')
   const [templateId, setTemplateId] = useState<string | undefined>()
   const [isBatchGenerating, setIsBatchGenerating] = useState(false)
+  const [title, setTitle] = useState('')
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false)
 
   const generateMutation = useGenerateReport()
+  const { data: categoriesData } = useCategories()
+
+  // Build allCatNames count (mirrors ReportFilters logic)
+  const allCatCount = useMemo(() => {
+    const cats = categoriesData?.categories ?? []
+    let count = cats.length
+    if (!cats.some(c => c.name === 'Perso')) count++
+    count++ // __non_categorise__
+    return count
+  }, [categoriesData])
+
+  const autoTitle = useMemo(() => {
+    return buildReportTitle(
+      filters.categories ?? [],
+      allCatCount,
+      filters.year,
+      filters.month
+    )
+  }, [filters.categories, allCatCount, filters.year, filters.month])
+
+  useEffect(() => {
+    if (!titleManuallyEdited) {
+      setTitle(autoTitle)
+    }
+  }, [autoTitle, titleManuallyEdited])
 
   const handleGenerate = () => {
     generateMutation.mutate(
-      { format, filters, template_id: templateId },
+      { format, filters, template_id: templateId, title: title || undefined },
       {
         onSuccess: () => {
           toast.success(
@@ -62,10 +126,17 @@ export default function ReportsPage() {
           quarter: undefined,
         }
         try {
+          const monthTitle = buildReportTitle(
+            filters.categories ?? [],
+            allCatCount,
+            year,
+            month
+          )
           await api.post<{ replaced?: string }>('/reports/generate', {
             format,
             filters: monthFilters,
             template_id: templateId,
+            title: monthTitle,
           } as ReportGenerateRequest)
           generated++
           toast.loading(`Génération batch ${year}... (${generated}/12)`, { id: toastId })
@@ -95,11 +166,20 @@ export default function ReportsPage() {
     } finally {
       setIsBatchGenerating(false)
     }
-  }, [filters, format, templateId, selectedYear, navigate])
+  }, [filters, format, templateId, selectedYear, navigate, allCatCount])
 
   const handleFiltersChange = (f: ReportFiltersV2) => {
     setFilters(f)
     if (f.year) setYear(f.year)
+  }
+
+  const handleTitleChange = (value: string) => {
+    setTitle(value)
+    if (value === '') {
+      setTitleManuallyEdited(false)
+    } else {
+      setTitleManuallyEdited(true)
+    }
   }
 
   const handleTemplateSelect = (t: ReportTemplate) => {
@@ -111,6 +191,7 @@ export default function ReportsPage() {
     if (yr) setYear(yr)
     setFormat(t.format as 'pdf' | 'csv' | 'excel')
     setTemplateId(t.id)
+    setTitleManuallyEdited(false)
   }
 
   return (
@@ -139,6 +220,9 @@ export default function ReportsPage() {
         isGenerating={generateMutation.isPending}
         isBatchGenerating={isBatchGenerating}
         onTemplateSelect={handleTemplateSelect}
+        title={title}
+        autoTitle={autoTitle}
+        onTitleChange={handleTitleChange}
       />
     </div>
   )

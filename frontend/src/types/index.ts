@@ -277,6 +277,67 @@ export interface AppSettings {
   include_graphs: boolean
   compress_exports: boolean
   auto_pointage: boolean
+  // Email comptable
+  email_smtp_user?: string | null
+  email_smtp_app_password?: string | null
+  email_comptable_destinataires?: string[]
+  email_default_nom?: string | null
+}
+
+// === Email / Envoi Comptable ===
+
+export type DocumentType = 'export' | 'rapport' | 'releve' | 'justificatif' | 'ged'
+
+export interface DocumentRef {
+  type: DocumentType
+  filename: string
+}
+
+export interface DocumentInfo {
+  type: DocumentType
+  filename: string
+  display_name: string
+  size_bytes: number
+  date?: string
+  category?: string
+}
+
+export interface EmailSendRequest {
+  documents: DocumentRef[]
+  destinataires: string[]
+  objet?: string
+  corps?: string
+}
+
+export interface EmailSendResponse {
+  success: boolean
+  message: string
+  destinataires: string[]
+  fichiers_envoyes: string[]
+  taille_totale_mo: number
+}
+
+export interface EmailTestResponse {
+  success: boolean
+  message: string
+}
+
+export interface EmailPreview {
+  destinataires: string[]
+  objet: string
+  corps: string
+}
+
+export interface EmailHistoryEntry {
+  id: string
+  sent_at: string
+  destinataires: string[]
+  objet: string
+  documents: DocumentRef[]
+  nb_documents: number
+  taille_totale_mo: number
+  success: boolean
+  error_message?: string
 }
 
 export interface OCRSummary {

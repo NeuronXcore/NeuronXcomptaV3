@@ -498,42 +498,88 @@ Modifier une sous-ligne de ventilation.
 
 ## Exports (`/api/exports`)
 
-Export comptable V2 avec règles comptables strictes : ops "perso" exclues du BNC (section séparée), ops sans catégorie en compte d'attente, ventilations explosées en sous-lignes. Nommage : `Export_Comptable_YYYY-MM_Mois.{csv,pdf}`.
+Export comptable V3 avec grille calendrier. Chaque export est un ZIP contenant PDF+CSV+relevés+rapports+justificatifs organisés en dossiers.
 
 ### `GET /periods`
 Périodes disponibles avec statistiques.
 
 ### `GET /list`
-Liste des archives ZIP générées (supporte ancien et nouveau format de nommage).
+Liste des archives ZIP générées.
+
+### `GET /status/{year}`
+Statut mensuel des exports pour une année : 12 mois × `{ nb_operations, has_data, has_pdf, has_csv, nb_releves, nb_rapports, nb_justificatifs }`.
+
+### `GET /available-reports/{year}/{month}`
+Rapports disponibles pour inclusion dans un export mensuel. Retourne auto-détectés (flag) + galerie complète.
+
+### `GET /contents/{filename}`
+Liste les fichiers contenus dans un ZIP d'export avec noms enrichis (relevés → "Relevé Mois Année").
 
 ### `POST /generate`
-Générer un export comptable. Le contenu est structuré en 3 sections :
-- **Professionnel** : opérations BNC avec totaux recettes/charges/solde
-- **Mouvements personnels** : ops "perso" exclues du BNC
-- **Compte d'attente** : ops non catégorisées / "Autres"
+Générer un export comptable ZIP (endpoint legacy avec options granulaires).
 
-CSV : séparateur `;`, UTF-8 BOM, CRLF, montants FR (`1 234,56`), colonne Justificatif = nom fichier PDF, colonne Commentaire.
-PDF : logo, 7 colonnes, montants alignés droite, sections colorées, récapitulatif BNC, footer paginé.
+### `POST /generate-month`
+Générer un export mensuel. Produit un ZIP avec PDF+CSV+relevés+rapports+justificatifs.
 
 **Body :**
 ```json
 {
-  "year": 2024,
-  "month": 11,
-  "include_csv": true,
-  "include_pdf": true,
-  "include_excel": false,
-  "include_bank_statement": true,
-  "include_justificatifs": true,
-  "include_reports": false
+  "year": 2025,
+  "month": 1,
+  "format": "pdf",
+  "report_filenames": null
+}
+```
+
+### `POST /generate-batch`
+Générer un batch d'exports pour plusieurs mois dans un seul ZIP (sous-dossiers par mois).
+
+**Body :**
+```json
+{
+  "year": 2025,
+  "months": [1, 2, 3],
+  "format": "pdf"
 }
 ```
 
 ### `GET /download/{filename}`
-Télécharger un ZIP.
+Télécharger un export (ZIP, PDF ou CSV).
 
 ### `DELETE /{filename}`
 Supprimer un export.
+
+---
+
+## Email (`/api/email`)
+
+Envoi de documents comptables par email via SMTP Gmail. Email HTML avec logo, ZIP unique en pièce jointe.
+
+### `POST /test-connection`
+Tester la connexion SMTP avec les credentials des settings. Retourne `{ success, message }`.
+
+### `GET /documents`
+Lister les documents disponibles pour envoi. Scan de 5 répertoires (exports, rapports, relevés, justificatifs, GED).
+
+**Query params :** `type` (optionnel), `year` (optionnel), `month` (optionnel)
+
+### `POST /preview`
+Prévisualisation de l'email : génère objet + corps automatiques depuis les documents sélectionnés.
+
+**Body :** `EmailSendRequest { documents: DocumentRef[], destinataires, objet?, corps? }`
+
+### `POST /send`
+Envoyer des documents par email. Zippe tous les documents en un seul ZIP, envoie un email HTML avec logo.
+
+**Body :** `EmailSendRequest { documents: DocumentRef[], destinataires, objet?, corps? }`
+
+**Réponse :** `EmailSendResponse { success, message, destinataires, fichiers_envoyes, taille_totale_mo }`
+
+### `GET /history`
+Historique des envois email. **Query params :** `year` (optionnel), `limit` (défaut 50).
+
+### `GET /coverage/{year}`
+Couverture d'envoi par mois pour une année : `{ 1: true, 2: false, ... }`.
 
 ---
 

@@ -1,64 +1,46 @@
 import { useState, useMemo } from 'react'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import PageHeader from '@/components/shared/PageHeader'
-import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import {
+  useExportStatus,
   useExportPeriods,
   useExportList,
-  useGenerateExport,
   useDeleteExport,
+  useGenerateMonthExport,
+  useGenerateBatchExport,
+  useExportContents,
 } from '@/hooks/useExports'
-import type { ExportPeriod, ExportFile, ExportResult } from '@/hooks/useExports'
-import { formatCurrency, cn } from '@/lib/utils'
+import type { ExportMonthStatus, ExportFile } from '@/hooks/useExports'
+import { cn } from '@/lib/utils'
+import toast from 'react-hot-toast'
+import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import {
-  PackageCheck, Download, Trash2, Loader2, Check, AlertCircle,
-  Calendar, FileText, FileSpreadsheet, File, Clock, HardDrive,
-  FolderOpen, Paperclip, FileSearch, Archive,
+  Download, Loader2, Check, Calendar, FileText, File, Trash2,
+  PackageCheck, Archive, Info, FolderOpen, Paperclip, FileSearch,
+  Clock, HardDrive, AlertCircle, ChevronDown, Send, Minus,
 } from 'lucide-react'
 
 type Tab = 'generate' | 'history'
 
 export default function ExportPage() {
   const [activeTab, setActiveTab] = useState<Tab>('generate')
-  const { data: periodsData } = useExportPeriods()
-  const { data: exports } = useExportList()
-
-  const totalExports = exports?.length ?? 0
-  const totalSize = exports?.reduce((s, e) => s + e.size, 0) ?? 0
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <PageHeader
         title="Export Comptable"
-        description="Générer des archives ZIP contenant opérations, relevés bancaires et justificatifs"
+        description="Générer et télécharger les exports comptables mensuels"
+        actions={
+          <button
+            onClick={() => useSendDrawerStore.getState().open({ defaultFilter: 'export' })}
+            className="flex items-center gap-2 px-3 py-2 bg-surface border border-border text-text rounded-lg text-sm hover:bg-surface-hover transition-colors"
+          >
+            <Send size={15} />
+            Envoyer au comptable
+          </button>
+        }
       />
-
-      {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <MetricCard
-          title="Périodes disponibles"
-          value={String(periodsData?.periods.length ?? 0)}
-          icon={<Calendar size={18} />}
-        />
-        <MetricCard
-          title="Exports générés"
-          value={String(totalExports)}
-          icon={<Archive size={18} />}
-        />
-        <MetricCard
-          title="Espace utilisé"
-          value={totalSize < 1024 * 1024
-            ? `${(totalSize / 1024).toFixed(0)} Ko`
-            : `${(totalSize / 1024 / 1024).toFixed(1)} Mo`}
-          icon={<HardDrive size={18} />}
-        />
-        <MetricCard
-          title="Années"
-          value={periodsData?.years.join(', ') || '-'}
-          icon={<Clock size={18} />}
-        />
-      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-surface rounded-xl border border-border p-1">
@@ -72,7 +54,7 @@ export default function ExportPage() {
           )}
         >
           <PackageCheck size={16} />
-          Générer un export
+          Générer des exports
         </button>
         <button
           onClick={() => setActiveTab('history')}
@@ -84,7 +66,7 @@ export default function ExportPage() {
           )}
         >
           <FolderOpen size={16} />
-          Historique des exports
+          Historique
         </button>
       </div>
 
@@ -97,366 +79,278 @@ export default function ExportPage() {
 // ──── Generate Tab ────
 
 function GenerateTab() {
-  const { data: periodsData, isLoading } = useExportPeriods()
-  const generateMutation = useGenerateExport()
-
   const { selectedYear, setYear } = useFiscalYearStore()
-  const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number } | null>(null)
-  const [result, setResult] = useState<ExportResult | null>(null)
-
-  // Options
-  const [includeCsv, setIncludeCsv] = useState(true)
-  const [includePdf, setIncludePdf] = useState(true)
-  const [includeExcel, setIncludeExcel] = useState(false)
-  const [includeBankStatement, setIncludeBankStatement] = useState(true)
-  const [includeJustificatifs, setIncludeJustificatifs] = useState(true)
-  const [includeReports, setIncludeReports] = useState(false)
+  const { data: periodsData } = useExportPeriods()
+  const { data: statusData, isLoading } = useExportStatus(selectedYear)
+  const generateMonth = useGenerateMonthExport()
+  const generateBatch = useGenerateBatchExport()
 
   const years = periodsData?.years ?? []
-  const effectiveYear = selectedYear
+  const months = statusData?.months ?? []
 
-  const monthsForYear = useMemo(() => {
-    if (!periodsData || !effectiveYear) return []
-    return periodsData.periods.filter(p => p.year === effectiveYear)
-  }, [periodsData, effectiveYear])
+  const monthsWithData = useMemo(() => months.filter(m => m.has_data), [months])
+  const readyCount = useMemo(() => months.filter(m => m.has_pdf || m.has_csv).length, [months])
+  const toGenerateCount = useMemo(() => monthsWithData.filter(m => !m.has_pdf).length, [monthsWithData])
 
-  // Selected period details
-  const selectedPeriod = useMemo(() => {
-    if (!selectedMonth || !periodsData) return null
-    return periodsData.periods.find(
-      p => p.year === selectedMonth.year && p.month === selectedMonth.month
-    ) ?? null
-  }, [selectedMonth, periodsData])
+  // ── Génération unitaire ──
+  const [generatingMonth, setGeneratingMonth] = useState<number | null>(null)
 
-  const handleGenerate = () => {
-    if (!selectedMonth) return
-    setResult(null)
-    generateMutation.mutate(
-      {
-        year: selectedMonth.year,
-        month: selectedMonth.month,
-        include_csv: includeCsv,
-        include_pdf: includePdf,
-        include_excel: includeExcel,
-        include_bank_statement: includeBankStatement,
-        include_justificatifs: includeJustificatifs,
-        include_reports: includeReports,
-      },
-      { onSuccess: (data) => setResult(data) }
-    )
+  async function handleExport(month: number, _formats: ('pdf' | 'csv')[]) {
+    setGeneratingMonth(month)
+    try {
+      await generateMonth.mutateAsync({
+        year: selectedYear, month, format: 'pdf',
+      })
+      toast.success('Export PDF + CSV généré — disponible dans l\'historique')
+    } catch {
+      toast.error('Erreur lors de la génération')
+    } finally {
+      setGeneratingMonth(null)
+    }
   }
 
-  const handleDownload = (filename: string) => {
-    window.open(`/api/exports/download/${encodeURIComponent(filename)}`, '_blank')
+  // ── Batch ──
+  const [batchFormat, setBatchFormat] = useState<'pdf' | 'csv' | null>(null)
+
+  async function handleBatchExport(format: 'pdf' | 'csv') {
+    const mList = monthsWithData.map(m => m.month)
+    if (mList.length === 0) {
+      toast.error("Aucun mois avec données")
+      return
+    }
+    setBatchFormat(format)
+    try {
+      const result = await generateBatch.mutateAsync({ year: selectedYear, months: mList, format })
+      toast.success(`${result.generated_count} exports générés — disponibles dans l'historique`)
+    } catch {
+      toast.error('Erreur lors de la génération batch')
+    } finally {
+      setBatchFormat(null)
+    }
   }
 
-  if (isLoading) return <LoadingSpinner text="Chargement des périodes..." />
-
-  if (!periodsData || periodsData.periods.length === 0) {
-    return (
-      <div className="bg-surface rounded-2xl border border-border p-16 text-center">
-        <Calendar size={48} className="mx-auto mb-4 text-text-muted opacity-30" />
-        <p className="text-lg text-text-muted mb-2">Aucune période disponible</p>
-        <p className="text-sm text-text-muted">Importez d'abord des relevés bancaires</p>
-      </div>
-    )
-  }
-
-  const MONTH_NAMES = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-  ]
+  if (isLoading) return <LoadingSpinner text="Chargement..." />
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Left: Period selection */}
-      <div className="lg:col-span-2 space-y-4">
-        {/* Year selector */}
-        <div className="bg-surface rounded-2xl border border-border p-5">
-          <h3 className="font-semibold text-text flex items-center gap-2 mb-4">
-            <Calendar size={18} />
-            Sélection de la période
-          </h3>
-
-          {/* Year tabs */}
-          <div className="flex gap-2 mb-5">
-            {years.map(y => (
-              <button
-                key={y}
-                onClick={() => { setYear(y); setSelectedMonth(null); setResult(null) }}
-                className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                  (effectiveYear === y)
-                    ? 'bg-primary text-white'
-                    : 'bg-background text-text-muted hover:text-text hover:bg-surface-hover'
-                )}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-
-          {/* Calendar grid */}
-          {effectiveYear && (
-            <div className="grid grid-cols-4 gap-2">
-              {MONTH_NAMES.map((name, i) => {
-                const monthNum = i + 1
-                const period = monthsForYear.find(m => m.month === monthNum)
-                const isAvailable = !!period
-                const isSelected = selectedMonth?.year === effectiveYear && selectedMonth?.month === monthNum
-                const hasExport = period?.has_export ?? false
-
-                return (
-                  <button
-                    key={monthNum}
-                    onClick={() => {
-                      if (isAvailable) {
-                        setSelectedMonth({ year: effectiveYear, month: monthNum })
-                        setResult(null)
-                      }
-                    }}
-                    disabled={!isAvailable}
-                    className={cn(
-                      'relative rounded-xl p-3 text-center transition-all border-2',
-                      isSelected
-                        ? 'border-primary bg-primary/10'
-                        : isAvailable
-                          ? hasExport
-                            ? 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 cursor-pointer'
-                            : 'border-border bg-background hover:bg-surface-hover cursor-pointer'
-                          : 'border-transparent bg-background/50 opacity-40 cursor-not-allowed'
-                    )}
-                  >
-                    <p className={cn(
-                      'text-sm font-medium',
-                      isSelected ? 'text-primary' : isAvailable ? 'text-text' : 'text-text-muted'
-                    )}>
-                      {name}
-                    </p>
-                    {isAvailable && (
-                      <p className="text-[10px] text-text-muted mt-1">
-                        {period!.count} ops
-                      </p>
-                    )}
-                    {hasExport && (
-                      <div className="absolute top-1.5 right-1.5">
-                        <Check size={12} className="text-emerald-400" />
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Selected period stats */}
-        {selectedPeriod && (
-          <div className="bg-surface rounded-2xl border border-border p-5">
-            <h3 className="font-semibold text-text mb-4">
-              Statistiques — {selectedPeriod.month_name} {selectedPeriod.year}
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-background rounded-xl p-3 text-center">
-                <p className="text-2xl font-bold text-text">{selectedPeriod.count}</p>
-                <p className="text-xs text-text-muted mt-1">Opérations</p>
-              </div>
-              <div className="bg-background rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-danger">{formatCurrency(selectedPeriod.total_debit)}</p>
-                <p className="text-xs text-text-muted mt-1">Débits</p>
-              </div>
-              <div className="bg-background rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-success">{formatCurrency(selectedPeriod.total_credit)}</p>
-                <p className="text-xs text-text-muted mt-1">Crédits</p>
-              </div>
-              <div className="bg-background rounded-xl p-3 text-center">
-                <p className="text-lg font-bold text-primary">{selectedPeriod.justificatif_ratio}%</p>
-                <p className="text-xs text-text-muted mt-1">Justifiées</p>
-                <div className="w-full h-1.5 bg-surface rounded-full mt-2 overflow-hidden">
-                  <div
-                    className={cn(
-                      'h-full rounded-full',
-                      selectedPeriod.justificatif_ratio >= 80 ? 'bg-emerald-500' :
-                      selectedPeriod.justificatif_ratio >= 50 ? 'bg-amber-500' : 'bg-red-400'
-                    )}
-                    style={{ width: `${selectedPeriod.justificatif_ratio}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Right: Options + Generate */}
-      <div className="space-y-4">
-        {/* Content options */}
-        <div className="bg-surface rounded-2xl border border-border p-5">
-          <h3 className="font-semibold text-text mb-4">Contenu de l'export</h3>
-
-          <div className="space-y-3">
-            <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Formats des opérations</p>
-            {[
-              { checked: includeCsv, set: setIncludeCsv, label: 'CSV', desc: 'Tableur Excel', icon: FileText, color: 'text-success' },
-              { checked: includePdf, set: setIncludePdf, label: 'PDF', desc: 'Document imprimable', icon: File, color: 'text-danger' },
-              { checked: includeExcel, set: setIncludeExcel, label: 'Excel', desc: 'Multi-feuilles', icon: FileSpreadsheet, color: 'text-info' },
-            ].map(opt => (
-              <label
-                key={opt.label}
-                className={cn(
-                  'flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all border',
-                  opt.checked ? 'bg-primary/5 border-primary/20' : 'border-transparent hover:bg-surface-hover'
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={opt.checked}
-                  onChange={e => opt.set(e.target.checked)}
-                  className="accent-primary w-4 h-4"
-                />
-                <opt.icon size={16} className={opt.color} />
-                <div>
-                  <p className="text-sm text-text">{opt.label}</p>
-                  <p className="text-[10px] text-text-muted">{opt.desc}</p>
-                </div>
-              </label>
-            ))}
-
-            <div className="border-t border-border/50 my-2" />
-            <p className="text-xs font-medium text-text-muted uppercase tracking-wider">Documents annexes</p>
-
-            {[
-              { checked: includeBankStatement, set: setIncludeBankStatement, label: 'Relevé bancaire', desc: 'PDF original', icon: FileSearch },
-              { checked: includeJustificatifs, set: setIncludeJustificatifs, label: 'Justificatifs', desc: 'PDFs associés', icon: Paperclip },
-              { checked: includeReports, set: setIncludeReports, label: 'Rapports générés', desc: 'CSV/PDF/Excel existants', icon: FolderOpen },
-            ].map(opt => (
-              <label
-                key={opt.label}
-                className={cn(
-                  'flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all border',
-                  opt.checked ? 'bg-primary/5 border-primary/20' : 'border-transparent hover:bg-surface-hover'
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={opt.checked}
-                  onChange={e => opt.set(e.target.checked)}
-                  className="accent-primary w-4 h-4"
-                />
-                <opt.icon size={16} className="text-text-muted" />
-                <div>
-                  <p className="text-sm text-text">{opt.label}</p>
-                  <p className="text-[10px] text-text-muted">{opt.desc}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Generate button */}
-        <button
-          onClick={handleGenerate}
-          disabled={!selectedMonth || (!includeCsv && !includePdf && !includeExcel) || generateMutation.isPending}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-primary text-white rounded-2xl hover:bg-primary-dark disabled:opacity-50 transition-colors font-medium text-sm shadow-lg shadow-primary/25"
-        >
-          {generateMutation.isPending ? (
-            <>
-              <Loader2 size={18} className="animate-spin" />
-              Génération en cours...
-            </>
-          ) : (
-            <>
-              <PackageCheck size={18} />
-              Générer l'export ZIP
-            </>
-          )}
-        </button>
-
-        {/* Error */}
-        {generateMutation.isError && (
-          <div className="bg-danger/10 border border-danger/30 rounded-xl p-4 text-sm text-danger flex items-start gap-3">
-            <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Erreur de génération</p>
-              <p className="text-xs mt-1 opacity-80">{generateMutation.error.message}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Result */}
-        {result && (
-          <div className="bg-success/10 border border-success/30 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
-                <Check size={20} className="text-success" />
-              </div>
-              <div>
-                <p className="font-semibold text-success">Export généré</p>
-                <p className="text-xs text-text-muted mt-0.5">
-                  {result.month_name} {result.year} — {result.size_human}
-                </p>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-background/50 rounded-lg p-2 flex justify-between">
-                <span className="text-text-muted">Opérations</span>
-                <span className="font-mono font-medium">{result.operations_count}</span>
-              </div>
-              <div className="bg-background/50 rounded-lg p-2 flex justify-between">
-                <span className="text-text-muted">Justificatifs</span>
-                <span className="font-mono font-medium text-primary">{result.justificatif_count}</span>
-              </div>
-              <div className="bg-background/50 rounded-lg p-2 flex justify-between">
-                <span className="text-text-muted">Débits</span>
-                <span className="font-mono text-danger">{formatCurrency(result.total_debit)}</span>
-              </div>
-              <div className="bg-background/50 rounded-lg p-2 flex justify-between">
-                <span className="text-text-muted">Crédits</span>
-                <span className="font-mono text-success">{formatCurrency(result.total_credit)}</span>
-              </div>
-            </div>
-
-            {/* Files included */}
-            {result.files_included.length > 0 && (
-              <div>
-                <p className="text-xs text-text-muted mb-1.5">Fichiers inclus :</p>
-                <div className="space-y-1">
-                  {result.files_included.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-text">
-                      <FileIncludedIcon type={f.type} />
-                      <span className="truncate">{f.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+    <div>
+      {/* Year selector */}
+      <div className="flex items-center gap-3 mb-5">
+        {years.map(y => (
+          <button
+            key={y}
+            onClick={() => setYear(y)}
+            className={cn(
+              'px-5 py-2 rounded-lg text-sm font-medium transition-colors',
+              selectedYear === y
+                ? 'bg-primary text-white shadow-md'
+                : 'bg-surface border border-border text-text-muted hover:text-text hover:bg-surface-hover'
             )}
-
-            <button
-              onClick={() => handleDownload(result.filename)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-success text-white rounded-xl hover:bg-green-600 transition-colors text-sm font-medium"
-            >
-              <Download size={16} />
-              Télécharger {result.filename}
-            </button>
-          </div>
-        )}
+          >
+            {y}
+          </button>
+        ))}
       </div>
+
+      {/* Action bar */}
+      <div className="flex items-center justify-between mb-5 bg-surface rounded-xl border border-border p-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleBatchExport('pdf')}
+            disabled={monthsWithData.length === 0 || batchFormat !== null}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            {batchFormat === 'pdf' ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
+            Tout exporter PDF (ZIP)
+          </button>
+          <button
+            onClick={() => handleBatchExport('csv')}
+            disabled={monthsWithData.length === 0 || batchFormat !== null}
+            className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-text rounded-lg text-sm font-medium hover:bg-surface-hover disabled:opacity-50 transition-colors"
+          >
+            {batchFormat === 'csv' ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+            Tout exporter CSV (ZIP)
+          </button>
+        </div>
+        <div className="text-xs text-text-muted flex items-center gap-3">
+          {readyCount > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Check size={12} className="text-emerald-400" />
+              {readyCount} prêts
+            </span>
+          )}
+          {toGenerateCount > 0 && (
+            <span className="flex items-center gap-1.5 text-amber-400">
+              <PackageCheck size={12} />
+              {toGenerateCount} à générer
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Calendar grid 4×3 */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {months.map(month => (
+          <ExportMonthCard
+            key={month.month}
+            month={month}
+            year={selectedYear}
+            isGenerating={generatingMonth === month.month}
+            onExport={handleExport}
+          />
+        ))}
+      </div>
+
+      {/* Info banner */}
+      <div className="bg-info/10 border border-info/20 rounded-xl p-4 flex items-start gap-3 text-sm text-info">
+        <Info size={16} className="mt-0.5 shrink-0" />
+        <div>
+          <p>
+            Chaque export génère un <strong>ZIP</strong> contenant l'export comptable (PDF ou CSV)
+            + les relevés bancaires, rapports et justificatifs de la période.
+          </p>
+          <p className="text-xs mt-1 opacity-70">
+            Architecture : <code className="bg-info/10 px-1 rounded">operations.pdf</code> +
+            dossiers <code className="bg-info/10 px-1 rounded">releves/</code>,
+            <code className="bg-info/10 px-1 rounded">rapports/</code>,
+            <code className="bg-info/10 px-1 rounded">justificatifs/</code>
+          </p>
+        </div>
+      </div>
+
     </div>
   )
 }
 
-function FileIncludedIcon({ type }: { type: string }) {
-  switch (type) {
-    case 'csv': return <FileText size={12} className="text-success flex-shrink-0" />
-    case 'pdf': return <File size={12} className="text-danger flex-shrink-0" />
-    case 'xlsx': return <FileSpreadsheet size={12} className="text-info flex-shrink-0" />
-    case 'bank_pdf': return <FileSearch size={12} className="text-amber-400 flex-shrink-0" />
-    case 'justificatifs': return <Paperclip size={12} className="text-primary flex-shrink-0" />
-    case 'report': return <FolderOpen size={12} className="text-text-muted flex-shrink-0" />
-    default: return <File size={12} className="text-text-muted flex-shrink-0" />
+
+// ──── ExportMonthCard ────
+
+interface ExportMonthCardProps {
+  month: ExportMonthStatus
+  year: number
+  isGenerating: boolean
+  onExport: (month: number, formats: ('pdf' | 'csv')[]) => void
+}
+
+function ExportMonthCard({ month: m, year, isGenerating, onExport }: ExportMonthCardProps) {
+  const [selectedFormats, setSelectedFormats] = useState<Set<'pdf' | 'csv'>>(new Set(['pdf', 'csv']))
+
+  const toggleFormat = (fmt: 'pdf' | 'csv') => {
+    setSelectedFormats(prev => {
+      const next = new Set(prev)
+      if (next.has(fmt)) {
+        if (next.size > 1) next.delete(fmt)
+      } else {
+        next.add(fmt)
+      }
+      return next
+    })
   }
+
+  if (!m.has_data) {
+    return (
+      <div className="rounded-xl border border-border bg-background/50 p-4 opacity-35">
+        <p className="text-sm font-medium text-text-muted">{m.label}</p>
+        <p className="text-[10px] text-text-muted mt-1">Pas de données</p>
+      </div>
+    )
+  }
+
+  const hasExport = m.has_pdf || m.has_csv
+
+  return (
+    <div className={cn(
+      'rounded-xl border p-4 transition-all',
+      hasExport
+        ? 'border-emerald-500/30 bg-emerald-500/5'
+        : 'border-amber-500/30 bg-amber-500/5'
+    )}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold text-text">{m.label}</p>
+        <div className="flex gap-1">
+          {m.has_pdf && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400">PDF</span>
+          )}
+          {m.has_csv && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400">CSV</span>
+          )}
+          {!hasExport && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400">à générer</span>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <p className="text-xs text-text-muted">{m.nb_operations} opérations</p>
+
+      {/* ZIP content preview */}
+      <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 mt-1.5">
+        {m.nb_releves > 0 && (
+          <span className="text-[10px] text-text-muted flex items-center gap-1">
+            <FileSearch size={9} className="text-amber-400" />
+            {m.nb_releves} relevé
+          </span>
+        )}
+        {m.nb_rapports > 0 && (
+          <span className="text-[10px] text-text-muted flex items-center gap-1">
+            <FolderOpen size={9} className="text-primary" />
+            {m.nb_rapports} rapport{m.nb_rapports > 1 ? 's' : ''}
+          </span>
+        )}
+        {m.nb_justificatifs > 0 && (
+          <span className="text-[10px] text-text-muted flex items-center gap-1">
+            <Paperclip size={9} className="text-info" />
+            {m.nb_justificatifs} justif.
+          </span>
+        )}
+      </div>
+
+      {/* Format toggles + Export button */}
+      <div className="flex items-center gap-1.5 mt-3">
+        {/* PDF toggle */}
+        <button
+          onClick={() => toggleFormat('pdf')}
+          disabled={isGenerating}
+          className={cn(
+            'px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all border-2 disabled:opacity-50',
+            selectedFormats.has('pdf')
+              ? 'border-danger/50 bg-danger/15 text-danger'
+              : 'border-border bg-background text-text-muted hover:border-danger/30'
+          )}
+        >
+          PDF
+        </button>
+
+        {/* CSV toggle */}
+        <button
+          onClick={() => toggleFormat('csv')}
+          disabled={isGenerating}
+          className={cn(
+            'px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all border-2 disabled:opacity-50',
+            selectedFormats.has('csv')
+              ? 'border-success/50 bg-success/15 text-success'
+              : 'border-border bg-background text-text-muted hover:border-success/30'
+          )}
+        >
+          CSV
+        </button>
+
+        {/* Export button */}
+        <button
+          onClick={() => onExport(m.month, Array.from(selectedFormats))}
+          disabled={isGenerating}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {isGenerating ? (
+            <Loader2 size={11} className="animate-spin" />
+          ) : (
+            <Download size={11} />
+          )}
+          Exporter
+        </button>
+      </div>
+    </div>
+  )
 }
 
 
@@ -466,14 +360,38 @@ function HistoryTab() {
   const { data: exports, isLoading } = useExportList()
   const deleteMutation = useDeleteExport()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [expandedFile, setExpandedFile] = useState<string | null>(null)
+  const [selectedExports, setSelectedExports] = useState<Set<string>>(new Set())
+  const openSendDrawer = useSendDrawerStore(s => s.open)
+
+  const list = exports ?? []
+
+  const toggleSelect = (filename: string) => {
+    setSelectedExports(prev => {
+      const next = new Set(prev)
+      if (next.has(filename)) next.delete(filename)
+      else next.add(filename)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedExports.size === list.length) {
+      setSelectedExports(new Set())
+    } else {
+      setSelectedExports(new Set(list.map(e => e.filename)))
+    }
+  }
 
   const handleDownload = (filename: string) => {
     window.open(`/api/exports/download/${encodeURIComponent(filename)}`, '_blank')
   }
 
-  if (isLoading) return <LoadingSpinner text="Chargement des exports..." />
+  const toggleExpand = (filename: string) => {
+    setExpandedFile(prev => prev === filename ? null : filename)
+  }
 
-  const list = exports ?? []
+  if (isLoading) return <LoadingSpinner text="Chargement des exports..." />
 
   if (list.length === 0) {
     return (
@@ -503,8 +421,54 @@ function HistoryTab() {
     } catch { return iso }
   }
 
+  const allSelected = selectedExports.size === list.length
+  const someSelected = selectedExports.size > 0
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Selection toolbar */}
+      {someSelected && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-3 sticky top-0 z-10">
+          <button
+            onClick={toggleSelectAll}
+            className={cn(
+              'w-[22px] h-[22px] rounded flex items-center justify-center border-2 shrink-0 transition-all',
+              allSelected
+                ? 'bg-primary border-transparent'
+                : 'bg-primary/40 border-transparent'
+            )}
+          >
+            {allSelected ? <Check size={13} className="text-white" /> : <Minus size={13} className="text-white" />}
+          </button>
+          <span className="text-sm text-text">
+            {selectedExports.size} sélectionné{selectedExports.size > 1 ? 's' : ''}
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={() => {
+              selectedExports.forEach(f => handleDownload(f))
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium text-text hover:bg-surface-hover transition-colors"
+          >
+            <Download size={13} />
+            Télécharger ({selectedExports.size})
+          </button>
+          <button
+            onClick={() => {
+              const preselected = Array.from(selectedExports).map(filename => ({
+                type: 'export' as const,
+                filename,
+              }))
+              openSendDrawer({ preselected, defaultFilter: 'export' })
+            }}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Send size={13} />
+            Envoyer au comptable ({selectedExports.size})
+          </button>
+        </div>
+      )}
+
       {Object.entries(byYear)
         .sort(([a], [b]) => Number(b) - Number(a))
         .map(([year, yearExports]) => (
@@ -515,52 +479,91 @@ function HistoryTab() {
             </h3>
 
             <div className="space-y-2">
-              {yearExports.map(exp => (
-                <div
-                  key={exp.filename}
-                  className="bg-surface rounded-xl border border-border p-4 flex items-center gap-4 hover:bg-surface-hover transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-background flex items-center justify-center flex-shrink-0">
-                    <Archive size={18} className="text-primary" />
-                  </div>
+              {yearExports.map(exp => {
+                const isExpanded = expandedFile === exp.filename
+                const isSelected = selectedExports.has(exp.filename)
+                return (
+                  <div
+                    key={exp.filename}
+                    className={cn(
+                      'bg-surface rounded-xl border-2 overflow-hidden transition-colors',
+                      isSelected ? 'border-primary' : 'border-border'
+                    )}
+                  >
+                    {/* Header row */}
+                    <div className="p-4 flex items-center gap-3 hover:bg-surface-hover transition-colors">
+                      {/* Checkbox */}
+                      <button
+                        onClick={() => toggleSelect(exp.filename)}
+                        className={cn(
+                          'w-[22px] h-[22px] rounded flex items-center justify-center border-2 shrink-0 transition-all',
+                          isSelected
+                            ? 'bg-primary border-transparent shadow-sm'
+                            : 'bg-surface border-text-muted/30 hover:border-primary/50'
+                        )}
+                      >
+                        {isSelected && <Check size={13} className="text-white" />}
+                      </button>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate text-text">
-                      {exp.month_name ? `${exp.month_name} ${exp.year}` : exp.filename}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
-                      <span className="flex items-center gap-1">
-                        <Clock size={12} />
-                        {formatDate(exp.created)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <HardDrive size={12} />
-                        {exp.size_human}
-                      </span>
-                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
-                        ZIP
-                      </span>
+                      {/* Expand button */}
+                      <button
+                        onClick={() => toggleExpand(exp.filename)}
+                        className="w-8 h-8 rounded-lg bg-background flex items-center justify-center flex-shrink-0 hover:bg-primary/10 transition-colors"
+                        title="Voir le contenu"
+                      >
+                        <ChevronDown
+                          size={16}
+                          className={cn(
+                            'text-primary transition-transform duration-200',
+                            isExpanded && 'rotate-180'
+                          )}
+                        />
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate text-text">
+                          {exp.month_name ? `${exp.month_name} ${exp.year}` : exp.filename}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
+                          <span className="flex items-center gap-1">
+                            <Clock size={12} />
+                            {formatDate(exp.created)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <HardDrive size={12} />
+                            {exp.size_human}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                            ZIP
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleDownload(exp.filename)}
+                          className="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                          title="Télécharger"
+                        >
+                          <Download size={16} />
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(exp.filename)}
+                          className="p-2 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => handleDownload(exp.filename)}
-                      className="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
-                      title="Télécharger"
-                    >
-                      <Download size={16} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(exp.filename)}
-                      className="p-2 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
-                      title="Supprimer"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {/* Expandable file list */}
+                    {isExpanded && (
+                      <ZipContentsPanel filename={exp.filename} />
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))}
@@ -600,6 +603,92 @@ function HistoryTab() {
           </div>
         </div>
       )}
+
+    </div>
+  )
+}
+
+
+// ──── ZIP Contents Panel ────
+
+function ZipContentsPanel({ filename }: { filename: string }) {
+  const { data, isLoading } = useExportContents(filename)
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pb-4 pt-0">
+        <div className="bg-background rounded-lg p-3 flex items-center gap-2 text-xs text-text-muted">
+          <Loader2 size={12} className="animate-spin" />
+          Lecture du contenu...
+        </div>
+      </div>
+    )
+  }
+
+  const files = data?.files ?? []
+  if (files.length === 0) {
+    return (
+      <div className="px-4 pb-4 pt-0">
+        <div className="bg-background rounded-lg p-3 text-xs text-text-muted">
+          Aucun fichier trouvé
+        </div>
+      </div>
+    )
+  }
+
+  // Group by folder
+  const grouped: Record<string, typeof files> = {}
+  for (const f of files) {
+    const parts = f.name.split('/')
+    const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : '/'
+    if (!grouped[folder]) grouped[folder] = []
+    grouped[folder].push(f)
+  }
+
+  function fileIcon(name: string) {
+    const ext = name.split('.').pop()?.toLowerCase()
+    if (ext === 'pdf') return <File size={11} className="text-danger shrink-0" />
+    if (ext === 'csv') return <FileText size={11} className="text-success shrink-0" />
+    return <File size={11} className="text-text-muted shrink-0" />
+  }
+
+  const folderIcon = (folder: string) => {
+    if (folder.includes('releve')) return <FileSearch size={12} className="text-amber-400" />
+    if (folder.includes('rapport')) return <FolderOpen size={12} className="text-primary" />
+    if (folder.includes('justificatif')) return <Paperclip size={12} className="text-info" />
+    return <FolderOpen size={12} className="text-text-muted" />
+  }
+
+  return (
+    <div className="px-4 pb-4 pt-0">
+      <div className="bg-background rounded-lg border border-border/50 divide-y divide-border/30">
+        {Object.entries(grouped).map(([folder, folderFiles]) => (
+          <div key={folder} className="p-2.5">
+            {folder !== '/' && (
+              <div className="flex items-center gap-1.5 mb-1.5 text-[10px] font-semibold text-text-muted uppercase">
+                {folderIcon(folder)}
+                {folder}
+                <span className="font-normal ml-1 text-text-muted/60">({folderFiles.length})</span>
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {folderFiles.map((f, i) => {
+                const basename = f.name.split('/').pop() || f.name
+                return (
+                  <div key={i} className="flex items-center gap-2 text-xs text-text py-0.5 px-1 rounded hover:bg-surface-hover">
+                    {fileIcon(basename)}
+                    <span className="truncate flex-1 font-mono text-[11px]">{basename}</span>
+                    <span className="text-[10px] text-text-muted shrink-0">{f.size_human}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-text-muted mt-1.5 text-right">
+        {files.length} fichier{files.length > 1 ? 's' : ''} dans l'archive
+      </p>
     </div>
   )
 }

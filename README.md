@@ -18,7 +18,8 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, **comparatif périodes avec séparation recettes/dépenses**, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées |
 | **Justificatifs** | **Vue opérations-centrée** avec drawer rapprochement manuel (filtres, scores, preview PDF), auto-rapprochement, preview justificatif attribué avec dissociation, suggestions filtrées par mois de l'opération, 4 KPIs couverture, sandbox SSE. Navigation bidirectionnelle Justificatif ↔ Opération |
 | **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups, **auto-alimentation ML** depuis corrections manuelles (dédupliqué, effet immédiat sur les règles exactes) |
-| **Export Comptable** | Archive ZIP mensuelle avec **règles comptables** : 3 sections (pro/perso/attente), ventilations explosées, montants FR, logo, footer paginé, colonnes Justificatif + Commentaire. Nommage `Export_Comptable_ANNEE_Mois` |
+| **Export Comptable V3** | Grille calendrier 4×3 avec badges toggle PDF+CSV, génération ZIP (PDF+CSV+relevés+rapports+justificatifs en dossiers), historique avec expander contenu ZIP, sélection multi-export, envoi au comptable |
+| **Email Comptable** | Drawer universel d'envoi au comptable via SMTP Gmail : sélection documents multi-type (exports, rapports, relevés, justificatifs, GED), filtres période, email HTML avec logo, ZIP unique en PJ, historique des envois |
 | **OCR** | Point d'entrée justificatifs : batch upload multi-fichiers + OCR automatique (EasyOCR), test manuel, historique, **templates justificatifs**, **édition manuelle** (chips montants/dates cliquables, badge OCR incomplet), **convention nommage** (`fournisseur_YYYYMMDD_montant.pdf`) |
 | **Templates** | Bibliothèque de templates par fournisseur avec preview PDF, génération de justificatifs reconstitués (**fac-similé** du PDF source avec remplacement date/montant, ou PDF sobre en fallback), extraction auto des coordonnées via pdfplumber, masquage des images produits, suggestion automatique par alias |
 | **GED V2** | Hub documentaire unifie : **5 vues arbre** (periode, annee/type, categorie, fournisseur, type), cartes enrichies (thumbnail, badge categorie, fournisseur, montant, badge reconstitue, **badge EN ATTENTE**), justificatifs traites ET en attente, barre filtres croises, rapports integres (favori, re-generation, comparaison, **suppression**), enrichissement auto metadata via rapprochement/OCR/editeur/nom de fichier, postes comptables avec % deductibilite, recherche full-text enrichie, URL params, navigation bidirectionnelle justificatif ↔ operation |
@@ -26,7 +27,7 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Prévisionnel** | Calendrier de trésorerie 12 mois : timeline charges/recettes (barres Recharts), fournisseurs récurrents (facture/échéancier), parsing OCR prélèvements, scan automatique documents, régression recettes + saisonnalité, paramètres catégories |
 | **Simulation BNC** | Simulateur fiscal : leviers Madelin/PER/CARMF/investissement/remplacement, dépenses détaillées par catégorie, taux marginal réel, comparatif charge/immobilisation, prévisions d'honoraires avec profil saisonnier |
 | **Tâches** | Vue kanban 3 colonnes (To do / In progress / Done) avec drag & drop, tâches auto-générées (5 détections : catégorisation, justificatifs, clôture, imports, alertes) + tâches manuelles, scopé par année, badge compteur sidebar |
-| **Paramètres** | Thème, export, stockage, informations système |
+| **Paramètres** | Thème, export, stockage, informations système, **email comptable** (SMTP Gmail, app password, destinataires, nom expéditeur) |
 
 ---
 
@@ -209,7 +210,18 @@ L'API REST est documentée automatiquement via **Swagger UI** sur `http://localh
 | `POST` | `/api/reports/regenerate-all` | Régénérer tous les rapports |
 | `POST` | `/api/reports/{filename}/open-native` | Ouvrir dans Aperçu/Numbers |
 | `DELETE` | `/api/reports/all` | Supprimer tous les rapports |
-| `POST` | `/api/exports/generate` | Générer un export comptable ZIP |
+| `POST` | `/api/exports/generate` | Générer un export comptable ZIP (legacy) |
+| `GET` | `/api/exports/status/{year}` | Statut mensuel des exports (has_pdf, has_csv, preview contenu) |
+| `POST` | `/api/exports/generate-month` | Générer un export mensuel (PDF+CSV+relevés+rapports+justificatifs) |
+| `POST` | `/api/exports/generate-batch` | Générer un batch d'exports (ZIP multi-mois) |
+| `GET` | `/api/exports/contents/{filename}` | Lister les fichiers dans un ZIP d'export |
+| `GET` | `/api/exports/available-reports/{year}/{month}` | Rapports disponibles pour un mois |
+| `POST` | `/api/email/test-connection` | Tester la connexion SMTP Gmail |
+| `GET` | `/api/email/documents` | Lister les documents disponibles pour envoi (filtres type/année/mois) |
+| `POST` | `/api/email/preview` | Prévisualisation email (objet + corps auto-générés) |
+| `POST` | `/api/email/send` | Envoyer des documents par email (ZIP unique + HTML avec logo) |
+| `GET` | `/api/email/history` | Historique des envois email |
+| `GET` | `/api/email/coverage/{year}` | Couverture d'envoi par mois pour une année |
 | `POST` | `/api/ocr/extract` | Extraction OCR d'un justificatif |
 | `POST` | `/api/ocr/batch-upload` | Upload batch + OCR de justificatifs |
 | `GET` | `/api/analytics/compare` | Comparatif entre 2 périodes |

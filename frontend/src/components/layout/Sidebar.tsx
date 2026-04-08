@@ -5,6 +5,7 @@ import {
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
   Library, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
+  Send,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -12,7 +13,9 @@ import { usePipeline } from '@/hooks/usePipeline'
 import { useOperationFiles } from '@/hooks/useOperations'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useTasks } from '@/hooks/useTasks'
+import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { useMLModel } from '@/hooks/useApi'
+import { useEmailHistory } from '@/hooks/useEmail'
 import SidebarLogo from './SidebarLogo'
 
 const NAV_SECTIONS = [
@@ -105,6 +108,12 @@ export default function Sidebar() {
     return daysSince > 7 ? uncategorized : 0
   }, [alertesSummary, mlModel])
 
+  const { data: emailHistory } = useEmailHistory()
+  const emailSentCount = useMemo(() => {
+    if (!emailHistory) return 0
+    return emailHistory.filter(e => e.success).length
+  }, [emailHistory])
+
   return (
     <aside className="w-64 h-screen bg-surface border-r border-border flex flex-col fixed left-0 top-0">
       {/* Logo */}
@@ -139,6 +148,20 @@ export default function Sidebar() {
               {globalProgress}%
             </span>
           </NavLink>
+          <div className="mx-3 mt-1.5">
+            <button
+              onClick={() => useSendDrawerStore.getState().open()}
+              className="flex items-center gap-3 px-4 py-2.5 w-full rounded-lg text-sm font-medium transition-all bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20"
+            >
+              <Send size={18} />
+              <span className="flex-1">Envoi comptable</span>
+              {emailSentCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-400">
+                  {emailSentCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Year selector */}

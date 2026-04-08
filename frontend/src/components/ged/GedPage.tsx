@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Upload, Settings2, RefreshCw, Grid3X3, List, GitCompare } from 'lucide-react'
+import { Upload, Settings2, RefreshCw, Grid3X3, List, GitCompare, Send } from 'lucide-react'
+import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
 import GedTreePanel, { type TreeTab } from './GedTreePanel'
@@ -109,6 +110,14 @@ export default function GedPage() {
         description={`${stats?.total_documents ?? 0} documents · ${stats?.disk_size_human ?? ''}`}
         actions={
           <div className="flex items-center gap-2">
+            {/* Send to accountant */}
+            <button
+              onClick={() => useSendDrawerStore.getState().open()}
+              className="flex items-center gap-2 px-3 py-2 bg-surface border border-border text-text rounded-lg text-sm hover:bg-surface-hover transition-colors"
+            >
+              <Send size={15} />
+              Envoyer
+            </button>
             {/* Compare mode toggle */}
             <button
               onClick={() => { setCompareMode(!compareMode); setCompareSelection([]) }}
