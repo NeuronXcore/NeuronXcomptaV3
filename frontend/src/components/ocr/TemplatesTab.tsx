@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import {
   useTemplates, useExtractFields, useCreateTemplate,
   useDeleteTemplate, useGenerateReconstitue, useTemplateSuggestion,
@@ -49,9 +49,42 @@ function CreateSection({ preCreateFile }: { preCreateFile?: string | null }) {
   const [fieldSources, setFieldSources] = useState<Record<string, string>>({})
   const preCreateHandled = useRef('')
 
+  const [createSearch, setCreateSearch] = useState('')
+  const [createMonth, setCreateMonth] = useState<string>('')  // format "YYYY-MM"
+  const [previewOpen, setPreviewOpen] = useState(false)
+
   const { data: justificatifs } = useJustificatifs({
     status: 'en_attente', search: '', sort_by: 'date', sort_order: 'desc',
   })
+
+  // Mois disponibles (année-mois) extraits des dates OCR des justificatifs
+  const availableMonths = useMemo(() => {
+    if (!justificatifs?.length) return []
+    const set = new Set<string>()
+    justificatifs.forEach(j => {
+      const d = j.ocr_date || j.date
+      if (d && d.length >= 7) set.add(d.slice(0, 7))  // "YYYY-MM"
+    })
+    return [...set].sort().reverse()  // plus récent en premier
+  }, [justificatifs])
+
+  // Filtrer les justificatifs pour le sélecteur
+  const filteredJustificatifs = useMemo(() => {
+    if (!justificatifs?.length) return []
+    let items = justificatifs
+    if (createMonth) {
+      items = items.filter(j => (j.ocr_date || j.date).startsWith(createMonth))
+    }
+    if (createSearch) {
+      const q = createSearch.toLowerCase()
+      items = items.filter(j =>
+        j.filename.toLowerCase().includes(q) ||
+        j.original_name.toLowerCase().includes(q) ||
+        (j.ocr_supplier || '').toLowerCase().includes(q)
+      )
+    }
+    return items
+  }, [justificatifs, createMonth, createSearch])
   const { data: catData } = useCategories()
   const extractFields = useExtractFields()
   const createTemplate = useCreateTemplate()
@@ -147,20 +180,78 @@ function CreateSection({ preCreateFile }: { preCreateFile?: string | null }) {
         Créer un template depuis un justificatif
       </h3>
 
+      {/* Filtres justificatifs */}
+      <div className="flex items-center gap-2.5 mb-3 flex-wrap">
+        <div className="relative flex-1 min-w-[160px] max-w-[240px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            type="text"
+            value={createSearch}
+            onChange={(e) => setCreateSearch(e.target.value)}
+            placeholder="Rechercher fournisseur, fichier..."
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-background border border-border rounded-lg text-text placeholder:text-text-muted/50 focus:outline-none focus:border-violet-500/50"
+          />
+          {createSearch && (
+            <button
+              onClick={() => setCreateSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text"
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
+
+        <select
+          value={createMonth}
+          onChange={(e) => setCreateMonth(e.target.value)}
+          className="text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-text focus:outline-none focus:border-violet-500/50"
+        >
+          <option value="">Tous les mois</option>
+          {availableMonths.map(ym => {
+            const [y, m] = ym.split('-')
+            return (
+              <option key={ym} value={ym}>{MOIS_FR[parseInt(m, 10) - 1]} {y}</option>
+            )
+          })}
+        </select>
+
+        <span className="text-[11px] text-text-muted">
+          {filteredJustificatifs.length} justificatif{filteredJustificatifs.length !== 1 ? 's' : ''}
+        </span>
+
+        {(createSearch || createMonth) && (
+          <button
+            onClick={() => { setCreateSearch(''); setCreateMonth('') }}
+            className="text-[11px] text-text-muted hover:text-text flex items-center gap-0.5 transition-colors"
+          >
+            <X size={10} />
+            Reset
+          </button>
+        )}
+      </div>
+
       {/* Sélection justificatif */}
       <div className="flex gap-3 mb-4">
         <select
           value={selectedFile}
-          onChange={(e) => { setSelectedFile(e.target.value); setExtracted(null) }}
+          onChange={(e) => { setSelectedFile(e.target.value); setExtracted(null); if (e.target.value) setPreviewOpen(true) }}
           className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
         >
-          <option value="">Sélectionner un justificatif existant...</option>
-          {justificatifs?.map((j) => (
+          <option value="">Sélectionner un justificatif ({filteredJustificatifs.length})...</option>
+          {filteredJustificatifs.map((j) => (
             <option key={j.filename} value={j.filename}>
-              {j.original_name} ({j.date})
+              {j.filename} ({j.ocr_date || j.date})
             </option>
           ))}
         </select>
+        <button
+          onClick={() => setPreviewOpen(true)}
+          disabled={!selectedFile}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm border border-border text-text-muted rounded-lg hover:text-text hover:border-violet-500/40 transition-colors disabled:opacity-30"
+          title="Aperçu PDF"
+        >
+          <Eye size={14} />
+        </button>
         <button
           onClick={handleAnalyse}
           disabled={!selectedFile || extractFields.isPending}
@@ -330,6 +421,42 @@ function CreateSection({ preCreateFile }: { preCreateFile?: string | null }) {
           </div>
         </div>
       )}
+
+      {/* Drawer aperçu PDF */}
+      {previewOpen && selectedFile && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-40 transition-opacity"
+            onClick={() => setPreviewOpen(false)}
+          />
+          <div className="fixed top-0 right-0 h-full w-[550px] max-w-[90vw] bg-background border-l border-border z-50 flex flex-col shadow-xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                  <Eye size={16} className="text-violet-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-text truncate">{selectedFile}</p>
+                  <p className="text-[11px] text-text-muted">Aperçu du justificatif candidat</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewOpen(false)}
+                className="p-1 text-text-muted hover:text-text transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden bg-white">
+              <iframe
+                src={`/api/justificatifs/${encodeURIComponent(selectedFile)}/preview`}
+                className="w-full h-full"
+                title="Aperçu justificatif"
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -342,6 +469,34 @@ function LibrarySection() {
   const [editTemplateId, setEditTemplateId] = useState<string | null>(null)
   const [batchTemplateId, setBatchTemplateId] = useState<string | null>(null)
   const [batchVendor, setBatchVendor] = useState('')
+  const [searchText, setSearchText] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+
+  // Catégories uniques pour le dropdown
+  const categories = useMemo(() => {
+    if (!templates?.length) return []
+    const set = new Set<string>()
+    templates.forEach(t => { if (t.category) set.add(t.category) })
+    return [...set].sort()
+  }, [templates])
+
+  // Filtrage client-side
+  const filtered = useMemo(() => {
+    if (!templates?.length) return []
+    let items = templates
+    if (searchText) {
+      const q = searchText.toLowerCase()
+      items = items.filter(t =>
+        t.vendor.toLowerCase().includes(q) ||
+        (t.category || '').toLowerCase().includes(q) ||
+        (t.sous_categorie || '').toLowerCase().includes(q)
+      )
+    }
+    if (filterCategory) {
+      items = items.filter(t => t.category === filterCategory)
+    }
+    return items
+  }, [templates, searchText, filterCategory])
 
   if (isLoading) {
     return (
@@ -373,12 +528,56 @@ function LibrarySection() {
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-text mb-4 flex items-center gap-2">
+      <h3 className="text-sm font-semibold text-text mb-3 flex items-center gap-2">
         <Tag size={16} className="text-violet-400" />
-        Bibliothèque ({templates.length})
+        Bibliothèque ({filtered.length}{filtered.length !== templates.length ? ` / ${templates.length}` : ''})
       </h3>
+
+      {/* Barre de filtres */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[180px] max-w-[280px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Rechercher fournisseur, catégorie..."
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-surface border border-border rounded-lg text-text placeholder:text-text-muted/50 focus:outline-none focus:border-violet-500/50"
+          />
+          {searchText && (
+            <button
+              onClick={() => setSearchText('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        <select
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
+          className="text-xs bg-surface border border-border rounded-lg px-2.5 py-1.5 text-text focus:outline-none focus:border-violet-500/50"
+        >
+          <option value="">Toutes catégories</option>
+          {categories.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+
+        {(searchText || filterCategory) && (
+          <button
+            onClick={() => { setSearchText(''); setFilterCategory('') }}
+            className="text-[11px] text-text-muted hover:text-text flex items-center gap-1 transition-colors"
+          >
+            <X size={11} />
+            Réinitialiser
+          </button>
+        )}
+      </div>
+
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-        {templates.map((tpl, i) => {
+        {filtered.map((tpl, i) => {
           const initials = tpl.vendor.slice(0, 2).toUpperCase()
           const colorClass = colors[i % colors.length]
           const hasSource = !!tpl.source_justificatif

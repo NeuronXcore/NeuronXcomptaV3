@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f5f5f5;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 24px 0;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+
+<!-- EN-TETE ENTRE DEUX FILETS -->
+<tr><td style="padding: 0 28px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="border-bottom: 2px solid #534AB7; height: 0; font-size: 0; line-height: 0;">&nbsp;</td></tr>
+<tr><td align="center" style="padding: 16px 0 8px;">
+  <img src="{logo_main_src}" alt="NeuronXcompta" width="200" style="display: block;" />
+</td></tr>
+<tr><td align="center" style="padding: 0 0 12px;">
+  <span style="font-size: 14px; font-weight: 500; color: #534AB7;">{titre_bandeau}</span>
+</td></tr>
+<tr><td style="border-bottom: 2px solid #534AB7; height: 0; font-size: 0; line-height: 0;">&nbsp;</td></tr>
+</table>
+</td></tr>
+
+<!-- MENTION "EMAIL GENERE PAR" -->
+<tr><td align="center" style="padding: 16px 28px 4px;">
+<table role="presentation" cellpadding="0" cellspacing="0">
+<tr>
+<td style="vertical-align: middle; padding-right: 5px;">
+  <img src="{logo_mark_src}" alt="" width="16" height="16" style="display: block; border-radius: 3px;" />
+</td>
+<td style="vertical-align: middle;">
+  <span style="font-size: 11px; color: #999999; font-style: italic;">Email g&eacute;n&eacute;r&eacute; par NeuronXcompta</span>
+</td>
+</tr>
+</table>
+</td></tr>
+
+<!-- CORPS DU MESSAGE -->
+<tr><td style="padding: 16px 28px 0;">
+<p style="margin: 0 0 12px; font-size: 14px; color: #333333; line-height: 1.6;">Bonjour,</p>
+<p style="margin: 0 0 16px; font-size: 14px; color: #333333; line-height: 1.6;">{introduction}</p>
+</td></tr>
+
+<!-- ARBORESCENCE ZIP -->
+{arborescence_block}
+
+<!-- SIGNATURE -->
+<tr><td style="padding: 0 28px 24px;">
+<p style="margin: 0 0 4px; font-size: 14px; color: #333333; line-height: 1.6;">Cordialement,</p>
+<p style="margin: 0; font-size: 14px; font-weight: 500; color: #333333;">{signature}</p>
+</td></tr>
+
+<!-- FOOTER COPYRIGHT -->
+<tr><td style="padding: 0 28px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="border-top: 1px solid #e8e8e8; height: 0; font-size: 0; line-height: 0;">&nbsp;</td></tr>
+</table>
+</td></tr>
+<tr><td align="center" style="padding: 14px 28px 18px;">
+<table role="presentation" cellpadding="0" cellspacing="0">
+<tr>
+<td style="vertical-align: middle; padding-right: 6px;">
+  <img src="{logo_mark_src}" alt="" width="20" height="20" style="display: block; border-radius: 4px;" />
+</td>
+<td style="vertical-align: middle;">
+  <span style="font-size: 11px; color: #999999;">&copy; {current_year} NeuronXcompta</span>
+</td>
+</tr>
+</table>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

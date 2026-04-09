@@ -41,6 +41,10 @@ class DissociateRequest(BaseModel):
     operation_index: int
 
 
+class RenameRequest(BaseModel):
+    new_filename: str
+
+
 class OperationSuggestion(BaseModel):
     operation_file: str
     operation_index: int

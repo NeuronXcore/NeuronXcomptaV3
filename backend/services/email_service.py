@@ -253,6 +253,14 @@ TYPE_FOLDER_MAP = {
 }
 
 LOGO_PATH = ASSETS_DIR / "logo_lockup_light_400.png"
+LOGO_MARK_PATH = ASSETS_DIR / "logo_mark_64.png"
+LOGO_MARK_HD_PATH = ASSETS_DIR / "logo_mark_200.png"
+TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+
+MOIS_FR = [
+    "janvier", "f\u00e9vrier", "mars", "avril", "mai", "juin",
+    "juillet", "ao\u00fbt", "septembre", "octobre", "novembre", "d\u00e9cembre",
+]
 
 
 def _create_zip(documents: list[DocumentRef], fichiers: list[Path]) -> Path:
@@ -309,17 +317,17 @@ def send_email(
             taille_totale_mo=taille_mo,
         )
 
-    # Générer le HTML
-    corps_html = generate_email_html(corps)
+    # Générer le HTML avec le template brandé
+    corps_html = generate_email_html(documents, nom_expediteur, zip_path=zip_path)
 
-    # Construire le mail : mixed (related (alternative (text + html) + logo) + zip)
+    # Construire le mail : mixed (related (alternative (text + html) + logos) + zip)
     msg = MIMEMultipart("mixed")
     from_display = f"{nom_expediteur} <{smtp_user}>" if nom_expediteur else smtp_user
     msg["From"] = from_display
     msg["To"] = ", ".join(destinataires)
     msg["Subject"] = objet
 
-    # Related part (HTML + logo inline)
+    # Related part (HTML + logos inline)
     related = MIMEMultipart("related")
 
     # Alternative part (text + HTML)
@@ -328,11 +336,11 @@ def send_email(
     alternative.attach(MIMEText(corps_html, "html", "utf-8"))
     related.attach(alternative)
 
-    # Logo header inline
+    # Logo lockup pour header (CID: logo_main) — 400px, affiché 200px
     if LOGO_PATH.exists():
         with open(LOGO_PATH, "rb") as f:
             logo = MIMEImage(f.read(), _subtype="png")
-        logo.add_header("Content-ID", "<logo_neuronx>")
+        logo.add_header("Content-ID", "<logo_main>")
         logo.add_header("Content-Disposition", "inline", filename="logo.png")
         related.attach(logo)
 
@@ -429,8 +437,8 @@ def _clean_filename_for_display(filename: str) -> str:
     return name or filename
 
 
-def generate_email_body(documents: list[DocumentRef], nom: Optional[str] = None) -> str:
-    """Génère le corps automatique avec liste détaillée des fichiers."""
+def generate_email_body_plain(documents: list[DocumentRef], nom: Optional[str] = None) -> str:
+    """Génère le corps automatique plain text (fallback pour clients sans HTML)."""
     by_type: dict[str, list[DocumentRef]] = {}
     for d in documents:
         by_type.setdefault(d.type, []).append(d)
@@ -460,65 +468,213 @@ def generate_email_body(documents: list[DocumentRef], nom: Optional[str] = None)
     return "\n".join(lines)
 
 
-LOGO_MARK_PATH = ASSETS_DIR / "logo_mark_64.png"
+# Alias rétrocompatibilité
+generate_email_body = generate_email_body_plain
 
 
-def generate_email_html(corps_text: str) -> str:
-    """Convertit le corps texte en HTML avec logo en-tête et footer copyright."""
+# ─── Template HTML ───
+
+
+def _load_email_template() -> str:
+    """Charge le template HTML email."""
+    template_path = TEMPLATE_DIR / "email_template.html"
+    return template_path.read_text(encoding="utf-8")
+
+
+def _extract_periods_from_docs(documents: list[DocumentRef]) -> list[str]:
+    """Extrait les périodes (Mois Année) depuis les noms de fichiers exports."""
+    periods = []
+    for d in documents:
+        # Pattern: Export_Comptable_2025-03_Mars.zip ou Export_Comptable_2025_Mars.zip
+        m = re.search(r"(\d{4})[-_](\d{2})", d.filename)
+        if m:
+            year = int(m.group(1))
+            month = int(m.group(2))
+            if 1 <= month <= 12:
+                periods.append(f"{MOIS_FR[month - 1]} {year}")
+        else:
+            # Essayer de parser le nom de mois directement
+            for i, mois in enumerate(MOIS_FR):
+                if mois.lower() in d.filename.lower():
+                    # Trouver l'année
+                    ym = re.search(r"(\d{4})", d.filename)
+                    if ym:
+                        periods.append(f"{MOIS_FR[i]} {ym.group(1)}")
+                    break
+    # Dédupliquer en gardant l'ordre
+    seen: set[str] = set()
+    unique: list[str] = []
+    for p in periods:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+    return unique
+
+
+def _build_zip_tree(zip_path: Path) -> tuple[str, str]:
+    """Lit le contenu d'un ZIP et génère l'arborescence HTML.
+
+    Returns: (zip_filename, arborescence_html)
+    """
+    if not zip_path or not zip_path.exists():
+        return ("", "")
+
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        names = sorted(zf.namelist())
+
+    # Séparer fichiers racine et sous-dossiers
+    root_files: list[str] = []
+    folders: dict[str, list[str]] = {}
+    for name in names:
+        if name.endswith("/"):
+            continue  # skip directory entries
+        parts = name.split("/")
+        if len(parts) == 1:
+            root_files.append(parts[0])
+        else:
+            folder = parts[0]
+            fname = "/".join(parts[1:])
+            folders.setdefault(folder, []).append(fname)
+
+    all_entries: list[str] = []
+    all_entries.extend(root_files)
+    folder_names = sorted(folders.keys())
+
+    lines: list[str] = []
+    total_items = len(root_files) + len(folder_names)
+    idx = 0
+
+    # Fichiers racine
+    for f in root_files:
+        idx += 1
+        prefix = "\u2514\u2500" if idx == total_items else "\u251c\u2500"
+        lines.append(f'<p style="margin: 0; white-space: nowrap;">{prefix} {f}</p>')
+
+    # Sous-dossiers
+    for folder in folder_names:
+        idx += 1
+        is_last_folder = idx == total_items
+        prefix = "\u2514\u2500" if is_last_folder else "\u251c\u2500"
+        lines.append(f'<p style="margin: 0; white-space: nowrap; font-weight: 500;">{prefix} {folder}/</p>')
+
+        sub_files = folders[folder]
+        indent = "&nbsp;&nbsp;&nbsp;&nbsp;"
+        if len(sub_files) <= 3:
+            for j, sf in enumerate(sub_files):
+                sub_prefix = "\u2514\u2500" if j == len(sub_files) - 1 else "\u251c\u2500"
+                lines.append(f'<p style="margin: 0; white-space: nowrap;">{indent}{sub_prefix} {sf}</p>')
+        else:
+            for sf in sub_files[:3]:
+                lines.append(f'<p style="margin: 0; white-space: nowrap;">{indent}\u251c\u2500 {sf}</p>')
+            lines.append(f'<p style="margin: 0; white-space: nowrap; color: #999;">{indent}\u2514\u2500 \u2026 ({len(sub_files)} fichiers au total)</p>')
+
+    return (zip_path.name, "\n".join(lines))
+
+
+def _build_doc_tree(documents: list[DocumentRef]) -> tuple[str, str]:
+    """Construit une arborescence simulée quand le ZIP n'existe pas (preview)."""
+    by_folder: dict[str, list[str]] = {}
+    for doc in documents:
+        folder = TYPE_FOLDER_MAP.get(doc.type, "autres")
+        by_folder.setdefault(folder, []).append(doc.filename)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_name = f"Documents_Comptables_{timestamp}.zip"
+
+    lines: list[str] = []
+    folder_names = sorted(by_folder.keys())
+    for i, folder in enumerate(folder_names):
+        is_last = i == len(folder_names) - 1
+        prefix = "\u2514\u2500" if is_last else "\u251c\u2500"
+        files = by_folder[folder]
+        lines.append(f'<p style="margin: 0; white-space: nowrap; font-weight: 500;">{prefix} {folder}/</p>')
+
+        indent = "&nbsp;&nbsp;&nbsp;&nbsp;"
+        if len(files) <= 3:
+            for j, f in enumerate(files):
+                sub_prefix = "\u2514\u2500" if j == len(files) - 1 else "\u251c\u2500"
+                lines.append(f'<p style="margin: 0; white-space: nowrap;">{indent}{sub_prefix} {f}</p>')
+        else:
+            for f in files[:3]:
+                lines.append(f'<p style="margin: 0; white-space: nowrap;">{indent}\u251c\u2500 {f}</p>')
+            lines.append(f'<p style="margin: 0; white-space: nowrap; color: #999;">{indent}\u2514\u2500 \u2026 ({len(files)} fichiers au total)</p>')
+
+    return (zip_name, "\n".join(lines))
+
+
+def _logo_src(path: Path, cid: str, for_preview: bool) -> str:
+    """Retourne CID pour l'envoi réel, data-URI base64 pour le preview."""
+    if not for_preview:
+        return f"cid:{cid}"
+    import base64
+    if path.exists():
+        b64 = base64.b64encode(path.read_bytes()).decode()
+        return f"data:image/png;base64,{b64}"
+    return f"cid:{cid}"
+
+
+def generate_email_html(
+    documents: list[DocumentRef],
+    nom: Optional[str] = None,
+    zip_path: Optional[Path] = None,
+    for_preview: bool = False,
+) -> str:
+    """Génère le HTML de l'email avec template brandé et arborescence ZIP."""
+    types = set(d.type for d in documents)
+    periods = _extract_periods_from_docs(documents)
+    period_str = " & ".join(periods) if periods else ""
+
+    # Titre bandeau
+    if types == {"export"}:
+        if len(documents) == 1:
+            titre_bandeau = f"Export comptable \u2014 {period_str}" if period_str else "Export comptable"
+        else:
+            titre_bandeau = f"Exports comptables \u2014 {period_str}" if period_str else "Exports comptables"
+    else:
+        titre_bandeau = f"Documents comptables \u2014 {period_str}" if period_str else "Documents comptables"
+
+    # Introduction
+    nb = len(documents)
+    plural = "s" if nb > 1 else ""
+    if types == {"export"}:
+        type_label = "l'export comptable" if nb == 1 else "les exports comptables"
+        intro_period = f" de {period_str}" if period_str else ""
+        introduction = f"Veuillez trouver ci-joint{plural} {type_label}{intro_period} sous forme d'archive ZIP contenant :"
+    else:
+        introduction = f"Veuillez trouver ci-joint{plural} {nb} document{plural} comptable{plural} sous forme d'archive ZIP contenant :"
+
+    # Arborescence
+    if zip_path and zip_path.exists():
+        zip_filename, arborescence_lines = _build_zip_tree(zip_path)
+    else:
+        zip_filename, arborescence_lines = _build_doc_tree(documents)
+
+    arborescence_block = ""
+    if arborescence_lines:
+        arborescence_block = f"""<tr><td style="padding: 0 28px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f8f8; border-radius: 6px; border: 1px solid #e8e8e8;">
+<tr><td style="padding: 12px 16px;">
+<p style="margin: 0 0 6px; font-size: 13px; font-weight: 500; color: #333333; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">{zip_filename}</p>
+<div style="padding-left: 12px; font-size: 12px; color: #666666; font-family: 'SF Mono', Monaco, 'Courier New', monospace; line-height: 1.8;">
+{arborescence_lines}
+</div>
+</td></tr>
+</table>
+</td></tr>"""
+
+    signature = nom or "Dr"
     current_year = datetime.now().year
 
-    # Convertir les lignes texte en HTML
-    lines_html = ""
-    for line in corps_text.split("\n"):
-        stripped = line.strip()
-        if not stripped:
-            lines_html += "<br>"
-        elif stripped.startswith("- "):
-            lines_html += f'<p style="margin:2px 0 2px 24px;color:#cccccc;font-size:13px;">&#8226; {stripped[2:]}</p>'
-        elif stripped.endswith(") :") or stripped.endswith("):"):
-            # Section header (e.g. "Exports comptables (2) :")
-            lines_html += f'<p style="margin:12px 0 4px 0;color:#a0a0ff;font-size:13px;font-weight:600;">{stripped}</p>'
-        else:
-            lines_html += f'<p style="margin:4px 0;color:#e0e0e0;font-size:14px;">{line}</p>'
+    logo_main_src = _logo_src(LOGO_PATH, "logo_main", for_preview)
+    logo_mark_src = _logo_src(LOGO_MARK_PATH, "logo_mark", for_preview)
 
-    return f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background-color:#1a1a2e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#1a1a2e;padding:20px 0;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#16213e;border-radius:12px;overflow:hidden;">
-          <!-- Logo header -->
-          <tr>
-            <td align="center" style="padding:30px 40px 20px 40px;border-bottom:1px solid #2a2a4a;">
-              <img src="cid:logo_neuronx" alt="NeuronXcompta" width="200" style="display:block;">
-            </td>
-          </tr>
-          <!-- Body -->
-          <tr>
-            <td style="padding:30px 40px;line-height:1.6;">
-              {lines_html}
-            </td>
-          </tr>
-          <!-- Footer copyright -->
-          <tr>
-            <td align="center" style="padding:20px 40px;border-top:1px solid #2a2a4a;">
-              <table cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="padding-right:8px;vertical-align:middle;">
-                    <img src="cid:logo_mark" alt="" width="20" height="20" style="display:block;">
-                  </td>
-                  <td style="vertical-align:middle;font-size:11px;color:#888;">
-                    &copy; {current_year} NeuronXcompta
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>"""
+    template = _load_email_template()
+    return template.format(
+        titre_bandeau=titre_bandeau,
+        introduction=introduction,
+        arborescence_block=arborescence_block,
+        signature=signature,
+        current_year=current_year,
+        logo_main_src=logo_main_src,
+        logo_mark_src=logo_mark_src,
+    )

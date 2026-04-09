@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import PageHeader from '@/components/shared/PageHeader'
@@ -14,10 +14,11 @@ import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
-  ArrowRight, DollarSign, Calendar, User, Filter, Tag,
+  ArrowRight, DollarSign, Calendar, User, Filter, Tag, Eye,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
+import FilenameEditor from '@/components/justificatifs/FilenameEditor'
 import { useReverseLookup } from '@/hooks/useJustificatifs'
 import type { OCRResult, OCRHistoryItem } from '@/types'
 
@@ -618,6 +619,64 @@ function parseDateFromFilename(filename: string): { year: number | null; month: 
   return { year: null, month: null }
 }
 
+// ──── PDF Preview Hover ────
+
+function PdfPreviewHover({ filename }: { filename: string }) {
+  const [show, setShow] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  const handleEnter = () => {
+    timerRef.current = setTimeout(() => {
+      if (btnRef.current) {
+        const rect = btnRef.current.getBoundingClientRect()
+        setPos({
+          top: rect.top,
+          left: rect.left - 320,
+        })
+      }
+      setShow(true)
+    }, 300)
+  }
+
+  const handleLeave = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setShow(false)
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        className="p-1 text-text-muted/40 hover:text-violet-400 transition-colors"
+        title="Aperçu"
+      >
+        <Eye size={13} />
+      </button>
+      {show && (
+        <div
+          className="fixed z-[60] bg-white rounded-lg shadow-2xl border border-border overflow-hidden"
+          style={{ top: Math.max(8, Math.min(pos.top - 150, window.innerHeight - 420)), left: Math.max(8, pos.left) }}
+          onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current) }}
+          onMouseLeave={handleLeave}
+        >
+          <div className="w-[300px] h-[400px]">
+            <iframe
+              src={`/api/justificatifs/${encodeURIComponent(filename)}/preview`}
+              className="w-full h-full"
+              title="Aperçu PDF"
+            />
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+
 // ──── Historique Tab ────
 
 function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLoading: boolean }) {
@@ -645,8 +704,7 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
     items.sort((a, b) => {
       let cmp = 0
       if (sortField === 'date') {
-        const da = a.filename, db = b.filename
-        cmp = da.localeCompare(db)
+        cmp = (a.processed_at || '').localeCompare(b.processed_at || '')
       } else if (sortField === 'supplier') {
         cmp = (a.supplier || '').localeCompare(b.supplier || '')
       } else if (sortField === 'confidence') {
@@ -731,6 +789,7 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
               <thead>
                 <tr className="border-b border-border text-text-muted text-xs">
                   <th className="text-left px-4 py-3 font-medium">Fichier</th>
+                  <th className="text-center px-1 py-3 font-medium w-8"></th>
                   <th
                     className="text-left px-4 py-3 font-medium cursor-pointer hover:text-text"
                     onClick={() => toggleSort('date')}
@@ -756,13 +815,21 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
               </thead>
               <tbody>
                 {filtered.map((item, i) => (
-                  <tr key={i} className="border-b border-border/50 hover:bg-surface-hover transition-colors">
+                  <tr key={item.filename} className="group border-b border-border/50 hover:bg-surface-hover transition-colors">
                     <td className="px-4 py-3">
-                      <span className="text-text text-xs truncate max-w-[200px] block" title={item.filename}>
-                        {item.filename.length > 35
-                          ? item.filename.slice(0, 18) + '...' + item.filename.slice(-14)
-                          : item.filename}
-                      </span>
+                      <FilenameEditor
+                        filename={item.filename}
+                        ocrData={{
+                          supplier: item.supplier,
+                          best_date: item.best_date,
+                          best_amount: item.best_amount,
+                        }}
+                        originalFilename={item.original_filename}
+                        compact
+                      />
+                    </td>
+                    <td className="px-1 py-3 text-center w-8">
+                      <PdfPreviewHover filename={item.filename} />
                     </td>
                     <td className="px-4 py-3 text-xs text-text-muted">
                       {item._month && item._year

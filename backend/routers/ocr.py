@@ -123,6 +123,19 @@ async def batch_upload(files: List[UploadFile] = File(...)):
                 logger.warning(f"OCR échoué pour {filename}: {e}")
                 ocr_error = str(e)
 
+        # Auto-rename post-OCR
+        auto_renamed = False
+        old_filename = None
+        if ocr_success and ocr_data:
+            try:
+                new_name = justificatif_service.auto_rename_from_ocr(filename, ocr_data)
+                if new_name:
+                    old_filename = filename
+                    filename = new_name
+                    auto_renamed = True
+            except Exception as e:
+                logger.warning(f"Auto-rename échoué pour {filename}: {e}")
+
         results.append({
             "filename": filename,
             "original_name": r.get("original_name", ""),
@@ -130,6 +143,8 @@ async def batch_upload(files: List[UploadFile] = File(...)):
             "ocr_success": ocr_success,
             "ocr_data": ocr_data,
             "ocr_error": ocr_error,
+            "auto_renamed": auto_renamed,
+            "old_filename": old_filename,
         })
 
         # Hook previsionnel — check document matching

@@ -16,8 +16,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import shutil
+
 from backend.core.config import (
-    RAPPORTS_DIR, REPORTS_DIR, REPORTS_INDEX, ASSETS_DIR,
+    RAPPORTS_DIR, REPORTS_DIR, REPORTS_INDEX, REPORTS_ARCHIVES_DIR, ASSETS_DIR,
     MOIS_FR, ensure_directories,
 )
 from backend.services.operation_service import list_operation_files, load_operations
@@ -261,6 +263,35 @@ def _dedup_key(filters: dict, fmt: str) -> tuple:
     )
 
 
+def _archive_report(old_path: Path, metadata: dict) -> None:
+    """Archive un ancien rapport dans data/reports/archives/ au lieu de le supprimer."""
+    REPORTS_ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    archived_name = f"{old_path.stem}_archived_{timestamp}{old_path.suffix}"
+    archive_dest = REPORTS_ARCHIVES_DIR / archived_name
+    shutil.move(str(old_path), str(archive_dest))
+    logger.info("Rapport archivé: %s → %s", old_path.name, archived_name)
+
+    # Sauvegarder les metadata de la version archivée
+    archive_meta_path = REPORTS_ARCHIVES_DIR / "archives_index.json"
+    archive_index: list[dict] = []
+    if archive_meta_path.exists():
+        try:
+            archive_index = json.loads(archive_meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    archive_index.append({
+        "original_filename": old_path.name,
+        "archived_filename": archived_name,
+        "archived_at": datetime.now().isoformat(),
+        "generated_at": metadata.get("generated_at", ""),
+        "title": metadata.get("title", ""),
+        "format": metadata.get("format", ""),
+        "filters": metadata.get("filters", {}),
+    })
+    archive_meta_path.write_text(json.dumps(archive_index, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def generate_report(request: dict) -> dict:
     """Génère un rapport V2 avec index, déduplication, format EUR."""
     ensure_directories()
@@ -309,7 +340,7 @@ def generate_report(request: dict) -> dict:
     if not filtered:
         raise ValueError("Aucune opération après application des filtres")
 
-    # Deduplication check
+    # Deduplication check — archive old version instead of deleting
     replaced = None
     key = _dedup_key(filters, fmt)
     index = _load_index()
@@ -319,7 +350,7 @@ def generate_report(request: dict) -> dict:
             replaced = existing["filename"]
             old_path = _find_report_path(replaced)
             if old_path and old_path.exists():
-                old_path.unlink()
+                _archive_report(old_path, existing)
             index["reports"] = [r for r in index["reports"] if r["filename"] != replaced]
             break
 

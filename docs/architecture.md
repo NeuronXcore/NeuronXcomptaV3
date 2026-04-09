@@ -70,14 +70,18 @@ Batch PDF/JPG/PNG → POST /api/ocr/batch-upload
   → Si image (JPG/PNG) : _convert_image_to_pdf() via Pillow → bytes PDF
   → justificatif_service.upload_justificatifs() (validation magic bytes, sauvegarde en_attente/)
   → ocr_service.extract_or_cached() pour chaque fichier (synchrone)
-  → Retour : résultats avec données OCR (montant, date, fournisseur)
-  → Page Justificatifs = vue opérations-centrée (tableau triable, drawer attribution split resizable, pas d'upload)
+  → auto_rename_from_ocr() → renomme en fournisseur_YYYYMMDD_montant,XX.pdf (naming_service)
+  → Retour : résultats avec données OCR + auto_renamed flag
 
 Alternative : Sandbox watchdog
   → Dépôt PDF/JPG/PNG dans data/justificatifs/sandbox/
   → Si image : conversion PDF + écriture en_attente/ + suppression image
   → Si PDF : shutil.move vers en_attente/
-  → OCR + SSE notification
+  → OCR + auto-rename + SSE notification (enrichie auto_renamed + original_filename)
+
+Renommage manuel : POST /api/justificatifs/{filename}/rename
+  → rename_justificatif() : PDF + .ocr.json + associations ops + GED metadata
+  → Frontend : FilenameEditor inline-editable avec suggestion convention OCR
 
 Formats acceptés : PDF, JPG, JPEG, PNG (config.ALLOWED_JUSTIFICATIF_EXTENSIONS)
 Validation : magic bytes (config.MAGIC_BYTES), limite 10 Mo
@@ -252,17 +256,29 @@ Envoi email au comptable (send_email) :
      ├── releves/
      ├── justificatifs/
      └── documents/
-  3. Construire le mail MIME :
+  3. Générer le HTML brandé (generate_email_html) :
+     - Template externe backend/templates/email_template.html (tables, compatible Gmail/Outlook)
+     - En-tête : logo lockup 200px entre filets violets #534AB7, titre contextuel
+     - Mention "Email généré par NeuronXcompta"
+     - Introduction contextuelle + arborescence ZIP (_build_zip_tree ou _build_doc_tree)
+     - Signature + footer copyright
+     - Logos : CID pour envoi réel, base64 data-URI pour preview (paramètre for_preview)
+  4. Construire le mail MIME :
      MIMEMultipart('mixed')
      ├── MIMEMultipart('related')
      │   ├── MIMEMultipart('alternative')
-     │   │   ├── MIMEText(corps, 'plain')      ← fallback texte
-     │   │   └── MIMEText(html, 'html')         ← email HTML avec logo
-     │   ├── MIMEImage(logo_lockup_light_400.png, CID: logo_neuronx)
+     │   │   ├── MIMEText(corps, 'plain')      ← fallback texte (generate_email_body_plain)
+     │   │   └── MIMEText(html, 'html')         ← template HTML brandé
+     │   ├── MIMEImage(logo_lockup_light_400.png, CID: logo_main)
      │   └── MIMEImage(logo_mark_64.png, CID: logo_mark)
      └── MIMEBase(ZIP)                           ← pièce jointe unique
-  4. Envoyer via SMTP Gmail (STARTTLS port 587)
-  5. Logger dans email_history.json
+  5. Envoyer via SMTP Gmail (STARTTLS port 587)
+  6. Logger dans email_history.json
+
+Preview (POST /preview) :
+  → EmailPreviewRequest (documents seuls, sans destinataires)
+  → Retourne objet + corps (plain text) + corps_html (template brandé, logos base64)
+  → Frontend : toggle HTML/Texte dans le drawer (iframe srcDoc / textarea)
 
 Listing documents (list_available_documents) :
   → Scan répertoires par type, exclure .json/.png/.DS_Store

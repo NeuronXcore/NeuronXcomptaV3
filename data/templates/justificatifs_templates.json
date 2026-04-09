@@ -64,6 +64,18 @@
       "created_at": "2026-04-09T07:20:04.438616",
       "created_from": "manual",
       "usage_count": 11
+    },
+    {
+      "id": "tpl_1c526a22",
+      "vendor": "ibis hotel",
+      "vendor_aliases": [],
+      "category": "Remplaçant",
+      "sous_categorie": "Hébergement",
+      "source_justificatif": "clinique-pont-de-chaumes_20250324_126,24_2.pdf",
+      "fields": [],
+      "created_at": "2026-04-09T20:45:49.508779",
+      "created_from": "manual",
+      "usage_count": 4
     }
   ]
 }

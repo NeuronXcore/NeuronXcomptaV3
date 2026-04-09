@@ -1376,8 +1376,8 @@
       "added_at": "2026-04-06T19:20:21.593171",
       "original_name": "ford-credit_20250718_1439.87.pdf",
       "ocr_file": "data/justificatifs/traites/ford-credit_20250718_1439.87.ocr.json",
-      "categorie": "Autres",
-      "sous_categorie": null,
+      "categorie": "Véhicule",
+      "sous_categorie": "",
       "date_operation": "2025-07-18",
       "montant": 1439.87,
       "operation_ref": {
@@ -4694,8 +4694,8 @@
       "added_at": "2026-04-07T19:48:22.326958",
       "original_name": "amazon_20250705_57.96.pdf",
       "ocr_file": "data/justificatifs/traites/amazon_20250705_57.96.ocr.json",
-      "categorie": "Autres",
-      "sous_categorie": null,
+      "categorie": "Fournitures",
+      "sous_categorie": "",
       "date_operation": "2025-07-08",
       "montant": 57.96,
       "operation_ref": {
@@ -6875,8 +6875,8 @@
       "added_at": "2026-04-07T20:59:23.691288",
       "original_name": "cursor_20250425_20.01.pdf",
       "ocr_file": "data/justificatifs/traites/cursor_20250425_20.01.ocr.json",
-      "categorie": "Autres",
-      "sous_categorie": null,
+      "categorie": "Abonnements",
+      "sous_categorie": "",
       "date_operation": "2025-04-25",
       "montant": 19.1,
       "operation_ref": {
@@ -7030,8 +7030,8 @@
       "added_at": "2026-04-07T20:59:23.691288",
       "original_name": "cursor_20250608_13.pdf",
       "ocr_file": "data/justificatifs/traites/cursor_20250608_13.ocr.json",
-      "categorie": "Autres",
-      "sous_categorie": null,
+      "categorie": "Abonnements",
+      "sous_categorie": "",
       "date_operation": "2025-06-08",
       "montant": 12.66,
       "operation_ref": {
@@ -8306,2263 +8306,8 @@
       },
       "fournisseur": "Udemy",
       "is_reconstitue": false,
-      "statut_justificatif": "traite"
-    },
-    "data/reports/Export_Comptable_2025_Février.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Février.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Février.pdf",
-      "year": 2025,
-      "month": 2,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:01.536049",
-      "original_name": "Export_Comptable_2025_Février.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 2,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Février 2025",
-        "description": "55 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 2,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:01.536049",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Février.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Février.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Février.csv",
-      "year": 2025,
-      "month": 2,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:01.545312",
-      "original_name": "Export_Comptable_2025_Février.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 2,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Février 2025",
-        "description": "55 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 2,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:01.545312",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_février.pdf": {
-      "doc_id": "data/reports/compte_attente_février.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_février.pdf",
-      "year": 2025,
-      "month": 2,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:01.695910",
-      "original_name": "compte_attente_février.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 2,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Février 2025",
-        "description": "32 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 2,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:01.695910",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_février.csv": {
-      "doc_id": "data/reports/compte_attente_février.csv",
-      "type": "rapport",
-      "filename": "compte_attente_février.csv",
-      "year": 2025,
-      "month": 2,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:01.798138",
-      "original_name": "compte_attente_février.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 2,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Février 2025",
-        "description": "32 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 2,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:01.798138",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Mars.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Mars.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Mars.pdf",
-      "year": 2025,
-      "month": 3,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:03.052516",
-      "original_name": "Export_Comptable_2025_Mars.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 3,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Mars 2025",
-        "description": "62 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 3,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:03.052516",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Mars.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Mars.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Mars.csv",
-      "year": 2025,
-      "month": 3,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:03.061344",
-      "original_name": "Export_Comptable_2025_Mars.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 3,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Mars 2025",
-        "description": "62 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 3,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:03.061344",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_mars.pdf": {
-      "doc_id": "data/reports/compte_attente_mars.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_mars.pdf",
-      "year": 2025,
-      "month": 3,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:03.207104",
-      "original_name": "compte_attente_mars.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 3,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Mars 2025",
-        "description": "36 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 3,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:03.207104",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_mars.csv": {
-      "doc_id": "data/reports/compte_attente_mars.csv",
-      "type": "rapport",
-      "filename": "compte_attente_mars.csv",
-      "year": 2025,
-      "month": 3,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:03.293356",
-      "original_name": "compte_attente_mars.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 3,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Mars 2025",
-        "description": "36 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 3,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:03.293356",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Avril.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Avril.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Avril.pdf",
-      "year": 2025,
-      "month": 4,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:04.311104",
-      "original_name": "Export_Comptable_2025_Avril.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 4,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Avril 2025",
-        "description": "70 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 4,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:04.311104",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Avril.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Avril.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Avril.csv",
-      "year": 2025,
-      "month": 4,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:04.320180",
-      "original_name": "Export_Comptable_2025_Avril.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 4,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Avril 2025",
-        "description": "70 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 4,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:04.320180",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_avril.pdf": {
-      "doc_id": "data/reports/compte_attente_avril.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_avril.pdf",
-      "year": 2025,
-      "month": 4,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:04.467878",
-      "original_name": "compte_attente_avril.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 4,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Avril 2025",
-        "description": "58 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 4,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:04.467878",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_avril.csv": {
-      "doc_id": "data/reports/compte_attente_avril.csv",
-      "type": "rapport",
-      "filename": "compte_attente_avril.csv",
-      "year": 2025,
-      "month": 4,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:04.560873",
-      "original_name": "compte_attente_avril.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 4,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Avril 2025",
-        "description": "58 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 4,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:04.560873",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Août.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Août.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Août.pdf",
-      "year": 2025,
-      "month": 8,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:05.417318",
-      "original_name": "Export_Comptable_2025_Août.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 8,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Août 2025",
-        "description": "87 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 8,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:05.417318",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Août.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Août.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Août.csv",
-      "year": 2025,
-      "month": 8,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:05.427002",
-      "original_name": "Export_Comptable_2025_Août.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 8,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Août 2025",
-        "description": "87 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 8,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:05.427002",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_août.pdf": {
-      "doc_id": "data/reports/compte_attente_août.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_août.pdf",
-      "year": 2025,
-      "month": 8,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:05.600237",
-      "original_name": "compte_attente_août.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 8,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Août 2025",
-        "description": "56 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 8,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:05.600237",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_août.csv": {
-      "doc_id": "data/reports/compte_attente_août.csv",
-      "type": "rapport",
-      "filename": "compte_attente_août.csv",
-      "year": 2025,
-      "month": 8,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:05.693894",
-      "original_name": "compte_attente_août.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 8,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Août 2025",
-        "description": "56 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 8,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:05.693894",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Juillet.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Juillet.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Juillet.pdf",
-      "year": 2025,
-      "month": 7,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:06.475419",
-      "original_name": "Export_Comptable_2025_Juillet.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 7,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Juillet 2025",
-        "description": "77 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 7,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:06.475419",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Juillet.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Juillet.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Juillet.csv",
-      "year": 2025,
-      "month": 7,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:06.484311",
-      "original_name": "Export_Comptable_2025_Juillet.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 7,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Juillet 2025",
-        "description": "77 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 7,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:06.484311",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_juillet.pdf": {
-      "doc_id": "data/reports/compte_attente_juillet.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_juillet.pdf",
-      "year": 2025,
-      "month": 7,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:06.657692",
-      "original_name": "compte_attente_juillet.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 7,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Juillet 2025",
-        "description": "53 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 7,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:06.657692",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_juillet.csv": {
-      "doc_id": "data/reports/compte_attente_juillet.csv",
-      "type": "rapport",
-      "filename": "compte_attente_juillet.csv",
-      "year": 2025,
-      "month": 7,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:06.738429",
-      "original_name": "compte_attente_juillet.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 7,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Juillet 2025",
-        "description": "53 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 7,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:06.738429",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Juin.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Juin.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Juin.pdf",
-      "year": 2025,
-      "month": 6,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:07.261876",
-      "original_name": "Export_Comptable_2025_Juin.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 6,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Juin 2025",
-        "description": "79 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 6,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:07.261876",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Juin.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Juin.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Juin.csv",
-      "year": 2025,
-      "month": 6,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:07.271031",
-      "original_name": "Export_Comptable_2025_Juin.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 6,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Juin 2025",
-        "description": "79 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 6,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:07.271031",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_juin.pdf": {
-      "doc_id": "data/reports/compte_attente_juin.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_juin.pdf",
-      "year": 2025,
-      "month": 6,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:07.416244",
-      "original_name": "compte_attente_juin.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 6,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Juin 2025",
-        "description": "55 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 6,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:07.416244",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_juin.csv": {
-      "doc_id": "data/reports/compte_attente_juin.csv",
-      "type": "rapport",
-      "filename": "compte_attente_juin.csv",
-      "year": 2025,
-      "month": 6,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:07.497694",
-      "original_name": "compte_attente_juin.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 6,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Juin 2025",
-        "description": "55 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 6,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:07.497694",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Mai.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Mai.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Mai.pdf",
-      "year": 2025,
-      "month": 5,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:08.320247",
-      "original_name": "Export_Comptable_2025_Mai.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 5,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Mai 2025",
-        "description": "73 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 5,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:08.320247",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Mai.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Mai.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Mai.csv",
-      "year": 2025,
-      "month": 5,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:08.330719",
-      "original_name": "Export_Comptable_2025_Mai.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 5,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Mai 2025",
-        "description": "73 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 5,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:08.330719",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_mai.pdf": {
-      "doc_id": "data/reports/compte_attente_mai.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_mai.pdf",
-      "year": 2025,
-      "month": 5,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:08.513484",
-      "original_name": "compte_attente_mai.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 5,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Mai 2025",
-        "description": "60 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 5,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:08.513484",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_mai.csv": {
-      "doc_id": "data/reports/compte_attente_mai.csv",
-      "type": "rapport",
-      "filename": "compte_attente_mai.csv",
-      "year": 2025,
-      "month": 5,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:08.602317",
-      "original_name": "compte_attente_mai.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 5,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Mai 2025",
-        "description": "60 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 5,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:08.602317",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Septembre.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Septembre.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Septembre.pdf",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:10.973299",
-      "original_name": "Export_Comptable_2025_Septembre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Septembre 2025",
-        "description": "97 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 9,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:10.973299",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Septembre.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Septembre.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Septembre.csv",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:10.982143",
-      "original_name": "Export_Comptable_2025_Septembre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Septembre 2025",
-        "description": "97 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 9,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:10.982143",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_septembre.pdf": {
-      "doc_id": "data/reports/compte_attente_septembre.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_septembre.pdf",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:11.128581",
-      "original_name": "compte_attente_septembre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Septembre 2025",
-        "description": "77 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 9,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:11.128581",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_septembre.csv": {
-      "doc_id": "data/reports/compte_attente_septembre.csv",
-      "type": "rapport",
-      "filename": "compte_attente_septembre.csv",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:11.206838",
-      "original_name": "compte_attente_septembre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Septembre 2025",
-        "description": "77 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 9,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:11.206838",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Octobre.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Octobre.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Octobre.pdf",
-      "year": 2025,
-      "month": 10,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:11.901318",
-      "original_name": "Export_Comptable_2025_Octobre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 10,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Octobre 2025",
-        "description": "89 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 10,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:11.901318",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Octobre.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Octobre.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Octobre.csv",
-      "year": 2025,
-      "month": 10,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:11.910557",
-      "original_name": "Export_Comptable_2025_Octobre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 10,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Octobre 2025",
-        "description": "89 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 10,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:11.910557",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_octobre.pdf": {
-      "doc_id": "data/reports/compte_attente_octobre.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_octobre.pdf",
-      "year": 2025,
-      "month": 10,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:12.068767",
-      "original_name": "compte_attente_octobre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 10,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Octobre 2025",
-        "description": "67 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 10,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:12.068767",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_octobre.csv": {
-      "doc_id": "data/reports/compte_attente_octobre.csv",
-      "type": "rapport",
-      "filename": "compte_attente_octobre.csv",
-      "year": 2025,
-      "month": 10,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:12.147408",
-      "original_name": "compte_attente_octobre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 10,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Octobre 2025",
-        "description": "67 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 10,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:12.147408",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Novembre.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Novembre.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Novembre.pdf",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:12.723769",
-      "original_name": "Export_Comptable_2025_Novembre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Novembre 2025",
-        "description": "119 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 11,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:12.723769",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Novembre.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Novembre.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Novembre.csv",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:12.734184",
-      "original_name": "Export_Comptable_2025_Novembre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Novembre 2025",
-        "description": "119 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 11,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:12.734184",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_novembre.pdf": {
-      "doc_id": "data/reports/compte_attente_novembre.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_novembre.pdf",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:12.920184",
-      "original_name": "compte_attente_novembre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Novembre 2025",
-        "description": "93 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 11,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:12.920184",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_novembre.csv": {
-      "doc_id": "data/reports/compte_attente_novembre.csv",
-      "type": "rapport",
-      "filename": "compte_attente_novembre.csv",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:13.006852",
-      "original_name": "compte_attente_novembre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Novembre 2025",
-        "description": "93 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 11,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:13.006852",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Décembre.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Décembre.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Décembre.pdf",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:13.499653",
-      "original_name": "Export_Comptable_2025_Décembre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Décembre 2025",
-        "description": "89 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 12,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:13.499653",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Décembre.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Décembre.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Décembre.csv",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:13.510216",
-      "original_name": "Export_Comptable_2025_Décembre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Décembre 2025",
-        "description": "89 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 12,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:13.510216",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_décembre.pdf": {
-      "doc_id": "data/reports/compte_attente_décembre.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_décembre.pdf",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:13.692506",
-      "original_name": "compte_attente_décembre.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Décembre 2025",
-        "description": "62 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 12,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:13.692506",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_décembre.csv": {
-      "doc_id": "data/reports/compte_attente_décembre.csv",
-      "type": "rapport",
-      "filename": "compte_attente_décembre.csv",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:36:13.783886",
-      "original_name": "compte_attente_décembre.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Décembre 2025",
-        "description": "62 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 12,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:36:13.783886",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Janvier.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Janvier.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Janvier.pdf",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:42:37.428695",
-      "original_name": "Export_Comptable_2025_Janvier.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Janvier 2025",
-        "description": "86 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:42:37.428695",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Janvier.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Janvier.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Janvier.csv",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:42:37.440330",
-      "original_name": "Export_Comptable_2025_Janvier.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Janvier 2025",
-        "description": "86 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:42:37.440330",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_janvier.pdf": {
-      "doc_id": "data/reports/compte_attente_janvier.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_janvier.pdf",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:42:37.584393",
-      "original_name": "compte_attente_janvier.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Janvier 2025",
-        "description": "45 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:42:37.584393",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_janvier.csv": {
-      "doc_id": "data/reports/compte_attente_janvier.csv",
-      "type": "rapport",
-      "filename": "compte_attente_janvier.csv",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:42:37.672551",
-      "original_name": "compte_attente_janvier.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Janvier 2025",
-        "description": "45 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-08T22:42:37.672551",
-        "can_regenerate": true,
-        "can_compare": true
-      }
+      "statut_justificatif": "traite",
+      "date_document": "2025-12-01"
     },
     "data/justificatifs/en_attente/justificatif_20260409_064405_Sans_titre_16.pdf": {
       "doc_id": "data/justificatifs/en_attente/justificatif_20260409_064405_Sans_titre_16.pdf",
@@ -12000,8 +9745,8 @@
       "added_at": "2026-04-09T07:04:45.801563",
       "original_name": "direct-assurance_20251215_741.27.pdf",
       "ocr_file": "data/justificatifs/traites/direct-assurance_20251215_741.27.ocr.json",
-      "categorie": "Autres",
-      "sous_categorie": null,
+      "categorie": "Véhicule",
+      "sous_categorie": "",
       "date_operation": "2025-12-17",
       "montant": 741.27,
       "operation_ref": {
@@ -12525,8 +10270,8 @@
       "added_at": "2026-04-09T12:38:49.099672",
       "original_name": "alyse_parking_20250409_70.pdf",
       "ocr_file": "data/justificatifs/traites/alyse_parking_20250409_70.ocr.json",
-      "categorie": "Autres",
-      "sous_categorie": null,
+      "categorie": "Véhicule",
+      "sous_categorie": "",
       "date_operation": "2025-04-09",
       "montant": 70.0,
       "operation_ref": {
@@ -12568,37 +10313,6 @@
       "period": {
         "year": 2024,
         "month": 1,
-        "quarter": 1
-      },
-      "fournisseur": "Reconstitue",
-      "is_reconstitue": true,
-      "statut_justificatif": "traite"
-    },
-    "data/justificatifs/traites/reconstitue_20260409_115216_auchan.pdf": {
-      "doc_id": "data/justificatifs/traites/reconstitue_20260409_115216_auchan.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 3,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-09T12:38:49.099672",
-      "original_name": "reconstitue_20260409_115216_auchan.pdf",
-      "ocr_file": "data/justificatifs/traites/reconstitue_20260409_115216_auchan.ocr.json",
-      "categorie": "Véhicule",
-      "sous_categorie": "Essence",
-      "date_operation": "2025-03-30",
-      "montant": 111.19,
-      "operation_ref": {
-        "file": "operations_20260402_163034_4cf58a44.json",
-        "index": 5,
-        "ventilation_index": null
-      },
-      "period": {
-        "year": 2025,
-        "month": 3,
         "quarter": 1
       },
       "fournisseur": "Reconstitue",
@@ -12649,8 +10363,8 @@
       "added_at": "2026-04-09T12:38:49.099672",
       "original_name": "uber_20250401_15.14.pdf",
       "ocr_file": null,
-      "categorie": "Transport",
-      "sous_categorie": null,
+      "categorie": "repas",
+      "sous_categorie": "",
       "date_operation": "2025-03-31",
       "montant": 15.14,
       "operation_ref": {
@@ -12666,6 +10380,2514 @@
       "fournisseur": "Uber",
       "is_reconstitue": false,
       "statut_justificatif": "traite"
+    },
+    "data/reports/Export_Comptable_2025_Janvier.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Janvier.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Janvier.pdf",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:38:02.592751",
+      "original_name": "Export_Comptable_2025_Janvier.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Janvier 2025",
+        "description": "86 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:38:02.592751",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Janvier.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Janvier.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Janvier.csv",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:38:02.604105",
+      "original_name": "Export_Comptable_2025_Janvier.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Janvier 2025",
+        "description": "86 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:38:02.604105",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_janvier.pdf": {
+      "doc_id": "data/reports/compte_attente_janvier.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_janvier.pdf",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:38:02.748282",
+      "original_name": "compte_attente_janvier.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Janvier 2025",
+        "description": "35 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:38:02.748282",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_janvier.csv": {
+      "doc_id": "data/reports/compte_attente_janvier.csv",
+      "type": "rapport",
+      "filename": "compte_attente_janvier.csv",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:38:02.829370",
+      "original_name": "compte_attente_janvier.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Janvier 2025",
+        "description": "35 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:38:02.829370",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Février.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Février.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Février.pdf",
+      "year": 2025,
+      "month": 2,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:19.055207",
+      "original_name": "Export_Comptable_2025_Février.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 2,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Février 2025",
+        "description": "55 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 2,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:19.055207",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Février.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Février.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Février.csv",
+      "year": 2025,
+      "month": 2,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:19.066667",
+      "original_name": "Export_Comptable_2025_Février.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 2,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Février 2025",
+        "description": "55 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 2,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:19.066667",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_février.pdf": {
+      "doc_id": "data/reports/compte_attente_février.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_février.pdf",
+      "year": 2025,
+      "month": 2,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:19.199494",
+      "original_name": "compte_attente_février.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 2,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Février 2025",
+        "description": "21 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 2,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:19.199494",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_février.csv": {
+      "doc_id": "data/reports/compte_attente_février.csv",
+      "type": "rapport",
+      "filename": "compte_attente_février.csv",
+      "year": 2025,
+      "month": 2,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:19.282838",
+      "original_name": "compte_attente_février.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 2,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Février 2025",
+        "description": "21 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 2,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:19.282838",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Mars.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Mars.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Mars.pdf",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:21.479809",
+      "original_name": "Export_Comptable_2025_Mars.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Mars 2025",
+        "description": "62 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 3,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:21.479809",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Mars.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Mars.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Mars.csv",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:21.491100",
+      "original_name": "Export_Comptable_2025_Mars.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Mars 2025",
+        "description": "62 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 3,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:21.491100",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_mars.pdf": {
+      "doc_id": "data/reports/compte_attente_mars.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_mars.pdf",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:21.626975",
+      "original_name": "compte_attente_mars.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Mars 2025",
+        "description": "32 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 3,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:21.626975",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_mars.csv": {
+      "doc_id": "data/reports/compte_attente_mars.csv",
+      "type": "rapport",
+      "filename": "compte_attente_mars.csv",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:21.707578",
+      "original_name": "compte_attente_mars.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Mars 2025",
+        "description": "32 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 3,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:21.707578",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Avril.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Avril.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Avril.pdf",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:25.013363",
+      "original_name": "Export_Comptable_2025_Avril.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Avril 2025",
+        "description": "70 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 4,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:25.013363",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Avril.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Avril.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Avril.csv",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:25.024713",
+      "original_name": "Export_Comptable_2025_Avril.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Avril 2025",
+        "description": "70 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 4,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:25.024713",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_avril.pdf": {
+      "doc_id": "data/reports/compte_attente_avril.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_avril.pdf",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:25.151644",
+      "original_name": "compte_attente_avril.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Avril 2025",
+        "description": "46 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 4,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:25.151644",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_avril.csv": {
+      "doc_id": "data/reports/compte_attente_avril.csv",
+      "type": "rapport",
+      "filename": "compte_attente_avril.csv",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:25.233126",
+      "original_name": "compte_attente_avril.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Avril 2025",
+        "description": "46 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 4,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:25.233126",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Août.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Août.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Août.pdf",
+      "year": 2025,
+      "month": 8,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:26.288261",
+      "original_name": "Export_Comptable_2025_Août.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 8,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Août 2025",
+        "description": "87 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 8,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:26.288261",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Août.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Août.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Août.csv",
+      "year": 2025,
+      "month": 8,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:26.299480",
+      "original_name": "Export_Comptable_2025_Août.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 8,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Août 2025",
+        "description": "87 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 8,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:26.299480",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_août.pdf": {
+      "doc_id": "data/reports/compte_attente_août.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_août.pdf",
+      "year": 2025,
+      "month": 8,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:26.449473",
+      "original_name": "compte_attente_août.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 8,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Août 2025",
+        "description": "48 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 8,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:26.449473",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_août.csv": {
+      "doc_id": "data/reports/compte_attente_août.csv",
+      "type": "rapport",
+      "filename": "compte_attente_août.csv",
+      "year": 2025,
+      "month": 8,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:26.534654",
+      "original_name": "compte_attente_août.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 8,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Août 2025",
+        "description": "48 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 8,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:26.534654",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Juillet.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Juillet.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Juillet.pdf",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:27.412982",
+      "original_name": "Export_Comptable_2025_Juillet.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Juillet 2025",
+        "description": "77 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 7,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:27.412982",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Juillet.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Juillet.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Juillet.csv",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:27.424455",
+      "original_name": "Export_Comptable_2025_Juillet.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Juillet 2025",
+        "description": "77 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 7,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:27.424455",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_juillet.pdf": {
+      "doc_id": "data/reports/compte_attente_juillet.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_juillet.pdf",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:27.572903",
+      "original_name": "compte_attente_juillet.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Juillet 2025",
+        "description": "43 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 7,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:27.572903",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_juillet.csv": {
+      "doc_id": "data/reports/compte_attente_juillet.csv",
+      "type": "rapport",
+      "filename": "compte_attente_juillet.csv",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:27.657897",
+      "original_name": "compte_attente_juillet.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Juillet 2025",
+        "description": "43 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 7,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:27.657897",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Juin.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Juin.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Juin.pdf",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:28.260228",
+      "original_name": "Export_Comptable_2025_Juin.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Juin 2025",
+        "description": "79 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 6,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:28.260228",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Juin.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Juin.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Juin.csv",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:28.271645",
+      "original_name": "Export_Comptable_2025_Juin.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Juin 2025",
+        "description": "79 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 6,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:28.271645",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_juin.pdf": {
+      "doc_id": "data/reports/compte_attente_juin.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_juin.pdf",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:28.415444",
+      "original_name": "compte_attente_juin.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Juin 2025",
+        "description": "44 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 6,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:28.415444",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_juin.csv": {
+      "doc_id": "data/reports/compte_attente_juin.csv",
+      "type": "rapport",
+      "filename": "compte_attente_juin.csv",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:28.498320",
+      "original_name": "compte_attente_juin.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Juin 2025",
+        "description": "44 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 6,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:28.498320",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Mai.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Mai.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Mai.pdf",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:28.824280",
+      "original_name": "Export_Comptable_2025_Mai.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Mai 2025",
+        "description": "73 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 5,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:28.824280",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Mai.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Mai.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Mai.csv",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:28.836521",
+      "original_name": "Export_Comptable_2025_Mai.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Mai 2025",
+        "description": "73 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 5,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:28.836521",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_mai.pdf": {
+      "doc_id": "data/reports/compte_attente_mai.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_mai.pdf",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:29.003170",
+      "original_name": "compte_attente_mai.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Mai 2025",
+        "description": "45 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 5,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:29.003170",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_mai.csv": {
+      "doc_id": "data/reports/compte_attente_mai.csv",
+      "type": "rapport",
+      "filename": "compte_attente_mai.csv",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:29.089166",
+      "original_name": "compte_attente_mai.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Mai 2025",
+        "description": "45 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 5,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:29.089166",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Septembre.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Septembre.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Septembre.pdf",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:29.920869",
+      "original_name": "Export_Comptable_2025_Septembre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Septembre 2025",
+        "description": "97 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 9,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:29.920869",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Septembre.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Septembre.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Septembre.csv",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:29.932340",
+      "original_name": "Export_Comptable_2025_Septembre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Septembre 2025",
+        "description": "97 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 9,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:29.932340",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_septembre.pdf": {
+      "doc_id": "data/reports/compte_attente_septembre.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_septembre.pdf",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:30.075080",
+      "original_name": "compte_attente_septembre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Septembre 2025",
+        "description": "60 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 9,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:30.075080",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_septembre.csv": {
+      "doc_id": "data/reports/compte_attente_septembre.csv",
+      "type": "rapport",
+      "filename": "compte_attente_septembre.csv",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:30.159809",
+      "original_name": "compte_attente_septembre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Septembre 2025",
+        "description": "60 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 9,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:30.159809",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Octobre.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Octobre.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Octobre.pdf",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:30.598453",
+      "original_name": "Export_Comptable_2025_Octobre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Octobre 2025",
+        "description": "89 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 10,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:30.598453",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Octobre.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Octobre.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Octobre.csv",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:30.609657",
+      "original_name": "Export_Comptable_2025_Octobre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Octobre 2025",
+        "description": "89 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 10,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:30.609657",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_octobre.pdf": {
+      "doc_id": "data/reports/compte_attente_octobre.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_octobre.pdf",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:30.771168",
+      "original_name": "compte_attente_octobre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Octobre 2025",
+        "description": "62 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 10,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:30.771168",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_octobre.csv": {
+      "doc_id": "data/reports/compte_attente_octobre.csv",
+      "type": "rapport",
+      "filename": "compte_attente_octobre.csv",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:30.860687",
+      "original_name": "compte_attente_octobre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Octobre 2025",
+        "description": "62 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 10,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:30.860687",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Novembre.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Novembre.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Novembre.pdf",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:31.306265",
+      "original_name": "Export_Comptable_2025_Novembre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Novembre 2025",
+        "description": "119 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 11,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:31.306265",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Novembre.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Novembre.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Novembre.csv",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:31.318411",
+      "original_name": "Export_Comptable_2025_Novembre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Novembre 2025",
+        "description": "119 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 11,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:31.318411",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_novembre.pdf": {
+      "doc_id": "data/reports/compte_attente_novembre.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_novembre.pdf",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:31.501825",
+      "original_name": "compte_attente_novembre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Novembre 2025",
+        "description": "73 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 11,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:31.501825",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_novembre.csv": {
+      "doc_id": "data/reports/compte_attente_novembre.csv",
+      "type": "rapport",
+      "filename": "compte_attente_novembre.csv",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:31.587444",
+      "original_name": "compte_attente_novembre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Novembre 2025",
+        "description": "73 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 11,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:31.587444",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Décembre.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Décembre.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Décembre.pdf",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:31.883965",
+      "original_name": "Export_Comptable_2025_Décembre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Décembre 2025",
+        "description": "89 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 12,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:31.883965",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Décembre.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Décembre.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Décembre.csv",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:31.895725",
+      "original_name": "Export_Comptable_2025_Décembre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Décembre 2025",
+        "description": "89 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 12,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:31.895725",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_décembre.pdf": {
+      "doc_id": "data/reports/compte_attente_décembre.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_décembre.pdf",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:32.044334",
+      "original_name": "compte_attente_décembre.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Décembre 2025",
+        "description": "47 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 12,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:32.044334",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_décembre.csv": {
+      "doc_id": "data/reports/compte_attente_décembre.csv",
+      "type": "rapport",
+      "filename": "compte_attente_décembre.csv",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:49:32.130960",
+      "original_name": "compte_attente_décembre.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Décembre 2025",
+        "description": "47 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 12,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-09T23:49:32.130960",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/justificatifs/en_attente/09042026.pdf": {
+      "doc_id": "data/justificatifs/en_attente/09042026.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "09042026.pdf",
+      "ocr_file": "data/justificatifs/en_attente/09042026.ocr.json"
+    },
+    "data/justificatifs/en_attente/09042026_006.pdf": {
+      "doc_id": "data/justificatifs/en_attente/09042026_006.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "09042026_006.pdf",
+      "ocr_file": "data/justificatifs/en_attente/09042026_006.ocr.json"
+    },
+    "data/justificatifs/en_attente/09042026_007.pdf": {
+      "doc_id": "data/justificatifs/en_attente/09042026_007.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "09042026_007.pdf",
+      "ocr_file": "data/justificatifs/en_attente/09042026_007.ocr.json"
+    },
+    "data/justificatifs/en_attente/09042026_008.pdf": {
+      "doc_id": "data/justificatifs/en_attente/09042026_008.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "09042026_008.pdf",
+      "ocr_file": "data/justificatifs/en_attente/09042026_008.ocr.json"
+    },
+    "data/justificatifs/en_attente/alysee_20260104_51.pdf": {
+      "doc_id": "data/justificatifs/en_attente/alysee_20260104_51.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "alysee_20260104_51.pdf",
+      "ocr_file": "data/justificatifs/en_attente/alysee_20260104_51.ocr.json"
+    },
+    "data/justificatifs/en_attente/clinique-pont-de-chaumes_20250324_126,24_2.pdf": {
+      "doc_id": "data/justificatifs/en_attente/clinique-pont-de-chaumes_20250324_126,24_2.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "clinique-pont-de-chaumes_20250324_126,24_2.pdf",
+      "ocr_file": null
+    },
+    "data/justificatifs/en_attente/parc-consul-dupuy_20251118_0,20.pdf": {
+      "doc_id": "data/justificatifs/en_attente/parc-consul-dupuy_20251118_0,20.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "parc-consul-dupuy_20251118_0,20.pdf",
+      "ocr_file": "data/justificatifs/en_attente/parc-consul-dupuy_20251118_0,20.ocr.json"
+    },
+    "data/justificatifs/en_attente/parc-consul_20250917_0,28.pdf": {
+      "doc_id": "data/justificatifs/en_attente/parc-consul_20250917_0,28.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "parc-consul_20250917_0,28.pdf",
+      "ocr_file": "data/justificatifs/en_attente/parc-consul_20250917_0,28.ocr.json"
+    },
+    "data/justificatifs/en_attente/parc-consul_20250919_0,20.pdf": {
+      "doc_id": "data/justificatifs/en_attente/parc-consul_20250919_0,20.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "parc-consul_20250919_0,20.pdf",
+      "ocr_file": "data/justificatifs/en_attente/parc-consul_20250919_0,20.ocr.json"
+    },
+    "data/justificatifs/en_attente/reconstitue_20260409_115216_auchan.pdf": {
+      "doc_id": "data/justificatifs/en_attente/reconstitue_20260409_115216_auchan.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "reconstitue_20260409_115216_auchan.pdf",
+      "ocr_file": "data/justificatifs/en_attente/reconstitue_20260409_115216_auchan.ocr.json"
+    },
+    "data/justificatifs/en_attente/roval-buffet_20220423_47,80.pdf": {
+      "doc_id": "data/justificatifs/en_attente/roval-buffet_20220423_47,80.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "roval-buffet_20220423_47,80.pdf",
+      "ocr_file": "data/justificatifs/en_attente/roval-buffet_20220423_47,80.ocr.json"
+    },
+    "data/justificatifs/traites/clinique-pont-de-chaumes_20250127_191,24.pdf": {
+      "doc_id": "data/justificatifs/traites/clinique-pont-de-chaumes_20250127_191,24.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "clinique-pont-de-chaumes_20250127_191,24.pdf",
+      "ocr_file": "data/justificatifs/traites/clinique-pont-de-chaumes_20250127_191,24.ocr.json"
+    },
+    "data/justificatifs/traites/clinique-pont-de-chaumes_20250324_126,24.pdf": {
+      "doc_id": "data/justificatifs/traites/clinique-pont-de-chaumes_20250324_126,24.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "clinique-pont-de-chaumes_20250324_126,24.pdf",
+      "ocr_file": null
+    },
+    "data/justificatifs/traites/parc-consul-dupuy_20250905_4,00.pdf": {
+      "doc_id": "data/justificatifs/traites/parc-consul-dupuy_20250905_4,00.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "parc-consul-dupuy_20250905_4,00.pdf",
+      "ocr_file": "data/justificatifs/traites/parc-consul-dupuy_20250905_4,00.ocr.json"
+    },
+    "data/justificatifs/traites/parc-consul-dupuy_20251118_3,20.pdf": {
+      "doc_id": "data/justificatifs/traites/parc-consul-dupuy_20251118_3,20.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "parc-consul-dupuy_20251118_3,20.pdf",
+      "ocr_file": "data/justificatifs/traites/parc-consul-dupuy_20251118_3,20.ocr.json"
+    },
+    "data/justificatifs/traites/reconstitue_20260409_125311_auchan.pdf": {
+      "doc_id": "data/justificatifs/traites/reconstitue_20260409_125311_auchan.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "reconstitue_20260409_125311_auchan.pdf",
+      "ocr_file": "data/justificatifs/traites/reconstitue_20260409_125311_auchan.ocr.json"
+    },
+    "data/justificatifs/traites/reconstitue_20260409_204623_ibis_hotel.pdf": {
+      "doc_id": "data/justificatifs/traites/reconstitue_20260409_204623_ibis_hotel.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "reconstitue_20260409_204623_ibis_hotel.pdf",
+      "ocr_file": "data/justificatifs/traites/reconstitue_20260409_204623_ibis_hotel.ocr.json"
+    },
+    "data/justificatifs/traites/reconstitue_20260409_204624_ibis_hotel.pdf": {
+      "doc_id": "data/justificatifs/traites/reconstitue_20260409_204624_ibis_hotel.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-09T23:50:54.671537",
+      "original_name": "reconstitue_20260409_204624_ibis_hotel.pdf",
+      "ocr_file": "data/justificatifs/traites/reconstitue_20260409_204624_ibis_hotel.ocr.json"
     }
   }
 }

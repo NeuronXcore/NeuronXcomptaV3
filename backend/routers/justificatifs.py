@@ -8,7 +8,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from fastapi.responses import FileResponse
 
-from backend.models.justificatif import AssociateRequest, DissociateRequest
+from backend.models.justificatif import AssociateRequest, DissociateRequest, RenameRequest
 from backend.services import justificatif_service
 
 logger = logging.getLogger(__name__)
@@ -67,13 +67,23 @@ async def upload_justificatifs(files: List[UploadFile] = File(...)):
 
 
 def _run_ocr_background(filename: str):
-    """Lance l'OCR en background pour un justificatif uploadé, puis rapprochement auto."""
+    """Lance l'OCR en background pour un justificatif uploadé, puis auto-rename + rapprochement."""
     try:
         from backend.services import ocr_service, rapprochement_service
         filepath = justificatif_service.get_justificatif_path(filename)
         if filepath:
             ocr_service.extract_or_cached(filepath)
             logger.info(f"OCR background terminé: {filename}")
+
+            # Auto-rename post-OCR
+            ocr_cached = ocr_service.get_cached_result(filepath)
+            if ocr_cached and ocr_cached.get("status") == "success":
+                new_name = justificatif_service.auto_rename_from_ocr(
+                    filename, ocr_cached.get("extracted_data", {})
+                )
+                if new_name:
+                    logger.info(f"Auto-rename background: {filename} → {new_name}")
+
             # Auto-rapprochement après OCR
             result = rapprochement_service.run_auto_rapprochement()
             if result.get("associations_auto", 0) > 0:
@@ -178,6 +188,17 @@ async def dissociate_justificatif(request: DissociateRequest):
             pass
 
     return {"success": True, "message": "Justificatif dissocié"}
+
+
+@router.post("/{filename}/rename")
+async def rename_justificatif(filename: str, body: RenameRequest):
+    """Renomme un justificatif. Met à jour PDF, .ocr.json, associations et GED."""
+    import re as _re
+    if not body.new_filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Le nom doit se terminer par .pdf")
+    if _re.search(r'[<>:"/\\|?*]', body.new_filename):
+        raise HTTPException(400, "Caractères interdits dans le nom de fichier")
+    return justificatif_service.rename_justificatif(filename, body.new_filename)
 
 
 @router.delete("/{filename}")

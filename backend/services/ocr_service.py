@@ -166,7 +166,7 @@ def update_extracted_data(filename: str, edits: dict) -> dict:
 
 # ─── Convention de nommage ───
 
-_MONTANT_FILENAME_RE = re.compile(r'^\d+\.\d{2}$')
+_MONTANT_FILENAME_RE = re.compile(r'^\d+[.,]\d{2}$')
 
 
 def _parse_filename_convention(filename: str) -> Optional[dict]:
@@ -201,7 +201,7 @@ def _parse_filename_convention(filename: str) -> Optional[dict]:
     amount: Optional[float] = None
     if raw_amount and _MONTANT_FILENAME_RE.match(raw_amount):
         try:
-            amount = float(raw_amount)
+            amount = float(raw_amount.replace(",", "."))
         except ValueError:
             pass
 
@@ -748,15 +748,20 @@ def get_extraction_history(limit: int = 20) -> list:
             try:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
+                ed = data.get("extracted_data", {})
                 results.append({
                     "filename": data.get("filename", cache_file.stem),
                     "processed_at": data.get("processed_at", ""),
                     "status": data.get("status", "unknown"),
                     "processing_time_ms": data.get("processing_time_ms", 0),
-                    "dates_found": data.get("extracted_data", {}).get("dates", []),
-                    "amounts_found": data.get("extracted_data", {}).get("amounts", []),
-                    "supplier": data.get("extracted_data", {}).get("supplier"),
+                    "dates_found": ed.get("dates", []),
+                    "amounts_found": ed.get("amounts", []),
+                    "supplier": ed.get("supplier"),
                     "confidence": data.get("confidence", 0),
+                    "best_date": ed.get("best_date"),
+                    "best_amount": ed.get("best_amount"),
+                    "original_filename": data.get("original_filename") or data.get("renamed_from"),
+                    "auto_renamed": bool(data.get("renamed_from")),
                 })
             except Exception:
                 continue

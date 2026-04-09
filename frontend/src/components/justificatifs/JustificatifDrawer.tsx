@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import type { JustificatifInfo, OperationSuggestion } from '@/types'
 import OcrDataEditor from '@/components/justificatifs/OcrDataEditor'
+import FilenameEditor from '@/components/justificatifs/FilenameEditor'
 
 interface JustificatifDrawerProps {
   open: boolean
@@ -146,8 +147,18 @@ export default function JustificatifDrawer({
             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <FileText size={18} className="text-primary" />
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-text truncate">{justificatif.original_name}</p>
+            <div className="min-w-0 group">
+              <div className="mb-0.5">
+                <FilenameEditor
+                  filename={justificatif.filename}
+                  ocrData={{
+                    supplier: justificatif.ocr_supplier,
+                    best_date: justificatif.ocr_date,
+                    best_amount: justificatif.ocr_amount,
+                  }}
+                  originalFilename={justificatif.original_filename}
+                />
+              </div>
               <div className="flex items-center gap-2 text-xs text-text-muted">
                 <span>{justificatif.date}</span>
                 <span>·</span>

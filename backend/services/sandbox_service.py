@@ -66,12 +66,19 @@ def _resolve_destination(filename: str) -> Path:
     return JUSTIFICATIFS_EN_ATTENTE_DIR / f"{stem}_{ts}{suffix}"
 
 
-def _push_event(filename: str, status: str = "processed") -> None:
+def _push_event(
+    filename: str,
+    status: str = "processed",
+    auto_renamed: bool = False,
+    original_filename: Optional[str] = None,
+) -> None:
     """Pousse un event SSE dans la queue depuis un thread OS."""
     event = {
         "filename": filename,
         "status": status,
         "timestamp": datetime.now().isoformat(),
+        "auto_renamed": auto_renamed,
+        "original_filename": original_filename,
     }
     if _event_loop and _event_loop.is_running():
         _event_loop.call_soon_threadsafe(sandbox_event_queue.put_nowait, event)
@@ -107,11 +114,29 @@ def _process_file(filepath: Path) -> None:
             logger.info("Sandbox: %s déplacé vers %s", filename, dest.name)
 
         # Lancer l'OCR (passer le nom original pour le parsing convention)
+        auto_renamed = False
+        original_filename_for_sse = None
         try:
             ocr_service.extract_or_cached(dest, original_filename=filename)
             logger.info("Sandbox: OCR terminé pour %s", dest.name)
         except Exception as e:
             logger.error("Sandbox: erreur OCR pour %s: %s", dest.name, e)
+
+        # Auto-rename post-OCR
+        try:
+            from backend.services import justificatif_service
+            ocr_cached = ocr_service.get_cached_result(dest)
+            if ocr_cached and ocr_cached.get("status") == "success":
+                new_name = justificatif_service.auto_rename_from_ocr(
+                    dest.name, ocr_cached.get("extracted_data", {})
+                )
+                if new_name:
+                    original_filename_for_sse = dest.name
+                    dest = JUSTIFICATIFS_EN_ATTENTE_DIR / new_name
+                    auto_renamed = True
+                    logger.info("Sandbox: auto-renamed %s → %s", original_filename_for_sse, new_name)
+        except Exception as e:
+            logger.warning("Sandbox: auto-rename échoué pour %s: %s", dest.name, e)
 
         # Hook previsionnel — check document matching
         try:
@@ -129,8 +154,8 @@ def _process_file(filepath: Path) -> None:
         except Exception as e:
             logger.warning(f"Sandbox auto-rapprochement échoué: {e}")
 
-        # Notifier via SSE
-        _push_event(dest.name, "processed")
+        # Notifier via SSE (avec info auto-rename)
+        _push_event(dest.name, "processed", auto_renamed=auto_renamed, original_filename=original_filename_for_sse)
 
     except FileNotFoundError:
         logger.warning("Sandbox: fichier %s déjà déplacé ou supprimé", filename)

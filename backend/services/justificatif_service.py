@@ -15,6 +15,8 @@ from typing import Optional, List
 
 from PIL import Image
 
+from fastapi import HTTPException
+
 from backend.core.config import (
     JUSTIFICATIFS_DIR,
     JUSTIFICATIFS_EN_ATTENTE_DIR,
@@ -22,9 +24,12 @@ from backend.core.config import (
     ALLOWED_JUSTIFICATIF_EXTENSIONS,
     IMAGE_EXTENSIONS,
     MAGIC_BYTES,
+    GED_DIR,
+    IMPORTS_OPERATIONS_DIR,
     ensure_directories,
 )
 from backend.services import operation_service
+from backend.services.naming_service import build_convention_filename, deduplicate_filename
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +105,22 @@ def _get_justificatif_info(filepath: Path, status: str) -> dict:
             info["ocr_amount"] = None
             info["ocr_date"] = None
             info["ocr_supplier"] = None
+
+        # Traçabilité renommage
+        ocr_cached = ocr_service.get_cached_result(filepath)
+        if ocr_cached:
+            info["original_filename"] = ocr_cached.get("original_filename") or ocr_cached.get("renamed_from")
+            info["auto_renamed"] = bool(ocr_cached.get("renamed_from"))
+        else:
+            info["original_filename"] = None
+            info["auto_renamed"] = False
     except Exception:
         info["ocr_data"] = None
         info["ocr_amount"] = None
         info["ocr_date"] = None
         info["ocr_supplier"] = None
+        info["original_filename"] = None
+        info["auto_renamed"] = False
 
     return info
 
@@ -605,3 +621,179 @@ def _extract_amount_from_filename(filename: str) -> Optional[float]:
             elif len(groups) == 1:
                 return float(groups[0])
     return None
+
+
+# ─── Renommage ───
+
+
+def rename_justificatif(old_filename: str, new_filename: str) -> dict:
+    """Renomme un justificatif (PDF + .ocr.json) dans en_attente/ ou traites/.
+
+    Met à jour :
+    1. Le fichier PDF
+    2. Le .ocr.json associé (+ champ renamed_from pour traçabilité)
+    3. Les associations dans les fichiers d'opérations (Lien justificatif + ventilation)
+    4. Les metadata GED si existantes
+
+    Retourne {"old": old_filename, "new": final_filename, "location": "en_attente"|"traites"}
+    Raise HTTPException 404 si fichier introuvable, 409 si new_filename existe déjà.
+    """
+    # 1. Localiser le PDF
+    en_attente = JUSTIFICATIFS_EN_ATTENTE_DIR / old_filename
+    traites = JUSTIFICATIFS_TRAITES_DIR / old_filename
+
+    if en_attente.exists():
+        pdf_path = en_attente
+        location = "en_attente"
+    elif traites.exists():
+        pdf_path = traites
+        location = "traites"
+    else:
+        raise HTTPException(404, f"Justificatif {old_filename} introuvable")
+
+    target_dir = pdf_path.parent
+
+    # 2. Vérifier collision
+    if new_filename == old_filename:
+        return {"old": old_filename, "new": old_filename, "location": location}
+
+    if (target_dir / new_filename).exists():
+        raise HTTPException(409, f"Le fichier {new_filename} existe déjà")
+
+    # 3. Renommer PDF
+    new_pdf_path = target_dir / new_filename
+    pdf_path.rename(new_pdf_path)
+
+    # 4. Renommer + mettre à jour .ocr.json
+    old_ocr = pdf_path.with_name(old_filename.replace(".pdf", ".ocr.json"))
+    if old_ocr.exists():
+        new_ocr = new_pdf_path.with_name(new_filename.replace(".pdf", ".ocr.json"))
+        try:
+            ocr_data = json.loads(old_ocr.read_text(encoding="utf-8"))
+            ocr_data["renamed_from"] = old_filename
+            ocr_data["original_filename"] = ocr_data.get("original_filename", old_filename)
+            ocr_data["filename"] = new_filename
+            new_ocr.write_text(json.dumps(ocr_data, ensure_ascii=False, indent=2), encoding="utf-8")
+            if old_ocr != new_ocr:
+                old_ocr.unlink()
+        except Exception as e:
+            logger.warning("Erreur rename .ocr.json pour %s: %s", old_filename, e)
+
+    # 5. Mettre à jour les associations opérations
+    _update_operation_references(old_filename, new_filename)
+
+    # 6. Mettre à jour GED metadata
+    _update_ged_metadata_reference(old_filename, new_filename)
+
+    logger.info("Justificatif renommé: %s → %s (%s)", old_filename, new_filename, location)
+    return {"old": old_filename, "new": new_filename, "location": location}
+
+
+def auto_rename_from_ocr(filename: str, ocr_data: dict) -> Optional[str]:
+    """Tente un auto-rename basé sur les données OCR.
+
+    Retourne le nouveau filename si renommé, None sinon.
+    Ne renomme PAS si le fichier suit déjà la convention (3 segments valides).
+    """
+    from backend.services.ocr_service import _parse_filename_convention
+
+    # Si le fichier est déjà nommé selon la convention, ne pas re-renommer
+    existing_parsed = _parse_filename_convention(filename)
+    if existing_parsed and all(existing_parsed.get(k) for k in ("supplier", "date", "amount")):
+        return None
+
+    supplier = ocr_data.get("supplier")
+    best_date = ocr_data.get("best_date")
+    best_amount = ocr_data.get("best_amount")
+
+    new_name = build_convention_filename(supplier, best_date, best_amount)
+    if not new_name or new_name == filename:
+        return None
+
+    # Dédupliquer — chercher dans en_attente (cas le plus courant post-OCR)
+    en_attente = JUSTIFICATIFS_EN_ATTENTE_DIR / filename
+    traites = JUSTIFICATIFS_TRAITES_DIR / filename
+    target_dir = en_attente.parent if en_attente.exists() else traites.parent
+
+    final_name = deduplicate_filename(target_dir, new_name)
+
+    try:
+        result = rename_justificatif(filename, final_name)
+        return result["new"]
+    except Exception as e:
+        logger.warning("Auto-rename échoué pour %s: %s", filename, e)
+        return None
+
+
+def _update_operation_references(old_filename: str, new_filename: str) -> None:
+    """Parcourt tous les fichiers d'opérations et remplace les références au justificatif."""
+    for ops_file in IMPORTS_OPERATIONS_DIR.glob("operations_*.json"):
+        try:
+            data = json.loads(ops_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+        modified = False
+        for op in data:
+            # Lien justificatif principal (format "traites/xxx.pdf" ou "en_attente/xxx.pdf")
+            lien = op.get("Lien justificatif", "") or ""
+            if lien and lien.split("/")[-1] == old_filename:
+                parent = lien.rsplit("/", 1)[0] if "/" in lien else ""
+                op["Lien justificatif"] = f"{parent}/{new_filename}" if parent else new_filename
+                modified = True
+
+            # Champ justificatif_file direct
+            if op.get("justificatif_file") == old_filename:
+                op["justificatif_file"] = new_filename
+                modified = True
+
+            # Ventilation entries
+            for vl in op.get("ventilation", []) or []:
+                vl_lien = vl.get("justificatif", "") or ""
+                if vl_lien and vl_lien.split("/")[-1] == old_filename:
+                    parent = vl_lien.rsplit("/", 1)[0] if "/" in vl_lien else ""
+                    vl["justificatif"] = f"{parent}/{new_filename}" if parent else new_filename
+                    modified = True
+                if vl.get("justificatif_file") == old_filename:
+                    vl["justificatif_file"] = new_filename
+                    modified = True
+
+        if modified:
+            ops_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _update_ged_metadata_reference(old_filename: str, new_filename: str) -> None:
+    """Met à jour ged_metadata.json si le justificatif y est référencé."""
+    ged_path = Path(GED_DIR) / "ged_metadata.json"
+    if not ged_path.exists():
+        return
+
+    try:
+        metadata = json.loads(ged_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    documents = metadata.get("documents", {})
+    old_basename = Path(old_filename).name
+    doc_id_to_rename = None
+
+    for doc_id, doc in documents.items():
+        if doc.get("type") != "justificatif":
+            continue
+        if Path(doc_id).name == old_basename or (doc.get("original_name") or "") == old_basename:
+            doc_id_to_rename = doc_id
+            break
+
+    if not doc_id_to_rename:
+        return
+
+    doc = documents.pop(doc_id_to_rename)
+    # Reconstruire la clé avec le nouveau filename
+    new_doc_id = doc_id_to_rename.replace(old_basename, new_filename)
+    doc["filename"] = new_filename
+    if "renamed_from" not in doc:
+        doc["renamed_from"] = old_filename
+    documents[new_doc_id] = doc
+
+    metadata["documents"] = documents
+    ged_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")

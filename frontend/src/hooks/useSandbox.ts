@@ -5,6 +5,8 @@ interface SandboxEvent {
   filename: string
   status: string
   timestamp: string
+  auto_renamed?: boolean
+  original_filename?: string | null
 }
 
 export function useSandbox() {

@@ -62,5 +62,245 @@
     "taille_totale_mo": 2.2,
     "success": true,
     "error_message": null
+  },
+  {
+    "id": "39a0fd06",
+    "sent_at": "2026-04-09T23:54:36.169252",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Janvier PDF 20260409 233802 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Janvier_PDF_20260409_233802.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.73,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "452f8f34",
+    "sent_at": "2026-04-09T23:55:57.386547",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Février PDF 20260409 234918 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Février_PDF_20260409_234918.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.31,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "903eb722",
+    "sent_at": "2026-04-10T00:02:40.439992",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Mars PDF 20260409 234921 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Mars_PDF_20260409_234921.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.6,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "7c87f5c5",
+    "sent_at": "2026-04-10T00:02:53.479128",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Avril PDF 20260409 234924 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Avril_PDF_20260409_234924.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.85,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "09fba8de",
+    "sent_at": "2026-04-10T00:07:52.234256",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Mai PDF 20260409 234928 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Mai_PDF_20260409_234928.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 2.47,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "aace914a",
+    "sent_at": "2026-04-10T00:09:08.654476",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Juin PDF 20260409 234928 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Juin_PDF_20260409_234928.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.64,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "78c6475f",
+    "sent_at": "2026-04-10T00:09:29.664417",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Juillet PDF 20260409 234927 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Juillet_PDF_20260409_234927.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.69,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "98279bd7",
+    "sent_at": "2026-04-10T00:10:41.991214",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Août PDF 20260409 234926 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Août_PDF_20260409_234926.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.85,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "1f916a60",
+    "sent_at": "2026-04-10T00:11:52.046791",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Septembre PDF 20260409 234929 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Septembre_PDF_20260409_234929.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.24,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "bb2dbf6c",
+    "sent_at": "2026-04-10T00:12:05.434450",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Octobre PDF 20260409 234930 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Octobre_PDF_20260409_234930.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.96,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "0200753a",
+    "sent_at": "2026-04-10T00:12:17.439776",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Novembre PDF 20260409 234931 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Novembre_PDF_20260409_234931.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.84,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "0442e044",
+    "sent_at": "2026-04-10T00:12:29.791140",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Décembre PDF 20260409 234931 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Décembre_PDF_20260409_234931.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.46,
+    "success": true,
+    "error_message": null
   }
 ]

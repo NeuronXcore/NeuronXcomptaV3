@@ -44,6 +44,8 @@ export default function SendToAccountantDrawer() {
   const [destinataires, setDestinataires] = useState<string[]>([])
   const [objet, setObjet] = useState('')
   const [corps, setCorps] = useState('')
+  const [corpsHtml, setCorpsHtml] = useState('')
+  const [previewMode, setPreviewMode] = useState<'text' | 'html'>('html')
 
   // Init on open
   useEffect(() => {
@@ -85,6 +87,8 @@ export default function SendToAccountantDrawer() {
     setDestinataires(settings?.email_comptable_destinataires ?? [])
     setObjet('')
     setCorps('')
+    setCorpsHtml('')
+    setPreviewMode('html')
   }, [isOpen, preselected, defaultFilter, settings])
 
   // Escape key
@@ -106,6 +110,7 @@ export default function SendToAccountantDrawer() {
         onSuccess: (data) => {
           setObjet(prev => prev || data.objet)
           setCorps(prev => prev || data.corps)
+          setCorpsHtml(data.corps_html || '')
           if (destinataires.length === 0 && data.destinataires.length > 0) {
             setDestinataires(data.destinataires)
           }
@@ -151,10 +156,15 @@ export default function SendToAccountantDrawer() {
   }, [allDocuments, activeTypes, search, filterYear, filterMonth])
 
   // Group by type — ordered: exports, rapports, relevés, justificatifs, ged
+  // Each group sorted by date ascending (jan → dec)
   const grouped = useMemo(() => {
     const buckets: Record<string, DocumentInfo[]> = {}
     for (const d of filteredDocs) {
       ;(buckets[d.type] ??= []).push(d)
+    }
+    // Tri par date croissante dans chaque bucket
+    for (const docs of Object.values(buckets)) {
+      docs.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
     }
     const ordered = new Map<string, DocumentInfo[]>()
     for (const { key } of TYPE_CONFIG) {
@@ -490,13 +500,47 @@ export default function SendToAccountantDrawer() {
 
             {/* Body */}
             <div>
-              <label className="text-xs font-medium text-text-muted block mb-1">Message</label>
-              <textarea
-                value={corps}
-                onChange={e => setCorps(e.target.value)}
-                rows={6}
-                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-text-muted">Message</label>
+                <div className="flex gap-0.5 bg-surface rounded-md p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('html')}
+                    className={cn(
+                      'text-[10px] px-2 py-0.5 rounded transition-colors',
+                      previewMode === 'html' ? 'bg-primary text-white' : 'text-text-muted hover:text-text'
+                    )}
+                  >
+                    HTML
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('text')}
+                    className={cn(
+                      'text-[10px] px-2 py-0.5 rounded transition-colors',
+                      previewMode === 'text' ? 'bg-primary text-white' : 'text-text-muted hover:text-text'
+                    )}
+                  >
+                    Texte
+                  </button>
+                </div>
+              </div>
+              {previewMode === 'text' ? (
+                <textarea
+                  value={corps}
+                  onChange={e => setCorps(e.target.value)}
+                  rows={6}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
+                />
+              ) : (
+                <iframe
+                  srcDoc={corpsHtml || '<p style="color:#999;font-family:sans-serif;padding:20px;">Sélectionnez des documents pour générer l\'aperçu HTML...</p>'}
+                  className="w-full border border-border rounded-lg bg-white"
+                  style={{ height: '320px' }}
+                  sandbox=""
+                  title="Aperçu email HTML"
+                />
+              )}
             </div>
 
             {/* Attachments preview */}

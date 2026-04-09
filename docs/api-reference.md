@@ -397,6 +397,19 @@ Associer un justificatif. Declenche auto-pointage si le setting `auto_pointage` 
 ### `POST /dissociate`
 Dissocier. Body : `{ "operation_file": "...", "operation_index": 5 }`
 
+### `POST /{filename}/rename`
+Renommer un justificatif. Met a jour PDF + .ocr.json + associations operations + GED metadata.
+
+**Body :**
+```json
+{ "new_filename": "fournisseur_20250315_50,00.pdf" }
+```
+
+**Reponse :**
+```json
+{ "old": "justificatif_20250315_143022_edf.pdf", "new": "fournisseur_20250315_50,00.pdf", "location": "en_attente" }
+```
+
 ### `DELETE /{filename}`
 Supprimer un justificatif.
 

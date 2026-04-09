@@ -22,6 +22,11 @@ class DocumentInfo(BaseModel):
     category: Optional[str] = None
 
 
+class EmailPreviewRequest(BaseModel):
+    """Requête de prévisualisation email (documents uniquement)."""
+    documents: list[DocumentRef]
+
+
 class EmailSendRequest(BaseModel):
     """Requête d'envoi d'email avec documents."""
     documents: list[DocumentRef]

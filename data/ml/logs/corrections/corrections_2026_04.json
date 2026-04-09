@@ -130,5 +130,126 @@
     "corrected_category": "Véhicule",
     "corrected_subcategory": "Essence",
     "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T21:34:53.926016",
+    "filename": "operations_20260402_164325_a4edeb28.json",
+    "operation_index": 66,
+    "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,50",
+    "predicted_category": "Formations",
+    "predicted_subcategory": "udemy",
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T21:50:00.917794",
+    "filename": "operations_20260402_164325_a4edeb28.json",
+    "operation_index": 66,
+    "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,50",
+    "predicted_category": "Formations",
+    "predicted_subcategory": "udemy",
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T21:54:06.886308",
+    "filename": "operations_20260402_164325_a4edeb28.json",
+    "operation_index": 66,
+    "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,50",
+    "predicted_category": "Formations",
+    "predicted_subcategory": "udemy",
+    "corrected_category": "Fournitures",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T21:54:16.796859",
+    "filename": "operations_20260402_164325_a4edeb28.json",
+    "operation_index": 66,
+    "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,50",
+    "predicted_category": "Formations",
+    "predicted_subcategory": "udemy",
+    "corrected_category": "Fournitures",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T22:07:40.055538",
+    "filename": "operations_20260402_115725_275b0690.json",
+    "operation_index": 35,
+    "libelle": "DU291224AUCHANDAC MONTAUBAN 18,94",
+    "predicted_category": "Alimentation",
+    "predicted_subcategory": "Essence",
+    "corrected_category": "Véhicule",
+    "corrected_subcategory": "Essence",
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T22:07:40.055538",
+    "filename": "operations_20260402_115725_275b0690.json",
+    "operation_index": 37,
+    "libelle": "DU291224AUCHANDAC MONTAUBAN 34,78",
+    "predicted_category": "Alimentation",
+    "predicted_subcategory": "Essence",
+    "corrected_category": "Véhicule",
+    "corrected_subcategory": "Essence",
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T22:07:40.055538",
+    "filename": "operations_20260402_115725_275b0690.json",
+    "operation_index": 79,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 95,53",
+    "predicted_category": "Fournitures",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T22:07:40.055538",
+    "filename": "operations_20260402_115725_275b0690.json",
+    "operation_index": 80,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 479,00",
+    "predicted_category": "Fournitures",
+    "predicted_subcategory": null,
+    "corrected_category": "Matériel",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T22:07:40.055538",
+    "filename": "operations_20260402_115725_275b0690.json",
+    "operation_index": 81,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 13,49",
+    "predicted_category": "Fournitures",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T22:07:40.055538",
+    "filename": "operations_20260402_115725_275b0690.json",
+    "operation_index": 82,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 369,99",
+    "predicted_category": "Fournitures",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-09T22:54:36.672360",
+    "filename": "operations_20260402_164325_a4edeb28.json",
+    "operation_index": 66,
+    "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,50",
+    "predicted_category": "Formations",
+    "predicted_subcategory": "udemy",
+    "corrected_category": "Fournitures",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
   }
 ]

@@ -339,6 +339,7 @@ export interface EmailPreview {
   destinataires: string[]
   objet: string
   corps: string
+  corps_html?: string
 }
 
 export interface EmailHistoryEntry {
@@ -411,6 +412,10 @@ export interface OCRHistoryItem {
   amounts_found: number[]
   supplier?: string
   confidence: number
+  best_date?: string | null
+  best_amount?: number | null
+  auto_renamed?: boolean
+  original_filename?: string | null
 }
 
 export interface JustificatifInfo {
@@ -425,6 +430,8 @@ export interface JustificatifInfo {
   ocr_amount?: number | null
   ocr_date?: string | null
   ocr_supplier?: string | null
+  auto_renamed?: boolean
+  original_filename?: string
 }
 
 export interface JustificatifStats {

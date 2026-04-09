@@ -8,6 +8,57 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-10) — Session 9
+
+- **Auto-rename justificatifs post-OCR**
+  - Convention `fournisseur_YYYYMMDD_montant,XX.pdf` (virgule decimale)
+  - Nouveau `naming_service.py` : `normalize_supplier()`, `build_convention_filename()`, `deduplicate_filename()`
+  - `auto_rename_from_ocr()` dans justificatif_service : renomme apres OCR (sandbox, batch upload, upload direct)
+  - `rename_justificatif()` : renomme PDF + .ocr.json + associations operations + GED metadata
+  - Endpoint `POST /api/justificatifs/{filename}/rename` pour renommage manuel
+  - Regex `_parse_filename_convention` accepte virgule et point
+  - SSE event enrichi (`auto_renamed`, `original_filename`)
+  - Idempotent : ne re-renomme pas les fichiers deja conformes
+
+- **FilenameEditor frontend**
+  - Composant inline-editable avec suggestion convention OCR (bouton Sparkles)
+  - Badge "auto" (icone Wand2) si fichier auto-renomme
+  - Integre dans l'historique OCR et le drawer justificatif
+  - Hook `useRenameJustificatif()` avec invalidation queries
+
+- **Apercu PDF hover dans historique OCR**
+  - Icone oeil par ligne → popover 300×400px au survol (delai 300ms)
+  - Iframe PDF inline via endpoint `/preview`
+
+- **Historique OCR trie par date de traitement**
+  - Tri par `processed_at` (timestamp OCR) au lieu du nom de fichier
+  - Plus recent en premier (desc par defaut)
+
+- **Filtres Templates justificatifs**
+  - Section Bibliotheque : recherche texte (fournisseur/categorie) + dropdown categorie + reset
+  - Section Creer : recherche texte + dropdown mois (date OCR) + compteur + apercu PDF drawer lateral
+
+- **Template HTML email comptable brande**
+  - Template externe `backend/templates/email_template.html` (tables, compatible Gmail/Outlook)
+  - En-tete : logo lockup 200px entre filets violets #534AB7, titre contextuel
+  - Mention "Email genere par NeuronXcompta" en italique
+  - Introduction contextuelle (accord pluriel, type documents)
+  - Arborescence ZIP : lecture reelle via `_build_zip_tree()` ou simulee via `_build_doc_tree()`
+  - Signature + footer copyright icone + NeuronXcompta
+  - Logos CID pour envoi reel, base64 data-URI pour preview iframe
+  - Toggle HTML/Texte dans le drawer (boutons segmentes)
+  - Preview retourne `corps_html` en plus de `corps`
+  - Fix 422 preview : nouveau `EmailPreviewRequest` (documents seuls, sans destinataires)
+
+- **Deduplication rapports avec archivage**
+  - `REPORTS_ARCHIVES_DIR = data/reports/archives/`
+  - `_archive_report()` : deplace l'ancien fichier au lieu de le supprimer
+  - Suffixe `_archived_YYYYMMDD_HHMMSS` + metadonnees dans `archives_index.json`
+  - Archives non indexees dans la GED (backup silencieux)
+
+- **Tri documents drawer email par periode**
+  - Chaque groupe (exports, rapports, etc.) trie par date croissante (jan→dec)
+
 ### Added (2026-04-09) — Session 8
 
 - **Batch reconstitution fac-simile depuis JustificatifsPage**

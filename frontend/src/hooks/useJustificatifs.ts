@@ -112,3 +112,24 @@ export function useJustificatifOperationSuggestions(justificatifFilename: string
     enabled: !!justificatifFilename,
   })
 }
+
+export function useRenameJustificatif() {
+  const queryClient = useQueryClient()
+  return useMutation<
+    { old: string; new: string; location: string },
+    Error,
+    { filename: string; newFilename: string }
+  >({
+    mutationFn: ({ filename, newFilename }) =>
+      api.post(`/justificatifs/${encodeURIComponent(filename)}/rename`, {
+        new_filename: newFilename,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+      queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+      queryClient.invalidateQueries({ queryKey: ['operations'] })
+      queryClient.invalidateQueries({ queryKey: ['ged'] })
+    },
+  })
+}

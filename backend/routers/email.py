@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.core.config import SETTINGS_FILE
-from backend.models.email import EmailSendRequest, EmailSendResponse, EmailTestResponse, EmailHistoryEntry
+from backend.models.email import EmailPreviewRequest, EmailSendRequest, EmailSendResponse, EmailTestResponse, EmailHistoryEntry
 from backend.services import email_service, email_history_service
 
 router = APIRouter(prefix="/api/email", tags=["email"])
@@ -47,15 +47,16 @@ async def list_documents(
 
 
 @router.post("/preview")
-async def preview_email(request: EmailSendRequest):
-    """Génère une prévisualisation du mail (objet + corps)."""
+async def preview_email(request: EmailPreviewRequest):
+    """Génère une prévisualisation du mail (objet + corps plain + corps HTML)."""
     settings = _load_settings()
     nom = settings.get("email_default_nom")
     destinataires = settings.get("email_comptable_destinataires", [])
     return {
         "destinataires": destinataires,
         "objet": email_service.generate_email_subject(request.documents, nom),
-        "corps": email_service.generate_email_body(request.documents, nom),
+        "corps": email_service.generate_email_body_plain(request.documents, nom),
+        "corps_html": email_service.generate_email_html(request.documents, nom, for_preview=True),
     }
 
 
