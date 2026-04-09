@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-04-07T20:59:58.329302",
+  "filename": "operations_20260402_164211_94c05047.json",
+  "mode": "empty_only",
+  "total_operations": 34,
+  "predicted": 3,
+  "high_confidence": 3,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 229,49",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 127,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 35,96",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

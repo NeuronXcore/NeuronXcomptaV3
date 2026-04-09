@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-04-08T21:44:10.461682",
+  "filename": "operations_20260402_163338_38dd0f42.json",
+  "mode": "empty_only",
+  "total_operations": 73,
+  "predicted": 2,
+  "high_confidence": 2,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 230,75",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 247,66",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-04-07T21:25:39.782698",
+  "filename": "operations_20260402_120614_51b5892b.json",
+  "mode": "empty_only",
+  "total_operations": 55,
+  "predicted": 6,
+  "high_confidence": 6,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "DU310125AMAZONPAYMENTSPAYLI2441535/ 25,52",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU040225AMAZONPAYMENTSPAYLI2441535/ 55,98",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU160225AMAZONPAYMENTSPAYLI2441535/ 85,49",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU170225AMAZONPAYMENTSPAYLI2441535/ 39,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU190225AMAZONPAYMENTSPAYLI2441535/ 37,68",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU190225AMAZONPAYMENTSPAYLI2441535/ 99,00",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

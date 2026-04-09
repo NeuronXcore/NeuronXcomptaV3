@@ -1,30 +1,4 @@
 {
   "version": 1,
-  "providers": [
-    {
-      "id": "urssaf-trimestriel",
-      "fournisseur": "URSSAF",
-      "label": "Cotisations URSSAF",
-      "mode": "facture",
-      "periodicite": "trimestriel",
-      "mois_attendus": [
-        1,
-        4,
-        7,
-        10
-      ],
-      "jour_attendu": 15,
-      "delai_retard_jours": 15,
-      "montant_estime": 3500.0,
-      "categorie": null,
-      "keywords_ocr": [
-        "urssaf",
-        "cotisation"
-      ],
-      "keywords_operations": [],
-      "tolerance_montant": 5.0,
-      "poste_comptable": null,
-      "actif": true
-    }
-  ]
+  "providers": []
 }

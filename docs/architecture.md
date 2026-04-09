@@ -165,10 +165,16 @@ Architecture ZIP (generate_single_export) :
   ├── Export_Comptable_{YYYY}_{Mois}.csv    (toujours inclus)
   ├── releves/
   │   └── pdf_{hash}.pdf                     (relevé bancaire si trouvé)
-  ├── rapports/
-  │   └── *.pdf, *.csv                       (auto-détectés ou sélectionnés)
-  └── justificatifs/
-      └── *.pdf                              (justificatifs associés aux opérations)
+  ├── justificatifs/
+  │   └── *.pdf                              (justificatifs associés aux opérations)
+  └── compte_attente/                        (si include_compte_attente=true, défaut)
+      ├── compte_attente_{mois}.pdf
+      └── compte_attente_{mois}.csv
+
+Post-génération :
+  → Copie standalone PDF+CSV dans data/reports/ (scanné par la GED)
+  → Enregistrement GED via register_rapport() (report_type: "export_comptable")
+  → Déduplication : régénérer écrase le fichier et met à jour l'entrée GED
 
 _prepare_export_operations(operations, filename) :
   → Itère les opérations, explose les ventilations en sous-lignes [V1/N]
@@ -193,6 +199,40 @@ Historique (exports_history.json) :
 Batch (generate_batch_export) :
   → ZIP multi-mois avec sous-dossiers {Mois}_{Année}/
   → Chaque sous-dossier contient la même architecture que l'export unitaire
+```
+
+### Export Compte d'Attente
+
+```
+Service dédié : alerte_export_service.py
+
+Nommage :
+  Par mois : compte_attente_{mois_minuscule}.{ext}  (ex: compte_attente_janvier.pdf)
+  Par année : compte_attente_{année}.{ext}           (ex: compte_attente_2025.csv)
+
+Collecte (_collect_attente_operations) :
+  → Itère les fichiers d'opérations pour l'année/mois
+  → Filtre : compte_attente == True OU catégorie vide/None/"Autres"/"Non catégorisé"/"?"
+  → Tri par date croissante
+
+CSV : BOM UTF-8, séparateur ;, CRLF, montants FR
+  Colonnes : Date, Libellé, Catégorie, Sous-catégorie, Débit, Crédit, Type alerte, Commentaire
+  Totaux en bas (débit, crédit, solde, nb opérations)
+
+PDF : paysage A4, logo backend/assets/logo_lockup_light_400.png
+  Tableau 7 colonnes, alternance couleurs, header violet
+  Récapitulatif : total débits/crédits/solde + comptage par type d'alerte
+  Footer paginé : Page X + NeuronXcompta + période + date génération
+
+Cas 0 opérations : fichier généré avec mention "Aucune opération en compte d'attente"
+
+GED : enregistrement via register_rapport() (report_type: "compte_attente")
+  Stockage dans data/reports/ (scanné par la GED) + copie dans data/exports/ (download)
+  Déduplication : même year/month/format → écrasement + mise à jour entrée GED
+
+Intégration Export Comptable :
+  → include_compte_attente (défaut true) dans GenerateExportRequest et GenerateMonthRequest
+  → Génère PDF + CSV dans le dossier compte_attente/ du ZIP
 ```
 
 ### Email Comptable

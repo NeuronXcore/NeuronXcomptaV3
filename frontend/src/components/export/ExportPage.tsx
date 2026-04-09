@@ -92,6 +92,8 @@ function GenerateTab() {
   const readyCount = useMemo(() => months.filter(m => m.has_pdf || m.has_csv).length, [months])
   const toGenerateCount = useMemo(() => monthsWithData.filter(m => !m.has_pdf).length, [monthsWithData])
 
+  const [includeCompteAttente, setIncludeCompteAttente] = useState(true)
+
   // ── Génération unitaire ──
   const [generatingMonth, setGeneratingMonth] = useState<number | null>(null)
 
@@ -100,6 +102,7 @@ function GenerateTab() {
     try {
       await generateMonth.mutateAsync({
         year: selectedYear, month, format: 'pdf',
+        include_compte_attente: includeCompteAttente,
       })
       toast.success('Export PDF + CSV généré — disponible dans l\'historique')
     } catch {
@@ -170,6 +173,16 @@ function GenerateTab() {
             {batchFormat === 'csv' ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
             Tout exporter CSV (ZIP)
           </button>
+          <div className="h-6 w-px bg-border mx-1" />
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includeCompteAttente}
+              onChange={(e) => setIncludeCompteAttente(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-text">Compte d'attente</span>
+          </label>
         </div>
         <div className="text-xs text-text-muted flex items-center gap-3">
           {readyCount > 0 && (
@@ -471,7 +484,15 @@ function HistoryTab() {
 
       {Object.entries(byYear)
         .sort(([a], [b]) => Number(b) - Number(a))
-        .map(([year, yearExports]) => (
+        .map(([year, yearExports]) => {
+          // Tri par mois croissant (jan → déc), puis par date de création
+          const sorted = [...yearExports].sort((a, b) => {
+            const ma = a.month ?? 99
+            const mb = b.month ?? 99
+            if (ma !== mb) return ma - mb
+            return (a.created ?? '').localeCompare(b.created ?? '')
+          })
+          return (
           <div key={year}>
             <h3 className="text-sm font-semibold text-text-muted mb-3 flex items-center gap-2">
               <Calendar size={14} />
@@ -479,7 +500,7 @@ function HistoryTab() {
             </h3>
 
             <div className="space-y-2">
-              {yearExports.map(exp => {
+              {sorted.map(exp => {
                 const isExpanded = expandedFile === exp.filename
                 const isSelected = selectedExports.has(exp.filename)
                 return (
@@ -566,7 +587,7 @@ function HistoryTab() {
               })}
             </div>
           </div>
-        ))}
+        )})}
 
       {/* Delete confirmation modal */}
       {confirmDelete && (

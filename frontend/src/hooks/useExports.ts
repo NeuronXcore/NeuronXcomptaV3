@@ -168,7 +168,7 @@ export function useAvailableReports(year: number, month: number, enabled: boolea
 
 export function useGenerateMonthExport() {
   const qc = useQueryClient()
-  return useMutation<GenerateMonthResponse, Error, { year: number; month: number; format: 'pdf' | 'csv'; report_filenames?: string[] | null }>({
+  return useMutation<GenerateMonthResponse, Error, { year: number; month: number; format: 'pdf' | 'csv'; report_filenames?: string[] | null; include_compte_attente?: boolean }>({
     mutationFn: (params) => api.post('/exports/generate-month', params),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['export-status', vars.year] })

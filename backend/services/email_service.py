@@ -33,7 +33,7 @@ MAX_TOTAL_SIZE_MB = 25
 # Extensions à exclure du listing
 EXCLUDED_EXTENSIONS = {".json", ".png", ".ocr.json"}
 EXCLUDED_SUFFIXES = [".ocr.json"]
-EXCLUDED_FILENAMES = {".DS_Store", "Thumbs.db", ".gitkeep", "reports_index.json"}
+EXCLUDED_FILENAMES = {".DS_Store", "Thumbs.db", ".gitkeep", "reports_index.json", "reports_index.json.migrated"}
 
 
 def _resolve_document_path(doc: DocumentRef) -> Optional[Path]:

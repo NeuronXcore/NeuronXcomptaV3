@@ -519,7 +519,7 @@ Liste les fichiers contenus dans un ZIP d'export avec noms enrichis (relevés �
 Générer un export comptable ZIP (endpoint legacy avec options granulaires).
 
 ### `POST /generate-month`
-Générer un export mensuel. Produit un ZIP avec PDF+CSV+relevés+rapports+justificatifs.
+Générer un export mensuel. Produit un ZIP avec PDF+CSV+relevés+rapports+justificatifs+compte_attente.
 
 **Body :**
 ```json
@@ -527,9 +527,13 @@ Générer un export mensuel. Produit un ZIP avec PDF+CSV+relevés+rapports+justi
   "year": 2025,
   "month": 1,
   "format": "pdf",
-  "report_filenames": null
+  "report_filenames": null,
+  "include_compte_attente": true
 }
 ```
+
+- `include_compte_attente` : défaut `true`. Inclut `compte_attente/` (PDF + CSV) dans le ZIP.
+- Les fichiers Export Comptable sont aussi copiés en standalone dans `data/reports/` et enregistrés dans la GED.
 
 ### `POST /generate-batch`
 Générer un batch d'exports pour plusieurs mois dans un seul ZIP (sous-dossiers par mois).
@@ -780,6 +784,37 @@ Résout une alerte. Body : `{ "alerte_type": "justificatif_manquant", "note": ".
 
 ### `POST /{filename}/refresh`
 Recalcule les alertes pour un fichier. Retourne `{ "nb_alertes": 18, "nb_operations": 54 }`.
+
+### `POST /export`
+Exporte les opérations en compte d'attente en PDF ou CSV.
+
+**Body :**
+```json
+{
+  "year": 2025,
+  "month": 1,
+  "format": "pdf"
+}
+```
+
+- `month` : optionnel. Si omis, exporte l'année entière.
+- `format` : `"pdf"` ou `"csv"`.
+- Cas 0 opérations : fichier généré quand même (preuve mois clean).
+- Le fichier est enregistré automatiquement dans la GED comme rapport (`report_type: "compte_attente"`).
+- Déduplication : régénérer écrase le fichier et met à jour l'entrée GED.
+
+**Réponse :**
+```json
+{
+  "filename": "compte_attente_janvier.pdf",
+  "nb_operations": 58,
+  "total_debit": 18424.66,
+  "total_credit": 50730.15
+}
+```
+
+### `GET /export/download/{filename}`
+Télécharge un export du compte d'attente depuis `data/exports/`.
 
 ---
 

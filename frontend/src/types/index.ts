@@ -11,6 +11,13 @@ export interface AlerteSummary {
   par_fichier: { filename: string; nb_alertes: number; nb_operations: number; month?: number; year?: number }[]
 }
 
+export interface AlerteExportResponse {
+  filename: string
+  nb_operations: number
+  total_debit: number
+  total_credit: number
+}
+
 export interface VentilationLine {
   index: number
   montant: number

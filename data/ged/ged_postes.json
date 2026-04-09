@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "exercice": 2026,
+  "postes": [
+    {
+      "id": "loyer-cabinet",
+      "label": "Loyer & charges cabinet",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Loyer"
+      ],
+      "notes": "",
+      "is_system": true
+    },
+    {
+      "id": "loyer-domicile",
+      "label": "Loyer domicile (quote-part pro)",
+      "deductible_pct": 20,
+      "categories_associees": [],
+      "notes": "Prorata surface bureau / logement",
+      "is_system": true
+    },
+    {
+      "id": "vehicule",
+      "label": "Véhicule (carburant, entretien, leasing)",
+      "deductible_pct": 70,
+      "categories_associees": [
+        "Transport",
+        "Véhicule"
+      ],
+      "notes": "",
+      "is_system": true
+    },
+    {
+      "id": "telephone",
+      "label": "Téléphone mobile",
+      "deductible_pct": 60,
+      "categories_associees": [
+        "Téléphone",
+        "Télécommunications"
+      ],
+      "notes": "Usage mixte",
+      "is_system": true
+    },
+    {
+      "id": "internet-domicile",
+      "label": "Internet domicile",
+      "deductible_pct": 20,
+      "categories_associees": [
+        "Internet"
+      ],
+      "notes": "= prorata surface bureau",
+      "is_system": true
+    },
+    {
+      "id": "assurance-rcp",
+      "label": "Assurance RCP",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Assurance"
+      ],
+      "notes": "",
+      "is_system": true
+    },
+    {
+      "id": "charges-sociales",
+      "label": "Charges sociales (URSSAF, CARMF, ODM)",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Charges sociales",
+        "URSSAF",
+        "CARMF"
+      ],
+      "notes": "Obligatoires",
+      "is_system": true
+    },
+    {
+      "id": "frais-personnel",
+      "label": "Frais de personnel",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Personnel",
+        "Salaires"
+      ],
+      "notes": "",
+      "is_system": true
+    },
+    {
+      "id": "fournitures",
+      "label": "Achats & fournitures",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Fournitures",
+        "Matériel",
+        "Consommables"
+      ],
+      "notes": "",
+      "is_system": true
+    },
+    {
+      "id": "formation",
+      "label": "Formation & congrès",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Formation"
+      ],
+      "notes": "DPC, séminaires",
+      "is_system": true
+    },
+    {
+      "id": "cotisations-pro",
+      "label": "Cotisations professionnelles",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Cotisation",
+        "AGA",
+        "Ordre"
+      ],
+      "notes": "AGA, syndicat, Ordre",
+      "is_system": true
+    },
+    {
+      "id": "repas",
+      "label": "Frais de repas",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Repas",
+        "Restaurant"
+      ],
+      "notes": "Part déductible après seuil",
+      "is_system": true
+    },
+    {
+      "id": "honoraires-retrocedes",
+      "label": "Honoraires rétrocédés",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Rétrocession"
+      ],
+      "notes": "",
+      "is_system": true
+    },
+    {
+      "id": "frais-financiers",
+      "label": "Frais financiers",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Banque",
+        "Frais bancaires"
+      ],
+      "notes": "Intérêts emprunt pro",
+      "is_system": true
+    },
+    {
+      "id": "madelin-prevoyance",
+      "label": "Prévoyance Madelin",
+      "deductible_pct": 100,
+      "categories_associees": [
+        "Madelin",
+        "Prévoyance"
+      ],
+      "notes": "Dans limites fiscales",
+      "is_system": true
+    },
+    {
+      "id": "divers",
+      "label": "Divers / Non classé",
+      "deductible_pct": 0,
+      "categories_associees": [],
+      "notes": "Non déduit par défaut",
+      "is_system": true
+    }
+  ]
+}

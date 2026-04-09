@@ -8,6 +8,55 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-09) — Session 7
+
+- **Export Compte d'Attente**
+  - Nouveau service dédié `alerte_export_service.py` : génération PDF et CSV des opérations en compte d'attente
+  - Export par mois (`compte_attente_janvier.pdf`) ou par année (`compte_attente_2025.pdf`)
+  - PDF professionnel : logo, tableau 7 colonnes, alternance couleurs, récapitulatif par type d'alerte, footer paginé
+  - CSV : BOM UTF-8, séparateur `;`, CRLF, montants FR, 8 colonnes avec totaux
+  - Cas 0 opérations : fichier généré quand même (preuve mois clean pour le comptable)
+  - Enregistrement automatique dans la GED comme rapport (`report_type: "compte_attente"`)
+  - Déduplication à la régénération (écrasement fichier + mise à jour entrée GED)
+  - Endpoints : `POST /api/alertes/export`, `GET /api/alertes/export/download/{filename}`
+  - Modèles Pydantic : `AlerteExportRequest`, `AlerteExportResponse`
+
+- **Intégration Export Comptable ↔ Compte d'Attente**
+  - Nouveau champ `include_compte_attente: bool = True` dans `GenerateExportRequest` et `GenerateMonthRequest`
+  - Chaque ZIP d'export comptable inclut automatiquement `compte_attente/` (PDF + CSV)
+  - Checkbox "Compte d'attente" précochée dans ExportPage (barre d'action)
+
+- **Export Comptable enregistré dans la GED**
+  - Les fichiers `Export_Comptable_{Mois}.pdf/csv` sont copiés en standalone dans `data/reports/`
+  - Enregistrement automatique dans la GED via `register_rapport()` avec déduplication
+  - Exclusion des préfixes `export_comptable_` et `compte_attente_` du scan `_find_existing_reports()` pour éviter les doublons dans le ZIP
+
+- **AlertesPage — Bouton export dropdown**
+  - Bouton "Exporter" avec dropdown 4 options : PDF/CSV mois sélectionné + PDF/CSV année
+  - Spinner pendant la génération, toast succès + téléchargement auto
+  - Fermeture dropdown au clic extérieur
+
+- **Drawer Envoi Comptable — Améliorations UX**
+  - **Expanders intelligents** : groupes ≥10 docs repliés par défaut, petits groupes ouverts
+  - Badge compteur sélection visible quand un groupe est replié
+  - **Ordre de groupes** : Exports → Rapports → Relevés → Justificatifs → Documents (les plus pertinents en premier)
+  - **Jauge taille temps réel** : barre progression dans le footer gauche (bleue / ambre à 80% / rouge si > 25 Mo)
+  - **Pré-sélection intelligente** : ouverture depuis Export Comptable pré-coche le dernier export + tous les rapports, filtre Exports+Rapports actifs
+
+- **Historique exports trié par mois**
+  - Tri par année (desc) puis par mois croissant (jan → déc) au lieu de l'ordre API
+
+- **Justificatifs — Catégories éditables inline**
+  - Colonnes Catégorie et Sous-catégorie devenues des dropdowns select éditables
+  - Sous-catégorie dynamique selon la catégorie sélectionnée
+  - Sauvegarde automatique via `useSaveOperations` au changement
+  - Désactivé en mode "Toute l'année" (lecture seule)
+
+### Fixed (2026-04-09) — Session 7
+
+- Exclusion `reports_index.json.migrated` du listing documents email
+- Fix doublons dans le ZIP d'export comptable (exports et comptes d'attente n'apparaissent plus dans `rapports/`)
+
 ### Added (2026-04-08) — Session 6
 
 - **Titre automatique des rapports**

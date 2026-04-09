@@ -1,142 +1,147 @@
 [
   {
-    "Cat\u00e9gorie": "URSSAF",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "URSSAF",
+    "Sous-catégorie": null,
     "Couleur": "#1b12de"
   },
   {
-    "Cat\u00e9gorie": "Honoraires",
-    "Sous-cat\u00e9gorie": "Bloc",
+    "Catégorie": "Honoraires",
+    "Sous-catégorie": "Bloc",
     "Couleur": "#5fd8ea"
   },
   {
-    "Cat\u00e9gorie": "Honoraires",
-    "Sous-cat\u00e9gorie": "Optam",
+    "Catégorie": "Honoraires",
+    "Sous-catégorie": "Optam",
     "Couleur": "#5fd8ea"
   },
   {
-    "Cat\u00e9gorie": "perso",
-    "Sous-cat\u00e9gorie": "Retrait CB",
+    "Catégorie": "perso",
+    "Sous-catégorie": "Retrait CB",
     "Couleur": "#c9de40"
   },
   {
-    "Cat\u00e9gorie": "repas",
-    "Sous-cat\u00e9gorie": "",
+    "Catégorie": "repas",
+    "Sous-catégorie": "",
     "Couleur": "#dde012"
   },
   {
-    "Cat\u00e9gorie": "Rempla\u00e7ant",
-    "Sous-cat\u00e9gorie": "",
+    "Catégorie": "Remplaçant",
+    "Sous-catégorie": "",
     "Couleur": "#e8b93f"
   },
   {
-    "Cat\u00e9gorie": "Fournitures",
-    "Sous-cat\u00e9gorie": "",
+    "Catégorie": "Fournitures",
+    "Sous-catégorie": "",
     "Couleur": "#e8acad"
   },
   {
-    "Cat\u00e9gorie": "perso",
-    "Sous-cat\u00e9gorie": "virement",
+    "Catégorie": "perso",
+    "Sous-catégorie": "virement",
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "V\u00e9hicule",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Véhicule",
+    "Sous-catégorie": null,
     "Couleur": "#e2b30f"
   },
   {
-    "Cat\u00e9gorie": "V\u00e9hicule",
-    "Sous-cat\u00e9gorie": "Loyer",
+    "Catégorie": "Véhicule",
+    "Sous-catégorie": "Loyer",
     "Couleur": "#e8d919"
   },
   {
-    "Cat\u00e9gorie": "V\u00e9hicule",
-    "Sous-cat\u00e9gorie": "P\u00e9age",
+    "Catégorie": "Véhicule",
+    "Sous-catégorie": "Péage",
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "V\u00e9hicule",
-    "Sous-cat\u00e9gorie": "Parking",
+    "Catégorie": "Véhicule",
+    "Sous-catégorie": "Parking",
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "V\u00e9hicule",
-    "Sous-cat\u00e9gorie": "Essence",
+    "Catégorie": "Véhicule",
+    "Sous-catégorie": "Essence",
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "V\u00e9hicule",
-    "Sous-cat\u00e9gorie": "Entretien",
+    "Catégorie": "Véhicule",
+    "Sous-catégorie": "Entretien",
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "Formations",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Formations",
+    "Sous-catégorie": null,
     "Couleur": "#132ad8"
   },
   {
-    "Cat\u00e9gorie": "Abonnements",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Abonnements",
+    "Sous-catégorie": null,
     "Couleur": "#97a1ef"
   },
   {
-    "Cat\u00e9gorie": "Mat\u00e9riel",
-    "Sous-cat\u00e9gorie": "Informatique",
+    "Catégorie": "Matériel",
+    "Sous-catégorie": "Informatique",
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "Frais Bancaires",
-    "Sous-cat\u00e9gorie": "BNP",
+    "Catégorie": "Frais Bancaires",
+    "Sous-catégorie": "BNP",
     "Couleur": "#3dce1e"
   },
   {
-    "Cat\u00e9gorie": "Frais Bancaires",
-    "Sous-cat\u00e9gorie": "CA",
+    "Catégorie": "Frais Bancaires",
+    "Sous-catégorie": "CA",
     "Couleur": "#1cc930"
   },
   {
-    "Cat\u00e9gorie": "Rempla\u00e7ant",
-    "Sous-cat\u00e9gorie": "Honoraires",
+    "Catégorie": "Remplaçant",
+    "Sous-catégorie": "Honoraires",
     "Couleur": "#1cc930"
   },
   {
-    "Cat\u00e9gorie": "Rempla\u00e7ant",
-    "Sous-cat\u00e9gorie": "H\u00e9bergement",
+    "Catégorie": "Remplaçant",
+    "Sous-catégorie": "Hébergement",
     "Couleur": "#1cc930"
   },
   {
-    "Cat\u00e9gorie": "CARMF",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "CARMF",
+    "Sous-catégorie": null,
     "Couleur": "#5335e0"
   },
   {
-    "Cat\u00e9gorie": "Telephone-Internet",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Telephone-Internet",
+    "Sous-catégorie": null,
     "Couleur": "#e48f15"
   },
   {
-    "Cat\u00e9gorie": "Logiciel",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Logiciel",
+    "Sous-catégorie": null,
     "Couleur": "#e48f15"
   },
   {
-    "Cat\u00e9gorie": "Comptable",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Comptable",
+    "Sous-catégorie": null,
     "Couleur": "#e48f15"
   },
   {
-    "Cat\u00e9gorie": "Poste",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Poste",
+    "Sous-catégorie": null,
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "Ordre des M\u00e9decins",
-    "Sous-cat\u00e9gorie": null,
+    "Catégorie": "Ordre des Médecins",
+    "Sous-catégorie": null,
     "Couleur": "#95A5A6"
   },
   {
-    "Cat\u00e9gorie": "V\u00e9hicule",
-    "Sous-cat\u00e9gorie": "Assurance",
+    "Catégorie": "Véhicule",
+    "Sous-catégorie": "Assurance",
     "Couleur": "#95A5A6"
+  },
+  {
+    "Catégorie": "Formations",
+    "Sous-catégorie": "Udemy",
+    "Couleur": "#3b51f7"
   }
 ]

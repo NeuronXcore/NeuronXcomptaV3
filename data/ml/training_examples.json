@@ -1370,5 +1370,70 @@
     "libelle": "prlvsepaorangesaech241225id",
     "categorie": "Telephone-Internet",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech190525id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "adhauc montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virseparecufrmpaypaleurope",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "rembourstcbdu030125tuneldenvalira",
+    "categorie": "Véhicule",
+    "sous_categorie": "Péage"
+  },
+  {
+    "libelle": "tuneldenvalira",
+    "categorie": "Véhicule",
+    "sous_categorie": "Péage"
+  },
+  {
+    "libelle": "eselfenvalir",
+    "categorie": "Véhicule",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaorangesaorangeech060125id",
+    "categorie": "Telephone-Internet",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepafcebankplcech200125id",
+    "categorie": "Véhicule",
+    "sous_categorie": "Loyer"
+  },
+  {
+    "libelle": "prlvsepapaypaleuropesarlet",
+    "categorie": "Formations",
+    "sous_categorie": "udemy"
+  },
+  {
+    "libelle": "lw montauban",
+    "categorie": "repas",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "autosetam82 montauban",
+    "categorie": "Véhicule",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "laposte820090montauban",
+    "categorie": "Poste",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "microsoftstore",
+    "categorie": "Logiciel",
+    "sous_categorie": ""
   }
 ]

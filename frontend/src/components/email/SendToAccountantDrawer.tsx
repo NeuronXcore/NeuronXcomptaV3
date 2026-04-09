@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   X, Send, Search, Check, Loader2, Archive, FileText,
-  FileSpreadsheet, Paperclip, FolderOpen, Mail, CheckCircle2, XCircle, ChevronDown,
+  FileSpreadsheet, Paperclip, FolderOpen, Mail, CheckCircle2, XCircle, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { cn, MOIS_FR } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -54,14 +54,31 @@ export default function SendToAccountantDrawer() {
     setFilterYear(undefined)
     setFilterMonth(undefined)
     if (defaultFilter) {
-      setActiveTypes(new Set([defaultFilter as DocumentType]))
+      // Show both the requested type + rapports for related context
+      const types = new Set([defaultFilter as DocumentType])
+      if (defaultFilter === 'export') types.add('rapport')
+      setActiveTypes(types)
     } else {
       setActiveTypes(new Set(TYPE_CONFIG.map(t => t.key)))
     }
-    // Preselect
+    // Preselect — explicit or smart
     const sel = new Map<string, DocumentRef>()
-    for (const doc of preselected) {
-      sel.set(doc.filename, doc)
+    if (preselected.length > 0) {
+      for (const doc of preselected) {
+        sel.set(doc.filename, doc)
+      }
+    } else if (defaultFilter === 'export' && allDocuments) {
+      // Smart pre-selection: select the most recent export + matching rapports
+      const exports = allDocuments.filter(d => d.type === 'export')
+      const rapports = allDocuments.filter(d => d.type === 'rapport')
+      // Select the most recent export (first in list, they come sorted by date desc)
+      if (exports.length > 0) {
+        sel.set(exports[0].filename, { type: 'export', filename: exports[0].filename })
+      }
+      // Select all rapports (usually few — Export Comptable + Compte d'attente)
+      for (const r of rapports) {
+        sel.set(r.filename, { type: 'rapport', filename: r.filename })
+      }
     }
     setSelected(sel)
     // Recipients from settings
@@ -133,16 +150,41 @@ export default function SendToAccountantDrawer() {
     })
   }, [allDocuments, activeTypes, search, filterYear, filterMonth])
 
-  // Group by type
+  // Group by type — ordered: exports, rapports, relevés, justificatifs, ged
   const grouped = useMemo(() => {
-    const map = new Map<string, DocumentInfo[]>()
+    const buckets: Record<string, DocumentInfo[]> = {}
     for (const d of filteredDocs) {
-      const list = map.get(d.type) ?? []
-      list.push(d)
-      map.set(d.type, list)
+      ;(buckets[d.type] ??= []).push(d)
     }
-    return map
+    const ordered = new Map<string, DocumentInfo[]>()
+    for (const { key } of TYPE_CONFIG) {
+      if (buckets[key]?.length) ordered.set(key, buckets[key])
+    }
+    return ordered
   }, [filteredDocs])
+
+  // Expanders — smart collapse: groups with >=10 docs start collapsed
+  const COLLAPSE_THRESHOLD = 10
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const toCollapse = new Set<string>()
+    for (const [type, docs] of grouped.entries()) {
+      if (docs.length >= COLLAPSE_THRESHOLD) toCollapse.add(type)
+    }
+    setCollapsed(toCollapse)
+  // Only recompute on grouped identity change (not every render)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped.size])
+
+  const toggleCollapse = useCallback((type: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
+  }, [])
 
   const toggleDoc = useCallback((doc: DocumentInfo) => {
     setSelected(prev => {
@@ -322,67 +364,99 @@ export default function SendToAccountantDrawer() {
                 if (!config) return null
                 const Icon = config.icon
                 const allChecked = docs.every(d => selected.has(d.filename))
+                const isCollapsed = collapsed.has(type)
+                const selectedInGroup = docs.filter(d => selected.has(d.filename)).length
 
                 return (
                   <div key={type}>
-                    <button
-                      onClick={() => {
-                        if (allChecked) {
-                          setSelected(prev => {
-                            const next = new Map(prev)
-                            docs.forEach(d => next.delete(d.filename))
-                            return next
-                          })
-                        } else {
-                          setSelected(prev => {
-                            const next = new Map(prev)
-                            docs.forEach(d => next.set(d.filename, { type: d.type as DocumentType, filename: d.filename }))
-                            return next
-                          })
-                        }
-                      }}
-                      className="flex items-center gap-2 text-[10px] font-semibold text-text-muted uppercase mb-1.5 hover:text-text w-full"
-                    >
-                      <div className={cn(
-                        'w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-all',
-                        allChecked ? 'bg-primary border-transparent' : 'border-text-muted/30'
-                      )}>
-                        {allChecked && <Check size={10} className="text-white" />}
-                      </div>
-                      <Icon size={12} />
-                      {config.label} ({docs.length})
-                    </button>
-                    <div className="space-y-0.5">
-                      {docs.map(d => (
-                        <button
-                          key={d.filename}
-                          onClick={() => toggleDoc(d)}
-                          className={cn(
-                            'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-colors',
-                            selected.has(d.filename) ? 'bg-primary/8' : 'hover:bg-surface-hover'
-                          )}
-                        >
-                          <div className={cn(
-                            'w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-all',
-                            selected.has(d.filename) ? 'bg-primary border-transparent' : 'border-text-muted/30'
-                          )}>
-                            {selected.has(d.filename) && <Check size={10} className="text-white" />}
-                          </div>
-                          <span className="text-xs text-text truncate flex-1">{d.display_name}</span>
-                          <span className="text-[10px] text-text-muted shrink-0">{formatSize(d.size_bytes)}</span>
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-1 mb-1.5">
+                      {/* Expand/collapse toggle */}
+                      <button
+                        onClick={() => toggleCollapse(type)}
+                        className="p-0.5 text-text-muted hover:text-text transition-colors"
+                      >
+                        {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                      </button>
+                      {/* Select-all checkbox */}
+                      <button
+                        onClick={() => {
+                          if (allChecked) {
+                            setSelected(prev => {
+                              const next = new Map(prev)
+                              docs.forEach(d => next.delete(d.filename))
+                              return next
+                            })
+                          } else {
+                            setSelected(prev => {
+                              const next = new Map(prev)
+                              docs.forEach(d => next.set(d.filename, { type: d.type as DocumentType, filename: d.filename }))
+                              return next
+                            })
+                          }
+                        }}
+                        className="flex items-center gap-2 text-[10px] font-semibold text-text-muted uppercase hover:text-text flex-1"
+                      >
+                        <div className={cn(
+                          'w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-all',
+                          allChecked ? 'bg-primary border-transparent' : 'border-text-muted/30'
+                        )}>
+                          {allChecked && <Check size={10} className="text-white" />}
+                        </div>
+                        <Icon size={12} />
+                        {config.label} ({docs.length})
+                        {isCollapsed && selectedInGroup > 0 && (
+                          <span className="text-[9px] text-primary font-normal normal-case ml-1">
+                            {selectedInGroup} sélectionné{selectedInGroup > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </button>
                     </div>
+                    {!isCollapsed && (
+                      <div className="space-y-0.5">
+                        {docs.map(d => (
+                          <button
+                            key={d.filename}
+                            onClick={() => toggleDoc(d)}
+                            className={cn(
+                              'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition-colors',
+                              selected.has(d.filename) ? 'bg-primary/8' : 'hover:bg-surface-hover'
+                            )}
+                          >
+                            <div className={cn(
+                              'w-4 h-4 rounded flex items-center justify-center border shrink-0 transition-all',
+                              selected.has(d.filename) ? 'bg-primary border-transparent' : 'border-text-muted/30'
+                            )}>
+                              {selected.has(d.filename) && <Check size={10} className="text-white" />}
+                            </div>
+                            <span className="text-xs text-text truncate flex-1">{d.display_name}</span>
+                            <span className="text-[10px] text-text-muted shrink-0">{formatSize(d.size_bytes)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })
             )}
           </div>
 
-          {/* Footer left */}
-          <div className="px-5 py-3 border-t border-border flex items-center justify-between text-xs text-text-muted">
-            <span>{selected.size} document{selected.size > 1 ? 's' : ''} sélectionné{selected.size > 1 ? 's' : ''}</span>
-            <span>{formatSize(totalSize)}</span>
+          {/* Footer left — size gauge */}
+          <div className="px-5 py-3 border-t border-border space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-text-muted">
+              <span>{selected.size} document{selected.size > 1 ? 's' : ''} sélectionné{selected.size > 1 ? 's' : ''}</span>
+              <span className={cn(overLimit && 'text-danger font-medium')}>
+                {totalSizeMb.toFixed(1)} / {MAX_SIZE_MB} Mo
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-background rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all duration-300',
+                  overLimit ? 'bg-danger' : totalSizeMb > MAX_SIZE_MB * 0.8 ? 'bg-amber-500' : 'bg-primary'
+                )}
+                style={{ width: `${Math.min((totalSizeMb / MAX_SIZE_MB) * 100, 100)}%` }}
+              />
+            </div>
           </div>
         </div>
 

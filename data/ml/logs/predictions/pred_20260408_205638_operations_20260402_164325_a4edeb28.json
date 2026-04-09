@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-04-08T20:56:38.661579",
+  "filename": "operations_20260402_164325_a4edeb28.json",
+  "mode": "empty_only",
+  "total_operations": 89,
+  "predicted": 5,
+  "high_confidence": 5,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 274,75",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 174,75",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 174,50",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,50",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 174,75",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

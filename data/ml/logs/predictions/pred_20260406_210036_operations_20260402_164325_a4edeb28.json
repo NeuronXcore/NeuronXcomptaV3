@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-06T21:00:36.893065",
+  "filename": "operations_20260402_164325_a4edeb28.json",
+  "mode": "empty_only",
+  "total_operations": 89,
+  "predicted": 1,
+  "high_confidence": 1,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFREVAC/BENRVAC 500,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-08T21:44:24.952945",
+  "filename": "operations_20260402_163825_1c979f6e.json",
+  "mode": "empty_only",
+  "total_operations": 77,
+  "predicted": 1,
+  "high_confidence": 1,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 247,65",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

@@ -22,6 +22,7 @@ class GenerateExportRequest(BaseModel):
     include_bank_statement: bool = True
     include_justificatifs: bool = True
     include_reports: bool = False
+    include_compte_attente: bool = True
 
 
 class GenerateMonthRequest(BaseModel):
@@ -29,6 +30,7 @@ class GenerateMonthRequest(BaseModel):
     month: int
     format: str = "pdf"
     report_filenames: Optional[List[str]] = None
+    include_compte_attente: bool = True
 
 
 class GenerateBatchRequest(BaseModel):
@@ -68,6 +70,7 @@ async def generate_export(request: GenerateExportRequest):
             include_bank_statement=request.include_bank_statement,
             include_justificatifs=request.include_justificatifs,
             include_reports=request.include_reports,
+            include_compte_attente=request.include_compte_attente,
         )
         return result
     except ValueError as e:
@@ -93,6 +96,7 @@ async def generate_month_export(request: GenerateMonthRequest):
             month=request.month,
             fmt=request.format,
             report_filenames=request.report_filenames,
+            include_compte_attente=request.include_compte_attente,
         )
         return result
     except ValueError as e:

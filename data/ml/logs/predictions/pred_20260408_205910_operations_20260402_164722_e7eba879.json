@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-04-08T20:59:10.490338",
+  "filename": "operations_20260402_164722_e7eba879.json",
+  "mode": "empty_only",
+  "total_operations": 119,
+  "predicted": 3,
+  "high_confidence": 3,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 174,50",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 249,75",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,50",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

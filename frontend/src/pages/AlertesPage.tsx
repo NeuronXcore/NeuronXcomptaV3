@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
-import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X } from 'lucide-react'
+import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X, Download, FileText, FileSpreadsheet, Loader2, ChevronDown } from 'lucide-react'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import toast from 'react-hot-toast'
 import {
@@ -15,7 +15,7 @@ import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import AlerteBadge from '@/components/AlerteBadge'
-import { useAlertesSummary, useAlertesFichier, useResolveAlerte, useRefreshAlertes } from '@/hooks/useAlertes'
+import { useAlertesSummary, useAlertesFichier, useResolveAlerte, useRefreshAlertes, useExportCompteAttente, downloadCompteAttenteExport } from '@/hooks/useAlertes'
 import { formatCurrency, formatDate, cn, MOIS_FR } from '@/lib/utils'
 import type { Operation, AlerteType } from '@/types'
 
@@ -40,10 +40,25 @@ export default function AlertesPage() {
   const { data: operations, isLoading: isOpsLoading } = useAlertesFichier(selectedFile)
   const resolveMutation = useResolveAlerte()
   const refreshMutation = useRefreshAlertes()
+  const exportMutation = useExportCompteAttente()
   const [drawerOp, setDrawerOp] = useState<Operation | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
 
   const hasAutoSelected = useRef(false)
+
+  // Fermer le dropdown au clic extérieur
+  useEffect(() => {
+    if (!showExportMenu) return
+    const handleClick = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showExportMenu])
 
   // Années et fichiers filtrés par année
   const availableYears = useMemo(() => {
@@ -186,6 +201,27 @@ export default function AlertesPage() {
     )
   }
 
+  // Mois sélectionné (pour le label dropdown)
+  const selectedMonth = useMemo(() => {
+    if (!selectedFile || !summary?.par_fichier) return null
+    const entry = summary.par_fichier.find(f => f.filename === selectedFile)
+    return entry?.month ?? null
+  }, [selectedFile, summary])
+
+  const handleExport = (format: 'pdf' | 'csv', wholeYear: boolean) => {
+    setShowExportMenu(false)
+    const params = wholeYear
+      ? { year: selectedYear, format }
+      : { year: selectedYear, month: selectedMonth ?? undefined, format }
+    exportMutation.mutate(params, {
+      onSuccess: (data) => {
+        toast.success(`Export généré : ${data.nb_operations} opération(s)`)
+        downloadCompteAttenteExport(data.filename)
+      },
+      onError: () => toast.error("Erreur lors de l'export"),
+    })
+  }
+
   if (isSummaryLoading) return <LoadingSpinner />
 
   const parType = summary?.par_type || {
@@ -202,14 +238,70 @@ export default function AlertesPage() {
         title="Compte d'attente"
         description="Opérations nécessitant une action"
         actions={
-          <button
-            onClick={handleRefresh}
-            disabled={!selectedFile || refreshMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={refreshMutation.isPending ? 'animate-spin' : ''} />
-            Rafraîchir
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Export dropdown */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                onClick={() => setShowExportMenu(prev => !prev)}
+                disabled={exportMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-text rounded-lg hover:bg-surface-hover disabled:opacity-50"
+              >
+                {exportMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}
+                Exporter
+                <ChevronDown size={14} />
+              </button>
+              {showExportMenu && (
+                <div className="absolute right-0 mt-1 w-64 bg-surface border border-border rounded-lg shadow-lg z-50 py-1">
+                  {selectedMonth && (
+                    <>
+                      <button
+                        onClick={() => handleExport('pdf', false)}
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-text hover:bg-surface-hover"
+                      >
+                        <FileText size={16} className="text-red-400" />
+                        PDF — {MOIS_FR[selectedMonth - 1]}
+                      </button>
+                      <button
+                        onClick={() => handleExport('csv', false)}
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-text hover:bg-surface-hover"
+                      >
+                        <FileSpreadsheet size={16} className="text-green-400" />
+                        CSV — {MOIS_FR[selectedMonth - 1]}
+                      </button>
+                      <div className="border-t border-border my-1" />
+                    </>
+                  )}
+                  <button
+                    onClick={() => handleExport('pdf', true)}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-text hover:bg-surface-hover"
+                  >
+                    <FileText size={16} className="text-red-400" />
+                    PDF — Année {selectedYear}
+                  </button>
+                  <button
+                    onClick={() => handleExport('csv', true)}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-text hover:bg-surface-hover"
+                  >
+                    <FileSpreadsheet size={16} className="text-green-400" />
+                    CSV — Année {selectedYear}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleRefresh}
+              disabled={!selectedFile || refreshMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={refreshMutation.isPending ? 'animate-spin' : ''} />
+              Rafraîchir
+            </button>
+          </div>
         }
       />
 

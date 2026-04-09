@@ -360,12 +360,16 @@ def _find_existing_reports(year: int, month: int, month_name: str) -> list:
     """Trouve les rapports existants pour un mois. Retourne une liste de Paths."""
     found = []
     month_name_lower = month_name.lower()
+    # Exclure les fichiers déjà inclus séparément dans le ZIP
+    excluded_prefixes = ("export_comptable_", "compte_attente_")
     for reports_dir in [RAPPORTS_DIR, REPORTS_DIR]:
         if not reports_dir.exists():
             continue
         for f in reports_dir.iterdir():
             if f.suffix in (".pdf", ".csv", ".xlsx"):
                 name_lower = f.name.lower()
+                if name_lower.startswith(excluded_prefixes):
+                    continue
                 if (month_name_lower in name_lower or
                     f"_{year}_{month:02d}_" in name_lower or
                     f"_{month:02d}_{year}" in name_lower):
@@ -419,6 +423,7 @@ def generate_single_export(
     month: int,
     fmt: str,
     report_filenames: Optional[List[str]] = None,
+    include_compte_attente: bool = True,
 ) -> dict:
     """
     Genere un export ZIP pour un mois donne.
@@ -464,6 +469,58 @@ def generate_single_export(
         zf.writestr(csv_arc, csv_content)
         files_included.append({"name": csv_arc, "type": "csv"})
 
+        # ── Copie standalone dans REPORTS_DIR + enregistrement GED ──
+        try:
+            from backend.services import ged_service
+            from backend.core.config import REPORTS_DIR as _REPORTS_DIR
+            _REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+            for arc_name_r, content_r, fmt_r in [
+                (pdf_arc, pdf_bytes, "pdf"),
+                (csv_arc, csv_content.encode("utf-8") if isinstance(csv_content, str) else csv_content, "csv"),
+            ]:
+                standalone_path = _REPORTS_DIR / arc_name_r
+                if isinstance(content_r, str):
+                    standalone_path.write_text(content_r, encoding="utf-8")
+                else:
+                    standalone_path.write_bytes(content_r)
+
+                # Deduplication GED : chercher un export comptable existant pour ce mois/format
+                existing_meta = ged_service.load_metadata()
+                existing_docs = existing_meta.get("documents", {})
+                replaced_fn = None
+                for _did, _doc in existing_docs.items():
+                    if _doc.get("type") != "rapport":
+                        continue
+                    _rm = _doc.get("rapport_meta") or {}
+                    _fl = _rm.get("filters") or {}
+                    if (
+                        _fl.get("report_type") == "export_comptable"
+                        and _fl.get("year") == year
+                        and _fl.get("month") == month
+                        and _rm.get("format") == fmt_r
+                    ):
+                        replaced_fn = _doc.get("filename") or Path(_did).name
+                        break
+
+                ged_service.register_rapport(
+                    filename=arc_name_r,
+                    path=str(standalone_path),
+                    title=f"Export Comptable — {month_name} {year}",
+                    description=f"{nb_ops} opérations",
+                    filters={
+                        "year": year,
+                        "month": month,
+                        "report_type": "export_comptable",
+                        "categories": ["__all__"],
+                    },
+                    format_type=fmt_r,
+                    template_id=None,
+                    replaced_filename=replaced_fn,
+                )
+        except Exception as e:
+            logger.warning("Impossible d'enregistrer l'export comptable dans la GED: %s", e)
+
         # ── Releves bancaires ──
         bank_pdf = _find_bank_statement(target_file["filename"])
         if bank_pdf and bank_pdf.exists():
@@ -494,6 +551,21 @@ def generate_single_export(
             zf.write(str(jp), arcname=arc_name)
         if justificatifs:
             files_included.append({"name": f"justificatifs/ ({len(justificatifs)} fichiers)", "type": "justificatifs"})
+
+        # ── Compte d'attente ──
+        if include_compte_attente:
+            try:
+                from backend.services import alerte_export_service
+                for ca_fmt in ("pdf", "csv"):
+                    ca_result = alerte_export_service.export_compte_attente(year, month, ca_fmt)
+                    ca_filename = ca_result["filename"]
+                    ca_path = EXPORTS_DIR / ca_filename
+                    if ca_path.exists():
+                        arc_name = f"compte_attente/{ca_filename}"
+                        zf.write(str(ca_path), arcname=arc_name)
+                        files_included.append({"name": arc_name, "type": "compte_attente"})
+            except Exception as e:
+                logger.warning("Impossible de generer le compte d'attente: %s", e)
 
     _log_export(year, month, fmt, zip_name, title, nb_ops)
 
@@ -753,6 +825,7 @@ def generate_export(
     include_bank_statement: bool = True,
     include_justificatifs: bool = True,
     include_reports: bool = False,
+    include_compte_attente: bool = True,
 ) -> dict:
     """
     Genere un export ZIP complet pour un mois donne.
@@ -827,6 +900,21 @@ def generate_export(
             reports_added = _add_existing_reports(zf, year, month, month_name)
             for r in reports_added:
                 files_included.append({"name": r, "type": "report"})
+
+        # ── Compte d'attente ──
+        if include_compte_attente:
+            try:
+                from backend.services import alerte_export_service
+                for ca_fmt in ("pdf", "csv"):
+                    ca_result = alerte_export_service.export_compte_attente(year, month, ca_fmt)
+                    ca_filename = ca_result["filename"]
+                    ca_path = EXPORTS_DIR / ca_filename
+                    if ca_path.exists():
+                        arc_name = f"compte_attente/{ca_filename}"
+                        zf.write(str(ca_path), arcname=arc_name)
+                        files_included.append({"name": arc_name, "type": "compte_attente"})
+            except Exception as e:
+                logger.warning("Impossible de generer le compte d'attente: %s", e)
 
     totals = prepared["totals"]
 

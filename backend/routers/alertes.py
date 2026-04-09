@@ -9,10 +9,11 @@ from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
-from backend.core.config import IMPORTS_OPERATIONS_DIR, ensure_directories
-from backend.models.alerte import ResolveAlerteBody
-from backend.services import alerte_service, operation_service
+from backend.core.config import IMPORTS_OPERATIONS_DIR, EXPORTS_DIR, ensure_directories
+from backend.models.alerte import AlerteExportRequest, AlerteExportResponse, ResolveAlerteBody
+from backend.services import alerte_service, alerte_export_service, operation_service
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,38 @@ async def get_alertes_summary():
         "par_type": par_type,
         "par_fichier": par_fichier,
     }
+
+
+@router.post("/export", response_model=AlerteExportResponse)
+async def export_compte_attente(request: AlerteExportRequest):
+    """Génère un export PDF ou CSV du compte d'attente."""
+    if request.format not in ("csv", "pdf"):
+        raise HTTPException(status_code=400, detail="Format doit être 'csv' ou 'pdf'")
+    try:
+        result = alerte_export_service.export_compte_attente(
+            year=request.year,
+            month=request.month,
+            fmt=request.format,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur d'export: {str(e)}")
+
+
+@router.get("/export/download/{filename}")
+async def download_export(filename: str):
+    """Télécharge un export du compte d'attente."""
+    filepath = EXPORTS_DIR / filename
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail=f"Fichier {filename} introuvable")
+    media_type = "application/pdf" if filename.endswith(".pdf") else "text/csv"
+    return FileResponse(
+        str(filepath),
+        media_type=media_type,
+        filename=filename,
+    )
 
 
 @router.get("/{filename}")

@@ -2,15 +2,14 @@
   "version": 1,
   "templates": [
     {
-      "id": "tpl_9a0d79cc",
-      "vendor": "TotalEnergies",
+      "id": "tpl_45634da1",
+      "vendor": "Amazon",
       "vendor_aliases": [
-        "total",
-        "totalenergies"
+        "amazon"
       ],
-      "category": "Véhicule",
-      "sous_categorie": "Carburant",
-      "source_justificatif": null,
+      "category": null,
+      "sous_categorie": null,
+      "source_justificatif": "amazon_20250219_39.99.pdf",
       "fields": [
         {
           "key": "date",
@@ -21,7 +20,8 @@
           "default": null,
           "formula": null,
           "options": null,
-          "ocr_confidence": null
+          "ocr_confidence": 0.8,
+          "coordinates": null
         },
         {
           "key": "montant_ttc",
@@ -32,7 +32,20 @@
           "default": null,
           "formula": null,
           "options": null,
-          "ocr_confidence": null
+          "ocr_confidence": 0.8,
+          "coordinates": null
+        },
+        {
+          "key": "fournisseur",
+          "label": "Fournisseur",
+          "type": "text",
+          "source": "ocr",
+          "required": false,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": 0.7,
+          "coordinates": null
         },
         {
           "key": "tva_rate",
@@ -40,10 +53,11 @@
           "type": "percent",
           "source": "fixed",
           "required": false,
-          "default": 20.0,
+          "default": null,
           "formula": null,
           "options": null,
-          "ocr_confidence": null
+          "ocr_confidence": 0.5,
+          "coordinates": null
         },
         {
           "key": "montant_ht",
@@ -52,9 +66,10 @@
           "source": "computed",
           "required": false,
           "default": null,
-          "formula": "montant_ttc / (1 + tva_rate / 100)",
+          "formula": null,
           "options": null,
-          "ocr_confidence": null
+          "ocr_confidence": 0.5,
+          "coordinates": null
         },
         {
           "key": "tva",
@@ -63,14 +78,66 @@
           "source": "computed",
           "required": false,
           "default": null,
-          "formula": "montant_ttc - montant_ht",
+          "formula": null,
           "options": null,
-          "ocr_confidence": null
+          "ocr_confidence": 0.5,
+          "coordinates": null
         }
       ],
-      "created_at": "2026-04-05T07:44:26.305845",
+      "created_at": "2026-04-07T15:22:19.803332",
       "created_from": "manual",
       "usage_count": 0
+    },
+    {
+      "id": "tpl_be6d368d",
+      "vendor": "Essence",
+      "vendor_aliases": [
+        "essence"
+      ],
+      "category": null,
+      "sous_categorie": null,
+      "source_justificatif": "essence_20250103_110.15.pdf",
+      "fields": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "date",
+          "source": "operation",
+          "required": true,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": 0.8,
+          "coordinates": null
+        },
+        {
+          "key": "montant_ttc",
+          "label": "Montant TTC",
+          "type": "currency",
+          "source": "operation",
+          "required": true,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": 0.8,
+          "coordinates": null
+        },
+        {
+          "key": "fournisseur",
+          "label": "Fournisseur",
+          "type": "text",
+          "source": "ocr",
+          "required": false,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": 0.7,
+          "coordinates": null
+        }
+      ],
+      "created_at": "2026-04-08T19:40:20.338975",
+      "created_from": "manual",
+      "usage_count": 1
     }
   ]
 }

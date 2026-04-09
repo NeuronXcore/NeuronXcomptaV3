@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
@@ -7,6 +7,10 @@ import RapprochementManuelDrawer from '@/components/rapprochement/RapprochementM
 import { useJustificatifsPage } from '@/hooks/useJustificatifsPage'
 import type { EnrichedOperation } from '@/hooks/useJustificatifsPage'
 import { useSandbox } from '@/hooks/useSandbox'
+import { useCategories } from '@/hooks/useApi'
+import { useSaveOperations } from '@/hooks/useOperations'
+import { useOperations } from '@/hooks/useOperations'
+import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { cn, formatCurrency, formatDate, MOIS_FR } from '@/lib/utils'
 import {
@@ -17,6 +21,7 @@ import {
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate } from '@/hooks/useJustificatifs'
 import { Unlink } from 'lucide-react'
+import type { CategoryRaw } from '@/types'
 
 type SortKey = 'date' | 'libelle' | 'debit' | 'credit' | 'categorie' | 'sous_categorie'
 
@@ -38,6 +43,62 @@ export default function JustificatifsPage() {
 
   // Sandbox watchdog SSE
   const { lastEvent, isConnected } = useSandbox()
+
+  // Categories for inline editing
+  const { data: categoriesData } = useCategories()
+  const saveMutation = useSaveOperations()
+  const queryClient = useQueryClient()
+
+  const categoryNames = useMemo(() => {
+    if (!categoriesData) return []
+    return [...new Set(categoriesData.raw.map((c: CategoryRaw) => c['Catégorie']))].filter(Boolean).sort()
+  }, [categoriesData])
+
+  const subcategoriesMap = useMemo(() => {
+    if (!categoriesData) return new Map<string, string[]>()
+    const map = new Map<string, string[]>()
+    for (const c of categoriesData.raw) {
+      const cat = c['Catégorie']
+      const sub = c['Sous-catégorie']
+      if (cat && sub && sub !== 'null') {
+        if (!map.has(cat)) map.set(cat, [])
+        const list = map.get(cat)!
+        if (!list.includes(sub)) list.push(sub)
+      }
+    }
+    for (const [, list] of map) list.sort()
+    return map
+  }, [categoriesData])
+
+  const handleCategoryChange = useCallback(async (op: EnrichedOperation, field: 'Catégorie' | 'Sous-catégorie', value: string) => {
+    if (isYearWide || !op._filename) return
+    try {
+      // Load full operations for this file, update the target, save
+      const allOps = await queryClient.fetchQuery<EnrichedOperation[]>({
+        queryKey: ['operations', op._filename],
+      })
+      if (!allOps) return
+      const updated = [...allOps]
+      const target = updated[op._originalIndex]
+      if (!target) return
+      target[field] = value
+      // Reset sous-catégorie when catégorie changes
+      if (field === 'Catégorie') {
+        target['Sous-catégorie'] = ''
+      }
+      saveMutation.mutate(
+        { filename: op._filename, operations: updated as any },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['operations', op._filename] })
+            queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+          },
+        }
+      )
+    } catch {
+      toast.error('Erreur lors de la sauvegarde')
+    }
+  }, [isYearWide, queryClient, saveMutation])
 
   // Preview justificatif existant
   const [previewJustif, setPreviewJustif] = useState<string | null>(null)
@@ -432,11 +493,33 @@ export default function JustificatifsPage() {
                         <td className="px-4 py-2.5 text-emerald-400 whitespace-nowrap tabular-nums">
                           {op['Crédit'] ? formatCurrency(op['Crédit']) : ''}
                         </td>
-                        <td className="px-4 py-2.5 text-text-muted truncate max-w-[140px]" title={op['Catégorie']}>
-                          {op['Catégorie'] ?? '—'}
+                        <td className="px-2 py-1.5 max-w-[160px]" onClick={e => e.stopPropagation()}>
+                          <select
+                            value={op['Catégorie'] ?? ''}
+                            onChange={e => handleCategoryChange(op, 'Catégorie', e.target.value)}
+                            disabled={isYearWide}
+                            className="w-full bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1.5 py-1 text-xs text-text-muted focus:text-text cursor-pointer focus:outline-none transition-colors"
+                          >
+                            <option value="">—</option>
+                            {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
                         </td>
-                        <td className="px-4 py-2.5 text-text-muted truncate max-w-[140px]" title={op['Sous-catégorie']}>
-                          {op['Sous-catégorie'] ?? ''}
+                        <td className="px-2 py-1.5 max-w-[160px]" onClick={e => e.stopPropagation()}>
+                          {(subcategoriesMap.get(op['Catégorie'] ?? '') ?? []).length > 0 ? (
+                            <select
+                              value={op['Sous-catégorie'] ?? ''}
+                              onChange={e => handleCategoryChange(op, 'Sous-catégorie', e.target.value)}
+                              disabled={isYearWide}
+                              className="w-full bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1.5 py-1 text-xs text-text-muted focus:text-text cursor-pointer focus:outline-none transition-colors"
+                            >
+                              <option value="">—</option>
+                              {(subcategoriesMap.get(op['Catégorie'] ?? '') ?? []).map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="px-1.5 py-1 text-xs text-text-muted">{op['Sous-catégorie'] ?? ''}</span>
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-center">
                           <button

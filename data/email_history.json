@@ -1,0 +1,66 @@
+[
+  {
+    "id": "79e5f2f9",
+    "sent_at": "2026-04-08T22:48:21.827057",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "releves BNP 2025",
+    "documents": [
+      {
+        "type": "releve",
+        "filename": "pdf_a4edeb28.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_e7eba879.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_e7ae1dab.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_7bbe45dd.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_dd562f0f.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_1c979f6e.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_41fcd232.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_38dd0f42.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_4cf58a44.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_d238601f.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_51b5892b.pdf"
+      },
+      {
+        "type": "releve",
+        "filename": "pdf_275b0690.pdf"
+      }
+    ],
+    "nb_documents": 12,
+    "taille_totale_mo": 2.2,
+    "success": true,
+    "error_message": null
+  }
+]
