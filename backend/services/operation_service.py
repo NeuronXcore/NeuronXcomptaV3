@@ -91,8 +91,10 @@ def load_operations(filename: str) -> list[dict]:
 
 
 def auto_lettre_complete(operations: list[dict]) -> int:
-    """Auto-pointe les opérations complètes (catégorie + sous-catégorie + justificatif).
+    """Auto-pointe les opérations complètes (catégorie + sous-catégorie + justificatif ou exemptée).
     One-way: ne dé-pointe jamais. Retourne le nombre d'opérations auto-pointées."""
+    from backend.services.justificatif_exemption_service import is_justificatif_required
+
     _EXCLUDED_CATS = {"", "Autres", "Ventilé"}
     count = 0
     for op in operations:
@@ -105,21 +107,26 @@ def auto_lettre_complete(operations: list[dict]) -> int:
 
         if ventilation:
             # Op ventilée : pointer si TOUTES les sous-lignes sont complètes
-            all_complete = all(
-                (vl.get("categorie") or "").strip() not in _EXCLUDED_CATS
-                and (vl.get("categorie") or "").strip()
-                and (vl.get("sous_categorie") or "").strip()
-                and (vl.get("justificatif") or "").strip()
-                for vl in ventilation
-            )
-            if all_complete and ventilation:
+            def _vl_complete(vl: dict) -> bool:
+                vl_cat = (vl.get("categorie") or "").strip()
+                vl_sub = (vl.get("sous_categorie") or "").strip()
+                if not vl_cat or vl_cat in _EXCLUDED_CATS or not vl_sub:
+                    return False
+                has_justif = bool((vl.get("justificatif") or "").strip())
+                exempt = not is_justificatif_required(vl_cat, vl_sub)
+                return has_justif or exempt
+
+            if ventilation and all(_vl_complete(vl) for vl in ventilation):
                 op["lettre"] = True
                 count += 1
         else:
-            # Op simple
-            if cat and cat not in _EXCLUDED_CATS and sous_cat and lien:
-                op["lettre"] = True
-                count += 1
+            # Op simple : cat + sous_cat + (justificatif OU exemptée)
+            if cat and cat not in _EXCLUDED_CATS and sous_cat:
+                has_justif = bool(lien)
+                exempt = not is_justificatif_required(cat, sous_cat)
+                if has_justif or exempt:
+                    op["lettre"] = True
+                    count += 1
     return count
 
 
@@ -138,12 +145,19 @@ def maybe_auto_lettre(operations: list[dict]) -> int:
     return auto_lettre_complete(operations)
 
 
-def _mark_perso_as_justified(operations: list[dict]) -> None:
-    """Auto-marque les opérations 'Perso' comme ayant un justificatif (pas besoin de justif)."""
+def _mark_exempt_as_justified(operations: list[dict]) -> None:
+    """Auto-marque les opérations exemptées de justificatif (configuré dans Settings)."""
+    from backend.services.justificatif_exemption_service import is_justificatif_required, is_operation_justificatif_required
+
     for op in operations:
-        cat = (op.get("Catégorie") or "").strip().lower()
-        if cat == "perso" and not op.get("Justificatif"):
+        if not is_operation_justificatif_required(op) and not op.get("Justificatif"):
             op["Justificatif"] = True
+        # Ventilations : idem par sous-ligne
+        for vl in op.get("ventilation", []):
+            cat = (vl.get("categorie") or "").strip()
+            sous_cat = (vl.get("sous_categorie") or "").strip()
+            if cat and not is_justificatif_required(cat, sous_cat) and not vl.get("justificatif"):
+                vl["justificatif"] = True
 
 
 def save_operations(
@@ -155,8 +169,8 @@ def save_operations(
     """Sauvegarde les opérations dans un fichier JSON."""
     ensure_directories()
 
-    # Auto-marquer les ops Perso comme justifiées
-    _mark_perso_as_justified(operations)
+    # Auto-marquer les ops exemptées comme justifiées
+    _mark_exempt_as_justified(operations)
 
     if filename is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

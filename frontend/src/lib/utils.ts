@@ -34,6 +34,10 @@ export const MOIS_FR = [
  * Génère un titre lisible pour un fichier d'opérations.
  * Ex: "Relevé Septembre 2024" au lieu de "operations_20250520_094452_d9faa5a9.json"
  */
+export function isReconstitue(lienJustificatif: string): boolean {
+  return (lienJustificatif || '').includes('reconstitue_')
+}
+
 export function formatFileTitle(file: { filename: string; month?: number; year?: number; count: number }): string {
   if (file.month && file.year) {
     const mois = MOIS_FR[file.month - 1] || `Mois ${file.month}`

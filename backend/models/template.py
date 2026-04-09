@@ -74,3 +74,89 @@ class TemplateSuggestion(BaseModel):
     match_score: float
     matched_alias: str
     fields_count: int
+
+
+# ──── Batch models ────
+
+
+class BatchCandidatesRequest(BaseModel):
+    template_id: str
+    year: int
+
+
+class BatchCandidate(BaseModel):
+    operation_file: str
+    operation_index: int
+    date: str
+    libelle: str
+    montant: float
+    mois: int
+    categorie: str = ""
+    sous_categorie: str = ""
+
+
+class BatchCandidatesResponse(BaseModel):
+    template_id: str
+    vendor: str
+    year: int
+    candidates: list[BatchCandidate]
+    total: int
+
+
+class BatchGenerateRequest(BaseModel):
+    template_id: str
+    operations: list[dict]
+
+
+class BatchGenerateResult(BaseModel):
+    operation_file: str
+    operation_index: int
+    filename: Optional[str] = None
+    associated: bool = False
+    error: Optional[str] = None
+
+
+class BatchGenerateResponse(BaseModel):
+    generated: int
+    errors: int
+    total: int
+    results: list[BatchGenerateResult]
+
+
+class OpsGroup(BaseModel):
+    category: str
+    sous_categorie: str
+    count: int
+    total_montant: float
+    suggested_template_id: Optional[str] = None
+    suggested_template_vendor: Optional[str] = None
+    operations: list[BatchCandidate]
+
+
+class OpsWithoutJustificatifResponse(BaseModel):
+    year: int
+    total: int
+    groups: list[OpsGroup]
+
+
+# ──── Batch suggest models ────
+
+
+class BatchSuggestOperation(BaseModel):
+    operation_file: str
+    operation_index: int
+
+
+class BatchSuggestRequest(BaseModel):
+    operations: list[BatchSuggestOperation]
+
+
+class BatchSuggestGroup(BaseModel):
+    template_id: str
+    template_vendor: str
+    operations: list[dict]
+
+
+class BatchSuggestResponse(BaseModel):
+    groups: list[BatchSuggestGroup]
+    unmatched: list[dict]

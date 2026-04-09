@@ -6,6 +6,10 @@ import type {
   ExtractedFields,
   TemplateSuggestion,
   GenerateRequest,
+  BatchCandidatesResponse,
+  BatchGenerateResponse,
+  BatchSuggestResponse,
+  OpsWithoutJustificatifResponse,
 } from '@/types'
 
 // ─── Queries ───
@@ -77,6 +81,51 @@ export function useDeleteTemplate() {
       toast.success('Template supprimé')
     },
     onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+// ─── Ops without justificatif ───
+
+export function useOpsWithoutJustificatif(year: number) {
+  return useQuery<OpsWithoutJustificatifResponse>({
+    queryKey: ['templates', 'ops-without-justificatif', year],
+    queryFn: () => api.get(`/templates/ops-without-justificatif?year=${year}`),
+  })
+}
+
+// ─── Batch ───
+
+export function useBatchCandidates(templateId: string | null, year: number) {
+  return useQuery<BatchCandidatesResponse>({
+    queryKey: ['templates', 'batch-candidates', templateId, year],
+    queryFn: () => api.post('/templates/batch-candidates', { template_id: templateId, year }),
+    enabled: !!templateId,
+  })
+}
+
+export function useBatchGenerate() {
+  const qc = useQueryClient()
+  return useMutation<BatchGenerateResponse, Error, { template_id: string; operations: { operation_file: string; operation_index: number }[] }>({
+    mutationFn: (params) => api.post('/templates/batch-generate', params),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['templates'] })
+      qc.invalidateQueries({ queryKey: ['justificatifs'] })
+      qc.invalidateQueries({ queryKey: ['justificatif-stats'] })
+      qc.invalidateQueries({ queryKey: ['rapprochement'] })
+      qc.invalidateQueries({ queryKey: ['cloture'] })
+      qc.invalidateQueries({ queryKey: ['alertes'] })
+      const msg = data.errors > 0
+        ? `${data.generated} fac-similés générés, ${data.errors} erreurs`
+        : `${data.generated} fac-similés générés`
+      toast.success(msg)
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useBatchSuggest() {
+  return useMutation<BatchSuggestResponse, Error, { operation_file: string; operation_index: number }[]>({
+    mutationFn: (operations) => api.post('/templates/batch-suggest', { operations }),
   })
 }
 

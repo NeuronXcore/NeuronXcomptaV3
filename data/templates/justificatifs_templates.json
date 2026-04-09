@@ -2,14 +2,15 @@
   "version": 1,
   "templates": [
     {
-      "id": "tpl_45634da1",
-      "vendor": "Amazon",
+      "id": "tpl_1c760f2a",
+      "vendor": "Auchan",
       "vendor_aliases": [
-        "amazon"
+        "auchan",
+        "auchandac"
       ],
-      "category": null,
-      "sous_categorie": null,
-      "source_justificatif": "amazon_20250219_39.99.pdf",
+      "category": "Véhicule",
+      "sous_categorie": "Essence",
+      "source_justificatif": "justificatif_20260409_064640_Sans_titre_16.pdf",
       "fields": [
         {
           "key": "date",
@@ -20,8 +21,14 @@
           "default": null,
           "formula": null,
           "options": null,
-          "ocr_confidence": 0.8,
-          "coordinates": null
+          "ocr_confidence": null,
+          "coordinates": {
+            "x": 183.19,
+            "y": 306.69,
+            "w": 64.07,
+            "h": 16.0,
+            "page": 0
+          }
         },
         {
           "key": "montant_ttc",
@@ -32,8 +39,14 @@
           "default": null,
           "formula": null,
           "options": null,
-          "ocr_confidence": 0.8,
-          "coordinates": null
+          "ocr_confidence": null,
+          "coordinates": {
+            "x": 178.68,
+            "y": 451.73,
+            "w": 34.03,
+            "h": 16.0,
+            "page": 0
+          }
         },
         {
           "key": "fournisseur",
@@ -44,100 +57,13 @@
           "default": null,
           "formula": null,
           "options": null,
-          "ocr_confidence": 0.7,
-          "coordinates": null
-        },
-        {
-          "key": "tva_rate",
-          "label": "Taux TVA",
-          "type": "percent",
-          "source": "fixed",
-          "required": false,
-          "default": null,
-          "formula": null,
-          "options": null,
-          "ocr_confidence": 0.5,
-          "coordinates": null
-        },
-        {
-          "key": "montant_ht",
-          "label": "Montant HT",
-          "type": "currency",
-          "source": "computed",
-          "required": false,
-          "default": null,
-          "formula": null,
-          "options": null,
-          "ocr_confidence": 0.5,
-          "coordinates": null
-        },
-        {
-          "key": "tva",
-          "label": "TVA",
-          "type": "currency",
-          "source": "computed",
-          "required": false,
-          "default": null,
-          "formula": null,
-          "options": null,
-          "ocr_confidence": 0.5,
+          "ocr_confidence": null,
           "coordinates": null
         }
       ],
-      "created_at": "2026-04-07T15:22:19.803332",
+      "created_at": "2026-04-09T07:20:04.438616",
       "created_from": "manual",
-      "usage_count": 0
-    },
-    {
-      "id": "tpl_be6d368d",
-      "vendor": "Essence",
-      "vendor_aliases": [
-        "essence"
-      ],
-      "category": null,
-      "sous_categorie": null,
-      "source_justificatif": "essence_20250103_110.15.pdf",
-      "fields": [
-        {
-          "key": "date",
-          "label": "Date",
-          "type": "date",
-          "source": "operation",
-          "required": true,
-          "default": null,
-          "formula": null,
-          "options": null,
-          "ocr_confidence": 0.8,
-          "coordinates": null
-        },
-        {
-          "key": "montant_ttc",
-          "label": "Montant TTC",
-          "type": "currency",
-          "source": "operation",
-          "required": true,
-          "default": null,
-          "formula": null,
-          "options": null,
-          "ocr_confidence": 0.8,
-          "coordinates": null
-        },
-        {
-          "key": "fournisseur",
-          "label": "Fournisseur",
-          "type": "text",
-          "source": "ocr",
-          "required": false,
-          "default": null,
-          "formula": null,
-          "options": null,
-          "ocr_confidence": 0.7,
-          "coordinates": null
-        }
-      ],
-      "created_at": "2026-04-08T19:40:20.338975",
-      "created_from": "manual",
-      "usage_count": 1
+      "usage_count": 11
     }
   ]
 }

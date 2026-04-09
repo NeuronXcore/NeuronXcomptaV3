@@ -113,3 +113,46 @@ def _format_size(size_bytes: int) -> str:
         return f"{size_bytes / 1024:.0f} Ko"
     else:
         return f"{size_bytes / (1024 * 1024):.1f} Mo"
+
+
+@router.get("/file-tree")
+async def get_file_tree():
+    """Retourne l'arborescence de data/ (max profondeur 3)."""
+
+    def scan_dir(path, depth=0, max_depth=3):
+        if depth > max_depth or not path.exists():
+            return None
+        result = {
+            "name": path.name,
+            "type": "dir",
+            "children": [],
+            "count": 0,
+            "size": 0,
+        }
+        try:
+            for entry in sorted(path.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
+                if entry.name.startswith("."):
+                    continue
+                if entry.is_dir():
+                    child = scan_dir(entry, depth + 1, max_depth)
+                    if child:
+                        result["children"].append(child)
+                        result["count"] += child["count"]
+                        result["size"] += child["size"]
+                else:
+                    sz = entry.stat().st_size
+                    result["children"].append({
+                        "name": entry.name,
+                        "type": "file",
+                        "size": sz,
+                        "size_human": _format_size(sz),
+                    })
+                    result["count"] += 1
+                    result["size"] += sz
+        except PermissionError:
+            pass
+        result["size_human"] = _format_size(result["size"])
+        return result
+
+    tree = scan_dir(DATA_DIR)
+    return tree or {"name": "data", "type": "dir", "children": [], "count": 0, "size": 0, "size_human": "0 o"}

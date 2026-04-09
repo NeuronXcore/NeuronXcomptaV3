@@ -1450,6 +1450,77 @@ Suggère des templates correspondant au libellé de l'opération. Les alias du t
 ]
 ```
 
+### `POST /batch-suggest`
+Groupe une liste d'operations par meilleur template suggere. Strategie de matching : 1) categorie/sous-categorie du template, 2) alias fournisseur dans le libelle, 3) sinon → unmatched.
+
+**Body :**
+```json
+{
+  "operations": [
+    { "operation_file": "operations_xxx.json", "operation_index": 37 },
+    { "operation_file": "operations_xxx.json", "operation_index": 68 }
+  ]
+}
+```
+
+**Reponse :**
+```json
+{
+  "groups": [
+    {
+      "template_id": "tpl_1c760f2a",
+      "template_vendor": "Auchan",
+      "operations": [
+        { "operation_file": "operations_xxx.json", "operation_index": 37, "libelle": "DU291224AUCHANDAC..." },
+        { "operation_file": "operations_xxx.json", "operation_index": 68, "libelle": "DU260125AUCHANDAC..." }
+      ]
+    }
+  ],
+  "unmatched": []
+}
+```
+
+### `POST /batch-candidates`
+Trouve les operations sans justificatif matchant un template donne pour une annee.
+
+**Body :** `{ "template_id": "tpl_xxx", "year": 2025 }`
+
+**Reponse :** `BatchCandidatesResponse` avec liste de `BatchCandidate` (operation_file, index, date, libelle, montant, mois, categorie).
+
+### `POST /batch-generate`
+Genere des fac-similes en batch pour une liste d'operations avec un template donne. Chaque operation est traitee sequentiellement (sleep 0.1s entre chaque pour eviter les collisions de timestamp).
+
+**Body :**
+```json
+{
+  "template_id": "tpl_1c760f2a",
+  "operations": [
+    { "operation_file": "operations_xxx.json", "operation_index": 37 },
+    { "operation_file": "operations_xxx.json", "operation_index": 68 }
+  ]
+}
+```
+
+**Reponse :**
+```json
+{
+  "generated": 2,
+  "errors": 0,
+  "total": 2,
+  "results": [
+    { "operation_file": "operations_xxx.json", "operation_index": 37, "filename": "reconstitue_xxx.pdf", "associated": true },
+    { "operation_file": "operations_xxx.json", "operation_index": 68, "filename": "reconstitue_yyy.pdf", "associated": true }
+  ]
+}
+```
+
+### `GET /ops-without-justificatif`
+Retourne toutes les operations sans justificatif pour une annee, groupees par categorie/sous-categorie avec auto-suggestion de template.
+
+**Query params :** `year` (int, requis)
+
+**Reponse :** `OpsWithoutJustificatifResponse` avec groupes (`OpsGroup[]`), chaque groupe contenant `suggested_template_id` et `operations`.
+
 ### Types de champs
 
 | `type` | Description | Format |

@@ -126,9 +126,7 @@ export default function GedDocumentCard({
         )}
 
         {doc.is_reconstitue && (
-          <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-warning/20 text-warning font-medium">
-            RECONSTITUÉ
-          </span>
+          <span className="text-sm" title="Fac-similé reconstitué">😈</span>
         )}
         {doc.statut_justificatif === 'en_attente' && (
           <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium">

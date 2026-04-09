@@ -29,19 +29,26 @@ def compute_alertes(
     alertes: List[str] = []
     resolues = op.get("alertes_resolues", []) or []
 
-    # 1. justificatif_manquant
+    # 1. justificatif_manquant (respecte les exemptions configurées)
+    from backend.services.justificatif_exemption_service import is_justificatif_required
     categorie = op.get("Catégorie", "") or ""
+    sous_cat = op.get("Sous-catégorie", "") or ""
     vlines = op.get("ventilation", [])
     if vlines:
-        # Op ventilée : alerte si au moins une sous-ligne sans justificatif
-        has_missing = any(not vl.get("justificatif") for vl in vlines)
+        # Op ventilée : alerte si au moins une sous-ligne non-exemptée sans justificatif
+        has_missing = False
+        for vl in vlines:
+            vl_cat = (vl.get("categorie") or "").strip()
+            vl_sub = (vl.get("sous_categorie") or "").strip()
+            if is_justificatif_required(vl_cat, vl_sub) and not vl.get("justificatif"):
+                has_missing = True
+                break
         if has_missing:
             alertes.append("justificatif_manquant")
     else:
         justif = op.get("Justificatif")
         lien_justif = op.get("Lien justificatif", "")
-        is_virement = "virement" in categorie.lower()
-        if not justif and not lien_justif and not is_virement:
+        if not justif and not lien_justif and is_justificatif_required(categorie, sous_cat):
             alertes.append("justificatif_manquant")
 
     # 2. a_categoriser (skip pour ops ventilées — catégorie "Ventilé" est intentionnelle)

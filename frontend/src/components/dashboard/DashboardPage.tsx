@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useNavigate } from 'react-router-dom'
 import { useYearOverview, useSettings, useUpdateSettings } from '@/hooks/useApi'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useClotureYears } from '@/hooks/useCloture'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import BatchOverviewDrawer from '@/components/templates/BatchOverviewDrawer'
 import YearSelector from './YearSelector'
 import ProgressionGauge from './ProgressionGauge'
 import KpiCards from './KpiCards'
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { selectedYear, setYear: setSelectedYear } = useFiscalYearStore()
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null)
+  const [batchOverviewOpen, setBatchOverviewOpen] = useState(false)
 
   const { data: years } = useClotureYears()
   const { data, isLoading, error } = useYearOverview(selectedYear)
@@ -44,6 +46,13 @@ export default function DashboardPage() {
         description={`Cockpit ${selectedYear} — ${data.kpis.nb_mois_actifs} mois actifs, ${data.kpis.nb_operations} opérations`}
         actions={
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setBatchOverviewOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition-colors"
+            >
+              <Layers size={14} />
+              Batch
+            </button>
             <button
               onClick={() => updateSettings.mutate({ auto_pointage: !settings?.auto_pointage })}
               className={cn(
@@ -114,6 +123,9 @@ export default function DashboardPage() {
         <RevenueChart mois={data.mois} />
         <ActivityFeed activites={data.activite_recente} />
       </div>
+
+      {/* Batch fac-similé drawer */}
+      <BatchOverviewDrawer open={batchOverviewOpen} onClose={() => setBatchOverviewOpen(false)} />
     </div>
   )
 }

@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
+import { useSettings } from '@/hooks/useApi'
 import AppLayout from '@/components/layout/AppLayout'
 import PipelinePage from '@/components/pipeline/PipelinePage'
 import DashboardPage from '@/components/dashboard/DashboardPage'
@@ -24,6 +26,23 @@ import TasksPage from '@/components/tasks/TasksPage'
 import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 
 export default function App() {
+  const { data: settings } = useSettings()
+
+  // Apply dark mode + theme colors
+  useEffect(() => {
+    const root = document.documentElement
+    const isDark = settings?.dark_mode ?? true
+    root.classList.toggle('dark', isDark)
+
+    // Apply theme colors
+    if (settings?.theme_settings) {
+      const { primary_color, background_color, text_color } = settings.theme_settings
+      if (primary_color) root.style.setProperty('--color-primary', primary_color)
+      if (background_color) root.style.setProperty('--color-surface', background_color)
+      if (text_color) root.style.setProperty('--color-text', text_color)
+    }
+  }, [settings?.dark_mode, settings?.theme_settings])
+
   return (
     <>
     <Toaster

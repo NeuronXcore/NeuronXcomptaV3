@@ -14,7 +14,7 @@ import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
-  ArrowRight, DollarSign, Calendar, User, Filter,
+  ArrowRight, DollarSign, Calendar, User, Filter, Tag,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
@@ -31,8 +31,14 @@ export default function OcrPage() {
   const preTemplate = searchParams.get('template')
 
   const [activeTab, setActiveTab] = useState<Tab>(preFile ? 'templates' : 'upload')
+  const [templatePreFile, setTemplatePreFile] = useState('')
   const { data: status } = useOcrStatus()
   const { data: history, isLoading: historyLoading } = useOcrHistory(100)
+
+  const handleCreateTemplate = (filename: string) => {
+    setTemplatePreFile(filename)
+    setActiveTab('templates')
+  }
 
   return (
     <div className="p-6">
@@ -92,11 +98,11 @@ export default function OcrPage() {
       </div>
 
       {activeTab === 'upload' ? (
-        <BatchUploadTab />
+        <BatchUploadTab onCreateTemplate={handleCreateTemplate} />
       ) : activeTab === 'test' ? (
         <TestManuelTab />
       ) : activeTab === 'templates' ? (
-        <TemplatesTab preFile={preFile} preIndex={preIndex} preTemplate={preTemplate} />
+        <TemplatesTab preFile={preFile} preIndex={preIndex} preTemplate={preTemplate} preCreateFile={templatePreFile || null} />
       ) : (
         <HistoriqueTab history={history || []} isLoading={historyLoading} />
       )}
@@ -107,7 +113,7 @@ export default function OcrPage() {
 
 // ──── Batch Upload Tab ────
 
-function BatchUploadTab() {
+function BatchUploadTab({ onCreateTemplate }: { onCreateTemplate: (filename: string) => void }) {
   const navigate = useNavigate()
   const batchUpload = useBatchUploadOcr()
   const [results, setResults] = useState<BatchUploadResult[]>([])
@@ -305,6 +311,18 @@ function BatchUploadTab() {
               <Upload size={14} />
               Nouveau batch
             </button>
+            {results.some(r => r.success && r.ocr_success) && (
+              <button
+                onClick={() => {
+                  const last = results.filter(r => r.success && r.ocr_success).pop()
+                  if (last) onCreateTemplate(last.filename)
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm border border-violet-500/30 text-violet-400 rounded-lg hover:bg-violet-500/10 transition-colors"
+              >
+                <Tag size={14} />
+                Créer un template
+              </button>
+            )}
             <button
               onClick={() => navigate('/justificatifs')}
               className="flex items-center gap-1.5 px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"

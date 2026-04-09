@@ -4,6 +4,8 @@ import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementManuelDrawer from '@/components/rapprochement/RapprochementManuelDrawer'
+import BatchOverviewDrawer from '@/components/templates/BatchOverviewDrawer'
+import BatchReconstituerDrawer from '@/components/justificatifs/BatchReconstituerDrawer'
 import { useJustificatifsPage } from '@/hooks/useJustificatifsPage'
 import type { EnrichedOperation } from '@/hooks/useJustificatifsPage'
 import { useSandbox } from '@/hooks/useSandbox'
@@ -12,11 +14,12 @@ import { useSaveOperations } from '@/hooks/useOperations'
 import { useOperations } from '@/hooks/useOperations'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { cn, formatCurrency, formatDate, MOIS_FR } from '@/lib/utils'
+import { cn, formatCurrency, formatDate, MOIS_FR, isReconstitue } from '@/lib/utils'
 import {
   FileText, Search, ScanLine, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, ArrowUpDown, ArrowUp, ArrowDown,
-  FileCheck, FileX, Percent, Hash, Zap, Loader2, X,
+  FileCheck, FileX, Percent, Hash, Zap, Loader2, X, Layers,
+  Check, Minus, Stamp,
 } from 'lucide-react'
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate } from '@/hooks/useJustificatifs'
@@ -39,7 +42,13 @@ export default function JustificatifsPage() {
     operations, stats,
     isYearWide, isLoading,
     openDrawer, goToNextWithout,
+    selectedOps, opKey, toggleOp, toggleAllFiltered, clearSelection,
+    selectedCount, isAllFilteredSelected, isSomeFilteredSelected,
+    getSelectedOperations,
   } = useJustificatifsPage()
+
+  // Batch fac-similé
+  const [batchOverviewOpen, setBatchOverviewOpen] = useState(false)
 
   // Sandbox watchdog SSE
   const { lastEvent, isConnected } = useSandbox()
@@ -110,6 +119,10 @@ export default function JustificatifsPage() {
   // Auto-rapprochement
   const autoRapprochement = useRunAutoRapprochement()
 
+  // Batch reconstituer drawer
+  const [batchReconstituerOpen, setBatchReconstituerOpen] = useState(false)
+  const selectedOperationsForBatch = useMemo(() => getSelectedOperations(), [getSelectedOperations, selectedOps]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (lastEvent) {
       if (lastEvent.status === 'processed') {
@@ -163,6 +176,13 @@ export default function JustificatifsPage() {
                 Sandbox actif
               </span>
             )}
+            <button
+              onClick={() => setBatchOverviewOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition-colors"
+            >
+              <Layers size={14} />
+              Batch fac-simile
+            </button>
             <button
               onClick={() => navigate('/ocr')}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
@@ -249,6 +269,7 @@ export default function JustificatifsPage() {
               ['all', 'Tous'],
               ['sans', 'Sans justif.'],
               ['avec', 'Avec justif.'],
+              ['facsimile', '\ud83d\ude08 Fac-simile'],
             ] as const).map(([value, label]) => (
               <button
                 key={value}
@@ -427,6 +448,25 @@ export default function JustificatifsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="px-2 py-3 w-10 text-center">
+                      <button
+                        onClick={toggleAllFiltered}
+                        className={cn(
+                          'w-5 h-5 rounded border-2 inline-flex items-center justify-center transition-colors',
+                          isAllFilteredSelected
+                            ? 'bg-primary border-primary'
+                            : isSomeFilteredSelected
+                              ? 'bg-primary/30 border-primary'
+                              : 'border-border hover:border-text-muted'
+                        )}
+                      >
+                        {isAllFilteredSelected
+                          ? <Check size={12} className="text-white" />
+                          : isSomeFilteredSelected
+                            ? <Minus size={12} className="text-white" />
+                            : null}
+                      </button>
+                    </th>
                     {([
                       ['date', 'Date'],
                       ['libelle', 'Libellé'],
@@ -478,9 +518,25 @@ export default function JustificatifsPage() {
                         }}
                         className={cn(
                           'hover:bg-surface/50 transition-colors cursor-pointer',
-                          isSelected && 'bg-warning/15 outline outline-2 outline-warning/40 outline-offset-[-2px]'
+                          isSelected && 'bg-warning/15 outline outline-2 outline-warning/40 outline-offset-[-2px]',
+                          selectedOps.has(opKey(op)) && 'bg-primary/10'
                         )}
                       >
+                        <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                          {!hasJustif && (
+                            <button
+                              onClick={() => toggleOp(op)}
+                              className={cn(
+                                'w-5 h-5 rounded border-2 inline-flex items-center justify-center transition-colors',
+                                selectedOps.has(opKey(op))
+                                  ? 'bg-primary border-primary'
+                                  : 'border-border hover:border-text-muted'
+                              )}
+                            >
+                              {selectedOps.has(opKey(op)) && <Check size={12} className="text-white" />}
+                            </button>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-text whitespace-nowrap">
                           {formatDate(op.Date)}
                         </td>
@@ -547,6 +603,9 @@ export default function JustificatifsPage() {
                           >
                             {hasJustif ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                           </button>
+                          {hasJustif && isReconstitue(op['Lien justificatif'] || '') && (
+                            <span className="text-[10px]" title="Fac-similé reconstitué">😈</span>
+                          )}
                         </td>
                       </tr>
                     )
@@ -560,6 +619,32 @@ export default function JustificatifsPage() {
           </div>
         )}
       </div>
+
+      {/* Barre d'actions flottante batch */}
+      {selectedCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 bg-surface border border-border rounded-xl shadow-2xl px-5 py-3 animate-in slide-in-from-bottom-4">
+          <span className="text-sm text-text font-medium">
+            {selectedCount} opération{selectedCount > 1 ? 's' : ''} sélectionnée{selectedCount > 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => setBatchReconstituerOpen(true)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+              'bg-warning text-background shadow-lg shadow-warning/25 hover:shadow-warning/40 hover:scale-[1.02]',
+            )}
+          >
+            <Stamp size={16} />
+            Reconstituer ({selectedCount})
+          </button>
+          <button
+            onClick={clearSelection}
+            className="p-1.5 text-text-muted hover:text-text transition-colors"
+            title="Annuler la sélection"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Preview justificatif existant */}
       {previewJustif && (
@@ -623,6 +708,17 @@ export default function JustificatifsPage() {
           credit: selectedOperation['Crédit'] || 0,
           ventilation: selectedOperation.ventilation,
         } : null}
+      />
+
+      {/* Batch fac-similé drawer (overview tous templates) */}
+      <BatchOverviewDrawer open={batchOverviewOpen} onClose={() => setBatchOverviewOpen(false)} />
+
+      {/* Batch reconstituer drawer (sélection ciblée) */}
+      <BatchReconstituerDrawer
+        open={batchReconstituerOpen}
+        onClose={() => setBatchReconstituerOpen(false)}
+        operations={selectedOperationsForBatch}
+        onDone={clearSelection}
       />
     </div>
   )

@@ -33,7 +33,7 @@ import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useDissociate } from '@/hooks/useJustificatifs'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
-import { formatCurrency, formatFileTitle, cn, MOIS_FR } from '@/lib/utils'
+import { formatCurrency, formatFileTitle, cn, MOIS_FR, isReconstitue } from '@/lib/utils'
 import AlerteBadge from '@/components/AlerteBadge'
 import type { Operation, CategoryRaw } from '@/types'
 
@@ -706,6 +706,9 @@ export default function EditorPage() {
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
               )}
             </button>
+            {hasJustif && isReconstitue(row.original['Lien justificatif'] || '') && (
+              <span className="text-[10px]" title="Fac-similé reconstitué">😈</span>
+            )}
             {!hasJustif && selectedFile && (
               <div className="opacity-0 group-hover/justif:opacity-100 transition-opacity">
                 <ReconstituerButton

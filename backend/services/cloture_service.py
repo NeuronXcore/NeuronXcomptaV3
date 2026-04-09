@@ -66,6 +66,10 @@ def get_annual_status(year: int) -> list[dict]:
 
         primary_filename = month_files[0]["filename"]
 
+        from backend.services.justificatif_exemption_service import is_justificatif_required
+
+        nb_justif_required = 0  # ops qui nécessitent un justificatif
+
         for mf in month_files:
             try:
                 ops = operation_service.load_operations(mf["filename"])
@@ -74,22 +78,32 @@ def get_annual_status(year: int) -> list[dict]:
                     if vlines:
                         nb_operations += len(vlines)
                         nb_lettrees += sum(1 for vl in vlines if vl.get("lettre", False))
-                        nb_avec_justif += sum(1 for vl in vlines if vl.get("justificatif"))
+                        for vl in vlines:
+                            vl_cat = (vl.get("categorie") or "").strip()
+                            vl_sub = (vl.get("sous_categorie") or "").strip()
+                            if is_justificatif_required(vl_cat, vl_sub):
+                                nb_justif_required += 1
+                                if vl.get("justificatif"):
+                                    nb_avec_justif += 1
                     else:
                         nb_operations += 1
                         if op.get("lettre", False):
                             nb_lettrees += 1
-                        if op.get("Justificatif", False):
-                            nb_avec_justif += 1
+                        op_cat = (op.get("Catégorie") or "").strip()
+                        op_sub = (op.get("Sous-catégorie") or "").strip()
+                        if is_justificatif_required(op_cat, op_sub):
+                            nb_justif_required += 1
+                            if op.get("Justificatif", False):
+                                nb_avec_justif += 1
             except Exception as e:
                 logger.warning(f"Erreur chargement {mf['filename']}: {e}")
 
         taux_lettrage = nb_lettrees / nb_operations if nb_operations > 0 else 0.0
 
-        # Justificatifs associés au mois
-        nb_justif_total = nb_operations  # chaque opération devrait avoir un justificatif
+        # Justificatifs associés au mois (exclut les ops exemptées)
+        nb_justif_total = nb_justif_required
         nb_justif_ok = nb_avec_justif
-        taux_justificatifs = nb_justif_ok / nb_justif_total if nb_justif_total > 0 else 0.0
+        taux_justificatifs = nb_justif_ok / nb_justif_total if nb_justif_total > 0 else 1.0
 
         # Déterminer le statut
         if taux_lettrage >= 1.0 and taux_justificatifs >= 1.0:

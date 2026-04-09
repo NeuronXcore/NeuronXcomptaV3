@@ -21,12 +21,20 @@ from backend.core.config import (
     ensure_directories,
 )
 from backend.models.template import (
+    BatchCandidate,
+    BatchCandidatesResponse,
+    BatchGenerateResponse,
+    BatchGenerateResult,
+    BatchSuggestGroup,
+    BatchSuggestResponse,
     FieldCoordinates,
+    GenerateRequest,
     JustificatifTemplate,
+    OpsGroup,
+    OpsWithoutJustificatifResponse,
     TemplateCreateRequest,
     TemplateField,
     TemplateStore,
-    GenerateRequest,
     TemplateSuggestion,
 )
 
@@ -434,6 +442,96 @@ def suggest_template(libelle: str) -> list[TemplateSuggestion]:
     return suggestions
 
 
+def _suggest_by_category(op: dict) -> Optional[JustificatifTemplate]:
+    """Cherche un template par match catégorie/sous-catégorie de l'opération."""
+    store = load_templates()
+    cat = (op.get("Catégorie") or op.get("Categorie") or "").strip().lower()
+    sub = (op.get("Sous-catégorie") or op.get("Sous-categorie") or "").strip().lower()
+    if not cat:
+        return None
+
+    best_tpl = None
+    best_score = 0
+    for tpl in store.templates:
+        tpl_cat = (tpl.category or "").strip().lower()
+        tpl_sub = (tpl.sous_categorie or "").strip().lower()
+        if tpl_cat and tpl_cat == cat:
+            score = 2 if (tpl_sub and sub and tpl_sub == sub) else 1
+            if score > best_score:
+                best_score = score
+                best_tpl = tpl
+    return best_tpl
+
+
+def batch_suggest_templates(operations: list[dict]) -> BatchSuggestResponse:
+    """Groupe une liste d'opérations par meilleur template suggéré.
+
+    Stratégie de matching (par priorité) :
+    1. Catégorie + sous-catégorie du template == catégorie/sous-catégorie de l'opération
+    2. Alias fournisseur dans le libellé (suggest_template existant)
+    3. Sinon → unmatched
+    """
+    from backend.services import operation_service
+
+    ops_cache: dict[str, list] = {}
+    groups_map: dict[str, BatchSuggestGroup] = {}
+    unmatched: list[dict] = []
+
+    for item in operations:
+        op_file = item.get("operation_file") or item.get("operation_file", "")
+        op_index = item.get("operation_index", 0)
+
+        if op_file not in ops_cache:
+            try:
+                ops_cache[op_file] = operation_service.load_operations(op_file)
+            except FileNotFoundError:
+                unmatched.append({"operation_file": op_file, "operation_index": op_index, "libelle": "", "error": "file_not_found"})
+                continue
+
+        file_ops = ops_cache[op_file]
+        if not (0 <= op_index < len(file_ops)):
+            unmatched.append({"operation_file": op_file, "operation_index": op_index, "libelle": "", "error": "invalid_index"})
+            continue
+
+        op = file_ops[op_index]
+        libelle = op.get("Libellé", "") or op.get("Libelle", "")
+
+        # 1) Match par catégorie/sous-catégorie
+        matched_tpl = _suggest_by_category(op)
+
+        # 2) Fallback : match par alias fournisseur dans le libellé
+        if not matched_tpl:
+            alias_suggestions = suggest_template(libelle)
+            if alias_suggestions:
+                tpl = get_template(alias_suggestions[0].template_id)
+                if tpl:
+                    matched_tpl = tpl
+
+        if matched_tpl:
+            if matched_tpl.id not in groups_map:
+                groups_map[matched_tpl.id] = BatchSuggestGroup(
+                    template_id=matched_tpl.id,
+                    template_vendor=matched_tpl.vendor,
+                    operations=[],
+                )
+            groups_map[matched_tpl.id].operations.append({
+                "operation_file": op_file,
+                "operation_index": op_index,
+                "libelle": libelle,
+            })
+        else:
+            unmatched.append({
+                "operation_file": op_file,
+                "operation_index": op_index,
+                "libelle": libelle,
+            })
+
+    return BatchSuggestResponse(
+        groups=list(groups_map.values()),
+        unmatched=unmatched,
+    )
+
+
 # ──── Génération PDF reconstitué ────
 
 
@@ -672,7 +770,9 @@ def _generate_pdf_facsimile(
         c.drawImage(ImageReader(img_buffer), 0, 0, width=pw, height=ph)
 
         # 3b. Masquer les images embarquées (photos produits, logos secondaires)
-        _blank_embedded_images(c, source_pdf_path, page_idx, ph)
+        # Désactivé : le masquage efface des zones utiles sur les tickets scannés.
+        # Les rectangles blancs aux coordonnées des champs (étape 4) suffisent.
+        # _blank_embedded_images(c, source_pdf_path, page_idx, ph)
 
         # 4. Appliquer les remplacements sur cette page
         scale = 72.0 / dpi  # ne pas re-scaler, les coordonnées pdfplumber sont en pts
@@ -693,25 +793,32 @@ def _generate_pdf_facsimile(
             h = coords.h
             y_bottom = ph - y_top - h  # convertir en bas-gauche
 
-            # a. Rectangle blanc pour effacer l'ancienne valeur
-            c.setFillColor(colors.white)
-            c.setStrokeColor(colors.white)
-            c.rect(x, y_bottom, w, h, fill=1, stroke=1)
-
-            # b. Écrire la nouvelle valeur
-            c.setFillColor(colors.black)
+            # b. Préparer la nouvelle valeur formatée
             font_size = min(h * 0.8, 11)
-            c.setFont("Helvetica", max(font_size, 7))
+            actual_font_size = max(font_size, 7)
+            c.setFont("Helvetica", actual_font_size)
 
-            # Formater la valeur
             formatted = str(new_value)
             if field_key == "montant_ttc":
                 formatted = _format_currency(new_value)
             elif field_key == "date":
                 formatted = _format_date_fr(str(new_value))
 
+            # a. Rectangle blanc — élargi pour couvrir l'ancien texte + le nouveau
+            pad_h = 2  # padding vertical
+            pad_w = 4  # padding horizontal
+            text_width = c.stringWidth(formatted, "Helvetica", actual_font_size)
+            rect_w = max(w, text_width + pad_w * 2)  # au moins aussi large que le texte
+            c.setFillColor(colors.white)
+            c.setStrokeColor(colors.white)
+            c.rect(x - pad_w, y_bottom - pad_h, rect_w + pad_w, h + pad_h * 2, fill=1, stroke=1)
+
+            # c. Écrire la nouvelle valeur
+            c.setFillColor(colors.black)
+            c.setFont("Helvetica", actual_font_size)
+
             # Centrer verticalement dans la zone
-            text_y = y_bottom + (h - font_size) / 2
+            text_y = y_bottom + (h - actual_font_size) / 2
             c.drawString(x + 1, text_y, formatted)
 
     c.save()
@@ -818,3 +925,311 @@ def _format_date_fr(date_str: str) -> str:
         return dt.strftime("%d/%m/%Y")
     except (ValueError, TypeError):
         return date_str
+
+
+# ──── Batch ────
+
+
+def _matches_aliases(libelle: str, aliases: list[str]) -> bool:
+    """Vérifie si le libellé matche au moins un alias (sous-chaîne, case-insensitive)."""
+    libelle_lower = libelle.lower()
+    return any(alias.lower() in libelle_lower for alias in aliases)
+
+
+def _op_has_no_justificatif(op: dict) -> bool:
+    """Vérifie qu'une opération n'a PAS de justificatif."""
+    justif = op.get("Justificatif")
+    lien = op.get("Lien justificatif", "") or ""
+    return (not justif) and (not lien.strip())
+
+
+def _extract_montant(op: dict) -> float:
+    """Extrait le montant (débit ou crédit) en valeur absolue."""
+    debit = op.get("Débit") or op.get("Debit") or 0
+    credit = op.get("Crédit") or op.get("Credit") or 0
+    try:
+        debit = float(debit) if debit else 0
+        credit = float(credit) if credit else 0
+    except (ValueError, TypeError):
+        debit, credit = 0, 0
+    return abs(debit) if debit else abs(credit)
+
+
+def _extract_mois(date_str: str) -> int:
+    """Extrait le mois (1-12) d'une date YYYY-MM-DD."""
+    try:
+        return int(date_str.split("-")[1])
+    except (IndexError, ValueError):
+        return 0
+
+
+def _op_matches_category(op: dict, category: str, sous_categorie: str) -> bool:
+    """Vérifie si l'opération correspond à la catégorie/sous-catégorie du template."""
+    op_cat = (op.get("Catégorie") or op.get("Categorie") or "").strip()
+    if not op_cat:
+        return False
+    if op_cat.lower() != category.lower():
+        return False
+    if sous_categorie:
+        op_sub = (op.get("Sous-catégorie") or op.get("Sous-categorie") or "").strip()
+        if op_sub.lower() != sous_categorie.lower():
+            return False
+    return True
+
+
+def find_batch_candidates(template_id: str, year: int) -> BatchCandidatesResponse:
+    """Trouve toutes les opérations sans justificatif matchant le template.
+
+    Filtre en priorité par catégorie/sous-catégorie du template (si définies),
+    puis par aliases fournisseur en complément.
+    """
+    from backend.services import operation_service
+
+    tpl = get_template(template_id)
+    if not tpl:
+        raise ValueError(f"Template non trouvé: {template_id}")
+
+    aliases = tpl.vendor_aliases
+    tpl_category = (tpl.category or "").strip()
+    tpl_sous_cat = (tpl.sous_categorie or "").strip()
+
+    if not aliases and not tpl_category:
+        return BatchCandidatesResponse(
+            template_id=template_id, vendor=tpl.vendor, year=year,
+            candidates=[], total=0,
+        )
+
+    op_files = operation_service.list_operation_files()
+    candidates: list[BatchCandidate] = []
+
+    for fmeta in op_files:
+        file_year = fmeta.get("year")
+        if file_year and int(file_year) != year:
+            continue
+        filename = fmeta["filename"]
+        try:
+            ops = operation_service.load_operations(filename)
+        except Exception:
+            continue
+
+        for idx, op in enumerate(ops):
+            libelle = op.get("Libellé", "") or op.get("Libelle", "") or ""
+            ventilation = op.get("ventilation") or []
+
+            # Déterminer si l'opération matche le template :
+            # 1) Par catégorie/sous-catégorie (prioritaire si définies sur le template)
+            # 2) Par aliases fournisseur (fallback ou complément)
+            matches_cat = tpl_category and _op_matches_category(op, tpl_category, tpl_sous_cat)
+            matches_alias = aliases and _matches_aliases(libelle, aliases)
+
+            # Si le template a une catégorie, on filtre par catégorie en priorité
+            # Sinon on utilise les aliases uniquement
+            if tpl_category:
+                if not matches_cat:
+                    continue
+            else:
+                if not matches_alias:
+                    continue
+
+            op_cat = (op.get("Catégorie") or op.get("Categorie") or "").strip()
+            op_sub = (op.get("Sous-catégorie") or op.get("Sous-categorie") or "").strip()
+
+            if ventilation:
+                for v_idx, v_line in enumerate(ventilation):
+                    v_justif = v_line.get("Justificatif")
+                    v_lien = v_line.get("Lien justificatif", "") or ""
+                    if v_justif or (v_lien and v_lien.strip()):
+                        continue
+                    v_montant = 0.0
+                    try:
+                        v_montant = abs(float(v_line.get("montant", 0) or 0))
+                    except (ValueError, TypeError):
+                        pass
+                    v_cat = (v_line.get("categorie") or op_cat).strip()
+                    v_sub = (v_line.get("sous_categorie") or op_sub).strip()
+                    date_str = op.get("Date", "") or ""
+                    candidates.append(BatchCandidate(
+                        operation_file=filename,
+                        operation_index=idx,
+                        date=date_str,
+                        libelle=libelle[:100],
+                        montant=v_montant,
+                        mois=_extract_mois(date_str),
+                        categorie=v_cat,
+                        sous_categorie=v_sub,
+                    ))
+            else:
+                if not _op_has_no_justificatif(op):
+                    continue
+                date_str = op.get("Date", "") or ""
+                candidates.append(BatchCandidate(
+                    operation_file=filename,
+                    operation_index=idx,
+                    date=date_str,
+                    libelle=libelle[:100],
+                    montant=_extract_montant(op),
+                    mois=_extract_mois(date_str),
+                    categorie=op_cat,
+                    sous_categorie=op_sub,
+                ))
+
+    # Trier par date croissante
+    candidates.sort(key=lambda c: c.date)
+
+    return BatchCandidatesResponse(
+        template_id=template_id,
+        vendor=tpl.vendor,
+        year=year,
+        candidates=candidates,
+        total=len(candidates),
+    )
+
+
+def batch_generate(template_id: str, operations: list[dict]) -> BatchGenerateResponse:
+    """Génère des fac-similés en batch pour une liste d'opérations."""
+    import time
+
+    results: list[BatchGenerateResult] = []
+    generated = 0
+    errors = 0
+
+    for i, op_ref in enumerate(operations):
+        op_file = op_ref.get("operation_file", "")
+        op_index = op_ref.get("operation_index", 0)
+
+        try:
+            request = GenerateRequest(
+                template_id=template_id,
+                operation_file=op_file,
+                operation_index=op_index,
+                field_values={},
+                auto_associate=True,
+            )
+            result = generate_reconstitue(request)
+            results.append(BatchGenerateResult(
+                operation_file=op_file,
+                operation_index=op_index,
+                filename=result.get("filename"),
+                associated=result.get("associated", False),
+            ))
+            generated += 1
+        except Exception as e:
+            logger.error(f"Batch generate erreur [{op_file}:{op_index}]: {e}")
+            results.append(BatchGenerateResult(
+                operation_file=op_file,
+                operation_index=op_index,
+                error=str(e),
+            ))
+            errors += 1
+
+        # Pause pour éviter les collisions de timestamp
+        if i < len(operations) - 1:
+            time.sleep(0.1)
+
+    return BatchGenerateResponse(
+        generated=generated,
+        errors=errors,
+        total=len(operations),
+        results=results,
+    )
+
+
+def get_all_ops_without_justificatif(year: int) -> OpsWithoutJustificatifResponse:
+    """Retourne toutes les opérations sans justificatif pour une année, groupées par catégorie."""
+    from backend.services import operation_service
+
+    op_files = operation_service.list_operation_files()
+    groups_map: dict[tuple[str, str], list[BatchCandidate]] = {}
+
+    for fmeta in op_files:
+        file_year = fmeta.get("year")
+        if file_year and int(file_year) != year:
+            continue
+        filename = fmeta["filename"]
+        try:
+            ops = operation_service.load_operations(filename)
+        except Exception:
+            continue
+
+        for idx, op in enumerate(ops):
+            ventilation = op.get("ventilation") or []
+            if ventilation:
+                for v_line in ventilation:
+                    v_justif = v_line.get("Justificatif")
+                    v_lien = v_line.get("Lien justificatif", "") or ""
+                    if v_justif or (v_lien and v_lien.strip()):
+                        continue
+                    v_cat = (v_line.get("categorie") or op.get("Catégorie") or op.get("Categorie") or "").strip()
+                    v_sub = (v_line.get("sous_categorie") or op.get("Sous-catégorie") or op.get("Sous-categorie") or "").strip()
+                    cat = v_cat or "Sans catégorie"
+                    sub = v_sub
+                    v_montant = 0.0
+                    try:
+                        v_montant = abs(float(v_line.get("montant", 0) or 0))
+                    except (ValueError, TypeError):
+                        pass
+                    date_str = op.get("Date", "") or ""
+                    libelle = op.get("Libellé", "") or op.get("Libelle", "") or ""
+                    key = (cat, sub)
+                    groups_map.setdefault(key, []).append(BatchCandidate(
+                        operation_file=filename, operation_index=idx,
+                        date=date_str, libelle=libelle[:100],
+                        montant=v_montant, mois=_extract_mois(date_str),
+                        categorie=cat, sous_categorie=sub,
+                    ))
+            else:
+                if not _op_has_no_justificatif(op):
+                    continue
+                cat = (op.get("Catégorie") or op.get("Categorie") or "").strip() or "Sans catégorie"
+                sub = (op.get("Sous-catégorie") or op.get("Sous-categorie") or "").strip()
+                date_str = op.get("Date", "") or ""
+                libelle = op.get("Libellé", "") or op.get("Libelle", "") or ""
+                key = (cat, sub)
+                groups_map.setdefault(key, []).append(BatchCandidate(
+                    operation_file=filename, operation_index=idx,
+                    date=date_str, libelle=libelle[:100],
+                    montant=_extract_montant(op), mois=_extract_mois(date_str),
+                    categorie=cat, sous_categorie=sub,
+                ))
+
+    # Construire les groupes avec auto-suggestion template
+    groups: list[OpsGroup] = []
+    for (cat, sub), ops_list in sorted(groups_map.items()):
+        ops_list.sort(key=lambda c: c.date)
+        # Auto-suggestion : chercher un template matchant par catégorie/sous-catégorie
+        suggested_id = None
+        suggested_vendor = None
+        store = load_templates()
+        best_score = 0
+        for tpl in store.templates:
+            tpl_cat = (tpl.category or "").strip()
+            tpl_sub = (tpl.sous_categorie or "").strip()
+            if tpl_cat and tpl_cat.lower() == cat.lower():
+                # Match exact catégorie + sous-catégorie = score 2
+                # Match catégorie seule = score 1
+                score = 2 if (tpl_sub and sub and tpl_sub.lower() == sub.lower()) else 1
+                if score > best_score:
+                    best_score = score
+                    suggested_id = tpl.id
+                    suggested_vendor = tpl.vendor
+        # Fallback : suggestion par alias sur le premier libellé
+        if not suggested_id and ops_list:
+            suggestions = suggest_template(ops_list[0].libelle)
+            if suggestions:
+                suggested_id = suggestions[0].template_id
+                suggested_vendor = suggestions[0].vendor
+
+        groups.append(OpsGroup(
+            category=cat, sous_categorie=sub,
+            count=len(ops_list),
+            total_montant=round(sum(o.montant for o in ops_list), 2),
+            suggested_template_id=suggested_id,
+            suggested_template_vendor=suggested_vendor,
+            operations=ops_list,
+        ))
+
+    return OpsWithoutJustificatifResponse(
+        year=year,
+        total=sum(g.count for g in groups),
+        groups=groups,
+    )

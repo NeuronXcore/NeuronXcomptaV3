@@ -50,11 +50,14 @@ def _export_filename(year: int, month: int, ext: str) -> str:
 
 
 def _get_justificatif_name(op: dict) -> str:
-    """Extrait le basename du justificatif ou retourne vide."""
+    """Extrait le basename du justificatif ou retourne vide. Marque [R] les reconstitués."""
     lien = op.get("Lien justificatif", "") or op.get("justificatif", "") or ""
     if not lien:
         return ""
-    return os.path.basename(lien)
+    basename = os.path.basename(lien)
+    if basename.startswith("reconstitue_"):
+        return f"{basename} [R]"
+    return basename
 
 
 def _safe_float(val) -> float:

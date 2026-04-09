@@ -271,6 +271,11 @@ export interface QueryResult {
   rows: QueryResultRow[]
 }
 
+export interface JustificatifExemptions {
+  categories: string[]
+  sous_categories: Record<string, string[]>
+}
+
 export interface AppSettings {
   theme_settings: {
     primary_color: string
@@ -284,6 +289,7 @@ export interface AppSettings {
   include_graphs: boolean
   compress_exports: boolean
   auto_pointage: boolean
+  justificatif_exemptions?: JustificatifExemptions
   // Email comptable
   email_smtp_user?: string | null
   email_smtp_app_password?: string | null
@@ -522,6 +528,80 @@ export interface GenerateRequest {
   operation_index: number
   field_values: Record<string, string | number>
   auto_associate: boolean
+}
+
+// ─── Batch Templates ───
+
+export interface BatchCandidate {
+  operation_file: string
+  operation_index: number
+  date: string
+  libelle: string
+  montant: number
+  mois: number
+  categorie: string
+  sous_categorie: string
+}
+
+export interface BatchCandidatesResponse {
+  template_id: string
+  vendor: string
+  year: number
+  candidates: BatchCandidate[]
+  total: number
+}
+
+export interface BatchGenerateResult {
+  operation_file: string
+  operation_index: number
+  filename: string | null
+  associated: boolean
+  error: string | null
+}
+
+export interface BatchGenerateResponse {
+  generated: number
+  errors: number
+  total: number
+  results: BatchGenerateResult[]
+}
+
+export interface OpsGroup {
+  category: string
+  sous_categorie: string
+  count: number
+  total_montant: number
+  suggested_template_id: string | null
+  suggested_template_vendor: string | null
+  operations: BatchCandidate[]
+}
+
+export interface OpsWithoutJustificatifResponse {
+  year: number
+  total: number
+  groups: OpsGroup[]
+}
+
+// ─── Batch suggest ───
+
+export interface BatchSuggestGroup {
+  template_id: string
+  template_vendor: string
+  operations: { operation_file: string; operation_index: number; libelle: string }[]
+}
+
+export interface BatchSuggestResponse {
+  groups: BatchSuggestGroup[]
+  unmatched: { operation_file: string; operation_index: number; libelle: string }[]
+}
+
+export interface TemplateUpdatePayload {
+  vendor: string
+  vendor_aliases: string[]
+  category: string
+  sous_categorie: string
+  source_justificatif?: string | null
+  fields: TemplateField[]
 }
 
 // ─── Lettrage ───

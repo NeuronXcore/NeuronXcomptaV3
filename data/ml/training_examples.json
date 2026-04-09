@@ -1435,5 +1435,15 @@
     "libelle": "microsoftstore",
     "categorie": "Logiciel",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "paga montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifbnpacbenm",
+    "categorie": "perso",
+    "sous_categorie": ""
   }
 ]

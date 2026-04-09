@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   useTemplates, useExtractFields, useCreateTemplate,
   useDeleteTemplate, useGenerateReconstitue, useTemplateSuggestion,
@@ -11,19 +11,23 @@ import { cn, formatCurrency, formatFileTitle, MOIS_FR } from '@/lib/utils'
 import {
   Search, Plus, Trash2, FileText, Loader2, X, ScanLine,
   CheckCircle, Tag, Hash, Calendar, DollarSign, Crosshair, Eye, Image,
+  Pencil, Layers,
 } from 'lucide-react'
 import type { TemplateField, ExtractedFields, JustificatifTemplate } from '@/types'
+import TemplateEditDrawer from '@/components/templates/TemplateEditDrawer'
+import BatchGenerateDrawer from '@/components/templates/BatchGenerateDrawer'
 
 interface Props {
   preFile?: string | null
   preIndex?: string | null
   preTemplate?: string | null
+  preCreateFile?: string | null
 }
 
-export default function TemplatesTab({ preFile, preIndex, preTemplate }: Props) {
+export default function TemplatesTab({ preFile, preIndex, preTemplate, preCreateFile }: Props) {
   return (
     <div className="space-y-8">
-      <CreateSection />
+      <CreateSection preCreateFile={preCreateFile} />
       <LibrarySection />
       <GenerateSection preFile={preFile} preIndex={preIndex} preTemplate={preTemplate} />
     </div>
@@ -33,7 +37,7 @@ export default function TemplatesTab({ preFile, preIndex, preTemplate }: Props) 
 
 // ──── Section Créer ────
 
-function CreateSection() {
+function CreateSection({ preCreateFile }: { preCreateFile?: string | null }) {
   const [selectedFile, setSelectedFile] = useState('')
   const [extracted, setExtracted] = useState<ExtractedFields | null>(null)
   const [vendor, setVendor] = useState('')
@@ -43,13 +47,38 @@ function CreateSection() {
   const [sousCategorie, setSousCategorie] = useState('')
   const [includedFields, setIncludedFields] = useState<Record<string, boolean>>({})
   const [fieldSources, setFieldSources] = useState<Record<string, string>>({})
+  const preCreateHandled = useRef('')
 
   const { data: justificatifs } = useJustificatifs({
-    status: 'all', search: '', sort_by: 'date', sort_order: 'desc',
+    status: 'en_attente', search: '', sort_by: 'date', sort_order: 'desc',
   })
   const { data: catData } = useCategories()
   const extractFields = useExtractFields()
   const createTemplate = useCreateTemplate()
+
+  // Auto-extraction quand preCreateFile est fourni
+  useEffect(() => {
+    if (preCreateFile && preCreateFile !== preCreateHandled.current) {
+      preCreateHandled.current = preCreateFile
+      setSelectedFile(preCreateFile)
+      setExtracted(null)
+      extractFields.mutate(preCreateFile, {
+        onSuccess: (data) => {
+          setExtracted(data)
+          setVendor(data.vendor)
+          setAliases(data.suggested_aliases)
+          const inc: Record<string, boolean> = {}
+          const src: Record<string, string> = {}
+          for (const f of data.detected_fields) {
+            inc[f.key] = true
+            src[f.key] = f.suggested_source
+          }
+          setIncludedFields(inc)
+          setFieldSources(src)
+        },
+      })
+    }
+  }, [preCreateFile])
 
   const handleAnalyse = () => {
     if (!selectedFile) return
@@ -159,30 +188,29 @@ function CreateSection() {
               <label className="text-[10px] text-text-muted mb-1 block">Catégorie</label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => { setCategory(e.target.value); setSousCategorie('') }}
                 className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
               >
                 <option value="">—</option>
-                {catData?.categories?.map((g: any) => (
-                  <optgroup key={g.name} label={g.name}>
-                    {g.subcategories?.map((s: any, si: number) => {
-                      const name = s.name || s
-                      return <option key={`${g.name}-${name}-${si}`} value={name}>{name}</option>
-                    })}
-                  </optgroup>
-                )) ?? catData?.raw?.map((c: any, i: number) => (
-                  <option key={`${c['Catégorie']}-${i}`} value={c['Catégorie']}>{c['Catégorie']}</option>
+                {catData?.categories?.map((g) => (
+                  <option key={g.name} value={g.name}>{g.name}</option>
                 ))}
               </select>
             </div>
             <div>
               <label className="text-[10px] text-text-muted mb-1 block">Sous-catégorie</label>
-              <input
+              <select
                 value={sousCategorie}
                 onChange={(e) => setSousCategorie(e.target.value)}
                 className="w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
-                placeholder="optionnel"
-              />
+              >
+                <option value="">—</option>
+                {catData?.categories
+                  ?.find((g) => g.name === category)
+                  ?.subcategories?.map((s) => (
+                    <option key={s.name} value={s.name}>{s.name}</option>
+                  ))}
+              </select>
             </div>
           </div>
 
@@ -311,8 +339,9 @@ function CreateSection() {
 
 function LibrarySection() {
   const { data: templates, isLoading } = useTemplates()
-  const deleteTemplate = useDeleteTemplate()
-  const [previewTpl, setPreviewTpl] = useState<JustificatifTemplate | null>(null)
+  const [editTemplateId, setEditTemplateId] = useState<string | null>(null)
+  const [batchTemplateId, setBatchTemplateId] = useState<string | null>(null)
+  const [batchVendor, setBatchVendor] = useState('')
 
   if (isLoading) {
     return (
@@ -342,14 +371,6 @@ function LibrarySection() {
     'bg-cyan-500/20 text-cyan-400',
   ]
 
-  const sourceTypes: Record<string, { label: string; color: string }> = {
-    operation: { label: 'Opération', color: 'bg-blue-500/10 text-blue-400' },
-    ocr: { label: 'OCR', color: 'bg-emerald-500/10 text-emerald-400' },
-    manual: { label: 'Manuel', color: 'bg-amber-500/10 text-amber-400' },
-    computed: { label: 'Calculé', color: 'bg-violet-500/10 text-violet-400' },
-    fixed: { label: 'Fixe', color: 'bg-surface text-text-muted' },
-  }
-
   return (
     <div>
       <h3 className="text-sm font-semibold text-text mb-4 flex items-center gap-2">
@@ -366,7 +387,7 @@ function LibrarySection() {
             <div
               key={tpl.id}
               className="bg-surface rounded-xl border border-border overflow-hidden hover:border-violet-500/40 transition-colors group cursor-pointer"
-              onClick={() => setPreviewTpl(tpl)}
+              onClick={() => setEditTemplateId(tpl.id)}
             >
               {/* Thumbnail du PDF source */}
               {hasSource ? (
@@ -393,7 +414,7 @@ function LibrarySection() {
               )}
 
               <div className="p-3">
-                {/* Vendor + delete */}
+                {/* Vendor + actions */}
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold', colorClass)}>
@@ -407,15 +428,16 @@ function LibrarySection() {
                     </div>
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); deleteTemplate.mutate(tpl.id) }}
-                    className="p-1 text-text-muted/30 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); setEditTemplateId(tpl.id) }}
+                    className="p-1 text-text-muted/30 hover:text-text transition-colors opacity-0 group-hover:opacity-100"
+                    title="Modifier"
                   >
-                    <Trash2 size={12} />
+                    <Pencil size={11} />
                   </button>
                 </div>
 
                 {/* Badges */}
-                <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                <div className="flex items-center gap-2 text-[10px] text-text-muted mb-2">
                   <span className="flex items-center gap-0.5">
                     <Hash size={9} />
                     {tpl.fields.length} champs
@@ -431,115 +453,34 @@ function LibrarySection() {
                     </span>
                   )}
                 </div>
+
+                {/* Bouton Batch */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setBatchTemplateId(tpl.id); setBatchVendor(tpl.vendor) }}
+                  className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-medium rounded-lg border border-orange-500/30 text-orange-400 hover:bg-orange-500/10 transition-colors"
+                >
+                  <Layers size={12} />
+                  Batch fac-similé
+                </button>
               </div>
             </div>
           )
         })}
       </div>
 
-      {/* Drawer aperçu template */}
-      {previewTpl && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setPreviewTpl(null)} />
-          <div className="fixed top-0 right-0 h-full w-[600px] max-w-[95vw] bg-background border-l border-border z-50 flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-              <div className="flex items-center gap-3">
-                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold', colors[templates.indexOf(previewTpl) % colors.length])}>
-                  {previewTpl.vendor.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-text">{previewTpl.vendor}</p>
-                  <p className="text-xs text-text-muted">{previewTpl.category || 'Sans catégorie'}</p>
-                </div>
-              </div>
-              <button onClick={() => setPreviewTpl(null)} className="p-1 text-text-muted hover:text-text">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-5">
-              {/* Preview PDF source */}
-              {previewTpl.source_justificatif && (
-                <div className="rounded-lg border border-border overflow-hidden bg-white flex items-center justify-center p-2">
-                  <img
-                    src={`/api/ged/documents/${encodeURIComponent('data/justificatifs/traites/' + previewTpl.source_justificatif)}/thumbnail`}
-                    alt={previewTpl.vendor}
-                    className="max-h-[40vh] w-auto object-contain"
-                    onError={(e) => {
-                      const img = e.target as HTMLImageElement
-                      if (!img.dataset.retried) {
-                        img.dataset.retried = '1'
-                        img.src = `/api/ged/documents/${encodeURIComponent('data/justificatifs/en_attente/' + previewTpl.source_justificatif)}/thumbnail`
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Infos */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-surface rounded-lg border border-border p-3">
-                  <p className="text-[10px] text-text-muted mb-1">Alias de matching</p>
-                  <div className="flex flex-wrap gap-1">
-                    {previewTpl.vendor_aliases.map((a) => (
-                      <span key={a} className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 rounded text-[10px]">{a}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-surface rounded-lg border border-border p-3">
-                  <p className="text-[10px] text-text-muted mb-1">Statistiques</p>
-                  <p className="text-sm text-text">{previewTpl.usage_count} utilisation{previewTpl.usage_count !== 1 ? 's' : ''}</p>
-                  <p className="text-[10px] text-text-muted mt-0.5">Créé le {previewTpl.created_at?.slice(0, 10)}</p>
-                </div>
-              </div>
-
-              {/* Table des champs */}
-              <div>
-                <p className="text-xs font-medium text-text-muted mb-2">Champs du template ({previewTpl.fields.length})</p>
-                <div className="border border-border rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-surface-hover text-text-muted">
-                        <th className="text-left px-3 py-2">Champ</th>
-                        <th className="text-left px-3 py-2">Type</th>
-                        <th className="text-left px-3 py-2">Source</th>
-                        <th className="text-center px-3 py-2 w-10">Pos.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewTpl.fields.map((f) => (
-                        <tr key={f.key} className="border-t border-border/30">
-                          <td className="px-3 py-1.5 text-text font-medium">{f.label}</td>
-                          <td className="px-3 py-1.5 text-text-muted">{f.type}</td>
-                          <td className="px-3 py-1.5">
-                            <span className={cn('px-1.5 py-0.5 rounded text-[10px]', sourceTypes[f.source]?.color || 'bg-surface text-text-muted')}>
-                              {sourceTypes[f.source]?.label || f.source}
-                            </span>
-                          </td>
-                          <td className="px-3 py-1.5 text-center">
-                            {f.coordinates ? (
-                              <Crosshair size={11} className="text-emerald-400 mx-auto" />
-                            ) : (
-                              <span className="text-text-muted/30">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Source PDF */}
-              {previewTpl.source_justificatif && (
-                <p className="text-[10px] text-text-muted">
-                  Source : {previewTpl.source_justificatif}
-                </p>
-              )}
-            </div>
-          </div>
-        </>
+      {/* Drawers */}
+      {editTemplateId && (
+        <TemplateEditDrawer
+          templateId={editTemplateId}
+          onClose={() => setEditTemplateId(null)}
+        />
+      )}
+      {batchTemplateId && (
+        <BatchGenerateDrawer
+          templateId={batchTemplateId}
+          vendor={batchVendor}
+          onClose={() => { setBatchTemplateId(null); setBatchVendor('') }}
+        />
       )}
     </div>
   )

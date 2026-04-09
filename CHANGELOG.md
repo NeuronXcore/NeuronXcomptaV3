@@ -8,6 +8,29 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-09) — Session 8
+
+- **Batch reconstitution fac-simile depuis JustificatifsPage**
+  - Multi-selection checkboxes sur le tableau des operations (ops sans justificatif uniquement)
+  - Checkbox header select-all avec etat intermediaire (indeterminate)
+  - Barre d'actions flottante en bas : "N operations selectionnees" + bouton "Reconstituer (N)" + annuler
+  - `BatchReconstituerDrawer` (550px) : affiche les ops groupees par template suggere avec dropdown modifiable
+  - Matching template intelligent : priorite categorie/sous-categorie du template, fallback alias fournisseur
+  - Ops sans template correspondant affichees en warning ambre
+  - Generation sequentielle par groupe via `POST /api/templates/batch-generate`
+  - Toast resultat (succes/erreurs) + clear selection automatique
+
+- **Nouvel endpoint `POST /api/templates/batch-suggest`**
+  - Accepte une liste `{operation_file, operation_index}[]`
+  - Groupe les operations par meilleur template : `_suggest_by_category()` (match categorie) puis `suggest_template()` (alias)
+  - Retourne `{groups: [{template_id, template_vendor, operations}], unmatched: [...]}`
+  - Modeles Pydantic : `BatchSuggestRequest`, `BatchSuggestGroup`, `BatchSuggestResponse`
+
+- **Fac-simile : rectangle blanc elargi dynamiquement**
+  - Le rectangle blanc couvrant l'ancien montant est desormais `max(largeur_coordonnees, largeur_texte_formate + padding)`
+  - Padding 4pt horizontal + 2pt vertical pour marge de securite
+  - Corrige le cas ou l'ancien montant du ticket source debordait du rectangle (ex: "111,19" non couvert par un rectangle de 34pt)
+
 ### Added (2026-04-09) — Session 7
 
 - **Export Compte d'Attente**

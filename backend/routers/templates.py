@@ -3,11 +3,18 @@ Router API pour les templates de justificatifs.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.models.template import (
+    BatchCandidatesRequest,
+    BatchCandidatesResponse,
+    BatchGenerateRequest,
+    BatchGenerateResponse,
+    BatchSuggestRequest,
+    BatchSuggestResponse,
     ExtractFieldsRequest,
     GenerateRequest,
+    OpsWithoutJustificatifResponse,
     TemplateCreateRequest,
 )
 from backend.services import template_service
@@ -20,6 +27,20 @@ async def list_templates():
     """Liste tous les templates."""
     store = template_service.load_templates()
     return store.templates
+
+
+@router.get("/ops-without-justificatif", response_model=OpsWithoutJustificatifResponse)
+async def get_ops_without_justificatif(year: int = Query(...)):
+    """Retourne toutes les opérations sans justificatif groupées par catégorie."""
+    return template_service.get_all_ops_without_justificatif(year)
+
+
+@router.post("/batch-suggest", response_model=BatchSuggestResponse)
+async def batch_suggest(request: BatchSuggestRequest):
+    """Groupe des opérations par meilleur template suggéré."""
+    return template_service.batch_suggest_templates(
+        [op.model_dump() for op in request.operations]
+    )
 
 
 @router.get("/{template_id}")
@@ -35,6 +56,24 @@ async def get_template(template_id: str):
 async def create_template(request: TemplateCreateRequest):
     """Crée un nouveau template."""
     return template_service.create_template(request)
+
+
+@router.post("/batch-candidates", response_model=BatchCandidatesResponse)
+async def get_batch_candidates(request: BatchCandidatesRequest):
+    """Trouve les opérations sans justificatif matchant les aliases d'un template."""
+    try:
+        return template_service.find_batch_candidates(request.template_id, request.year)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/batch-generate", response_model=BatchGenerateResponse)
+async def batch_generate(request: BatchGenerateRequest):
+    """Génère des fac-similés en batch pour les opérations sélectionnées."""
+    try:
+        return template_service.batch_generate(request.template_id, request.operations)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{template_id}")

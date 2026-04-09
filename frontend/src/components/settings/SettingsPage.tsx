@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import JustificatifExemptionsSection from './JustificatifExemptionsSection'
 import { useSettings } from '@/hooks/useApi'
 import { api } from '@/api/client'
 import { cn, MOIS_FR } from '@/lib/utils'
@@ -12,13 +13,13 @@ import {
   Loader2, Check, Moon, Sun, Bell, BellOff, Eye, EyeOff,
   FolderOpen, Database, Paperclip, Brain, ScrollText,
   Archive, Clock, Info, Monitor, Pencil, Trash2, X, ChevronDown,
-  Mail, CheckCircle2, Send,
+  Mail, CheckCircle2, Send, FileCheck,
 } from 'lucide-react'
 import EmailChipsInput from '@/components/common/EmailChipsInput'
 import { useTestEmailConnection } from '@/hooks/useEmail'
 import toast from 'react-hot-toast'
 
-type Tab = 'general' | 'theme' | 'export' | 'storage' | 'system' | 'email'
+type Tab = 'general' | 'theme' | 'export' | 'justificatifs' | 'storage' | 'system' | 'email'
 
 interface DiskSpace {
   total_gb: number
@@ -59,43 +60,52 @@ export default function SettingsPage() {
     { key: 'general', label: 'Général', icon: Settings },
     { key: 'theme', label: 'Interface', icon: Palette },
     { key: 'export', label: 'Exportation', icon: FileText },
+    { key: 'justificatifs', label: '\ud83d\ude08 Batch fac-simile', icon: FileCheck },
     { key: 'storage', label: 'Stockage', icon: HardDrive },
     { key: 'system', label: 'Système', icon: Server },
     { key: 'email', label: 'Email', icon: Mail },
   ]
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6">
       <PageHeader
         title="Paramètres"
         description="Configuration de l'application NeuronXcompta"
       />
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-surface rounded-xl border border-border p-1 mb-6 overflow-x-auto">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm whitespace-nowrap transition-all',
-              activeTab === tab.key
-                ? 'bg-primary text-white shadow-md'
-                : 'text-text-muted hover:text-text hover:bg-surface-hover'
-            )}
-          >
-            <tab.icon size={15} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <div className="flex gap-6">
+        {/* Sidebar tabs */}
+        <div className="shrink-0 w-48">
+          <nav className="sticky top-6 space-y-1">
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all text-left',
+                  activeTab === tab.key
+                    ? 'bg-primary/15 text-primary font-medium'
+                    : 'text-text-muted hover:text-text hover:bg-surface-hover'
+                )}
+              >
+                <tab.icon size={15} />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-      {activeTab === 'general' && <GeneralTab />}
-      {activeTab === 'theme' && <ThemeTab />}
-      {activeTab === 'export' && <ExportTab />}
-      {activeTab === 'storage' && <StorageTab />}
-      {activeTab === 'system' && <SystemTab />}
-      {activeTab === 'email' && <EmailTab />}
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {activeTab === 'general' && <GeneralTab />}
+          {activeTab === 'theme' && <ThemeTab />}
+          {activeTab === 'export' && <ExportTab />}
+          {activeTab === 'justificatifs' && <JustificatifsTab />}
+          {activeTab === 'storage' && <StorageTab />}
+          {activeTab === 'system' && <SystemTab />}
+          {activeTab === 'email' && <EmailTab />}
+        </div>
+      </div>
     </div>
   )
 }
@@ -178,9 +188,9 @@ function GeneralTab() {
   if (isLoading || !settings) return <LoadingSpinner text="Chargement..." />
 
   return (
-    <div className="space-y-6">
-      <div className="bg-surface rounded-2xl border border-border p-6 space-y-6">
-        <h3 className="font-semibold text-text flex items-center gap-2">
+    <div className="space-y-8">
+      <div className="bg-surface rounded-2xl border border-border p-6 space-y-8">
+        <h3 className="font-semibold text-text flex items-center gap-2 text-base">
           <Settings size={18} />
           Paramètres généraux
         </h3>
@@ -367,7 +377,6 @@ function ExportTab() {
   const formats = [
     { id: 'CSV', label: 'CSV', desc: 'Tableur simple compatible Excel', icon: FileText, color: 'text-success' },
     { id: 'PDF', label: 'PDF', desc: 'Document mis en forme pour impression', icon: FileText, color: 'text-danger' },
-    { id: 'XLSX', label: 'Excel', desc: 'Multi-feuilles avec analyse', icon: FileText, color: 'text-info' },
   ]
 
   return (
@@ -448,6 +457,38 @@ interface OperationFile {
   month?: number
   year?: number
 }
+
+// ──── Justificatifs Tab ────
+
+function JustificatifsTab() {
+  const { settings, isLoading, update, save, saving, saved } = useSettingsForm()
+
+  if (isLoading || !settings) return <LoadingSpinner text="Chargement..." />
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-surface rounded-2xl border border-border p-6">
+        <h3 className="font-semibold text-text flex items-center gap-2 text-base mb-1">
+          <FileCheck size={18} />
+          Batch fac-simile
+        </h3>
+        <p className="text-xs text-text-muted mb-4">Configurez les categories exemptees de justificatif. Les operations de ces categories ne genereront pas d'alerte et seront considerees comme couvertes.</p>
+
+        <JustificatifExemptionsSection
+          exemptions={settings.justificatif_exemptions || { categories: ['Perso'], sous_categories: {} }}
+          onChange={(v) => update('justificatif_exemptions', v)}
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <SaveButton onSave={save} saving={saving} saved={saved} />
+      </div>
+    </div>
+  )
+}
+
+
+// ──── Storage Tab ────
 
 function StorageTab() {
   const queryClient = useQueryClient()
@@ -825,6 +866,94 @@ function OperationFilesSection({
           })}
         </div>
       )}
+
+      {/* File tree */}
+      <FileTreeSection />
+    </div>
+  )
+}
+
+
+// ──── File Tree ────
+
+interface TreeNode {
+  name: string
+  type: 'file' | 'dir'
+  size: number
+  size_human: string
+  count?: number
+  children?: TreeNode[]
+}
+
+function FileTreeSection() {
+  const { data: tree, isLoading } = useQuery<TreeNode>({
+    queryKey: ['file-tree'],
+    queryFn: () => api.get('/settings/file-tree'),
+  })
+
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const toggle = (path: string) => {
+    const next = new Set(expanded)
+    if (next.has(path)) next.delete(path)
+    else next.add(path)
+    setExpanded(next)
+  }
+
+  const renderNode = (node: TreeNode, path: string, depth: number) => {
+    const isDir = node.type === 'dir'
+    const isOpen = expanded.has(path)
+    return (
+      <div key={path}>
+        <div
+          className={cn(
+            'flex items-center gap-2 py-1 px-2 rounded hover:bg-surface-hover transition-colors text-xs',
+            isDir ? 'cursor-pointer' : '',
+          )}
+          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          onClick={() => isDir && toggle(path)}
+        >
+          {isDir ? (
+            isOpen ? <ChevronDown size={12} className="text-text-muted shrink-0" /> : <ChevronDown size={12} className="text-text-muted shrink-0 -rotate-90" />
+          ) : (
+            <FileText size={12} className="text-text-muted/40 shrink-0" />
+          )}
+          {isDir ? (
+            <FolderOpen size={13} className="text-warning shrink-0" />
+          ) : null}
+          <span className={cn('truncate', isDir ? 'font-medium text-text' : 'text-text-muted')}>
+            {node.name}
+          </span>
+          <span className="ml-auto text-[10px] text-text-muted/60 shrink-0 tabular-nums">
+            {isDir && node.count != null ? `${node.count} fichiers \u00b7 ` : ''}{node.size_human}
+          </span>
+        </div>
+        {isDir && isOpen && node.children?.map((child) =>
+          renderNode(child, `${path}/${child.name}`, depth + 1)
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border p-6">
+      <h3 className="font-semibold text-text flex items-center gap-2 mb-4">
+        <FolderOpen size={18} />
+        Arborescence des fichiers
+      </h3>
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-text-muted text-sm py-4 justify-center">
+          <Loader2 size={14} className="animate-spin" />
+          Chargement...
+        </div>
+      ) : tree ? (
+        <div className="max-h-[400px] overflow-y-auto border border-border rounded-lg bg-background p-2">
+          {tree.children?.map((child) => renderNode(child, child.name, 0))}
+          <div className="mt-2 pt-2 border-t border-border/50 px-2 text-[10px] text-text-muted">
+            Total : {tree.count} fichiers \u00b7 {tree.size_human}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 """Schemas Pydantic pour les settings."""
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -9,6 +9,11 @@ class ThemeSettings(BaseModel):
     primary_color: str = "#811971"
     background_color: str = "#cccce2"
     text_color: str = "#f1efe8"
+
+
+class JustificatifExemptions(BaseModel):
+    categories: list[str] = ["Perso"]
+    sous_categories: dict[str, list[str]] = {}
 
 
 class AppSettings(BaseModel):
@@ -20,6 +25,7 @@ class AppSettings(BaseModel):
     include_graphs: bool = True
     compress_exports: bool = False
     auto_pointage: bool = True
+    justificatif_exemptions: JustificatifExemptions = Field(default_factory=JustificatifExemptions)
     # Email comptable
     email_smtp_user: Optional[str] = None
     email_smtp_app_password: Optional[str] = None

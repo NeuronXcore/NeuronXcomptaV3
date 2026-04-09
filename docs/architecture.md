@@ -562,6 +562,20 @@ Intégrations (bouton ReconstituerButton) :
   ├─ AlertesPage : à côté de "Marquer résolue" pour alertes justificatif_manquant
   ├─ EditorPage : colonne Paperclip, visible au hover pour opérations sans justificatif
   └─ CloturePage : bouton "Reconstituer les manquants" → redirige vers alertes filtrées
+
+Batch reconstitution (JustificatifsPage) :
+  ├─ Multi-sélection checkboxes (ops sans justificatif uniquement)
+  │   → Header checkbox select-all/deselect-all + état indéterminé
+  │   → Barre flottante en bas : "N sélectionnées" + bouton "Reconstituer (N)"
+  ├─ BatchReconstituerDrawer (550px, composant dédié)
+  │   → POST /api/templates/batch-suggest (groupe ops par template)
+  │   → Matching : 1) catégorie/sous-catégorie, 2) alias fournisseur, 3) unmatched
+  │   → Dropdown template modifiable par groupe
+  │   → Ops sans template en warning ambre
+  │   → Bouton "Générer (N)" → POST /api/templates/batch-generate par groupe
+  └─ Fac-similé PDF : rectangle blanc élargi dynamiquement
+      → max(largeur_coordonnées, largeur_texte_formaté + padding)
+      → Évite que l'ancien montant du ticket source déborde
 ```
 
 ### Pipeline Comptable Interactif (page d'accueil)

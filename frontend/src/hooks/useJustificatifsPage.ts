@@ -2,11 +2,22 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useFiscalYearStore } from '../stores/useFiscalYearStore'
 import { useOperationFiles, useOperations, useYearOperations } from './useOperations'
-import type { Operation, OperationFile } from '@/types'
+import { useSettings } from './useApi'
+import type { Operation, OperationFile, JustificatifExemptions } from '@/types'
+
+function isOpExempt(op: Operation, exemptions: JustificatifExemptions | undefined): boolean {
+  if (!exemptions) return false
+  const cat = (op['Catégorie'] ?? '').trim()
+  if (!cat) return false
+  if (exemptions.categories.includes(cat)) return true
+  const sub = (op['Sous-catégorie'] ?? '').trim()
+  if (sub && exemptions.sous_categories[cat]?.includes(sub)) return true
+  return false
+}
 
 type SortKey = 'date' | 'libelle' | 'debit' | 'credit' | 'categorie' | 'sous_categorie'
 type SortOrder = 'asc' | 'desc'
-type JustifFilter = 'all' | 'sans' | 'avec'
+type JustifFilter = 'all' | 'sans' | 'avec' | 'facsimile'
 
 export interface EnrichedOperation extends Operation {
   _originalIndex: number
@@ -16,6 +27,8 @@ export interface EnrichedOperation extends Operation {
 export function useJustificatifsPage() {
   const [searchParams] = useSearchParams()
   const { selectedYear: year, setYear } = useFiscalYearStore()
+  const { data: appSettings } = useSettings()
+  const exemptions = appSettings?.justificatif_exemptions
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('date')
@@ -24,6 +37,9 @@ export function useJustificatifsPage() {
   const [selectedOpIndex, setSelectedOpIndex] = useState<number | null>(null)
   const [selectedOpFilename, setSelectedOpFilename] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Multi-sélection pour batch fac-similé
+  const [selectedOps, setSelectedOps] = useState<Set<string>>(new Set())
 
   // Fichiers disponibles
   const { data: files = [] } = useOperationFiles()
@@ -100,9 +116,11 @@ export function useJustificatifsPage() {
     let ops = [...enrichedOps]
 
     if (justifFilter === 'sans') {
-      ops = ops.filter(op => !op['Lien justificatif'])
+      ops = ops.filter(op => !op['Lien justificatif'] && !isOpExempt(op, exemptions))
     } else if (justifFilter === 'avec') {
-      ops = ops.filter(op => !!op['Lien justificatif'])
+      ops = ops.filter(op => !!op['Lien justificatif'] || isOpExempt(op, exemptions))
+    } else if (justifFilter === 'facsimile') {
+      ops = ops.filter(op => (op['Lien justificatif'] || '').includes('reconstitue_'))
     }
 
     if (search.trim()) {
@@ -128,16 +146,16 @@ export function useJustificatifsPage() {
     })
 
     return ops
-  }, [enrichedOps, justifFilter, search, sortKey, sortOrder])
+  }, [enrichedOps, justifFilter, exemptions, search, sortKey, sortOrder])
 
-  // Stats
+  // Stats (exempt ops count as "avec")
   const stats = useMemo(() => {
     const total = enrichedOps.length
-    const avec = enrichedOps.filter(op => !!op['Lien justificatif']).length
+    const avec = enrichedOps.filter(op => !!op['Lien justificatif'] || isOpExempt(op, exemptions)).length
     const sans = total - avec
     const taux = total > 0 ? Math.round((avec / total) * 100) : 0
     return { total, avec, sans, taux }
-  }, [enrichedOps])
+  }, [enrichedOps, exemptions])
 
   // Toggle tri
   const toggleSort = useCallback((key: SortKey) => {
@@ -186,6 +204,52 @@ export function useJustificatifsPage() {
     setSelectedMonth(null)
   }, [year])
 
+  // Clear sélection quand les filtres changent
+  useEffect(() => {
+    setSelectedOps(new Set())
+  }, [year, selectedMonth, justifFilter, search])
+
+  // Helpers sélection batch
+  const opKey = useCallback((op: EnrichedOperation) => `${op._filename}:${op._originalIndex}`, [])
+
+  const selectableOps = useMemo(
+    () => operations.filter(op => !op['Lien justificatif']),
+    [operations]
+  )
+
+  const toggleOp = useCallback((op: EnrichedOperation) => {
+    setSelectedOps(prev => {
+      const next = new Set(prev)
+      const key = `${op._filename}:${op._originalIndex}`
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const toggleAllFiltered = useCallback(() => {
+    setSelectedOps(prev => {
+      const keys = selectableOps.map(op => `${op._filename}:${op._originalIndex}`)
+      const allSelected = keys.length > 0 && keys.every(k => prev.has(k))
+      if (allSelected) return new Set()
+      return new Set(keys)
+    })
+  }, [selectableOps])
+
+  const clearSelection = useCallback(() => setSelectedOps(new Set()), [])
+
+  const selectedCount = selectedOps.size
+
+  const isAllFilteredSelected = selectableOps.length > 0 &&
+    selectableOps.every(op => selectedOps.has(`${op._filename}:${op._originalIndex}`))
+
+  const isSomeFilteredSelected = !isAllFilteredSelected &&
+    selectableOps.some(op => selectedOps.has(`${op._filename}:${op._originalIndex}`))
+
+  const getSelectedOperations = useCallback(() => {
+    return operations.filter(op => selectedOps.has(`${op._filename}:${op._originalIndex}`))
+  }, [operations, selectedOps])
+
   return {
     year: effectiveYear, setYear, selectedMonth, setSelectedMonth,
     search, setSearch,
@@ -197,5 +261,9 @@ export function useJustificatifsPage() {
     operations, stats,
     isYearWide, isLoading: yearLoading,
     openDrawer, goToNextWithout,
+    // Multi-sélection batch
+    selectedOps, opKey, toggleOp, toggleAllFiltered, clearSelection,
+    selectedCount, isAllFilteredSelected, isSomeFilteredSelected,
+    getSelectedOperations,
   }
 }
