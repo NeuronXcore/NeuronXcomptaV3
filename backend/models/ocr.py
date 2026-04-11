@@ -47,3 +47,9 @@ class OcrManualEdit(BaseModel):
     best_amount: Optional[float] = None
     best_date: Optional[str] = None
     supplier: Optional[str] = None
+    # Hints catégorie / sous-catégorie : stockés au top-level du .ocr.json
+    # (pas dans extracted_data, pour ne pas polluer les arrays OCR).
+    # Utilisés pour pré-remplir les éditeurs + potentiellement améliorer
+    # le rapprochement automatique en filtrant par catégorie d'opération.
+    category_hint: Optional[str] = None
+    sous_categorie_hint: Optional[str] = None

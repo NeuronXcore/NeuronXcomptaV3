@@ -69,7 +69,7 @@ function DocumentCard({
       <div className="aspect-[3/4] bg-background flex items-center justify-center overflow-hidden">
         {!thumbError ? (
           <img
-            src={`/api/ged/documents/${encodeURIComponent(doc.doc_id)}/thumbnail`}
+            src={`/api/ged/documents/${encodeURIComponent(doc.doc_id)}/thumbnail?v=${encodeURIComponent(doc.added_at ?? '')}`}
             alt=""
             className="w-full h-full object-cover"
             onError={() => setThumbError(true)}

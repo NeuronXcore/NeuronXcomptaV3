@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-04-09T06:30:23.141364",
+  "filename": "operations_20260402_163034_4cf58a44.json",
+  "mode": "empty_only",
+  "total_operations": 70,
+  "predicted": 2,
+  "high_confidence": 2,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "DU050425LW MONTAUBAN 39,80",
+      "predicted_category": "repas",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU230425LW MONTAUBAN 47,80",
+      "predicted_category": "repas",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

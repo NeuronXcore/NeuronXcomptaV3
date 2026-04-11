@@ -727,42 +727,21 @@ def _evaluate_formula(formula: str, values: dict) -> Optional[float]:
         return None
 
 
-def _blank_embedded_images(c, source_pdf_path: Path, page_idx: int, page_height: float) -> None:
-    """Masque les images embarquées (photos produits) dans le PDF source avec des rectangles blancs."""
+def _is_mostly_blank_image(img) -> bool:
+    """Détecte si une image rasterisée est majoritairement blanche (> 98% de pixels
+    proches du blanc). Utilisé comme garde-fou après `convert_from_path()` : si
+    poppler renvoie un rendu vide ou quasi-vide (bug transient, fichier corrompu),
+    on le détecte avant de produire un fac-similé inutilisable."""
     try:
-        import pdfplumber
-        from reportlab.lib import colors
-
-        with pdfplumber.open(str(source_pdf_path)) as pdf:
-            if page_idx >= len(pdf.pages):
-                return
-            page = pdf.pages[page_idx]
-            page_w = float(page.width)
-            page_h = float(page.height)
-
-            for img in (page.images or []):
-                x0 = float(img.get("x0", 0))
-                top = float(img.get("top", 0))
-                x1 = float(img.get("x1", x0))
-                bottom = float(img.get("bottom", top))
-                w = x1 - x0
-                h = bottom - top
-
-                # Ignorer les images très petites (icônes, puces) et très larges (fond de page)
-                if w < 20 or h < 20:
-                    continue
-                if w > page_w * 0.95 and h > page_h * 0.95:
-                    continue
-
-                # Convertir : pdfplumber top→ ReportLab bottom-left
-                y_bottom = page_height - bottom
-                margin = 2
-                c.setFillColor(colors.white)
-                c.setStrokeColor(colors.white)
-                c.rect(x0 - margin, y_bottom - margin, w + margin * 2, h + margin * 2, fill=1, stroke=1)
-
-    except Exception as e:
-        logger.debug(f"Masquage images échoué: {e}")
+        from PIL import ImageStat
+        # Downsample pour perf — on n'a pas besoin de précision, juste la moyenne
+        thumb = img.convert("L").resize((100, 100))
+        stat = ImageStat.Stat(thumb)
+        # Mean pixel value, 0=black, 255=white. Ticket scanné typique = 180-220.
+        # Page vraiment vide = 250+. Seuil à 248 pour laisser de la marge.
+        return stat.mean[0] > 248
+    except Exception:
+        return False
 
 
 def _generate_pdf_facsimile(
@@ -784,6 +763,18 @@ def _generate_pdf_facsimile(
     images = convert_from_path(str(source_pdf_path), dpi=dpi)
     if not images:
         raise ValueError("Impossible de convertir le PDF source en image")
+
+    # Garde-fou : si la première page rasterisée est majoritairement blanche,
+    # poppler/pdf2image a probablement eu un pépin. Refuser plutôt que de
+    # produire un fac-similé vide (cf. incident auchan 2026-04-09 où la
+    # fonction `_blank_embedded_images()` — depuis supprimée — dessinait par
+    # erreur des rectangles blancs sur l'image pleine page du ticket scanné).
+    if _is_mostly_blank_image(images[0]):
+        raise ValueError(
+            f"Rasterisation du PDF source '{source_pdf_path.name}' a produit "
+            f"une image quasi-vide — fac-similé impossible. Vérifier que le "
+            f"PDF source contient bien des données visuelles."
+        )
 
     # 2. Créer le canvas aux mêmes dimensions que la première page
     first_img = images[0]
@@ -808,11 +799,6 @@ def _generate_pdf_facsimile(
         img_buffer.seek(0)
         from reportlab.lib.utils import ImageReader
         c.drawImage(ImageReader(img_buffer), 0, 0, width=pw, height=ph)
-
-        # 3b. Masquer les images embarquées (photos produits, logos secondaires)
-        # Désactivé : le masquage efface des zones utiles sur les tickets scannés.
-        # Les rectangles blancs aux coordonnées des champs (étape 4) suffisent.
-        # _blank_embedded_images(c, source_pdf_path, page_idx, ph)
 
         # 4. Appliquer les remplacements sur cette page
         scale = 72.0 / dpi  # ne pas re-scaler, les coordonnées pdfplumber sont en pts

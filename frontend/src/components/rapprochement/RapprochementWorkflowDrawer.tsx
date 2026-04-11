@@ -498,10 +498,11 @@ export default function RapprochementWorkflowDrawer({
 // ─────────────────────────────────────────────
 
 function Thumbnail({ filename }: { filename: string }) {
-  // Endpoint GED : /api/ged/documents/{doc_id:path}/thumbnail
-  // Le doc_id est relatif à BASE_DIR (racine du repo) donc préfixé par `data/`
-  const docId = `data/justificatifs/en_attente/${filename}`
-  const url = `/api/ged/documents/${docId.split('/').map(encodeURIComponent).join('/')}/thumbnail`
+  // Endpoint dédié qui résout automatiquement la location (en_attente ou
+  // traites) via justificatif_service.get_justificatif_path. Avant, on
+  // hard-codait `en_attente/` → les fichiers déjà associés dans `traites/`
+  // retournaient 404 et affichaient une page blanche.
+  const url = `/api/justificatifs/${encodeURIComponent(filename)}/thumbnail`
 
   // IntersectionObserver : ne charge l'image que lorsqu'elle entre dans le viewport
   // de son conteneur scrollable (le <img loading="lazy"> natif ne marche pas bien

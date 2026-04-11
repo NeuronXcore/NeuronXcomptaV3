@@ -35,6 +35,11 @@ export function useJustificatifsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
   const [justifFilter, setJustifFilter] = useState<JustifFilter>('sans')
+  // Filtres catégorie/sous-catégorie — persistent à travers les changements
+  // de mois et d'année (intentionnel : l'utilisateur peut parcourir les mois
+  // tout en gardant le même filtre "Remplaçant / Hébergement" par exemple)
+  const [categoryFilter, setCategoryFilter] = useState<string>('')
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('')
   const [selectedOpIndex, setSelectedOpIndex] = useState<number | null>(null)
   const [selectedOpFilename, setSelectedOpFilename] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -158,6 +163,21 @@ export function useJustificatifsPage() {
       ops = ops.filter(op => isReconstitue(op['Lien justificatif'] || ''))
     }
 
+    // Filtre catégorie (support spécial __uncategorized__ comme l'éditeur)
+    if (categoryFilter === '__uncategorized__') {
+      ops = ops.filter(op => {
+        const cat = (op['Catégorie'] ?? '').trim()
+        return !cat || cat === 'Autres'
+      })
+    } else if (categoryFilter) {
+      ops = ops.filter(op => (op['Catégorie'] ?? '') === categoryFilter)
+    }
+
+    // Filtre sous-catégorie (uniquement si une catégorie réelle est sélectionnée)
+    if (subcategoryFilter && categoryFilter && categoryFilter !== '__uncategorized__') {
+      ops = ops.filter(op => (op['Sous-catégorie'] ?? '') === subcategoryFilter)
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase()
       ops = ops.filter(op =>
@@ -181,7 +201,7 @@ export function useJustificatifsPage() {
     })
 
     return ops
-  }, [enrichedOps, justifFilter, exemptions, search, sortKey, sortOrder])
+  }, [enrichedOps, justifFilter, exemptions, categoryFilter, subcategoryFilter, search, sortKey, sortOrder])
 
   // Stats (exempt ops count as "avec")
   const stats = useMemo(() => {
@@ -252,7 +272,7 @@ export function useJustificatifsPage() {
   // Clear sélection quand les filtres changent
   useEffect(() => {
     setSelectedOps(new Set())
-  }, [year, selectedMonth, justifFilter, search])
+  }, [year, selectedMonth, justifFilter, search, categoryFilter, subcategoryFilter])
 
   // Helpers sélection batch
   const opKey = useCallback((op: EnrichedOperation) => `${op._filename}:${op._originalIndex}`, [])
@@ -306,6 +326,7 @@ export function useJustificatifsPage() {
     search, setSearch,
     sortKey, sortOrder, toggleSort,
     justifFilter, setJustifFilter,
+    categoryFilter, setCategoryFilter, subcategoryFilter, setSubcategoryFilter,
     selectedOpIndex, selectedOpFilename,
     drawerOpen, setDrawerOpen,
     drawerInitialIndex, setDrawerInitialIndex,

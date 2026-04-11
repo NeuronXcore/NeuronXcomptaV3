@@ -28,8 +28,10 @@ async def get_status():
 
 
 @router.get("/history")
-async def get_history(limit: int = Query(20, ge=1, le=100)):
-    """Historique des extractions OCR."""
+async def get_history(limit: int = Query(20, ge=1, le=2000)):
+    """Historique des extractions OCR. La limite max est volontairement élevée
+    car `get_extraction_history()` parcourt déjà tous les fichiers `.ocr.json`
+    du disque avant de slicer — augmenter la limite ne coûte rien en IO."""
     return ocr_service.get_extraction_history(limit)
 
 

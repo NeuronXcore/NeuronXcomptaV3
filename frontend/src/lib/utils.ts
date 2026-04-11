@@ -53,3 +53,46 @@ export function formatFileTitle(file: { filename: string; month?: number; year?:
   // Fallback : nom de fichier nettoyé
   return file.filename.replace(/\.json$/, '').replace(/_/g, ' ')
 }
+
+/**
+ * Normalise le nom fournisseur pour le filename canonique.
+ *
+ * DOIT être strictement équivalent à `backend/services/naming_service.py:normalize_supplier`.
+ * - lowercase
+ * - supprime accents (NFD + strip combining)
+ * - remplace espaces/points/tirets multiples par un seul tiret
+ * - supprime caractères non-alphanumériques (sauf tiret)
+ * - strip tirets début/fin
+ * - max 30 caractères
+ * - fallback "inconnu" si vide
+ */
+export function normalizeSupplier(raw: string): string {
+  let s = raw.toLowerCase().trim()
+  // NFD + strip combining marks (accents)
+  s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  // spaces/dots/dashes/underscores → single dash
+  s = s.replace(/[\s._\-]+/g, '-')
+  // keep alphanum + dash only
+  s = s.replace(/[^a-z0-9-]/g, '')
+  // strip dashes at edges
+  s = s.replace(/^-+|-+$/g, '')
+  return s.slice(0, 30) || 'inconnu'
+}
+
+/**
+ * Construit le nom canonique `fournisseur_YYYYMMDD_montant.XX.pdf` selon la convention.
+ *
+ * Miroir de `backend/services/naming_service.py:build_convention_filename`.
+ * Retourne null si date ou montant manquants.
+ */
+export function buildConventionFilename(
+  supplier: string | null | undefined,
+  dateStr: string | null | undefined, // format "YYYY-MM-DD"
+  amount: number | null | undefined,
+): string | null {
+  if (!dateStr || amount == null) return null
+  const cleanSupplier = normalizeSupplier(supplier || 'inconnu')
+  const dateCompact = dateStr.replace(/-/g, '') // "20250409"
+  const amountStr = Math.abs(amount).toFixed(2)
+  return `${cleanSupplier}_${dateCompact}_${amountStr}.pdf`
+}

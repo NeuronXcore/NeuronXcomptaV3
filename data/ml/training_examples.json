@@ -1645,5 +1645,25 @@
     "libelle": "prlvsepaavanssurech171225id",
     "categorie": "Véhicule",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "uber eats",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "uber onemem",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepapaypaleuropesarletcie",
+    "categorie": "Comptable",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "tuneldenvalira",
+    "categorie": "Abonnements",
+    "sous_categorie": ""
   }
 ]

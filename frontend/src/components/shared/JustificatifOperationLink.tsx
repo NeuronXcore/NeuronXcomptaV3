@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ExternalLink, Search, Loader2 } from 'lucide-react'
+import { ExternalLink, Search, Loader2, Edit3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import { useReverseLookup, useJustificatifOperationSuggestions } from '@/hooks/useJustificatifs'
@@ -11,12 +11,15 @@ import type { OperationSuggestion } from '@/types'
 interface JustificatifOperationLinkProps {
   justificatifFilename: string
   isAssociated: boolean
+  /** Afficher aussi un bouton vers /editor (en plus de /justificatifs). Utile dans le drawer GED. */
+  showEditorLink?: boolean
   className?: string
 }
 
 export default function JustificatifOperationLink({
   justificatifFilename,
   isAssociated,
+  showEditorLink = false,
   className,
 }: JustificatifOperationLinkProps) {
   const navigate = useNavigate()
@@ -28,18 +31,34 @@ export default function JustificatifOperationLink({
     const montant = result.debit || result.credit || 0
     const vlParam = result.ventilation_index !== null ? `&vl=${result.ventilation_index}` : ''
     return (
-      <div className={cn('space-y-1', className)}>
-        <button
-          onClick={() =>
-            navigate(
-              `/justificatifs?file=${encodeURIComponent(result.operation_file)}&highlight=${result.operation_index}${vlParam}&filter=avec`
-            )
-          }
-          className="inline-flex items-center gap-1.5 bg-warning text-background hover:bg-warning/90 font-medium text-sm px-3 py-1.5 rounded-md transition-colors shadow-sm"
-        >
-          <ExternalLink size={14} />
-          Voir l'opération
-        </button>
+      <div className={cn('space-y-1.5', className)}>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() =>
+              navigate(
+                `/justificatifs?file=${encodeURIComponent(result.operation_file)}&highlight=${result.operation_index}${vlParam}&filter=avec`
+              )
+            }
+            className="inline-flex items-center gap-1.5 bg-warning text-background hover:bg-warning/90 font-medium text-sm px-3 py-1.5 rounded-md transition-colors shadow-sm"
+          >
+            <ExternalLink size={14} />
+            Voir l'opération
+          </button>
+          {showEditorLink && (
+            <button
+              onClick={() =>
+                navigate(
+                  `/editor?file=${encodeURIComponent(result.operation_file)}&highlight=${result.operation_index}`
+                )
+              }
+              className="inline-flex items-center gap-1.5 bg-surface border border-border hover:border-primary/50 text-text font-medium text-sm px-3 py-1.5 rounded-md transition-colors"
+              title="Ouvrir la ligne dans l'Éditeur"
+            >
+              <Edit3 size={14} />
+              Ouvrir dans l'Éditeur
+            </button>
+          )}
+        </div>
         <div className="text-xs text-text-muted">
           {result.date} — {result.libelle?.slice(0, 40)}{result.libelle?.length > 40 ? '...' : ''} — {formatCurrency(montant)}
         </div>

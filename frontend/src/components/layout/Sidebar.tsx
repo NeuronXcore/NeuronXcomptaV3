@@ -16,6 +16,7 @@ import { useTasks } from '@/hooks/useTasks'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { useMLModel } from '@/hooks/useApi'
 import { useEmailHistory } from '@/hooks/useEmail'
+import { useJustificatifStats } from '@/hooks/useJustificatifs'
 import SidebarLogo from './SidebarLogo'
 
 const NAV_SECTIONS = [
@@ -113,6 +114,9 @@ export default function Sidebar() {
     if (!emailHistory) return 0
     return emailHistory.filter(e => e.success).length
   }, [emailHistory])
+
+  const { data: justifStats } = useJustificatifStats()
+  const pendingScansCount = justifStats?.en_attente ?? 0
 
   return (
     <aside className="w-64 h-screen bg-surface border-r border-border flex flex-col fixed left-0 top-0">
@@ -225,6 +229,11 @@ export default function Sidebar() {
                 {to === '/agent-ai' && agentBadgeCount > 0 && (
                   <span className="ml-auto bg-purple-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                     {agentBadgeCount}
+                  </span>
+                )}
+                {to === '/ocr' && pendingScansCount > 0 && (
+                  <span className="ml-auto bg-orange-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {pendingScansCount}
                   </span>
                 )}
               </NavLink>

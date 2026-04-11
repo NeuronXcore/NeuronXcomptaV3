@@ -65,12 +65,12 @@
     "regstationpaymontauban": "Véhicule",
     "alhambra montauban": "Fournitures",
     "boucheriechez montauban": "perso",
-    "adhauc montauban": "perso",
+    "adhauc montauban": "Matériel",
     "wwwcontabocomde": "Abonnements",
     "ruralmastermomonta82monta": "Matériel",
     "decathlon montauban": "perso",
     "virsctinstemispid": "perso",
-    "prlvsepapaypaleuropesarletcie": "Matériel",
+    "prlvsepapaypaleuropesarletcie": "perso",
     "prlvsepaavanssurech171224id": "Véhicule",
     "prlvsepafcebankplcech181224id": "Véhicule",
     "prlvsepaorangesaorangeech061224id": "Telephone-Internet",
@@ -146,7 +146,7 @@
     "virsctinstemismotifmassimo": "Logiciel",
     "qpfdupuybs monta2935936": "Véhicule",
     "vir sct inst": "Fournitures",
-    "vircpteacpteemismotifvirement": "Revenus",
+    "vircpteacpteemismotifvirement": "perso",
     "prlvsepafcebankplcech201025id": "Véhicule",
     "vircpteacpterecurefben origscp": "Honoraires",
     "ubereats": "repas",
@@ -328,7 +328,8 @@
     "amazonpaymentspayli2441535": "Informatique",
     "prlvsepafcebankplcech200125id": "Loyer",
     "commissionsfacturenumero": "BNP",
-    "prlvsepapaypaleuropesarlet": "Udemy"
+    "prlvsepapaypaleuropesarlet": "Udemy",
+    "eselfenvalir": "Essence"
   },
   "stats": {
     "operations_processed": 0,

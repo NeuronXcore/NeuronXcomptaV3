@@ -1684,6 +1684,25 @@ def get_thumbnail_path(doc_id: str) -> Optional[str]:
     return generate_thumbnail(doc_id)
 
 
+def delete_thumbnail_for_doc_id(doc_id: str) -> bool:
+    """Supprime la thumbnail associée à un doc_id (chemin relatif depuis BASE_DIR).
+
+    Appelée lors d'un rename de justificatif pour invalider la vignette de l'ancien
+    chemin (sinon elle reste orpheline dans `data/ged/thumbnails/` jusqu'au prochain
+    nettoyage manuel). Safe à appeler même si aucune thumbnail n'existe.
+
+    Retourne True si un fichier a été supprimé, False sinon.
+    """
+    thumb = _thumbnail_cache_path(doc_id)
+    if thumb.exists():
+        try:
+            thumb.unlink()
+            return True
+        except Exception as e:
+            logger.warning(f"GED: erreur suppression thumbnail {thumb.name}: {e}")
+    return False
+
+
 # ─── Native open ───
 
 def open_in_native_app(doc_id: str) -> bool:

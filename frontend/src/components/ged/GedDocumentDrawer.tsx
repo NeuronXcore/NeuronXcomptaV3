@@ -174,6 +174,7 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
             <JustificatifOperationLink
               justificatifFilename={docId.split('/').pop() || ''}
               isAssociated={docId.includes('/traites/')}
+              showEditorLink
               className="mt-3"
             />
           )}

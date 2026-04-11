@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   X,
   Wand2,
@@ -8,10 +8,22 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowRight,
+  FileText,
+  Save,
+  Maximize2,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import toast from 'react-hot-toast'
+import { cn, formatCurrency, buildConventionFilename } from '@/lib/utils'
 import { useScanRename, useApplyScanRename } from '@/hooks/useOcr'
-import type { ScanRenamePlan } from '@/hooks/useOcr'
+import type { ScanRenamePlan, SkippedItem } from '@/hooks/useOcr'
+import { useCategories } from '@/hooks/useApi'
+import { useOperationFiles, useYearOperations } from '@/hooks/useOperations'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import { useManualAssociate } from '@/hooks/useRapprochement'
+import { useUpdateOcrData } from '@/hooks/useOcr'
+import { useRenameJustificatif } from '@/hooks/useJustificatifs'
+import PreviewSubDrawer from './PreviewSubDrawer'
+import type { CategoryRaw, Operation } from '@/types'
 
 interface Props {
   open: boolean
@@ -24,18 +36,39 @@ export default function ScanRenameDrawer({ open, onClose }: Props) {
   const [plan, setPlan] = useState<ScanRenamePlan | null>(null)
   const [includeOcr, setIncludeOcr] = useState(false)
   const [skippedOpen, setSkippedOpen] = useState(false)
+  // State du sous-drawer de preview PDF grand format (clic sur mini thumbnail)
+  const [previewFilename, setPreviewFilename] = useState<string | null>(null)
 
-  // Lance le scan à chaque ouverture du drawer (reset aussi la checkbox)
+  // Lance le scan à chaque ouverture du drawer (reset aussi la checkbox + preview)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      // Reset preview quand le main drawer ferme
+      setPreviewFilename(null)
+      return
+    }
     setPlan(null)
     setIncludeOcr(false)
     setSkippedOpen(false)
+    setPreviewFilename(null)
     scan.mutate(undefined, {
       onSuccess: (data) => setPlan(data),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  // Esc ferme le sous-drawer (et pas le main drawer) quand il est ouvert.
+  // Capture mode : intercepte Esc AVANT que d'autres handlers remontent.
+  useEffect(() => {
+    if (!previewFilename) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setPreviewFilename(null)
+      }
+    }
+    window.addEventListener('keydown', handler, { capture: true })
+    return () => window.removeEventListener('keydown', handler, { capture: true })
+  }, [previewFilename])
 
   const handleApply = () => {
     apply.mutate(
@@ -52,6 +85,13 @@ export default function ScanRenameDrawer({ open, onClose }: Props) {
         },
       },
     )
+  }
+
+  // Relance le scan dry-run après qu'un item skipped a été complété manuellement
+  // (édition OCR data / association op). Met à jour le plan → l'item sort du
+  // bucket skipped et apparaît dans SAFE ou OCR (ou disparaît s'il a été associé).
+  const handleRescan = () => {
+    scan.mutate(undefined, { onSuccess: setPlan })
   }
 
   const isLoading = scan.isPending && !plan
@@ -76,7 +116,14 @@ export default function ScanRenameDrawer({ open, onClose }: Props) {
         />
       )}
 
-      {/* Drawer */}
+      {/* Sous-drawer de preview PDF grand format (slide depuis la gauche du main) */}
+      <PreviewSubDrawer
+        filename={previewFilename}
+        mainDrawerOpen={open}
+        onClose={() => setPreviewFilename(null)}
+      />
+
+      {/* Drawer principal */}
       <div
         className={cn(
           'fixed top-0 right-0 h-full w-[680px] max-w-[95vw] bg-background border-l border-border z-50 transition-transform duration-300 flex flex-col',
@@ -192,7 +239,7 @@ export default function ScanRenameDrawer({ open, onClose }: Props) {
                 </Section>
               )}
 
-              {/* Section Skipped */}
+              {/* Section Skipped — désormais éditable */}
               {skippedTotal > 0 && (
                 <div className="border border-border rounded-lg overflow-hidden">
                   <button
@@ -200,28 +247,35 @@ export default function ScanRenameDrawer({ open, onClose }: Props) {
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium text-text-muted hover:bg-surface/60 transition-colors"
                   >
                     {skippedOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    Fichiers ignorés ({skippedTotal}) — action manuelle requise
+                    Fichiers ignorés ({skippedTotal}) — action manuelle possible
                   </button>
                   {skippedOpen && (
-                    <div className="px-3 py-2 border-t border-border space-y-2">
-                      {plan.skipped.no_ocr.length > 0 && (
-                        <SkippedList
-                          title="OCR manquant"
-                          items={plan.skipped.no_ocr}
-                        />
-                      )}
+                    <div className="px-3 py-2 border-t border-border space-y-3">
                       {plan.skipped.bad_supplier.length > 0 && (
-                        <SkippedList
+                        <SkippedEditableList
                           title="Supplier OCR douteux"
-                          items={plan.skipped.bad_supplier.map(
-                            (b) => `${b.filename} (supplier: ${b.supplier || '—'})`,
-                          )}
+                          items={plan.skipped.bad_supplier}
+                          onItemUpdated={handleRescan}
+                          onPreviewRequest={setPreviewFilename}
+                          currentPreview={previewFilename}
                         />
                       )}
                       {plan.skipped.no_date_amount.length > 0 && (
-                        <SkippedList
+                        <SkippedEditableList
                           title="Date ou montant OCR manquant"
                           items={plan.skipped.no_date_amount}
+                          onItemUpdated={handleRescan}
+                          onPreviewRequest={setPreviewFilename}
+                          currentPreview={previewFilename}
+                        />
+                      )}
+                      {plan.skipped.no_ocr.length > 0 && (
+                        <SkippedEditableList
+                          title="OCR manquant"
+                          items={plan.skipped.no_ocr}
+                          onItemUpdated={handleRescan}
+                          onPreviewRequest={setPreviewFilename}
+                          currentPreview={previewFilename}
                         />
                       )}
                     </div>
@@ -419,19 +473,547 @@ function RenameRow({
   )
 }
 
-function SkippedList({ title, items }: { title: string; items: string[] }) {
+// ─── Skipped items éditables ───────────────────────────────────────────
+
+function SkippedEditableList({
+  title,
+  items,
+  onItemUpdated,
+  onPreviewRequest,
+  currentPreview,
+}: {
+  title: string
+  items: SkippedItem[]
+  onItemUpdated: () => void
+  onPreviewRequest: (filename: string | null) => void
+  currentPreview: string | null
+}) {
+  const [expandedFilename, setExpandedFilename] = useState<string | null>(null)
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wide text-text-muted font-medium mb-1">
         {title} ({items.length})
       </div>
-      <ul className="space-y-0.5 text-[11px] text-text-muted">
-        {items.map((item, i) => (
-          <li key={i} className="truncate font-mono">
-            • {item}
-          </li>
+      <div className="space-y-1">
+        {items.map((item) => (
+          <SkippedItemCard
+            key={item.filename}
+            item={item}
+            isExpanded={expandedFilename === item.filename}
+            onToggle={() =>
+              setExpandedFilename(
+                expandedFilename === item.filename ? null : item.filename,
+              )
+            }
+            onUpdated={() => {
+              setExpandedFilename(null)
+              onItemUpdated()
+            }}
+            onPreviewRequest={onPreviewRequest}
+            isPreviewActive={currentPreview === item.filename}
+          />
         ))}
-      </ul>
+      </div>
     </div>
   )
 }
+
+function SkippedItemCard({
+  item,
+  isExpanded,
+  onToggle,
+  onUpdated,
+  onPreviewRequest,
+  isPreviewActive,
+}: {
+  item: SkippedItem
+  isExpanded: boolean
+  onToggle: () => void
+  onUpdated: () => void
+  onPreviewRequest: (filename: string | null) => void
+  isPreviewActive: boolean
+}) {
+  return (
+    <div className="bg-surface/40 rounded-md border border-border border-l-[3px] border-l-warning/50 overflow-hidden">
+      {/* Header cliquable */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface/60 transition-colors"
+      >
+        {isExpanded ? (
+          <ChevronDown size={12} className="text-text-muted shrink-0" />
+        ) : (
+          <ChevronRight size={12} className="text-text-muted shrink-0" />
+        )}
+        <span className="text-xs font-mono text-text truncate flex-1">
+          {item.filename}
+        </span>
+        {item.supplier && (
+          <span className="text-[10px] text-text-muted shrink-0">
+            {item.supplier}
+          </span>
+        )}
+      </button>
+
+      {/* Contenu expand */}
+      {isExpanded && (
+        <SkippedItemEditor
+          item={item}
+          onUpdated={onUpdated}
+          onPreviewRequest={onPreviewRequest}
+          isPreviewActive={isPreviewActive}
+        />
+      )}
+    </div>
+  )
+}
+
+function SkippedItemEditor({
+  item,
+  onUpdated,
+  onPreviewRequest,
+  isPreviewActive,
+}: {
+  item: SkippedItem
+  onUpdated: () => void
+  onPreviewRequest: (filename: string | null) => void
+  isPreviewActive: boolean
+}) {
+  // ── OCR data editing (supplier / date / montant) ──
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(item.best_amount)
+  const [manualAmount, setManualAmount] = useState('')
+  const [useManualAmount, setUseManualAmount] = useState(false)
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(item.best_date)
+  const [manualDate, setManualDate] = useState('')
+  const [useManualDate, setUseManualDate] = useState(false)
+
+  const [supplier, setSupplier] = useState(item.supplier || '')
+
+  // ── Catégorie / sous-catégorie hints (pré-filtrent l'op selector) ──
+  const [catFilter, setCatFilter] = useState('')
+  const [subCatFilter, setSubCatFilter] = useState('')
+
+  // ── Sélection opération cible ──
+  const [selectedOpKey, setSelectedOpKey] = useState<string>('')
+
+  // Hooks data
+  const { data: categoriesData } = useCategories()
+  const { selectedYear } = useFiscalYearStore()
+  const { data: files = [] } = useOperationFiles()
+  const monthsForYear = useMemo(
+    () => files.filter((f) => f.year === selectedYear),
+    [files, selectedYear],
+  )
+  const { data: yearOps } = useYearOperations(monthsForYear, true)
+
+  // Hooks mutations
+  const updateOcrMutation = useUpdateOcrData()
+  const associateMutation = useManualAssociate()
+  const renameMutation = useRenameJustificatif()
+
+  // Dates/amounts filtrées (cohérent avec OcrDataEditor)
+  const filteredDates = useMemo(() => {
+    const now = new Date()
+    const maxDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
+    return item.dates.filter((d) => {
+      const parsed = new Date(d)
+      return parsed.getFullYear() >= 2020 && parsed <= maxDate
+    })
+  }, [item.dates])
+
+  // Effective values
+  const effectiveAmount = useManualAmount
+    ? parseFloat(manualAmount) || null
+    : selectedAmount
+  const effectiveDate = useManualDate ? manualDate : selectedDate
+
+  const hasOcrChanges = useMemo(() => {
+    if (effectiveAmount !== item.best_amount) return true
+    if (effectiveDate !== item.best_date) return true
+    if (supplier !== (item.supplier || '')) return true
+    return false
+  }, [effectiveAmount, effectiveDate, supplier, item])
+
+  // Changements des hints cat/sous-cat. Note : le SkippedItem backend ne
+  // remonte pas encore les hints existants, donc on considère juste qu'ils
+  // ont été saisis (non vides) comme un changement à persister.
+  const hasHintChanges = useMemo(() => {
+    return catFilter !== '' || subCatFilter !== ''
+  }, [catFilter, subCatFilter])
+
+  // Catégories dérivées
+  const categoryNames = useMemo(() => {
+    if (!categoriesData) return []
+    return [...new Set(categoriesData.raw.map((c: CategoryRaw) => c['Catégorie']))]
+      .filter(Boolean)
+      .sort()
+  }, [categoriesData])
+
+  const subcategoriesMap = useMemo(() => {
+    if (!categoriesData) return new Map<string, string[]>()
+    const map = new Map<string, string[]>()
+    for (const c of categoriesData.raw) {
+      const cat = c['Catégorie']
+      const sub = c['Sous-catégorie']
+      if (cat && sub && sub !== 'null') {
+        if (!map.has(cat)) map.set(cat, [])
+        const list = map.get(cat)!
+        if (!list.includes(sub)) list.push(sub)
+      }
+    }
+    for (const [, list] of map) list.sort()
+    return map
+  }, [categoriesData])
+
+  // Opérations candidates (pas de justificatif, filtrées par cat/sous-cat si défini)
+  interface EnrichedOp extends Operation {
+    _originalIndex: number
+    _filename: string
+  }
+
+  const opCandidates = useMemo<EnrichedOp[]>(() => {
+    if (!yearOps) return []
+    // Reconstruire _originalIndex (position dans le fichier source)
+    const byFile = new Map<string, number>()
+    const enriched: EnrichedOp[] = yearOps.map((op) => {
+      const fname = op._sourceFile ?? ''
+      const idx = byFile.get(fname) ?? 0
+      byFile.set(fname, idx + 1)
+      return { ...op, _originalIndex: idx, _filename: fname } as EnrichedOp
+    })
+    return enriched
+      .filter((op) => !op['Lien justificatif'])
+      .filter((op) => !catFilter || op['Catégorie'] === catFilter)
+      .filter(
+        (op) =>
+          !subCatFilter ||
+          !catFilter ||
+          op['Sous-catégorie'] === subCatFilter,
+      )
+      .slice(0, 50)
+  }, [yearOps, catFilter, subCatFilter])
+
+  const isSaving =
+    updateOcrMutation.isPending ||
+    renameMutation.isPending ||
+    associateMutation.isPending
+
+  // Calcule le nom canonique qu'on aura après l'édition (si date + montant valides).
+  // Sert à renommer physiquement avant l'association quand l'utilisateur valide.
+  const plannedCanonicalName = useMemo(() => {
+    const finalSupplier = supplier || item.supplier || ''
+    const finalDate = effectiveDate || item.best_date
+    const finalAmount = effectiveAmount ?? item.best_amount
+    if (!finalDate || finalAmount == null) return null
+    const canonical = buildConventionFilename(finalSupplier, finalDate, finalAmount)
+    if (!canonical || canonical === item.filename) return null
+    return canonical
+  }, [supplier, effectiveDate, effectiveAmount, item])
+
+  const handleValidate = async () => {
+    let currentFilename = item.filename
+
+    // 1. Update OCR data + hints cat/sous-cat si changements
+    if (hasOcrChanges || hasHintChanges) {
+      const data: Record<string, unknown> = {}
+      if (effectiveAmount !== item.best_amount && effectiveAmount !== null) {
+        data.best_amount = effectiveAmount
+      }
+      if (effectiveDate !== item.best_date && effectiveDate) {
+        data.best_date = effectiveDate
+      }
+      if (supplier !== (item.supplier || '')) {
+        data.supplier = supplier
+      }
+      if (hasHintChanges) {
+        data.category_hint = catFilter
+        data.sous_categorie_hint = subCatFilter
+      }
+      if (Object.keys(data).length > 0) {
+        try {
+          await updateOcrMutation.mutateAsync({ filename: currentFilename, data })
+        } catch (err) {
+          toast.error(`Erreur édition OCR : ${(err as Error).message}`)
+          return
+        }
+      }
+    }
+
+    // 2. Rename vers le nom canonique si date + montant sont maintenant valides
+    // ET qu'on va associer l'item (éviter de modifier les fichiers sans action finale).
+    // Pour un simple "Enregistrer" sans op cible, on laisse le rename au bouton
+    // "Appliquer" du drawer principal (2 étapes intentionnelles).
+    if (selectedOpKey && plannedCanonicalName) {
+      try {
+        const result = await renameMutation.mutateAsync({
+          filename: currentFilename,
+          newFilename: plannedCanonicalName,
+        })
+        // Le backend peut avoir dédupliqué (ex: _2.pdf si collision)
+        currentFilename = result.new
+      } catch (err) {
+        toast.error(`Erreur renommage : ${(err as Error).message}`)
+        return
+      }
+    }
+
+    // 3. Associate to operation if selected
+    if (selectedOpKey) {
+      const [opFile, opIdxStr] = selectedOpKey.split('::')
+      const opIdx = parseInt(opIdxStr, 10)
+      try {
+        await associateMutation.mutateAsync({
+          justificatif_filename: currentFilename,
+          operation_file: opFile,
+          operation_index: opIdx,
+        })
+        toast.success(
+          plannedCanonicalName
+            ? `Renommé en ${currentFilename} et associé`
+            : 'Justificatif associé',
+        )
+      } catch (err) {
+        toast.error(`Erreur association : ${(err as Error).message}`)
+        return
+      }
+    } else if (hasOcrChanges || hasHintChanges) {
+      toast.success('Données OCR mises à jour')
+    }
+
+    // 4. Re-scan pour rafraîchir le plan
+    onUpdated()
+  }
+
+  const canValidate = hasOcrChanges || hasHintChanges || !!selectedOpKey
+
+  // Thumbnail via endpoint qui résout automatiquement en_attente/traites.
+  // Les skipped peuvent être dans n'importe lequel des 2 dossiers (scope="both").
+  const thumbUrl = `/api/justificatifs/${encodeURIComponent(item.filename)}/thumbnail`
+
+  return (
+    <div className="border-t border-border px-3 py-3 space-y-3">
+      <div className="flex gap-3">
+        {/* Thumbnail 60×84 cliquable → ouvre le sous-drawer de preview PDF */}
+        <button
+          type="button"
+          onClick={() =>
+            onPreviewRequest(isPreviewActive ? null : item.filename)
+          }
+          className={cn(
+            'shrink-0 w-[60px] h-[84px] bg-white rounded border overflow-hidden flex items-center justify-center group relative cursor-pointer transition-colors',
+            isPreviewActive
+              ? 'border-primary ring-2 ring-primary/40'
+              : 'border-border hover:border-primary',
+          )}
+          title={isPreviewActive ? 'Fermer l\'aperçu' : 'Agrandir le PDF'}
+        >
+          <img
+            src={thumbUrl}
+            alt=""
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement
+              img.style.display = 'none'
+              const fb = img.nextElementSibling as HTMLElement | null
+              if (fb) fb.classList.remove('hidden')
+            }}
+          />
+          <FileText size={20} className="hidden text-text-muted" />
+          {/* Overlay hover */}
+          <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+            <Maximize2 size={14} className="text-white" />
+          </span>
+        </button>
+
+        {/* Éditeur OCR compact */}
+        <div className="flex-1 min-w-0 space-y-2">
+          {/* Fournisseur */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
+              Fournisseur
+            </label>
+            <input
+              type="text"
+              value={supplier}
+              onChange={(e) => setSupplier(e.target.value)}
+              placeholder="Nom du fournisseur"
+              className="w-full mt-0.5 bg-background border border-border rounded px-2 py-1 text-xs text-text"
+            />
+          </div>
+
+          {/* Date */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
+              Date facture
+            </label>
+            {filteredDates.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-0.5 mb-1">
+                {filteredDates.map((d, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setSelectedDate(d)
+                      setUseManualDate(false)
+                      setManualDate('')
+                    }}
+                    className={cn(
+                      'px-2 py-0.5 rounded-full text-[11px] border transition-colors',
+                      !useManualDate && selectedDate === d
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-border text-text-muted hover:border-primary',
+                    )}
+                  >
+                    {d.split('-').reverse().join('/')}
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              type="date"
+              value={manualDate}
+              onChange={(e) => {
+                setManualDate(e.target.value)
+                setUseManualDate(true)
+                setSelectedDate(null)
+              }}
+              className="mt-0.5 bg-background border border-border rounded px-2 py-1 text-xs text-text"
+            />
+          </div>
+
+          {/* Montant */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
+              Montant TTC
+            </label>
+            {item.amounts.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-0.5 mb-1">
+                {item.amounts.map((amt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setSelectedAmount(amt)
+                      setUseManualAmount(false)
+                      setManualAmount('')
+                    }}
+                    className={cn(
+                      'px-2 py-0.5 rounded-full text-[11px] border transition-colors',
+                      !useManualAmount && selectedAmount === amt
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-border text-text-muted hover:border-primary',
+                    )}
+                  >
+                    {formatCurrency(amt)}
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Autre montant"
+              value={manualAmount}
+              onChange={(e) => {
+                setManualAmount(e.target.value)
+                setUseManualAmount(true)
+                setSelectedAmount(null)
+              }}
+              className="mt-0.5 bg-background border border-border rounded px-2 py-1 text-xs text-text w-32"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Catégorie / sous-catégorie (filtres op selector) */}
+      <div className="grid grid-cols-2 gap-2">
+        <select
+          value={catFilter}
+          onChange={(e) => {
+            setCatFilter(e.target.value)
+            setSubCatFilter('')
+          }}
+          className="bg-background border border-border rounded px-2 py-1 text-xs text-text"
+        >
+          <option value="">Catégorie (filtre ops)</option>
+          {categoryNames.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <select
+          value={subCatFilter}
+          onChange={(e) => setSubCatFilter(e.target.value)}
+          disabled={!catFilter || (subcategoriesMap.get(catFilter) ?? []).length === 0}
+          className="bg-background border border-border rounded px-2 py-1 text-xs text-text disabled:opacity-40"
+        >
+          <option value="">Sous-catégorie</option>
+          {(subcategoriesMap.get(catFilter) ?? []).map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Op selector */}
+      <div>
+        <label className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
+          Associer à une opération ({opCandidates.length} candidate
+          {opCandidates.length > 1 ? 's' : ''})
+        </label>
+        <select
+          value={selectedOpKey}
+          onChange={(e) => setSelectedOpKey(e.target.value)}
+          className="w-full mt-0.5 bg-background border border-border rounded px-2 py-1 text-xs text-text"
+        >
+          <option value="">Ne pas associer maintenant</option>
+          {opCandidates.map((op) => {
+            const key = `${op._filename}::${op._originalIndex}`
+            const amount = op['Débit'] || op['Crédit'] || 0
+            return (
+              <option key={key} value={key}>
+                {op['Date']} · {(op['Libellé'] || '').slice(0, 40)} ·{' '}
+                {formatCurrency(amount)}
+                {op['Catégorie'] ? ` · ${op['Catégorie']}` : ''}
+              </option>
+            )
+          })}
+        </select>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-between gap-2 pt-1">
+        {/* Aperçu du nouveau nom canonique */}
+        {plannedCanonicalName && (
+          <div className="text-[10px] text-text-muted flex items-center gap-1.5 min-w-0">
+            <ArrowRight size={10} className="shrink-0" />
+            <code className="truncate font-mono text-emerald-400">
+              {plannedCanonicalName}
+            </code>
+          </div>
+        )}
+        <button
+          onClick={handleValidate}
+          disabled={!canValidate || isSaving}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-md text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 ml-auto"
+        >
+          {isSaving ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Save size={12} />
+          )}
+          {selectedOpKey
+            ? plannedCanonicalName
+              ? 'Renommer & associer'
+              : 'Associer'
+            : 'Enregistrer'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// PreviewSubDrawer est désormais un composant partagé (components/ocr/PreviewSubDrawer.tsx)
+// — il accepte un prop `mainDrawerWidth` pour se positionner à gauche du
+// drawer parent. ScanRenameDrawer utilise 680px (la valeur par défaut).

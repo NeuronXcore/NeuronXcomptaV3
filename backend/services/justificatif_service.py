@@ -18,6 +18,7 @@ from PIL import Image
 from fastapi import HTTPException
 
 from backend.core.config import (
+    BASE_DIR,
     JUSTIFICATIFS_DIR,
     JUSTIFICATIFS_EN_ATTENTE_DIR,
     JUSTIFICATIFS_TRAITES_DIR,
@@ -106,14 +107,18 @@ def _get_justificatif_info(filepath: Path, status: str) -> dict:
             info["ocr_date"] = None
             info["ocr_supplier"] = None
 
-        # Traçabilité renommage
+        # Traçabilité renommage + hints cat/sous-cat (top-level du .ocr.json)
         ocr_cached = ocr_service.get_cached_result(filepath)
         if ocr_cached:
             info["original_filename"] = ocr_cached.get("original_filename") or ocr_cached.get("renamed_from")
             info["auto_renamed"] = bool(ocr_cached.get("renamed_from"))
+            info["category_hint"] = ocr_cached.get("category_hint")
+            info["sous_categorie_hint"] = ocr_cached.get("sous_categorie_hint")
         else:
             info["original_filename"] = None
             info["auto_renamed"] = False
+            info["category_hint"] = None
+            info["sous_categorie_hint"] = None
     except Exception:
         info["ocr_data"] = None
         info["ocr_amount"] = None
@@ -121,6 +126,8 @@ def _get_justificatif_info(filepath: Path, status: str) -> dict:
         info["ocr_supplier"] = None
         info["original_filename"] = None
         info["auto_renamed"] = False
+        info["category_hint"] = None
+        info["sous_categorie_hint"] = None
 
     return info
 
@@ -406,6 +413,27 @@ def get_justificatif_path(filename: str) -> Optional[Path]:
     return None
 
 
+# ─── Thumbnail invalidation ───
+
+def _invalidate_thumbnail_for_path(abs_path: Path) -> None:
+    """Supprime la thumbnail GED associée au chemin absolu d'un justificatif.
+
+    À appeler AVANT toute opération qui change le doc_id (rename, move
+    en_attente↔traites) : la vignette est clé-hashée sur le doc_id (chemin
+    relatif depuis BASE_DIR), donc un changement de chemin laisse l'ancienne
+    vignette orpheline dans `data/ged/thumbnails/`.
+    """
+    try:
+        doc_id = str(abs_path.relative_to(BASE_DIR))
+    except ValueError:
+        return
+    try:
+        from backend.services import ged_service
+        ged_service.delete_thumbnail_for_doc_id(doc_id)
+    except Exception as e:
+        logger.warning("Erreur invalidation thumbnail pour %s: %s", abs_path.name, e)
+
+
 # ─── Association ───
 
 def associate(justificatif_filename: str, operation_file: str, operation_index: int) -> bool:
@@ -422,12 +450,14 @@ def associate(justificatif_filename: str, operation_file: str, operation_index: 
     # 2. Déplacer vers traités (PDF + cache OCR)
     dst = JUSTIFICATIFS_TRAITES_DIR / justificatif_filename
     if src != dst:
+        _invalidate_thumbnail_for_path(src)
         shutil.move(str(src), str(dst))
         try:
             from backend.services import ocr_service
             ocr_service.move_ocr_cache(src.parent, dst.parent, justificatif_filename)
         except Exception:
             pass
+        _update_ged_metadata_location(justificatif_filename, "traites")
 
     # 3. Mettre à jour l'opération
     try:
@@ -437,6 +467,30 @@ def associate(justificatif_filename: str, operation_file: str, operation_index: 
             ops[operation_index]["Lien justificatif"] = f"traites/{justificatif_filename}"
             operation_service.save_operations(ops, filename=operation_file)
             logger.info(f"Association: {justificatif_filename} → {operation_file}[{operation_index}]")
+
+            # 3b. Auto-hint cat/sous-cat dans le .ocr.json à partir de l'opération associée.
+            # Écrit UNIQUEMENT si l'op a une catégorie exploitable (pas vide, pas Autres,
+            # pas Ventilé). Ne jamais bloquer l'association en cas d'erreur.
+            try:
+                _EXCLUDED = {"", "Autres", "Ventilé"}
+                op = ops[operation_index]
+                cat = (op.get("Catégorie") or "").strip()
+                subcat = (op.get("Sous-catégorie") or "").strip()
+                if cat and cat not in _EXCLUDED:
+                    from backend.services import ocr_service
+                    ocr_service.update_extracted_data(
+                        justificatif_filename,
+                        {
+                            "category_hint": cat,
+                            "sous_categorie_hint": subcat,
+                        },
+                    )
+                    logger.info(
+                        f"Auto-hint: {justificatif_filename} ← {cat}/{subcat}"
+                    )
+            except Exception as e:
+                logger.warning(f"Auto-hint échoué pour {justificatif_filename}: {e}")
+
             return True
         else:
             logger.error(f"Index opération invalide: {operation_index}")
@@ -468,12 +522,14 @@ def dissociate(operation_file: str, operation_index: int) -> bool:
         src = JUSTIFICATIFS_TRAITES_DIR / justificatif_filename
         dst = JUSTIFICATIFS_EN_ATTENTE_DIR / justificatif_filename
         if src.exists():
+            _invalidate_thumbnail_for_path(src)
             shutil.move(str(src), str(dst))
             try:
                 from backend.services import ocr_service
                 ocr_service.move_ocr_cache(src.parent, dst.parent, justificatif_filename)
             except Exception:
                 pass
+            _update_ged_metadata_location(justificatif_filename, "en_attente")
 
         # Mettre à jour l'opération
         op["Justificatif"] = False
@@ -660,14 +716,18 @@ def rename_justificatif(old_filename: str, new_filename: str) -> dict:
     if (target_dir / new_filename).exists():
         raise HTTPException(409, f"Le fichier {new_filename} existe déjà")
 
-    # 3. Renommer PDF
+    # 3. Renommer PDF (invalider la thumbnail AVANT pour capturer l'ancien doc_id)
     new_pdf_path = target_dir / new_filename
+    _invalidate_thumbnail_for_path(pdf_path)
     pdf_path.rename(new_pdf_path)
 
     # 4. Renommer + mettre à jour .ocr.json
-    old_ocr = pdf_path.with_name(old_filename.replace(".pdf", ".ocr.json"))
+    # IMPORTANT : str.replace remplace TOUTES les occurrences de `.pdf`, ce qui
+    # casse les noms historiques à double extension (`udemy_*.pdf.pdf`). On utilise
+    # `with_suffix` qui ne remplace QUE le dernier suffix.
+    old_ocr = pdf_path.with_name(Path(old_filename).with_suffix(".ocr.json").name)
     if old_ocr.exists():
-        new_ocr = new_pdf_path.with_name(new_filename.replace(".pdf", ".ocr.json"))
+        new_ocr = new_pdf_path.with_name(Path(new_filename).with_suffix(".ocr.json").name)
         try:
             ocr_data = json.loads(old_ocr.read_text(encoding="utf-8"))
             ocr_data["renamed_from"] = old_filename
@@ -764,6 +824,55 @@ def _update_operation_references(old_filename: str, new_filename: str) -> None:
             ops_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _update_ged_metadata_location(filename: str, new_location: str) -> None:
+    """Met à jour ged_metadata.json quand un justificatif change de dossier
+    (associate: en_attente → traites, dissociate: traites → en_attente).
+
+    Met à jour : la clé du dict, le champ interne `doc_id`, et `ocr_file`.
+    `new_location` doit être "en_attente" ou "traites".
+    """
+    ged_path = Path(GED_DIR) / "ged_metadata.json"
+    if not ged_path.exists():
+        return
+    if new_location not in ("en_attente", "traites"):
+        return
+
+    try:
+        metadata = json.loads(ged_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    documents = metadata.get("documents", {})
+    basename = Path(filename).name
+    key_to_update = None
+
+    for key, doc in documents.items():
+        if doc.get("type") != "justificatif":
+            continue
+        if Path(key).name == basename:
+            key_to_update = key
+            break
+
+    if not key_to_update:
+        return
+
+    new_key = f"data/justificatifs/{new_location}/{basename}"
+    if new_key == key_to_update:
+        return
+
+    doc = documents.pop(key_to_update)
+    doc["doc_id"] = new_key
+    doc["statut_justificatif"] = "traite" if new_location == "traites" else "en_attente"
+    if doc.get("ocr_file"):
+        # Utiliser with_suffix pour ne remplacer QUE le dernier `.pdf`
+        ocr_basename = Path(basename).with_suffix(".ocr.json").name
+        doc["ocr_file"] = f"data/justificatifs/{new_location}/{ocr_basename}"
+    documents[new_key] = doc
+
+    metadata["documents"] = documents
+    ged_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _update_ged_metadata_reference(old_filename: str, new_filename: str) -> None:
     """Met à jour ged_metadata.json si le justificatif y est référencé."""
     ged_path = Path(GED_DIR) / "ged_metadata.json"
@@ -792,6 +901,7 @@ def _update_ged_metadata_reference(old_filename: str, new_filename: str) -> None
     doc = documents.pop(doc_id_to_rename)
     # Reconstruire la clé avec le nouveau filename
     new_doc_id = doc_id_to_rename.replace(old_basename, new_filename)
+    doc["doc_id"] = new_doc_id  # Sinon get_documents() renvoie l'ancien chemin → URL thumbnail/preview 404
     doc["filename"] = new_filename
     if "renamed_from" not in doc:
         doc["renamed_from"] = old_filename
@@ -945,6 +1055,7 @@ def scan_link_issues() -> dict:
 
 def _move_pdf_with_ocr(src: Path, dst: Path) -> None:
     """Déplace un PDF + son .ocr.json compagnon. dst.parent doit exister."""
+    _invalidate_thumbnail_for_path(src)
     shutil.move(str(src), str(dst))
     src_ocr = src.with_suffix(".ocr.json")
     if src_ocr.exists():
@@ -952,7 +1063,8 @@ def _move_pdf_with_ocr(src: Path, dst: Path) -> None:
 
 
 def _delete_pdf_with_ocr(path: Path) -> None:
-    """Supprime un PDF + son .ocr.json compagnon."""
+    """Supprime un PDF + son .ocr.json compagnon (et sa thumbnail GED)."""
+    _invalidate_thumbnail_for_path(path)
     if path.exists():
         path.unlink()
     ocr = path.with_suffix(".ocr.json")

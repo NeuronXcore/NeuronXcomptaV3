@@ -1,0 +1,165 @@
+{
+  "timestamp": "2026-04-10T17:12:39.507456",
+  "filename": "operations_20260402_180203_13875044.json",
+  "mode": "empty_only",
+  "total_operations": 92,
+  "predicted": 19,
+  "high_confidence": 19,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "DU301124AMAZONPAYMENTSPAYLI2441535/ 39,07",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU021224QPFDUPUYBS MONTA2935936/ 0,70",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU041224AMAZONPAYMENTSPAYLI2441535/ 109,19",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU061224QPFDUPUYBS MONTA2935936/ 1,20",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU091224AMAZONPAYMENTSPAYLI2441535/ 42,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU131224QPFDUPUYBS MONTA2935936/ 1,20",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU131224QPFDUPUYBS MONTA2935936/ 3,20",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU131224AMAZONPAYMENTSPAYLI2441535/ 197,97",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU141224AMAZONPAYMENTSPAYLI2441535/ 36,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU141224AMAZONPAYMENTSPAYLI2441535/ 137,96",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU151224AMAZONPAYMENTSPAYLI2441535/ 26,98",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU151224AMAZONPAYMENTSPAYLI2441535/ 105,65",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU161224AMAZONEUSARL PAYLI2090401/ 6,40",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU171224AMAZONPAYMENTSPAYLI2441535/ 36,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU191224AMAZONPAYMENTSPAYLI2441535/ 91,86",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU201224AMAZONPAYMENTSPAYLI2441535/ 12,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU231224AMAZONPAYMENTSPAYLI2441535/ 121,98",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU261224AMAZONPAYMENTSPAYLI2441535/ 4,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU261224AMAZONEUSARL PAYLI2090401/ 98,80",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

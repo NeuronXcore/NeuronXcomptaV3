@@ -37,6 +37,7 @@ export default function JustificatifsPage() {
     search, setSearch,
     sortKey, sortOrder, toggleSort,
     justifFilter, setJustifFilter,
+    categoryFilter, setCategoryFilter, subcategoryFilter, setSubcategoryFilter,
     selectedOpIndex, selectedOpFilename,
     drawerOpen, setDrawerOpen,
     drawerInitialIndex,
@@ -148,15 +149,8 @@ export default function JustificatifsPage() {
   const [batchReconstituerOpen, setBatchReconstituerOpen] = useState(false)
   const selectedOperationsForBatch = useMemo(() => getSelectedOperations(), [getSelectedOperations, selectedOps]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (lastEvent) {
-      if (lastEvent.status === 'processed') {
-        toast.success(`Justificatif traité : ${lastEvent.filename}`)
-      } else if (lastEvent.status === 'error') {
-        toast.error(`Erreur OCR : ${lastEvent.filename}`)
-      }
-    }
-  }, [lastEvent])
+  // Note: le toast d'arrivée de scan est désormais global (déclenché dans
+  // useSandbox() via AppLayout). Plus besoin de le dupliquer ici.
 
   // Scroll-into-view on navigation target change
   // Le surlignage visuel est géré par `isNavTarget` dans le className des rows
@@ -315,6 +309,59 @@ export default function JustificatifsPage() {
               </button>
             ))}
           </div>
+
+          {/* Filtre catégorie (persistant à travers les mois) */}
+          <select
+            value={categoryFilter}
+            onChange={e => {
+              setCategoryFilter(e.target.value)
+              setSubcategoryFilter('') // reset sous-cat quand cat change
+            }}
+            className={cn(
+              'bg-surface border rounded px-3 py-1.5 text-sm text-text',
+              categoryFilter === '__uncategorized__' ? 'border-warning text-warning' : 'border-border'
+            )}
+          >
+            <option value="">Toutes les catégories</option>
+            <option value="__uncategorized__">⚠ Non catégorisées</option>
+            {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          {/* Filtre sous-catégorie (dépend de categoryFilter) */}
+          {(() => {
+            const subs = categoryFilter && categoryFilter !== '__uncategorized__'
+              ? (subcategoriesMap.get(categoryFilter) || [])
+              : []
+            const disabled = !categoryFilter || categoryFilter === '__uncategorized__' || subs.length === 0
+            return (
+              <select
+                value={subcategoryFilter}
+                onChange={e => setSubcategoryFilter(e.target.value)}
+                disabled={disabled}
+                className="bg-surface border border-border rounded px-3 py-1.5 text-sm text-text disabled:opacity-40"
+              >
+                <option value="">
+                  {!categoryFilter || categoryFilter === '__uncategorized__'
+                    ? 'Sous-catégorie'
+                    : subs.length === 0
+                      ? 'Aucune sous-cat.'
+                      : 'Toutes sous-cat.'}
+                </option>
+                {subs.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )
+          })()}
+
+          {/* Bouton reset filtres cat (visible uniquement si un filtre est actif) */}
+          {(categoryFilter || subcategoryFilter) && (
+            <button
+              onClick={() => { setCategoryFilter(''); setSubcategoryFilter('') }}
+              className="p-1.5 text-text-muted hover:text-text transition-colors"
+              title="Effacer les filtres catégorie"
+            >
+              <X size={14} />
+            </button>
+          )}
 
           {/* Badge lecture seule année */}
           {isYearWide && (

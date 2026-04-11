@@ -71,14 +71,25 @@ def _push_event(
     status: str = "processed",
     auto_renamed: bool = False,
     original_filename: Optional[str] = None,
+    supplier: Optional[str] = None,
+    best_date: Optional[str] = None,
+    best_amount: Optional[float] = None,
 ) -> None:
-    """Pousse un event SSE dans la queue depuis un thread OS."""
+    """Pousse un event SSE dans la queue depuis un thread OS.
+
+    Champs OCR (supplier/best_date/best_amount) optionnels — utilisés par le
+    toast global d'arrivée dans le frontend pour afficher le contenu extrait
+    sans avoir à refetch.
+    """
     event = {
         "filename": filename,
         "status": status,
         "timestamp": datetime.now().isoformat(),
         "auto_renamed": auto_renamed,
         "original_filename": original_filename,
+        "supplier": supplier,
+        "best_date": best_date,
+        "best_amount": best_amount,
     }
     if _event_loop and _event_loop.is_running():
         _event_loop.call_soon_threadsafe(sandbox_event_queue.put_nowait, event)
@@ -154,8 +165,29 @@ def _process_file(filepath: Path) -> None:
         except Exception as e:
             logger.warning(f"Sandbox auto-rapprochement échoué: {e}")
 
-        # Notifier via SSE (avec info auto-rename)
-        _push_event(dest.name, "processed", auto_renamed=auto_renamed, original_filename=original_filename_for_sse)
+        # Notifier via SSE (avec info auto-rename + données OCR pour le toast riche)
+        ocr_supplier: Optional[str] = None
+        ocr_date: Optional[str] = None
+        ocr_amount: Optional[float] = None
+        try:
+            ocr_final = ocr_service.get_cached_result(dest)
+            if ocr_final and ocr_final.get("status") == "success":
+                ed = ocr_final.get("extracted_data") or {}
+                ocr_supplier = ed.get("supplier")
+                ocr_date = ed.get("best_date")
+                ocr_amount = ed.get("best_amount")
+        except Exception:
+            pass
+
+        _push_event(
+            dest.name,
+            "processed",
+            auto_renamed=auto_renamed,
+            original_filename=original_filename_for_sse,
+            supplier=ocr_supplier,
+            best_date=ocr_date,
+            best_amount=ocr_amount,
+        )
 
     except FileNotFoundError:
         logger.warning("Sandbox: fichier %s déjà déplacé ou supprimé", filename)

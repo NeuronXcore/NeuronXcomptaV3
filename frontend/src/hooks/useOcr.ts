@@ -117,20 +117,32 @@ export function useDeleteOcrCache() {
 
 // ─── Scan & Rename (convention filename-first) ───────────────────────────
 
+export interface SkippedItem {
+  filename: string
+  supplier: string | null
+  best_date: string | null
+  best_amount: number | null
+  amounts: number[]
+  dates: string[]
+  reason: 'no_ocr' | 'bad_supplier' | 'no_date_amount'
+}
+
 export interface ScanRenamePlan {
   scanned: number
   already_canonical: number
   to_rename_safe: { old: string; new: string }[]
   to_rename_ocr: { old: string; new: string; supplier_ocr: string }[]
   skipped: {
-    no_ocr: string[]
-    bad_supplier: { filename: string; supplier: string }[]
-    no_date_amount: string[]
+    no_ocr: SkippedItem[]
+    bad_supplier: SkippedItem[]
+    no_date_amount: SkippedItem[]
   }
   applied?: {
     ok: number
     errors: { old: string; new: string; error: string }[]
     renamed: Array<{ old: string; new: string; location: string }>
+    auto_associated?: number       // chaîné auto-rapprochement post-rename
+    strong_suggestions?: number    // matches forts non associés (ambiguïté)
   }
 }
 
@@ -159,10 +171,19 @@ export function useApplyScanRename() {
       qc.invalidateQueries({ queryKey: ['ocr-history'] })
       qc.invalidateQueries({ queryKey: ['ocr-status'] })
       qc.invalidateQueries({ queryKey: ['pipeline'] })
+      qc.invalidateQueries({ queryKey: ['operations'] })  // auto-associate modifie les ops
+      qc.invalidateQueries({ queryKey: ['justificatif-reverse-lookup'] })
+      qc.invalidateQueries({ queryKey: ['justificatif-operation-suggestions'] })
       const ok = data.applied?.ok ?? 0
       const errs = data.applied?.errors?.length ?? 0
+      const autoAssoc = data.applied?.auto_associated ?? 0
+      const strongSugg = data.applied?.strong_suggestions ?? 0
       if (ok > 0) {
-        toast.success(`${ok} justificatif(s) renommé(s)`)
+        // Message enrichi : rename + auto-association chainée
+        let msg = `${ok} renommé(s)`
+        if (autoAssoc > 0) msg += ` · ${autoAssoc} auto-associé(s)`
+        if (strongSugg > 0) msg += ` · ${strongSugg} suggestion(s) forte(s)`
+        toast.success(msg)
       } else {
         toast('Aucun renommage appliqué', { icon: 'ℹ️' })
       }

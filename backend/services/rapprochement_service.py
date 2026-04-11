@@ -186,18 +186,46 @@ def score_categorie(
     ocr_fournisseur: Optional[str],
     op_categorie: Optional[str],
     op_sous_categorie: Optional[str] = None,
+    category_hint: Optional[str] = None,
+    sous_categorie_hint: Optional[str] = None,
 ) -> Optional[float]:
     """
-    Score catégorie basé sur l'inférence fournisseur → catégorie via le ML.
+    Score catégorie basé sur l'inférence fournisseur → catégorie.
+
+    Priorité :
+      1. Si `category_hint` est fourni (saisi par l'user OU écrit automatiquement
+         lors d'une association précédente), l'utiliser comme source de vérité :
+         → match direct avec op_categorie, pas de ML.
+      2. Sinon, fallback sur la prédiction ML depuis le supplier.
 
     Retourne None quand la catégorie ne peut pas être inférée (critère neutre,
     son poids est redistribué sur les 3 autres critères dans compute_total_score).
 
-    - Catégorie prédite == catégorie op → 1.0
+    - Catégorie == catégorie op → 1.0
     - Même catégorie mais sous-catégorie différente → 0.6
     - Catégorie différente → 0.0
     """
-    if not ocr_fournisseur or not op_categorie:
+    if not op_categorie:
+        return None
+
+    # ── Stratégie 1 : hint utilisateur (priorité absolue) ──
+    # Un hint est une vérité terrain (saisie manuelle OU propagée depuis une
+    # association précédente) bien plus fiable que la prédiction ML depuis le
+    # nom de fournisseur parsé par l'OCR.
+    if category_hint and category_hint.strip():
+        hint_cat = category_hint.strip().lower()
+        op_cat = op_categorie.strip().lower()
+        if hint_cat != op_cat:
+            return 0.0
+        # Cat match → check sous-cat si les 2 sont dispo
+        if sous_categorie_hint and op_sous_categorie:
+            if sous_categorie_hint.strip().lower() == op_sous_categorie.strip().lower():
+                return 1.0
+            return 0.6
+        return 1.0
+
+    # ── Stratégie 2 : fallback ML (comportement d'origine) ──
+    if not ocr_fournisseur:
         return None
 
     try:
@@ -299,6 +327,10 @@ def compute_score(
     j_amount = justificatif_ocr.get("best_amount")
     j_date = justificatif_ocr.get("best_date")
     j_supplier = justificatif_ocr.get("supplier")
+    # Hints top-level du .ocr.json (injectés par _load_ocr_data).
+    # Si présents, score_categorie les utilise en priorité sur la prédiction ML.
+    j_cat_hint = justificatif_ocr.get("category_hint")
+    j_subcat_hint = justificatif_ocr.get("sous_categorie_hint")
 
     if override_montant is not None:
         o_montant = override_montant
@@ -323,7 +355,13 @@ def compute_score(
     s_montant = score_montant(j_amount, o_montant)
     s_date = score_date(j_date, o_date)
     s_fournisseur = score_fournisseur(j_supplier, o_libelle)
-    s_categorie = score_categorie(j_supplier, o_categorie, o_sous_categorie or None)
+    s_categorie = score_categorie(
+        j_supplier,
+        o_categorie,
+        o_sous_categorie or None,
+        category_hint=j_cat_hint,
+        sous_categorie_hint=j_subcat_hint,
+    )
 
     total = compute_total_score(s_montant, s_date, s_fournisseur, s_categorie)
 
@@ -356,14 +394,26 @@ def _parse_date(date_str: str) -> Optional[datetime]:
 
 
 def _load_ocr_data(justificatif_filename: str) -> dict:
-    """Charge les données OCR d'un justificatif. Retourne un dict vide-safe."""
+    """Charge les données OCR d'un justificatif. Retourne un dict vide-safe.
+
+    Inclut également les hints cat/sous-cat stockés au top-level du .ocr.json
+    (category_hint, sous_categorie_hint) — ils sont utilisés comme override
+    par `score_categorie()` pour booster le scoring quand l'utilisateur a
+    déjà associé le fichier à une op catégorisée par le passé.
+    """
     try:
         from backend.services import ocr_service
         filepath = justificatif_service.get_justificatif_path(justificatif_filename)
         if filepath:
             cached = ocr_service.get_cached_result(filepath)
             if cached and cached.get("status") == "success":
-                return cached.get("extracted_data", {})
+                ed = dict(cached.get("extracted_data", {}))
+                # Injecter les hints top-level dans le dict ocr_data pour
+                # qu'ils soient accessibles par `compute_score()` sans changer
+                # la signature existante.
+                ed["category_hint"] = cached.get("category_hint")
+                ed["sous_categorie_hint"] = cached.get("sous_categorie_hint")
+                return ed
     except Exception:
         pass
     return {}

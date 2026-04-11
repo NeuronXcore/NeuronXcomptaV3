@@ -373,9 +373,32 @@ class RenameItemOCR(TypedDict):
     supplier_ocr: str
 
 
-class BadSupplierItem(TypedDict):
+class SkippedItem(TypedDict):
+    """Item skipped enrichi avec les données OCR disponibles, pour alimenter
+    l'éditeur inline côté frontend (ScanRenameDrawer.SkippedItemCard)."""
     filename: str
-    supplier: str
+    supplier: Optional[str]
+    best_date: Optional[str]
+    best_amount: Optional[float]
+    amounts: list[float]
+    dates: list[str]
+    reason: str  # "no_ocr" | "bad_supplier" | "no_date_amount"
+
+
+def _build_skipped_item(
+    name: str, ocr_extracted: Optional[dict], reason: str
+) -> SkippedItem:
+    """Construit un SkippedItem enrichi à partir des données OCR brutes."""
+    ed = ocr_extracted or {}
+    return {
+        "filename": name,
+        "supplier": ed.get("supplier"),
+        "best_date": ed.get("best_date"),
+        "best_amount": ed.get("best_amount"),
+        "amounts": ed.get("amounts") or [],
+        "dates": ed.get("dates") or [],
+        "reason": reason,
+    }
 
 
 class ScanPlan(TypedDict):
@@ -383,9 +406,9 @@ class ScanPlan(TypedDict):
     already_canonical: int
     to_rename_from_name: list[RenameItem]
     to_rename_from_ocr: list[RenameItemOCR]
-    skipped_no_ocr: list[str]
-    skipped_bad_supplier: list[BadSupplierItem]
-    skipped_no_date_amount: list[str]
+    skipped_no_ocr: list[SkippedItem]
+    skipped_bad_supplier: list[SkippedItem]
+    skipped_no_date_amount: list[SkippedItem]
 
 
 def scan_and_plan_renames(
@@ -450,7 +473,7 @@ def scan_and_plan_renames(
 
         # Stratégie 2 : OCR / reconstitue metadata fallback
         if ocr_extracted is None:
-            plan["skipped_no_ocr"].append(name)
+            plan["skipped_no_ocr"].append(_build_skipped_item(name, None, "no_ocr"))
             continue
 
         supplier = (ocr_extracted.get("supplier") or "").strip()
@@ -458,17 +481,23 @@ def scan_and_plan_renames(
         amount = ocr_extracted.get("best_amount")
 
         if not date or amount is None:
-            plan["skipped_no_date_amount"].append(name)
+            plan["skipped_no_date_amount"].append(
+                _build_skipped_item(name, ocr_extracted, "no_date_amount")
+            )
             continue
 
         # Pour un reconstitue, on fait confiance au supplier (pas de filtre suspect)
         if not is_recon and is_suspicious_supplier(supplier) and not force_generic:
-            plan["skipped_bad_supplier"].append({"filename": name, "supplier": supplier})
+            plan["skipped_bad_supplier"].append(
+                _build_skipped_item(name, ocr_extracted, "bad_supplier")
+            )
             continue
 
         new_name = naming_service.build_convention_filename(supplier, date, amount)
         if not new_name:
-            plan["skipped_no_date_amount"].append(name)
+            plan["skipped_no_date_amount"].append(
+                _build_skipped_item(name, ocr_extracted, "no_date_amount")
+            )
             continue
 
         if is_recon:

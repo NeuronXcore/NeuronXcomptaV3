@@ -78,15 +78,57 @@ Alternative : Sandbox watchdog
   → Dépôt PDF/JPG/PNG dans data/justificatifs/sandbox/
   → Si image : conversion PDF + écriture en_attente/ + suppression image
   → Si PDF : shutil.move vers en_attente/
-  → OCR + auto-rename + SSE notification (enrichie auto_renamed + original_filename)
+  → OCR + auto-rename + SSE notification enrichie (auto_renamed + original_filename + supplier + best_date + best_amount)
+  → Frontend : SandboxArrivalToast (toast riche global via useSandbox() lifté dans AppLayout)
+     - Gradient violet→indigo, pulse ring, affichage supplier/date/amount, badge AUTO
+     - CTA "Voir dans l'historique" → /ocr?tab=historique&sort=scan_date&highlight={filename}
+     - Flash-highlight + scroll-into-view sur la row OCR cible (CSS animate-ping-slow 2s)
 
 Renommage manuel : POST /api/justificatifs/{filename}/rename
   → rename_justificatif() : PDF + .ocr.json + associations ops + GED metadata
+  → _invalidate_thumbnail_for_path() appelé avant move (purge du cache GED thumbnails)
   → Frontend : FilenameEditor inline-editable avec suggestion convention OCR
+
+Onglet "Gestion OCR" (ex-Historique) dans /ocr :
+  → Tableau trié par scan_date (processed_at) / date (best_date) / supplier / confidence
+  → Bouton crayon par ligne → OcrEditDrawer (720px)
+     - Édition supplier/date/montant (pills candidats OCR + inputs manuels)
+     - Dropdowns catégorie / sous-catégorie (persistés en hints dans .ocr.json)
+     - Dropdown op selector (50 candidats filtrés par cat)
+     - Preview PDF iframe 220×300 cliquable → PreviewSubDrawer grand format
+     - handleValidate : chain PATCH OCR → rename si canonique → associate si op → close
+  → Bouton orange "Scanner & Renommer" → ScanRenameDrawer
+     - Enrichit les buckets skipped via SkippedItemEditor inline (édition + op selector + rename & associate)
+     - Chain run_auto_rapprochement() post-apply (retour auto_associated + strong_suggestions)
 
 Formats acceptés : PDF, JPG, JPEG, PNG (config.ALLOWED_JUSTIFICATIF_EXTENSIONS)
 Validation : magic bytes (config.MAGIC_BYTES), limite 10 Mo
 Images converties en PDF à l'intake, original non conservé
+```
+
+### Thumbnail cache lifecycle (GED)
+
+```
+Les thumbnails PDF sont cachés dans data/ged/thumbnails/{md5}.png (clé = doc_id relatif à BASE_DIR).
+Bug historique : 236 orphelins dus à des moves/renames sans invalidation du cache.
+
+Fix : _invalidate_thumbnail_for_path(abs_path) appelé avant chaque opération destructive
+  - justificatif_service.associate() : avant move en_attente → traites
+  - justificatif_service.dissociate() : avant move traites → en_attente
+  - justificatif_service.rename_justificatif() : avant le rename
+  - justificatif_service.delete_justificatif() : avant delete
+  → calcule le doc_id, appelle ged_service.delete_thumbnail_for_doc_id(doc_id)
+
+En parallèle, _update_ged_metadata_location(filename, new_location) met à jour :
+  - La clé dict dans ged_metadata.json
+  - Le champ doc_id
+  - Le champ ocr_file
+Appelé lors des moves associate/dissociate.
+
+Endpoint cross-location : GET /api/justificatifs/{filename}/thumbnail
+  → Résout automatiquement en_attente/ puis traites/ via get_justificatif_path()
+  → Délègue à ged_service.get_thumbnail_path() (génère à la volée si absent)
+  → Utilisé par Thumbnail, SuggestionCard, SkippedItemEditor, OcrEditDrawer
 ```
 
 ### Rapprochement bancaire (scoring v2)
@@ -548,8 +590,23 @@ Upload justificatif → justificatifs router → upload_justificatifs()
   → PATCH /api/ocr/{filename}/extracted-data → update_extracted_data()
   → Cherche .ocr.json dans en_attente/ ET traites/
   → Ajoute manual_edit: true + manual_edit_at
-  → Frontend : OcrDataEditor (chips montants/dates + input manuel + fournisseur)
+  → Body accepte : best_amount, best_date, supplier, category_hint, sous_categorie_hint (OcrManualEdit étendu)
+  → Les hints sont stockés au **top-level** du .ocr.json (pas dans extracted_data)
+  → Frontend : OcrDataEditor + OcrEditDrawer + SkippedItemEditor (tous écrivent via ce PATCH)
   → Badge "OCR incomplet" dans la galerie si ocr_amount ou ocr_date null
+
+Hints comptables (category_hint + sous_categorie_hint) :
+  → Écrits automatiquement par justificatif_service.associate() après chaque association :
+    op.Catégorie → category_hint | op.Sous-catégorie → sous_categorie_hint
+    Skip "", "Autres", "Ventilé"
+  → Appel : ocr_service.update_extracted_data(filename, {"category_hint": cat, "sous_categorie_hint": subcat})
+  → Lus par rapprochement_service.score_categorie() en **override prioritaire** de la prédiction ML :
+    - Stratégie 1 : hint direct match op.categorie → 1.0 / 0.6 / 0.0
+    - Stratégie 2 : ML fallback si hint absent
+  → _load_ocr_data() injecte les hints dans le dict ocr_data transmis à compute_score()
+  → compute_score() extrait j_cat_hint / j_subcat_hint de justificatif_ocr et forwards à score_categorie
+  → Effet cascade : chaque association enrichit le .ocr.json → prochain auto-rapprochement plus précis
+  → Test e2e : amazon_20250109 score 0.547 → 0.748 (+20 points) avec hint matching
 ```
 
 ### Sandbox Watchdog (OCR automatique par dépôt)
@@ -562,8 +619,15 @@ Fichier (PDF/JPG/PNG) déposé dans data/justificatifs/sandbox/
   → Si image : _convert_image_to_pdf() → écriture PDF en_attente/ → suppression image
   → Si PDF : shutil.move → data/justificatifs/en_attente/ (gestion doublons avec suffix timestamp)
   → ocr_service.extract_or_cached() → .ocr.json
+  → _process_file() lit le cache OCR après processing et extrait supplier / best_date / best_amount
+  → _push_event() pousse un event SSE enrichi avec ces 3 champs
   → Event SSE poussé via asyncio.Queue (thread-safe via loop.call_soon_threadsafe)
-  → Frontend : useSandbox hook (EventSource) → invalidation TanStack Query + toast
+  → Frontend : useSandbox hook (EventSource) **lifté dans AppLayout** → écoute globalement quelle que soit la page
+     - showArrivalToast(data) affiche un SandboxArrivalToast riche (toast.custom + createElement)
+     - Gradient violet→indigo, pulse ring, supplier/date/amount, badge AUTO, CTA "Voir dans l'historique"
+     - Navigation via window.history.pushState + PopStateEvent (pas useNavigate — évite un bug d'ordre des hooks)
+     - URL cible : /ocr?tab=historique&sort=scan_date&highlight={filename}
+     - Invalidation TanStack Query (ocr-history, justificatifs, ged, operations)
 ```
 
 Au démarrage du backend, les fichiers (PDF/JPG/PNG) déjà présents dans sandbox/ sont traités automatiquement.

@@ -80,7 +80,7 @@ export default function GedDocumentCard({
       {/* Thumbnail area */}
       <div className="h-[120px] bg-background flex items-center justify-center relative">
         <img
-          src={`/api/ged/documents/${encodeURIComponent(doc.doc_id)}/thumbnail`}
+          src={`/api/ged/documents/${encodeURIComponent(doc.doc_id)}/thumbnail?v=${encodeURIComponent(doc.added_at ?? '')}`}
           alt=""
           className="max-h-full max-w-full object-contain"
           onError={(e) => {

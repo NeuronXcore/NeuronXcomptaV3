@@ -302,5 +302,25 @@
     "taille_totale_mo": 1.46,
     "success": true,
     "error_message": null
+  },
+  {
+    "id": "6813fca9",
+    "sent_at": "2026-04-10T00:57:05.269848",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "nb jours travalliés 2025 — Dr André CECCOLI",
+    "documents": [
+      {
+        "type": "ged",
+        "filename": "nb jours travalliés 2025.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.04,
+    "success": true,
+    "error_message": null
   }
 ]

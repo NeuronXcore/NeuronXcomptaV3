@@ -115,7 +115,12 @@ def delete_cached_result(pdf_path: Path) -> bool:
 
 def _find_ocr_cache_file(filename: str) -> Optional[Path]:
     """Cherche le fichier .ocr.json dans en_attente/ et traites/."""
-    cache_name = filename.replace(".pdf", ".ocr.json") if filename.endswith(".pdf") else f"{filename}.ocr.json"
+    # with_suffix remplace uniquement le dernier suffix — correct même pour
+    # des noms historiques à double extension type `*.pdf.pdf`.
+    if filename.endswith(".pdf"):
+        cache_name = Path(filename).with_suffix(".ocr.json").name
+    else:
+        cache_name = f"{filename}.ocr.json"
     for dir_path in [JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR]:
         cache = dir_path / cache_name
         if cache.exists():
@@ -155,6 +160,15 @@ def update_extracted_data(filename: str, edits: dict) -> dict:
         ed["supplier"] = edits["supplier"]
 
     data["extracted_data"] = ed
+
+    # Hints catégorie/sous-catégorie — stockés au TOP-LEVEL du dict, pas dans
+    # extracted_data, pour ne pas polluer les arrays OCR.
+    # On accepte une chaîne vide pour RESET le hint (différent de None qui ignore).
+    if "category_hint" in edits and edits["category_hint"] is not None:
+        data["category_hint"] = edits["category_hint"] or None
+    if "sous_categorie_hint" in edits and edits["sous_categorie_hint"] is not None:
+        data["sous_categorie_hint"] = edits["sous_categorie_hint"] or None
+
     data["manual_edit"] = True
     data["manual_edit_at"] = datetime.now().isoformat()
 
@@ -777,6 +791,9 @@ def get_extraction_history(limit: int = 20) -> list:
                     "best_amount": ed.get("best_amount"),
                     "original_filename": data.get("original_filename") or data.get("renamed_from"),
                     "auto_renamed": bool(data.get("renamed_from")),
+                    # Hints cat/sous-cat (top-level, pas dans extracted_data)
+                    "category_hint": data.get("category_hint"),
+                    "sous_categorie_hint": data.get("sous_categorie_hint"),
                 })
             except Exception:
                 continue
@@ -789,7 +806,9 @@ def get_extraction_history(limit: int = 20) -> list:
 
 def move_ocr_cache(src_dir: Path, dst_dir: Path, pdf_filename: str):
     """Déplace le fichier cache OCR d'un répertoire à l'autre."""
-    cache_name = pdf_filename.replace(".pdf", ".ocr.json")
+    # with_suffix remplace uniquement le dernier suffix — correct même pour
+    # des noms historiques à double extension type `*.pdf.pdf`.
+    cache_name = Path(pdf_filename).with_suffix(".ocr.json").name
     src = src_dir / cache_name
     dst = dst_dir / cache_name
     if src.exists():

@@ -436,16 +436,9 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
               <p className="text-xs font-medium text-text-muted mb-2">PDF source</p>
               <div className="relative rounded-lg border border-border overflow-hidden bg-white">
                 <img
-                  src={`/api/ged/documents/${encodeURIComponent('data/justificatifs/traites/' + tpl.source_justificatif)}/thumbnail`}
+                  src={`/api/justificatifs/${encodeURIComponent(tpl.source_justificatif)}/thumbnail`}
                   alt={tpl.vendor}
                   className="w-full h-auto object-contain"
-                  onError={(e) => {
-                    const img = e.target as HTMLImageElement
-                    if (!img.dataset.retried) {
-                      img.dataset.retried = '1'
-                      img.src = `/api/ged/documents/${encodeURIComponent('data/justificatifs/en_attente/' + tpl.source_justificatif)}/thumbnail`
-                    }
-                  }}
                 />
               </div>
               {/* Legende couleurs */}

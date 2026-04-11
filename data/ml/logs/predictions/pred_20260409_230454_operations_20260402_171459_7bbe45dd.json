@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-04-09T23:04:54.214496",
+  "filename": "operations_20260402_171459_7bbe45dd.json",
+  "mode": "empty_only",
+  "total_operations": 97,
+  "predicted": 3,
+  "high_confidence": 3,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "DU050925BRICODEPOT MONTAUBA2363/ 46,49",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU250925ABACUS.AI 9,67",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONEUSARL,SUCCURSALE 21,43",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

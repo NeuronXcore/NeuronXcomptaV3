@@ -112,6 +112,34 @@ async def preview_justificatif(filename: str):
     )
 
 
+@router.get("/{filename}/thumbnail")
+async def thumbnail_justificatif(filename: str):
+    """Sert la thumbnail PNG d'un justificatif en résolvant automatiquement
+    sa location (en_attente ou traites). Délègue à ged_service qui génère la
+    thumbnail à la volée via pdf2image + cache.
+
+    Créé pour fixer le bug du drawer Rapprochement qui hard-codait le chemin
+    `en_attente/` — un justificatif déjà associé et déplacé vers `traites/`
+    retournait alors 404 et affichait une page blanche dans la preview.
+    """
+    filepath = justificatif_service.get_justificatif_path(filename)
+    if not filepath:
+        raise HTTPException(status_code=404, detail="Justificatif non trouvé")
+
+    # Construire le doc_id relatif (ged_service s'attend à un chemin relatif depuis BASE_DIR)
+    from backend.core.config import BASE_DIR
+    from backend.services import ged_service
+    try:
+        doc_id = str(filepath.relative_to(BASE_DIR))
+    except ValueError:
+        raise HTTPException(status_code=500, detail="Chemin hors du repo")
+
+    thumb_path = ged_service.get_thumbnail_path(doc_id)
+    if not thumb_path:
+        raise HTTPException(status_code=404, detail="Thumbnail non disponible")
+    return FileResponse(thumb_path, media_type="image/png")
+
+
 @router.post("/{filename}/open-native")
 async def open_native(filename: str):
     """Ouvre le justificatif dans l'application native (Aperçu macOS)."""
@@ -268,10 +296,27 @@ async def scan_rename(
             errors.append({"old": item["old"], "new": item["new"], "error": str(e)})
             logger.warning("scan-rename échoué pour %s → %s : %s", item["old"], item["new"], e)
 
+    # Chaînage auto-rapprochement : après les renames, les fichiers sont en
+    # nommage canonique → le moteur de scoring v2 matche bien mieux. On lance
+    # l'auto-association (≥ 0.80 + match unique) pour fermer le workflow en
+    # un seul clic : tous les justifs évidents sont déplacés vers traites/ et
+    # associés à leur opération, les autres restent en en_attente/ visibles
+    # dans le widget Pipeline.
+    auto_assoc_summary: dict = {}
+    if ok_list:
+        try:
+            from backend.services import rapprochement_service
+            auto_assoc_summary = rapprochement_service.run_auto_rapprochement()
+        except Exception as e:
+            logger.warning("auto-rapprochement post-scan-rename échoué : %s", e)
+            auto_assoc_summary = {"error": str(e)}
+
     response["applied"] = {
         "ok": len(ok_list),
         "errors": errors,
         "renamed": ok_list,
+        "auto_associated": auto_assoc_summary.get("associations_auto", 0),
+        "strong_suggestions": auto_assoc_summary.get("suggestions_fortes", 0),
     }
     return response
 

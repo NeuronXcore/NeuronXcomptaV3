@@ -588,21 +588,15 @@ function LibrarySection() {
               className="bg-surface rounded-xl border border-border overflow-hidden hover:border-violet-500/40 transition-colors group cursor-pointer"
               onClick={() => setEditTemplateId(tpl.id)}
             >
-              {/* Thumbnail du PDF source */}
+              {/* Thumbnail du PDF source — endpoint qui résout auto en_attente/traites */}
               {hasSource ? (
                 <div className="h-32 bg-white overflow-hidden border-b border-border flex items-center justify-center">
                   <img
-                    src={`/api/ged/documents/${encodeURIComponent('data/justificatifs/traites/' + tpl.source_justificatif)}/thumbnail`}
+                    src={`/api/justificatifs/${encodeURIComponent(tpl.source_justificatif!)}/thumbnail`}
                     alt={tpl.vendor}
                     className="h-full w-auto object-contain"
                     onError={(e) => {
-                      const img = e.target as HTMLImageElement
-                      if (!img.dataset.retried) {
-                        img.dataset.retried = '1'
-                        img.src = `/api/ged/documents/${encodeURIComponent('data/justificatifs/en_attente/' + tpl.source_justificatif)}/thumbnail`
-                      } else {
-                        img.style.display = 'none'
-                      }
+                      (e.target as HTMLImageElement).style.display = 'none'
                     }}
                   />
                 </div>

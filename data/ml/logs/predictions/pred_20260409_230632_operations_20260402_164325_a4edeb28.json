@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-09T23:06:32.453713",
+  "filename": "operations_20260402_164325_a4edeb28.json",
+  "mode": "empty_only",
+  "total_operations": 89,
+  "predicted": 1,
+  "high_confidence": 1,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "PRLVSEPAAMAZONEUSARL,SUCCURSALE 441,07",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

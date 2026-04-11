@@ -9,7 +9,7 @@ import {
   useBatchUploadOcr,
 } from '@/hooks/useOcr'
 import type { BatchUploadResult } from '@/hooks/useOcr'
-import { useJustificatifs } from '@/hooks/useJustificatifs'
+import { useJustificatifs, useJustificatifStats } from '@/hooks/useJustificatifs'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { api } from '@/api/client'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
@@ -17,10 +17,11 @@ import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
   ArrowRight, DollarSign, Calendar, User, Filter, Tag, Eye, Wand2,
-  Search, X,
+  Search, X, Pencil,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
 import ScanRenameDrawer from './ScanRenameDrawer'
+import OcrEditDrawer from './OcrEditDrawer'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import FilenameEditor from '@/components/justificatifs/FilenameEditor'
 import { useReverseLookup } from '@/hooks/useJustificatifs'
@@ -34,11 +35,26 @@ export default function OcrPage() {
   const preFile = searchParams.get('file')
   const preIndex = searchParams.get('index')
   const preTemplate = searchParams.get('template')
+  const preTab = searchParams.get('tab')
+  // Navigation depuis le toast d'arrivée : ?tab=historique&sort=scan_date&highlight=X
+  const preSort = searchParams.get('sort')
+  const preHighlight = searchParams.get('highlight')
 
-  const [activeTab, setActiveTab] = useState<Tab>(preFile ? 'templates' : 'upload')
+  const initialTab: Tab =
+    preTab === 'historique'
+      ? 'historique'
+      : preFile
+        ? 'templates'
+        : 'upload'
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [templatePreFile, setTemplatePreFile] = useState('')
   const { data: status } = useOcrStatus()
-  const { data: history, isLoading: historyLoading } = useOcrHistory(100)
+  // Limite élevée car l'OCR Historique doit couvrir tous les scans en attente
+  // (pipeline) — le plafond à 100 faisait disparaître des items traités il y a
+  // plus de 100 OCR. Le backend lit déjà tous les `.ocr.json` avant de slicer.
+  const { data: history, isLoading: historyLoading } = useOcrHistory(2000)
+  const { data: justifStats } = useJustificatifStats()
+  const pendingCount = justifStats?.en_attente ?? 0
 
   const handleCreateTemplate = (filename: string) => {
     setTemplatePreFile(filename)
@@ -83,7 +99,7 @@ export default function OcrPage() {
         {([
           { key: 'upload' as Tab, label: 'Upload & OCR', icon: Upload },
           { key: 'test' as Tab, label: 'Test Manuel', icon: ScanLine },
-          { key: 'historique' as Tab, label: 'Historique', icon: Clock },
+          { key: 'historique' as Tab, label: 'Gestion OCR', icon: Clock },
           { key: 'templates' as Tab, label: 'Templates justificatifs', icon: FileText },
         ]).map(tab => (
           <button
@@ -98,6 +114,19 @@ export default function OcrPage() {
           >
             <tab.icon size={14} />
             {tab.label}
+            {tab.key === 'historique' && pendingCount > 0 && (
+              <span
+                className={cn(
+                  'text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1',
+                  activeTab === 'historique'
+                    ? 'bg-white/25 text-white'
+                    : 'bg-orange-600 text-white'
+                )}
+                title={`${pendingCount} scan(s) en attente d'association`}
+              >
+                {pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -109,7 +138,12 @@ export default function OcrPage() {
       ) : activeTab === 'templates' ? (
         <TemplatesTab preFile={preFile} preIndex={preIndex} preTemplate={preTemplate} preCreateFile={templatePreFile || null} />
       ) : (
-        <HistoriqueTab history={history || []} isLoading={historyLoading} />
+        <HistoriqueTab
+          history={history || []}
+          isLoading={historyLoading}
+          initialSort={preSort === 'scan_date' ? 'scan_date' : undefined}
+          initialHighlight={preHighlight || undefined}
+        />
       )}
     </div>
   )
@@ -623,6 +657,20 @@ function parseDateFromFilename(filename: string): { year: number | null; month: 
   return { year: null, month: null }
 }
 
+/** Source canonique année/mois pour un item OCR — DOIT être alignée avec le
+ *  widget Pipeline (PendingScansWidget filtre par `ocr_date || date`).
+ *  Priorité : best_date (OCR parsé, fiable) → filename (dérivé canonique).
+ *  Ne pas utiliser `processed_at` (date de traitement ≠ date de la facture). */
+function periodOf(item: OCRHistoryItem): { year: number | null; month: number | null } {
+  if (item.best_date && item.best_date.length >= 7) {
+    return {
+      year: parseInt(item.best_date.slice(0, 4), 10),
+      month: parseInt(item.best_date.slice(5, 7), 10),
+    }
+  }
+  return parseDateFromFilename(item.filename)
+}
+
 // ──── PDF Preview Hover ────
 
 function PdfPreviewHover({ filename }: { filename: string }) {
@@ -683,14 +731,36 @@ function PdfPreviewHover({ filename }: { filename: string }) {
 
 // ──── Historique Tab ────
 
-function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLoading: boolean }) {
+function HistoriqueTab({
+  history,
+  isLoading,
+  initialSort,
+  initialHighlight,
+}: {
+  history: OCRHistoryItem[]
+  isLoading: boolean
+  initialSort?: 'scan_date'
+  initialHighlight?: string
+}) {
   const { selectedYear } = useFiscalYearStore()
   const extractOcr = useExtractOcr()
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const [filterSupplier, setFilterSupplier] = useState('')
-  const [sortField, setSortField] = useState<'date' | 'supplier' | 'confidence'>('date')
+  const [filterAssociation, setFilterAssociation] = useState<'all' | 'pending' | 'associated'>('all')
+  // Nouveau sort 'scan_date' : trie par `processed_at` (date de traitement OCR),
+  // utilisé par le toast d'arrivée pour amener l'utilisateur directement sur les
+  // scans les plus récents, indépendamment de l'exercice comptable.
+  const [sortField, setSortField] = useState<'date' | 'supplier' | 'confidence' | 'scan_date'>(
+    initialSort === 'scan_date' ? 'scan_date' : 'date',
+  )
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [scanRenameOpen, setScanRenameOpen] = useState(false)
+  // Drawer d'édition OCR (ouvert depuis le bouton Edit de chaque ligne)
+  const [editItem, setEditItem] = useState<OCRHistoryItem | null>(null)
+  // Highlight pour la navigation depuis le toast d'arrivée
+  const [highlightFilename, setHighlightFilename] = useState<string | null>(
+    initialHighlight ?? null,
+  )
 
   // Recherche multifocale (libellé, catégorie, montant, fournisseur, filename)
   const [searchQuery, setSearchQuery] = useState('')
@@ -700,10 +770,22 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
     return () => clearTimeout(t)
   }, [searchQuery])
 
-  // Enrichir avec date parsée du filename
+  // Scroll-into-view + auto-clear highlight (3s) quand on arrive via toast
+  useEffect(() => {
+    if (!highlightFilename) return
+    const row = document.getElementById(`ocr-hist-row-${highlightFilename}`)
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    const t = setTimeout(() => setHighlightFilename(null), 3500)
+    return () => clearTimeout(t)
+  }, [highlightFilename])
+
+  // Enrichir avec année/mois — source canonique alignée sur le widget Pipeline :
+  // on privilégie `best_date` (OCR parsé) avant de tomber sur le filename.
   const enriched = useMemo(() => {
     return (history || []).map(item => {
-      const { year, month } = parseDateFromFilename(item.filename)
+      const { year, month } = periodOf(item)
       return { ...item, _year: year, _month: month }
     })
   }, [history])
@@ -740,11 +822,43 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yearItems, lookupQueries.map(q => q.data).join('|')])
 
-  // Filtrer par mois + fournisseur + recherche multifocale
-  const filtered = useMemo(() => {
+  // Items après les filtres mois + fournisseur — c'est le scope sur lequel on
+  // calcule les compteurs Tous/Sans assoc./Avec assoc. (pour qu'ils reflètent
+  // le mois courant) ET la base du filtre association + recherche.
+  const scopedItems = useMemo(() => {
     let items = yearItems
     if (filterMonth) items = items.filter(item => item._month === filterMonth)
     if (filterSupplier) items = items.filter(item => (item.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()))
+    return items
+  }, [yearItems, filterMonth, filterSupplier])
+
+  // Compteurs association — recalculés à chaque changement de mois/fournisseur
+  const associationCounts = useMemo(() => {
+    let pending = 0
+    let associated = 0
+    for (const item of scopedItems) {
+      const lookups = lookupByFilename.get(item.filename)
+      if (lookups && lookups.length > 0) associated++
+      else pending++
+    }
+    return { total: scopedItems.length, pending, associated }
+  }, [scopedItems, lookupByFilename])
+
+  // Filtrer par association + recherche multifocale (sur scopedItems)
+  // Exception : quand le sort est 'scan_date', on IGNORE les filtres
+  // mois/fournisseur/année pour afficher tous les scans récents (vue "récents").
+  const filtered = useMemo(() => {
+    // Si sort = scan_date → vue récents : ignorer les filtres exercice
+    // et tirer depuis enriched (tous les items, toutes années confondues).
+    let items = sortField === 'scan_date' ? enriched : scopedItems
+
+    if (filterAssociation !== 'all') {
+      items = items.filter(item => {
+        const lookups = lookupByFilename.get(item.filename)
+        const isAssociated = !!(lookups && lookups.length > 0)
+        return filterAssociation === 'associated' ? isAssociated : !isAssociated
+      })
+    }
 
     // Recherche multifocale : libellé, catégorie, sous-catégorie, fournisseur, montant
     // (on exclut volontairement le filename pour éviter les faux positifs avec les dates
@@ -791,6 +905,10 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
     items.sort((a, b) => {
       let cmp = 0
       if (sortField === 'date') {
+        // 'date' = best_date (date OCR de la facture)
+        cmp = (a.best_date || '').localeCompare(b.best_date || '')
+      } else if (sortField === 'scan_date') {
+        // 'scan_date' = processed_at (date de traitement OCR)
         cmp = (a.processed_at || '').localeCompare(b.processed_at || '')
       } else if (sortField === 'supplier') {
         cmp = (a.supplier || '').localeCompare(b.supplier || '')
@@ -800,7 +918,7 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
       return sortDir === 'desc' ? -cmp : cmp
     })
     return items
-  }, [yearItems, filterMonth, filterSupplier, debouncedSearch, lookupByFilename, sortField, sortDir])
+  }, [scopedItems, enriched, filterAssociation, debouncedSearch, lookupByFilename, sortField, sortDir])
 
   // Extraire les fournisseurs uniques pour le filtre
   const suppliers = useMemo(() => {
@@ -858,6 +976,60 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+
+        {/* Filtre association (3 états avec compteurs dynamiques) */}
+        <div className="flex bg-background rounded border border-border overflow-hidden">
+          {([
+            ['all', 'Tous', associationCounts.total],
+            ['pending', 'Sans assoc.', associationCounts.pending],
+            ['associated', 'Avec assoc.', associationCounts.associated],
+          ] as const).map(([value, label, count]) => (
+            <button
+              key={value}
+              onClick={() => setFilterAssociation(value)}
+              className={cn(
+                'px-2.5 py-1 text-xs transition-colors flex items-center gap-1.5',
+                filterAssociation === value
+                  ? value === 'pending' && count > 0
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-primary text-white'
+                  : 'text-text-muted hover:text-text'
+              )}
+            >
+              {label}
+              <span
+                className={cn(
+                  'text-[10px] font-semibold px-1 rounded',
+                  filterAssociation === value
+                    ? 'bg-white/25'
+                    : value === 'pending' && count > 0
+                      ? 'bg-orange-500/20 text-orange-400'
+                      : 'bg-surface-hover text-text-muted'
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Toggle tri par date de scan — ignore les filtres exercice comptable
+            pour afficher les scans les plus récemment traités (processed_at desc).
+            Utilisé par le toast d'arrivée d'un nouveau scan. */}
+        <button
+          onClick={() => toggleSort(sortField === 'scan_date' ? 'date' : 'scan_date')}
+          className={cn(
+            'px-2.5 py-1 text-xs rounded border transition-colors flex items-center gap-1.5',
+            sortField === 'scan_date'
+              ? 'bg-violet-500/15 border-violet-500/40 text-violet-300'
+              : 'bg-background border-border text-text-muted hover:text-text',
+          )}
+          title="Trier par date de traitement OCR (récents en premier) — ignore les filtres année/mois/fournisseur"
+        >
+          <ScanLine size={12} />
+          Date de scan
+          {sortField === 'scan_date' && (sortDir === 'desc' ? ' ↓' : ' ↑')}
+        </button>
 
         {/* Recherche multifocale : libellé, catégorie, montant, fournisseur */}
         <div className="relative flex-1 min-w-[200px] max-w-[340px]">
@@ -933,7 +1105,14 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
               </thead>
               <tbody>
                 {filtered.map((item, i) => (
-                  <tr key={item.filename} className="group border-b border-border/50 hover:bg-surface-hover transition-colors">
+                  <tr
+                    key={item.filename}
+                    id={`ocr-hist-row-${item.filename}`}
+                    className={cn(
+                      'group border-b border-border/50 hover:bg-surface-hover transition-colors',
+                      highlightFilename === item.filename && 'flash-highlight',
+                    )}
+                  >
                     <td className="px-4 py-3">
                       <FilenameEditor
                         filename={item.filename}
@@ -985,18 +1164,27 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => extractOcr.mutate(item.filename)}
-                        disabled={extractOcr.isPending}
-                        className="p-1.5 text-text-muted hover:text-primary transition-colors"
-                        title="Relancer l'extraction"
-                      >
-                        {extractOcr.isPending ? (
-                          <Loader2 size={13} className="animate-spin" />
-                        ) : (
-                          <RotateCcw size={13} />
-                        )}
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => setEditItem(item)}
+                          className="p-1.5 text-text-muted hover:text-primary transition-colors"
+                          title="Éditer les données OCR"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => extractOcr.mutate(item.filename)}
+                          disabled={extractOcr.isPending}
+                          className="p-1.5 text-text-muted hover:text-primary transition-colors"
+                          title="Relancer l'extraction"
+                        >
+                          {extractOcr.isPending ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <RotateCcw size={13} />
+                          )}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <HistoriqueOperationCell filename={item.filename} />
@@ -1011,6 +1199,7 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
 
       {/* Drawer scan & rename */}
       <ScanRenameDrawer open={scanRenameOpen} onClose={() => setScanRenameOpen(false)} />
+      <OcrEditDrawer open={!!editItem} item={editItem} onClose={() => setEditItem(null)} />
     </div>
   )
 }

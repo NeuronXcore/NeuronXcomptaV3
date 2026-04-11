@@ -416,6 +416,9 @@ export interface OCRHistoryItem {
   best_amount?: number | null
   auto_renamed?: boolean
   original_filename?: string | null
+  // Hints comptables stockés au top-level du .ocr.json — éditables via OcrEditDrawer
+  category_hint?: string | null
+  sous_categorie_hint?: string | null
 }
 
 export interface JustificatifInfo {
@@ -432,6 +435,8 @@ export interface JustificatifInfo {
   ocr_supplier?: string | null
   auto_renamed?: boolean
   original_filename?: string
+  category_hint?: string | null
+  sous_categorie_hint?: string | null
 }
 
 export interface JustificatifStats {

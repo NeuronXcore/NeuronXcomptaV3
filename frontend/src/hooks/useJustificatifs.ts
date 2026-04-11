@@ -85,6 +85,11 @@ export function useDissociate() {
       queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
       queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
       queryClient.invalidateQueries({ queryKey: ['operations'] })
+      // Sans ces 2 invalidations, le justif dissocié resterait faussement
+      // classé "Avec assoc." dans OCR Historique et n'apparaîtrait pas avec
+      // ses suggestions dans le widget Pipeline jusqu'au prochain refetch.
+      queryClient.invalidateQueries({ queryKey: ['justificatif-reverse-lookup'] })
+      queryClient.invalidateQueries({ queryKey: ['justificatif-operation-suggestions'] })
     },
   })
 }

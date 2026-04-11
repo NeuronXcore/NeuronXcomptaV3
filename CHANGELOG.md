@@ -8,6 +8,127 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added / Changed (2026-04-11) — Session 12
+
+- **OCR — refonte de l'onglet « Historique » en « Gestion OCR »**
+  - Label de l'onglet renommé dans `OcrPage.tsx` (la key URL reste `'historique'` pour rétro-compatibilité des liens externes)
+  - Nouveau tri `scan_date` (alias de `processed_at`) qui **ignore les filtres** courants (année/mois/supplier/search) et itère `enriched` (toutes années) pour garantir la visibilité d'un fichier cible post-toast
+  - Bouton toggle « Date de scan » avec highlight violet quand actif
+  - Helper `periodOf(item)` qui aligne le tri mensuel sur `best_date` (fallback filename regex) pour cohérence avec le `PendingScansWidget` du Pipeline (fix du mismatch Pipeline janvier=4 vs OCR=0)
+  - URL params `?tab=historique&sort=scan_date&highlight={filename}` acceptés, `HistoriqueTab` accepte `initialSort?` + `initialHighlight?`
+  - **Flash highlight** : `@keyframes ping-slow` (2s) + classes `.animate-enter`/`.animate-leave`/`.animate-ping-slow` dans `index.css`, scroll-into-view via `useEffect` + `useRef` anti-re-scroll, clean de l'URL param après animation
+  - Bouton crayon par ligne → ouvre `OcrEditDrawer` (voir ci-dessous) pour édition standalone du fichier OCR
+
+- **`OcrEditDrawer` (nouveau, 720px)**
+  - Drawer standalone d'édition d'un item de la Gestion OCR déclenché par le bouton crayon par ligne
+  - Même UX que `SkippedItemEditor` du `ScanRenameDrawer` mais pour les fichiers déjà renommés / associés ou en attente
+  - Preview PDF iframe 220×300 cliquable → ouvre `PreviewSubDrawer` grand format
+  - Éditeur supplier/date/montant avec **pills de candidats OCR** (cliquables pour sélectionner) + inputs manuels en fallback
+  - Dropdowns catégorie + sous-catégorie (persistés comme `category_hint` / `sous_categorie_hint` dans le `.ocr.json`, voir section hints ci-dessous)
+  - Dropdown op selector (50 candidats filtrés par cat active)
+  - Flags de validation : `hasOcrChanges` + `hasHintChanges` + `canValidate = hasOcrChanges || hasHintChanges || !!selectedOpKey`
+  - `handleValidate` chaîne : PATCH OCR → rename si canonique → associate si op sélectionnée → close
+  - Fix du bug « bouton Enregistrer grisé » quand seules les cat/sous-cat sont modifiées (ajout `hasHintChanges` au check `canValidate`)
+
+- **`PreviewSubDrawer` (nouveau, shared)**
+  - Composant partagé `frontend/src/components/ocr/PreviewSubDrawer.tsx` utilisé par `ScanRenameDrawer` ET `OcrEditDrawer`
+  - Sous-drawer positionné en `right-[mainDrawerWidth]px` avec width configurable (~600px, responsive `max-w-[calc(95vw-mainDrawerWidth)]`)
+  - Props : `filename`, `mainDrawerOpen`, `mainDrawerWidth`, `onClose`
+  - **Critique** : `if (!mainDrawerOpen) return null` — sinon l'élément en `translate-x-full` anchoré à `right-[680px]` reste partiellement visible quand le main drawer est fermé
+  - `<object type="application/pdf">` plein écran avec `key={filename}` pour forcer le remount (évite le cache Chrome du précédent PDF)
+  - Header compact avec nom fichier + bouton X (close)
+  - Esc handler en mode capture (`stopPropagation`) pour ne fermer que le sub-drawer sans remonter au main drawer
+
+- **`ScanRenameDrawer` — `SkippedItemEditor` inline + chainage auto-rapprochement**
+  - Les 3 buckets skipped (no_ocr / bad_supplier / no_date_amount) sont désormais expandables par fichier
+  - Chaque card skipped contient un `SkippedItemEditor` inline : mini thumbnail 60×84 cliquable → `PreviewSubDrawer`, éditeur supplier/date/montant avec pills de candidats OCR + inputs manuels, dropdown op selector filtré par cat, bouton « Rename & Associate » qui chaîne PATCH OCR → rename → associate
+  - Backend `rename_service.py` enrichit les buckets skipped via `SkippedItem` TypedDict (filename, supplier, best_date, best_amount, amounts, dates, reason) dans `scan_and_plan_renames()`
+  - **Chainage auto-rapprochement post-apply** : après le batch de renames dans `POST /api/justificatifs/scan-rename?apply=true`, le router appelle `rapprochement_service.run_auto_rapprochement()` automatiquement
+  - Résumé retourné inclut `auto_associated` (nb d'associations confirmées > seuil 0.80) + `strong_suggestions` (nb de suggestions fortes 0.65-0.80 prêtes pour review manuel)
+  - Hook `useApplyScanRename` affiche les 2 nombres dans le toast de succès
+  - Crée un flux one-click « Scanner & Renommer → auto-associer ce qui matche » depuis l'OCR > Gestion OCR
+
+- **Hints comptables dans `.ocr.json` (cascade auto-hint)**
+  - 2 nouvelles clés top-level `category_hint` + `sous_categorie_hint` stockées dans chaque `.ocr.json` (hors `extracted_data` pour ne pas polluer les arrays OCR)
+  - **Écrites automatiquement** par `justificatif_service.associate()` à chaque association manuelle ou auto : copie `op.Catégorie` / `op.Sous-catégorie`, skip `""` / `Autres` / `Ventilé`
+  - Implémenté via `ocr_service.update_extracted_data(filename, {"category_hint": cat, "sous_categorie_hint": subcat})`
+  - **Lues par `rapprochement_service.score_categorie()` en override prioritaire** de la prédiction ML : un hint présent donne un score catégorie fiable (1.0 si match op, 0.6 sous-cat ≠, 0.0 sinon) au lieu de dépendre de la prédiction ML depuis le supplier parsé
+  - `_load_ocr_data()` injecte les hints dans le dict `ocr_data` passé à `compute_score()` via `justificatif_ocr.category_hint` / `justificatif_ocr.sous_categorie_hint`
+  - `score_categorie()` signature étendue avec `category_hint` + `sous_categorie_hint` params, `compute_score()` extrait `j_cat_hint` / `j_subcat_hint` de `justificatif_ocr` et les forwards
+  - **Effet en cascade** : chaque association enrichit le `.ocr.json` → prochains rapprochements automatiques plus précis sur ce fichier (même après dissociation et ré-association éventuelle)
+  - Éditables aussi via `OcrEditDrawer` / `SkippedItemEditor` (dropdowns cat/sous-cat)
+  - Modèle `OcrManualEdit` étendu avec `category_hint: Optional[str] = None` et `sous_categorie_hint: Optional[str] = None`
+  - `PATCH /api/ocr/{filename}/extracted-data` accepte ces 2 champs
+  - `ocr_service.update_extracted_data()` stocke au **top-level** du `.ocr.json` (pas dans `extracted_data`)
+  - `get_extraction_history()` retourne les hints dans chaque item
+  - Router `get_history` : limit passée de 100 à 2000 pour couvrir toute l'année OCR
+  - **Test e2e** : amazon_20250109 score passe de 0.547 à 0.748 (+20 points) avec hint matching
+
+- **`PendingScansWidget` + sidebar badge sur `/ocr`**
+  - Nouvelle carte « Scans en attente d'association » affichée dans `PipelinePage`
+  - Réutilise le design `PipelineStepCard` : cercle icône Paperclip, mini progress bar, chevron expand
+  - **Filtré par `year + month`** du sélecteur pipeline (cohérence parfaite avec les autres étapes)
+  - 2 sections dans l'expand : OCR récents + Fac-similés (séparés via `isReconstitue()`)
+  - 1-click associate avec `confirm()` pour les scores faibles
+  - Bouton « Traiter » navigue vers `/justificatifs?filter=sans&year=Y&month=M`
+  - Badge compteur orange dans la sidebar sur l'item `/ocr` (via `useJustificatifStats.pendingScansCount`)
+  - `useSandbox()` hook lifté au niveau de `AppLayout` pour écouter le SSE globalement, quelle que soit la page active (évite de perdre les événements d'arrivée sur les pages non-OCR)
+
+- **`SandboxArrivalToast` — toast riche global sur arrivée sandbox**
+  - Nouveau composant `components/shared/SandboxArrivalToast.tsx` (~130 lignes)
+  - Gradient border violet→indigo, pulse ring animation, design moderne
+  - Affiche supplier/date/amount extraits de l'OCR, badge AUTO si auto-renommé, CTA « Voir dans l'historique »
+  - Click → navigation vers `/ocr?tab=historique&sort=scan_date&highlight={filename}`
+  - Déclenché par `showArrivalToast(data)` (fonction module-level de `useSandbox.ts`) sur événement SSE `processed`
+  - Implémenté via `toast.custom()` + `createElement` + `window.history.pushState` + `PopStateEvent` — **pas de `useNavigate`** pour éviter un bug d'ordre de hooks dans `AppLayout` (le hook `useSandbox()` est lifté au niveau global)
+  - Backend `sandbox_service._push_event()` étendu avec params `supplier`, `best_date`, `best_amount` ; `_process_file()` lit le cache OCR après processing et transmet au push event
+  - `SandboxEvent` type côté frontend étendu avec ces 3 champs
+
+- **Thumbnails GED — fix des 236 orphelins + invalidation chaînée**
+  - Bug historique : 236 thumbnails orphelins dans `data/ged/thumbnails/` dû à des moves/renames sans invalidation du cache (ex. `clinique-pont-de-chaumes_20250324_126,24.pdf == Fichier non trouvé`)
+  - Nouveau helper `ged_service.delete_thumbnail_for_doc_id(doc_id)` (public)
+  - Nouveau helper `justificatif_service._invalidate_thumbnail_for_path(abs_path)` qui calcule le `doc_id` (relatif à `BASE_DIR`), appelle `ged_service.delete_thumbnail_for_doc_id(doc_id)` et supprime le PNG cache
+  - **Appelé avant tout move/rename/delete** : `associate()` (avant move en_attente→traites), `dissociate()` (avant move traites→en_attente), `rename_justificatif()`, `delete_justificatif()`
+  - Nouveau helper `_update_ged_metadata_location(filename, new_location)` qui met à jour `ged_metadata.json` (clé dict + champ `doc_id` + champ `ocr_file`) pour chaque justificatif déplacé
+  - Cleanup script one-shot exécuté pour purger les 236 orphelins existants
+  - La GED régénère les thumbnails à la demande au prochain accès
+
+- **Nouvel endpoint thumbnail cross-location**
+  - `GET /api/justificatifs/{filename}/thumbnail` — résout automatiquement `en_attente/` puis `traites/` (via `get_justificatif_path()`) puis délègue à `ged_service.get_thumbnail_path()`
+  - Évite le bug des blank thumbnails quand un composant frontend hard-codait `en_attente/` mais que le fichier était déjà dans `traites/` (cas ford-revision)
+  - Utilisé par `Thumbnail`, `SuggestionCard`, `SkippedItemEditor`, `OcrEditDrawer`, `PreviewSubDrawer`
+
+- **Fix `.pdf.pdf` (Path.with_suffix)**
+  - Bug : `old_filename.replace(".pdf", ".ocr.json")` remplaçait **toutes** les occurrences de `.pdf`, corrompant les noms `xxx.pdf.pdf` en `xxx.ocr.json.pdf`
+  - Remplacé par `Path(old_filename).with_suffix(".ocr.json").name` dans 4 endroits :
+    - `justificatif_service.rename_justificatif()` (ligne 695)
+    - `ocr_service._find_ocr_cache_file()`
+    - `ocr_service.move_ocr_cache()`
+    - Et 1 autre occurrence annexe
+
+- **Browser tab title sync**
+  - `AppLayout.tsx` contient désormais un `ROUTE_TITLES: Record<string, string>` mappant chaque route vers son label sidebar
+  - `useEffect` qui met à jour `document.title` à chaque changement de `location.pathname`
+  - Utile pour reconnaître les onglets quand plusieurs pages sont ouvertes en parallèle (Pipeline / Justificatifs / Gestion OCR / …)
+
+- **JustificatifsPage — filtre catégorie/sous-cat persistant au changement de mois**
+  - `useJustificatifsPage` expose désormais `categoryFilter` + `subcategoryFilter` (états React)
+  - **Conservés au travers des changements de mois** (contrairement à l'ancienne version qui reset au changement)
+  - Memo `operations` applique les 2 filtres avec support `__uncategorized__` (matche vide + "Autres")
+  - Panel filtres dans la UI à côté du filtre sans/avec/tous
+  - Même UX que les filtres catégorie/sous-cat de `EditorPage` (cascade subcat dépend de cat)
+
+- **Lien bidirectionnel GED → Éditeur via `JustificatifOperationLink`**
+  - Nouvelle prop `showEditorLink?: boolean` sur `JustificatifOperationLink`
+  - Quand activée, ajoute un second bouton « Ouvrir dans l'Éditeur » qui navigue vers `/editor?file=X&highlight=Y`
+  - Utilisé dans le drawer GED pour offrir les 2 points d'entrée (Éditeur + Justificatifs)
+  - `EditorPage` supporte déjà les URL params `?file=X&highlight=Y` avec surbrillance permanente
+
+- **Onglet `/ocr` — Gestion OCR (documentation)**
+  - L'onglet « Historique » du flux OCR est officiellement renommé « Gestion OCR » dans la sidebar et le tableau des routes
+  - Décrit désormais comme « centre de gestion des fichiers OCR » avec : tri scan_date/date/supplier/confidence, filtre association, recherche multifocale, bouton crayon par ligne → OcrEditDrawer, bouton orange Scanner & Renommer → ScanRenameDrawer
+  - Key URL inchangée (`'historique'`) pour rétro-compatibilité
+
 ### Added / Changed (2026-04-11) — Session 11
 
 - **Intégrité des liens justificatifs (scan + répare auto)**

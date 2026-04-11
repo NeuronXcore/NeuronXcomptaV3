@@ -4,6 +4,7 @@ import { Upload, Check, AlertTriangle, Circle } from 'lucide-react'
 import PageHeader from '../shared/PageHeader'
 import LoadingSpinner from '../shared/LoadingSpinner'
 import PipelineStepCard from './PipelineStepCard'
+import PendingScansWidget from './PendingScansWidget'
 import { usePipeline } from '../../hooks/usePipeline'
 import { MOIS_FR, cn } from '../../lib/utils'
 import type { PipelineStepStatus } from '../../types'
@@ -127,6 +128,9 @@ export default function PipelinePage() {
           />
         </div>
       </div>
+
+      {/* Scans en attente d'association */}
+      <PendingScansWidget year={year} month={month} />
 
       {/* Empty state */}
       {!currentFile && availableYears.length === 0 ? (

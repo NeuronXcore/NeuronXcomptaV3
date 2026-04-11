@@ -397,8 +397,17 @@ Associer un justificatif. Declenche auto-pointage si le setting `auto_pointage` 
 ### `POST /dissociate`
 Dissocier. Body : `{ "operation_file": "...", "operation_index": 5 }`
 
+### `GET /{filename}/thumbnail`
+**Nouveau endpoint cross-location.** Retourne le thumbnail PNG d'un justificatif en résolvant automatiquement `en_attente/` puis `traites/` via `get_justificatif_path()`, puis délègue à `ged_service.get_thumbnail_path()`.
+
+Le thumbnail est généré à la volée via `pdf2image` + `poppler` si absent du cache (`data/ged/thumbnails/{md5}.png`), puis servi en PNG. Résout le bug historique des blank thumbnails quand un composant frontend hard-codait `en_attente/` alors que le fichier était déjà en `traites/` (cas ford-revision).
+
+Utilisé par les composants frontend `Thumbnail`, `SuggestionCard`, `SkippedItemEditor`, `OcrEditDrawer`, `PreviewSubDrawer`.
+
 ### `POST /{filename}/rename`
 Renommer un justificatif. Met a jour PDF + .ocr.json + associations operations + GED metadata.
+
+`_invalidate_thumbnail_for_path()` est appelé avant le rename pour purger le cache thumbnail GED (évite les orphelins).
 
 **Body :**
 ```json
@@ -434,7 +443,11 @@ Scanner + renommer en lot selon la convention `fournisseur_YYYYMMDD_montant.XX.p
 }
 ```
 
-**Réponse (apply=true) :** ajoute le champ `applied: { ok: 163, errors: [], renamed: [...] }`.
+**Réponse (apply=true) :** ajoute le champ `applied: { ok: 163, errors: [], renamed: [...] }`, et **chaîne automatiquement `rapprochement_service.run_auto_rapprochement()`** après le batch de renames. Le résumé retourné inclut alors :
+- `auto_associated` (int) — nb d'associations confirmées avec un score ≥ 0.80
+- `strong_suggestions` (int) — nb de suggestions fortes (0.65-0.80) prêtes pour review manuel
+
+Le frontend `useApplyScanRename` affiche ces 2 compteurs dans le toast de succès, créant un flux one-click « Scanner & Renommer → auto-associer ce qui matche » depuis OCR > Gestion OCR.
 
 **Stratégie filename-first** : 6 buckets de classification.
 - `to_rename_from_name` (SAFE) : parsé depuis le filename existant via 3 regex tolérantes (underscore, dash, pas de séparateur), avec garde-fous (supplier non-générique, date 2000-2100, montant ≤ 100 000 €).
@@ -529,8 +542,12 @@ Statut du moteur OCR.
 }
 ```
 
-### `GET /history?limit=20`
-Historique des extractions.
+### `GET /history?limit=2000`
+Historique des extractions OCR. **Limit par défaut passée de 100 à 2000** en Session 12 pour couvrir toute l'année OCR sans pagination côté frontend (la Gestion OCR itère tous les items pour la recherche multifocale).
+
+Chaque item retourne : `filename`, `processed_at`, `ocr_success`, `extracted_data` (best_amount, best_date, supplier, …), et depuis Session 12 les hints `category_hint` + `sous_categorie_hint` au top-level.
+
+Utilisé par l'onglet Gestion OCR de `/ocr` (ex-Historique) pour alimenter le tri `scan_date`, les filtres d'association, la recherche multifocale, et les badges.
 
 ### `GET /result/{filename}`
 Résultat OCR caché pour un justificatif.
@@ -562,18 +579,28 @@ Upload batch de justificatifs PDF/JPG/PNG + OCR synchrone. Form-data : `files` (
 ```
 
 ### `PATCH /{filename}/extracted-data`
-Mise à jour manuelle des données OCR extraites. Permet de corriger `best_amount`, `best_date` et `supplier` quand l'OCR échoue.
+Mise à jour manuelle des données OCR extraites. Permet de corriger `best_amount`, `best_date`, `supplier`, et depuis Session 12 les **hints comptables** `category_hint` + `sous_categorie_hint`.
 
 **Body :**
 ```json
 {
   "best_amount": 1439.87,
   "best_date": "2025-01-18",
-  "supplier": "FCE Bank plc"
+  "supplier": "FCE Bank plc",
+  "category_hint": "Matériel",
+  "sous_categorie_hint": "Informatique"
 }
 ```
 
 Tous les champs optionnels — seuls les champs fournis sont mis à jour. Ajoute `manual_edit: true` et `manual_edit_at` au `.ocr.json` pour traçabilité.
+
+**Hints comptables** :
+- Stockés au **top-level** du `.ocr.json` (hors `extracted_data` pour ne pas polluer les arrays OCR)
+- Écrits automatiquement par `justificatif_service.associate()` à chaque association (skip `""` / `Autres` / `Ventilé`)
+- Lus par `rapprochement_service.score_categorie()` en **override prioritaire** de la prédiction ML : hint présent → score 1.0 si match op, 0.6 si sous-cat différente, 0.0 sinon ; pas de hint → fallback ML classique
+- Effet cascade : chaque association enrichit le fichier → prochain rapprochement auto plus précis
+- Éditables via `OcrEditDrawer` / `SkippedItemEditor` (dropdowns cat/sous-cat)
+- Modèle Pydantic `OcrManualEdit` étendu avec `category_hint: Optional[str] = None` + `sous_categorie_hint: Optional[str] = None`
 
 ### `DELETE /cache/{filename}`
 Supprimer le cache OCR.
