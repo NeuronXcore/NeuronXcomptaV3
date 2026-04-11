@@ -26,6 +26,9 @@ _auto_lock = threading.Lock()
 # Stopwords pour la normalisation fournisseur
 _STOPWORDS = {"du", "de", "la", "le", "les", "sa", "sarl", "sas", "eurl", "et", "l", "d"}
 
+# Taux TVA pour test HT/TTC (ordre : standard, intermédiaire, réduit)
+_TVA_RATES = (1.20, 1.10, 1.055)
+
 
 # ─── Scoring pur (sans I/O) ───
 
@@ -38,58 +41,100 @@ def _normalize_tokens(text: str) -> set:
 
 
 def score_montant(j_montant: Optional[float], o_montant: float) -> float:
-    """Score de correspondance montant (compare valeurs absolues)."""
-    if j_montant is None or o_montant == 0:
+    """
+    Score de correspondance montant (dégradation progressive).
+
+    Paliers sur l'écart relatif :
+    - Exact (0%) → 1.0
+    - ≤ 1% → 0.95
+    - ≤ 2% → 0.85
+    - ≤ 5% → 0.60
+    - > 5% → 0.0
+
+    Inclut un test HT/TTC (plancher 0.95) : si le montant OCR (TTC facturé)
+    divisé par un taux TVA usuel correspond au montant op (HT prélevé).
+    """
+    if j_montant is None or o_montant is None:
         return 0.0
     a = abs(j_montant)
     b = abs(o_montant)
     if a == 0 and b == 0:
         return 1.0
-    if a == 0 or b == 0:
+    if b == 0:
         return 0.0
-    ecart_abs = abs(a - b)
-    if ecart_abs <= 0.01:
-        return 1.0
-    if ecart_abs < 1.0:
-        return 0.9
-    ecart_rel = ecart_abs / max(a, b)
-    if ecart_rel < 0.02:
-        return 0.75
-    if ecart_rel < 0.05:
-        return 0.5
-    if ecart_rel < 0.10:
-        return 0.25
-    return 0.0
+
+    # Test HT/TTC : ocr / tva ≈ op (±0.02 €)
+    tva_score = 0.0
+    for tva in _TVA_RATES:
+        ht = a / tva
+        if abs(ht - b) <= 0.02:
+            tva_score = 0.95
+            break
+
+    ecart = abs(a - b) / b
+    if ecart == 0:
+        base_score = 1.0
+    elif ecart <= 0.01:
+        base_score = 0.95
+    elif ecart <= 0.02:
+        base_score = 0.85
+    elif ecart <= 0.05:
+        base_score = 0.60
+    else:
+        base_score = 0.0
+
+    return max(base_score, tva_score)
 
 
 def score_date(j_date_str: Optional[str], o_date_str: str) -> float:
-    """Score de correspondance date."""
+    """
+    Score date avec dégradation non-linéaire (symétrique).
+
+    Paliers :
+    - ±0 jour → 1.0
+    - ±1 jour → 0.95
+    - ±3 jours → 0.80
+    - ±7 jours → 0.50
+    - ±14 jours → 0.20
+    - > 14 jours → 0.0
+    """
     if not j_date_str or not o_date_str:
         return 0.0
     j_date = _parse_date(j_date_str)
     o_date = _parse_date(o_date_str)
     if not j_date or not o_date:
         return 0.0
-    ecart = abs((j_date - o_date).days)
-    if ecart == 0:
+    delta = abs((j_date - o_date).days)
+    if delta == 0:
         return 1.0
-    if ecart <= 3:
-        return 0.8
-    if ecart <= 7:
-        return 0.6
-    if ecart <= 15:
-        return 0.4
-    if ecart <= 30:
-        return 0.2
+    if delta <= 1:
+        return 0.95
+    if delta <= 3:
+        return 0.80
+    if delta <= 7:
+        return 0.50
+    if delta <= 14:
+        return 0.20
     return 0.0
 
 
 def score_fournisseur(j_fournisseur: Optional[str], o_libelle: Optional[str]) -> float:
-    """Score combiné : Jaccard sur tokens + matching par sous-chaîne."""
+    """
+    Score fournisseur multi-stratégie : max(substring, Jaccard, Levenshtein).
+
+    Stratégies :
+    1. Substring match : fournisseur présent dans le libellé bancaire → 1.0
+       (ex : "amazon" dans "PRLVSEPAAMAZONPAYMENT")
+    2. Jaccard similarity sur tokens normalisés (hors stopwords)
+    3. Levenshtein ratio (via difflib.SequenceMatcher) sur formes concaténées ;
+       plancher 0.5 pour éviter le bruit
+    """
     if not j_fournisseur or not o_libelle:
         return 0.0
 
-    # 1) Jaccard classique sur tokens
+    from difflib import SequenceMatcher
+
+    # 1) Jaccard sur tokens
     tokens_a = _normalize_tokens(j_fournisseur)
     tokens_b = _normalize_tokens(o_libelle)
     jaccard = 0.0
@@ -98,8 +143,7 @@ def score_fournisseur(j_fournisseur: Optional[str], o_libelle: Optional[str]) ->
         union = tokens_a | tokens_b
         jaccard = len(intersection) / len(union)
 
-    # 2) Sous-chaîne : le nom fournisseur apparaît dans le libellé bancaire
-    #    (ex: "amazon" dans "PRLVSEPAAMAZONPAYMENT", "orange" dans "PRLVSEPAORANGEECH")
+    # 2) Sous-chaîne sur formes concaténées sans séparateurs
     j_norm = re.sub(r"[^\w]", "", j_fournisseur.lower())
     o_norm = re.sub(r"[^\w]", "", o_libelle.lower())
     substring = 0.0
@@ -112,7 +156,13 @@ def score_fournisseur(j_fournisseur: Optional[str], o_libelle: Optional[str]) ->
                 if len(token) >= 3 and token in o_norm:
                     substring = max(substring, 0.85)
 
-    return max(jaccard, substring)
+    # 3) Levenshtein ratio (fallback pour les variantes proches)
+    lev = 0.0
+    if j_norm and o_norm:
+        ratio = SequenceMatcher(None, j_norm, o_norm).ratio()
+        lev = ratio if ratio >= 0.5 else 0.0
+
+    return max(substring, jaccard, lev)
 
 
 def _confidence_level(score: float) -> str:
@@ -125,13 +175,126 @@ def _confidence_level(score: float) -> str:
     return "faible"
 
 
-def compute_score(justificatif_ocr: dict, operation: dict, override_montant: Optional[float] = None) -> dict:
+def _normalize_supplier(s: Optional[str]) -> str:
+    """Normalise un nom de fournisseur pour comparaison (lowercase, sans séparateurs)."""
+    if not s:
+        return ""
+    return re.sub(r"[^\w]", "", s.lower())
+
+
+def score_categorie(
+    ocr_fournisseur: Optional[str],
+    op_categorie: Optional[str],
+    op_sous_categorie: Optional[str] = None,
+) -> Optional[float]:
+    """
+    Score catégorie basé sur l'inférence fournisseur → catégorie via le ML.
+
+    Retourne None quand la catégorie ne peut pas être inférée (critère neutre,
+    son poids est redistribué sur les 3 autres critères dans compute_total_score).
+
+    - Catégorie prédite == catégorie op → 1.0
+    - Même catégorie mais sous-catégorie différente → 0.6
+    - Catégorie différente → 0.0
+    """
+    if not ocr_fournisseur or not op_categorie:
+        return None
+
+    try:
+        from backend.services import ml_service
+    except Exception:
+        return None
+
+    libelle = ocr_fournisseur.strip()
+    if not libelle:
+        return None
+
+    predicted_cat: Optional[str] = None
+    predicted_sub: Optional[str] = None
+    confidence = 0.0
+
+    # 1) Rules-based (confiance 1.0 quand ça hit)
+    try:
+        rules_pred = ml_service.predict_category(libelle)
+    except Exception:
+        rules_pred = None
+    if rules_pred:
+        predicted_cat = rules_pred
+        confidence = 1.0
+        try:
+            predicted_sub = ml_service.predict_subcategory(libelle)
+        except Exception:
+            predicted_sub = None
+    else:
+        # 2) Sklearn fallback avec confiance réelle
+        try:
+            cat, conf, _risk = ml_service.evaluate_hallucination_risk(libelle)
+        except Exception:
+            cat, conf = None, 0.0
+        if cat and conf >= 0.5:
+            predicted_cat = cat
+            confidence = float(conf)
+
+    if not predicted_cat or confidence < 0.5:
+        return None
+
+    if predicted_cat.strip().lower() != op_categorie.strip().lower():
+        return 0.0
+
+    # Catégorie match → vérifier sous-catégorie si disponible des deux côtés
+    if predicted_sub and op_sous_categorie:
+        if predicted_sub.strip().lower() == op_sous_categorie.strip().lower():
+            return 1.0
+        return 0.6
+
+    return 1.0
+
+
+def compute_total_score(
+    s_montant: float,
+    s_date: float,
+    s_fournisseur: float,
+    s_categorie: Optional[float],
+) -> float:
+    """
+    Score total avec pondération dynamique.
+
+    Poids de base (4 critères actifs) :
+      montant 0.35, fournisseur 0.25, date 0.20, catégorie 0.20
+
+    Si `s_categorie is None` → son poids 0.20 est redistribué proportionnellement
+    sur les 3 autres : montant 0.4375, fournisseur 0.3125, date 0.25.
+    """
+    if s_categorie is not None:
+        total = (
+            0.35 * s_montant
+            + 0.25 * s_fournisseur
+            + 0.20 * s_date
+            + 0.20 * s_categorie
+        )
+    else:
+        total = (
+            0.4375 * s_montant
+            + 0.3125 * s_fournisseur
+            + 0.25 * s_date
+        )
+    return round(total, 4)
+
+
+def compute_score(
+    justificatif_ocr: dict,
+    operation: dict,
+    override_montant: Optional[float] = None,
+    override_categorie: Optional[str] = None,
+    override_sous_categorie: Optional[str] = None,
+) -> dict:
     """
     Calcule le score de correspondance entre un justificatif (données OCR) et une opération.
 
     justificatif_ocr: {"best_date": str|None, "best_amount": float|None, "supplier": str|None}
-    operation: dict avec clés françaises (Débit, Crédit, Date, Libellé)
-    override_montant: si fourni, utiliser ce montant au lieu de celui de l'opération (pour ventilation)
+    operation: dict avec clés françaises (Débit, Crédit, Date, Libellé, Catégorie, ...)
+    override_montant: si fourni, utiliser ce montant (ventilation)
+    override_categorie / override_sous_categorie: pour les sous-lignes ventilées
     """
     j_amount = justificatif_ocr.get("best_amount")
     j_date = justificatif_ocr.get("best_date")
@@ -146,12 +309,23 @@ def compute_score(justificatif_ocr: dict, operation: dict, override_montant: Opt
 
     o_date = operation.get("Date", "")
     o_libelle = operation.get("Libellé", "")
+    o_categorie = (
+        override_categorie
+        if override_categorie is not None
+        else (operation.get("Catégorie", "") or "")
+    )
+    o_sous_categorie = (
+        override_sous_categorie
+        if override_sous_categorie is not None
+        else (operation.get("Sous-catégorie", "") or "")
+    )
 
     s_montant = score_montant(j_amount, o_montant)
     s_date = score_date(j_date, o_date)
     s_fournisseur = score_fournisseur(j_supplier, o_libelle)
+    s_categorie = score_categorie(j_supplier, o_categorie, o_sous_categorie or None)
 
-    total = round(s_montant * 0.45 + s_date * 0.35 + s_fournisseur * 0.20, 4)
+    total = compute_total_score(s_montant, s_date, s_fournisseur, s_categorie)
 
     return {
         "total": total,
@@ -159,6 +333,7 @@ def compute_score(justificatif_ocr: dict, operation: dict, override_montant: Opt
             "montant": round(s_montant, 4),
             "date": round(s_date, 4),
             "fournisseur": round(s_fournisseur, 4),
+            "categorie": round(s_categorie, 4) if s_categorie is not None else None,
         },
         "confidence_level": _confidence_level(total),
     }
@@ -236,10 +411,16 @@ def get_filtered_suggestions(
     if not JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
         return []
 
-    # Si ventilation_index fourni, utiliser le montant de la sous-ligne
+    # Si ventilation_index fourni, utiliser le montant + catégorie de la sous-ligne
     vlines = operation.get("ventilation", [])
+    override_montant: Optional[float] = None
+    override_categorie: Optional[str] = None
+    override_sous_categorie: Optional[str] = None
     if ventilation_index is not None and 0 <= ventilation_index < len(vlines):
-        o_montant = vlines[ventilation_index].get("montant", 0)
+        override_montant = vlines[ventilation_index].get("montant", 0)
+        override_categorie = vlines[ventilation_index].get("categorie", "")
+        override_sous_categorie = vlines[ventilation_index].get("sous_categorie", "")
+        o_montant = override_montant
     else:
         o_montant = _get_operation_montant(operation)
     o_date = operation.get("Date", "")
@@ -301,25 +482,16 @@ def get_filtered_suggestions(
             if search.lower() not in pdf_path.name.lower():
                 continue
 
-        # Calculer le score de pertinence (formule simplifiée du prompt)
-        s_montant = 0.0
-        if ocr_montant is not None and o_montant > 0:
-            s_montant = max(0.0, 1.0 - abs(ocr_montant - o_montant) / max(o_montant, 1.0))
-
-        s_date = 0.0
-        if ocr_date and o_date:
-            p_ocr = _parse_date(ocr_date)
-            p_op = _parse_date(o_date)
-            if p_ocr and p_op:
-                days_diff = abs((p_ocr - p_op).days)
-                s_date = max(0.0, 1.0 - days_diff / 30.0)
-
-        s_fournisseur = 0.0
-        if ocr_fournisseur and o_libelle:
-            if ocr_fournisseur.lower() in o_libelle.lower():
-                s_fournisseur = 1.0
-
-        total = round(s_montant * 0.50 + s_date * 0.30 + s_fournisseur * 0.20, 4)
+        # Calculer le score via le moteur partagé (TVA, paliers gradués, catégorie ML)
+        score_result = compute_score(
+            ocr_data,
+            operation,
+            override_montant=override_montant,
+            override_categorie=override_categorie,
+            override_sous_categorie=override_sous_categorie,
+        )
+        total = score_result["total"]
+        detail = score_result["detail"]
 
         file_size = pdf_path.stat().st_size if pdf_path.exists() else 0
 
@@ -329,6 +501,7 @@ def get_filtered_suggestions(
             "ocr_montant": ocr_montant,
             "ocr_fournisseur": ocr_fournisseur or "",
             "score": total,
+            "score_detail": detail,
             "size_human": _human_size(file_size),
         })
 
@@ -370,10 +543,14 @@ def get_suggestions_for_operation(
             ],
         }]
 
-    # Déterminer le montant à utiliser pour le scoring
+    # Déterminer le montant + catégorie à utiliser pour le scoring
     override_montant = None
+    override_categorie = None
+    override_sous_categorie = None
     if ventilation_index is not None and 0 <= ventilation_index < len(vlines):
         override_montant = vlines[ventilation_index].get("montant", 0)
+        override_categorie = vlines[ventilation_index].get("categorie", "")
+        override_sous_categorie = vlines[ventilation_index].get("sous_categorie", "")
 
     # Scanner tous les justificatifs en attente
     suggestions = []
@@ -382,7 +559,13 @@ def get_suggestions_for_operation(
 
     for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
         ocr_data = _load_ocr_data(pdf_path.name)
-        score_result = compute_score(ocr_data, operation, override_montant=override_montant)
+        score_result = compute_score(
+            ocr_data,
+            operation,
+            override_montant=override_montant,
+            override_categorie=override_categorie,
+            override_sous_categorie=override_sous_categorie,
+        )
 
         if score_result["confidence_level"] == "faible":
             continue
@@ -426,7 +609,13 @@ def get_suggestions_for_justificatif(
                 for vl_idx, vl in enumerate(vlines):
                     if vl.get("justificatif"):
                         continue
-                    score_result = compute_score(ocr_data, op, override_montant=vl.get("montant", 0))
+                    score_result = compute_score(
+                        ocr_data,
+                        op,
+                        override_montant=vl.get("montant", 0),
+                        override_categorie=vl.get("categorie", ""),
+                        override_sous_categorie=vl.get("sous_categorie", ""),
+                    )
                     if score_result["confidence_level"] == "faible":
                         continue
                     suggestions.append({
@@ -512,7 +701,13 @@ def _run_auto_rapprochement_locked() -> dict:
                     for vl_idx, vl in enumerate(vlines):
                         if vl.get("justificatif"):
                             continue
-                        result = compute_score(ocr_data, op, override_montant=vl.get("montant", 0))
+                        result = compute_score(
+                            ocr_data,
+                            op,
+                            override_montant=vl.get("montant", 0),
+                            override_categorie=vl.get("categorie", ""),
+                            override_sous_categorie=vl.get("sous_categorie", ""),
+                        )
                         total = result["total"]
                         if total > best_score:
                             second_best_score = best_score
@@ -755,7 +950,13 @@ def get_batch_hints(filename: str) -> dict:
                     continue
                 best = 0.0
                 for _, ocr_data in pending_ocr:
-                    result = compute_score(ocr_data, op, override_montant=vl.get("montant", 0))
+                    result = compute_score(
+                        ocr_data,
+                        op,
+                        override_montant=vl.get("montant", 0),
+                        override_categorie=vl.get("categorie", ""),
+                        override_sous_categorie=vl.get("sous_categorie", ""),
+                    )
                     if result["total"] > best:
                         best = result["total"]
                 if best >= 0.60:
@@ -784,8 +985,8 @@ def get_batch_justificatif_scores() -> dict:
         return {}
 
     # Charger toutes les opérations non associées (+ sous-lignes ventilées)
-    # Tuples: (filename, idx, op, override_montant_or_None)
-    all_targets: list[tuple[str, int, dict, Optional[float]]] = []
+    # Tuples: (filename, idx, op, override_montant_or_None, override_categorie_or_None)
+    all_targets: list[tuple[str, int, dict, Optional[float], Optional[str]]] = []
     for f in operation_service.list_operation_files():
         try:
             ops = operation_service.load_operations(f["filename"])
@@ -794,9 +995,13 @@ def get_batch_justificatif_scores() -> dict:
                 if vlines:
                     for vl in vlines:
                         if not vl.get("justificatif"):
-                            all_targets.append((f["filename"], idx, op, vl.get("montant", 0)))
+                            all_targets.append((
+                                f["filename"], idx, op,
+                                vl.get("montant", 0),
+                                vl.get("categorie", ""),
+                            ))
                 elif not op.get("Justificatif"):
-                    all_targets.append((f["filename"], idx, op, None))
+                    all_targets.append((f["filename"], idx, op, None, None))
         except Exception:
             continue
 
@@ -807,8 +1012,13 @@ def get_batch_justificatif_scores() -> dict:
     for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
         ocr_data = _load_ocr_data(pdf_path.name)
         best = 0.0
-        for _, _, op, override in all_targets:
-            result = compute_score(ocr_data, op, override_montant=override)
+        for _, _, op, override_m, override_c in all_targets:
+            result = compute_score(
+                ocr_data,
+                op,
+                override_montant=override_m,
+                override_categorie=override_c,
+            )
             if result["total"] > best:
                 best = result["total"]
         if best >= 0.60:

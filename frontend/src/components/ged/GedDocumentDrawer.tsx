@@ -205,8 +205,8 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
             </button>
           </div>
 
-          {/* Delete zone — only for document_libre */}
-          {localDoc?.type === 'document_libre' && (
+          {/* Delete zone — for document_libre and custom types (not releve/justificatif/rapport) */}
+          {localDoc?.type && !['releve', 'justificatif', 'rapport'].includes(localDoc.type) && (
             <div className="border-t border-border pt-4">
               {deleteConfirm ? (
                 <div className="flex items-center gap-3">

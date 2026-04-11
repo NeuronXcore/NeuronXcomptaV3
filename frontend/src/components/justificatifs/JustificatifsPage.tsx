@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import RapprochementManuelDrawer from '@/components/rapprochement/RapprochementManuelDrawer'
+import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
 import BatchOverviewDrawer from '@/components/templates/BatchOverviewDrawer'
 import BatchReconstituerDrawer from '@/components/justificatifs/BatchReconstituerDrawer'
 import { useJustificatifsPage } from '@/hooks/useJustificatifsPage'
@@ -13,6 +13,7 @@ import { useCategories } from '@/hooks/useApi'
 import { useSaveOperations } from '@/hooks/useOperations'
 import { useOperations } from '@/hooks/useOperations'
 import { useQueryClient } from '@tanstack/react-query'
+import { api } from '@/api/client'
 import toast from 'react-hot-toast'
 import { cn, formatCurrency, formatDate, MOIS_FR, isReconstitue } from '@/lib/utils'
 import {
@@ -38,10 +39,12 @@ export default function JustificatifsPage() {
     justifFilter, setJustifFilter,
     selectedOpIndex, selectedOpFilename,
     drawerOpen, setDrawerOpen,
+    drawerInitialIndex,
     availableYears, monthsForYear, selectedFile,
     operations, stats,
     isYearWide, isLoading,
-    openDrawer, goToNextWithout,
+    isOpExempt,
+    openDrawer, openDrawerFlow,
     selectedOps, opKey, toggleOp, toggleAllFiltered, clearSelection,
     selectedCount, isAllFilteredSelected, isSomeFilteredSelected,
     getSelectedOperations,
@@ -80,11 +83,14 @@ export default function JustificatifsPage() {
   }, [categoriesData])
 
   const handleCategoryChange = useCallback(async (op: EnrichedOperation, field: 'Catégorie' | 'Sous-catégorie', value: string) => {
-    if (isYearWide || !op._filename) return
+    if (!op._filename) return
     try {
-      // Load full operations for this file, update the target, save
+      // Load full operations for this file (from cache ou via fetch) puis update + save.
+      // Fonctionne en mode single-file ET year-wide : les ops year-wide ont leur
+      // `_filename` correctement peuplé via useJustificatifsPage.enrichedOps.
       const allOps = await queryClient.fetchQuery<EnrichedOperation[]>({
         queryKey: ['operations', op._filename],
+        queryFn: () => api.get(`/operations/${op._filename}`),
       })
       if (!allOps) return
       const updated = [...allOps]
@@ -107,12 +113,31 @@ export default function JustificatifsPage() {
     } catch {
       toast.error('Erreur lors de la sauvegarde')
     }
-  }, [isYearWide, queryClient, saveMutation])
+  }, [queryClient, saveMutation])
 
   // Preview justificatif existant
   const [previewJustif, setPreviewJustif] = useState<string | null>(null)
   const [previewOpFile, setPreviewOpFile] = useState<string | null>(null)
   const [previewOpIndex, setPreviewOpIndex] = useState<number | null>(null)
+
+  // ── Nettoyage URL params transient (preview/vl) ──
+  // Historique : OCR > Voir l'opération navigue avec `?file=X&highlight=Y&filter=avec`
+  // + éventuellement `&preview=JUSTIF.pdf`. La row est surlignée persistamment via
+  // `isNavTarget` (cf. operations.map plus bas), donc on n'a PAS besoin d'auto-ouvrir
+  // le drawer preview — qui chargeait un PDF (lent) à chaque navigation.
+  // On nettoie simplement les params transient pour éviter de les garder dans l'URL.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const previewParam = searchParams.get('preview')
+  const previewConsumedRef = useRef(false)
+
+  useEffect(() => {
+    if (!previewParam || previewConsumedRef.current) return
+    previewConsumedRef.current = true
+    const next = new URLSearchParams(searchParams)
+    next.delete('preview')
+    next.delete('vl')
+    setSearchParams(next, { replace: true })
+  }, [previewParam, searchParams, setSearchParams])
 
   const dissociateMutation = useDissociate()
 
@@ -133,23 +158,25 @@ export default function JustificatifsPage() {
     }
   }, [lastEvent])
 
-  // Flash highlight on navigation
+  // Scroll-into-view on navigation target change
+  // Le surlignage visuel est géré par `isNavTarget` dans le className des rows
+  // (cf. operations.map plus bas). Ici on se contente de scroller vers le row
+  // cible quand la navigation change, une seule fois par target (useRef guard).
+  const scrollTargetRef = useRef<string | null>(null)
   useEffect(() => {
-    if (selectedOpIndex !== null && selectedOpFilename !== null) {
-      const rowId = `op-row-${selectedOpFilename}-${selectedOpIndex}`
-      const row = document.getElementById(rowId)
-      if (row) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        row.classList.add('flash-highlight')
-        setTimeout(() => row.classList.remove('flash-highlight'), 1500)
-      }
+    if (selectedOpIndex === null || !selectedOpFilename) {
+      scrollTargetRef.current = null
+      return
     }
-  }, [selectedOpIndex, selectedOpFilename])
-
-  // Opération sélectionnée pour le drawer
-  const selectedOperation = operations.find(
-    op => op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
-  ) ?? null
+    const targetKey = `${selectedOpFilename}-${selectedOpIndex}`
+    if (scrollTargetRef.current === targetKey) return
+    if (operations.length === 0) return // attendre le chargement des ops
+    const rowId = `op-row-${targetKey}`
+    const row = document.getElementById(rowId)
+    if (!row) return // row pas encore rendue — re-run quand operations change
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    scrollTargetRef.current = targetKey
+  }, [selectedOpIndex, selectedOpFilename, operations])
 
   const SortIcon = ({ col }: { col: SortKey }) => {
     if (sortKey !== col) return <ArrowUpDown size={12} className="text-text-muted/40" />
@@ -230,9 +257,12 @@ export default function JustificatifsPage() {
             </button>
           </div>
 
-          {/* Sélecteur mois */}
+          {/* Sélecteur mois
+              Priorité à selectedMonth (inclut 0 = Toute l'année) ; fallback sur
+              selectedFile?.month uniquement quand selectedMonth est null (état initial
+              où le hook auto-sélectionne le premier fichier). */}
           <select
-            value={selectedFile?.month ?? selectedMonth ?? ''}
+            value={selectedMonth !== null ? selectedMonth : (selectedFile?.month ?? '')}
             onChange={e => {
               const v = e.target.value
               setSelectedMonth(v === '' ? null : Number(v))
@@ -357,8 +387,7 @@ export default function JustificatifsPage() {
                             if (suggestions > 0) {
                               toast.dismiss(t.id)
                               setJustifFilter('sans')
-                              const firstSans = operations.find(op => !op.Justificatif)
-                              if (firstSans) openDrawer(firstSans)
+                              openDrawerFlow()
                             }
                           }}
                           style={{ cursor: suggestions > 0 ? 'pointer' : 'default' }}
@@ -494,10 +523,19 @@ export default function JustificatifsPage() {
                 <tbody className="divide-y divide-border/50">
                   {operations.map((op) => {
                     const hasJustif = !!op['Lien justificatif']
+                    const isExempt = isOpExempt(op)
                     const rowId = `op-row-${op._filename}-${op._originalIndex}`
                     const isDrawerSelected = drawerOpen && op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
                     const isPreviewSelected = previewJustif !== null && op._originalIndex === previewOpIndex && op._filename === previewOpFile
-                    const isSelected = isDrawerSelected || isPreviewSelected
+                    // Nav target : surlignage persistant quand la navigation a ciblé cette op
+                    // (depuis OCR Historique > « Voir l'opération »). Reste visible après
+                    // la fermeture de la preview drawer tant que selectedOpIndex/Filename
+                    // sont set. Permet à l'utilisateur de voir la ligne en contexte.
+                    const isNavTarget = selectedOpIndex !== null
+                      && selectedOpFilename !== null
+                      && op._originalIndex === selectedOpIndex
+                      && op._filename === selectedOpFilename
+                    const isSelected = isDrawerSelected || isPreviewSelected || isNavTarget
 
                     return (
                       <tr
@@ -512,18 +550,22 @@ export default function JustificatifsPage() {
                               setPreviewOpFile(op._filename)
                               setPreviewOpIndex(op._originalIndex)
                             }
+                          } else if (isExempt) {
+                            // op exemptée — pas d'attribution requise
+                            return
                           } else {
                             openDrawer(op)
                           }
                         }}
                         className={cn(
-                          'hover:bg-surface/50 transition-colors cursor-pointer',
+                          'hover:bg-surface/50 transition-colors',
+                          isExempt && !hasJustif ? 'cursor-default' : 'cursor-pointer',
                           isSelected && 'bg-warning/15 outline outline-2 outline-warning/40 outline-offset-[-2px]',
                           selectedOps.has(opKey(op)) && 'bg-primary/10'
                         )}
                       >
                         <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                          {!hasJustif && (
+                          {!hasJustif && !isExempt && (
                             <button
                               onClick={() => toggleOp(op)}
                               className={cn(
@@ -553,7 +595,6 @@ export default function JustificatifsPage() {
                           <select
                             value={op['Catégorie'] ?? ''}
                             onChange={e => handleCategoryChange(op, 'Catégorie', e.target.value)}
-                            disabled={isYearWide}
                             className="w-full bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1.5 py-1 text-xs text-text-muted focus:text-text cursor-pointer focus:outline-none transition-colors"
                           >
                             <option value="">—</option>
@@ -561,21 +602,28 @@ export default function JustificatifsPage() {
                           </select>
                         </td>
                         <td className="px-2 py-1.5 max-w-[160px]" onClick={e => e.stopPropagation()}>
-                          {(subcategoriesMap.get(op['Catégorie'] ?? '') ?? []).length > 0 ? (
-                            <select
-                              value={op['Sous-catégorie'] ?? ''}
-                              onChange={e => handleCategoryChange(op, 'Sous-catégorie', e.target.value)}
-                              disabled={isYearWide}
-                              className="w-full bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1.5 py-1 text-xs text-text-muted focus:text-text cursor-pointer focus:outline-none transition-colors"
-                            >
-                              <option value="">—</option>
-                              {(subcategoriesMap.get(op['Catégorie'] ?? '') ?? []).map(s => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="px-1.5 py-1 text-xs text-text-muted">{op['Sous-catégorie'] ?? ''}</span>
-                          )}
+                          {(() => {
+                            const subs = subcategoriesMap.get(op['Catégorie'] ?? '') ?? []
+                            const currentSub = op['Sous-catégorie'] ?? ''
+                            // Preserver la valeur actuelle si elle n'est pas dans le map
+                            // (évite de perdre la sous-cat quand la catégorie n'a pas de liste prédéfinie)
+                            const hasCurrent = currentSub && !subs.includes(currentSub)
+                            return (
+                              <select
+                                value={currentSub}
+                                onChange={e => handleCategoryChange(op, 'Sous-catégorie', e.target.value)}
+                                className="w-full bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1.5 py-1 text-xs text-text-muted focus:text-text cursor-pointer focus:outline-none transition-colors"
+                              >
+                                <option value="">—</option>
+                                {subs.map(s => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                                {hasCurrent && (
+                                  <option value={currentSub}>{currentSub}</option>
+                                )}
+                              </select>
+                            )
+                          })()}
                         </td>
                         <td className="px-4 py-2.5 text-center">
                           <button
@@ -589,22 +637,43 @@ export default function JustificatifsPage() {
                                   setPreviewOpFile(op._filename)
                                   setPreviewOpIndex(op._originalIndex)
                                 }
+                              } else if (isExempt) {
+                                // op exemptée — pas d'action
+                                return
                               } else {
                                 openDrawer(op)
                               }
                             }}
-                            title={hasJustif ? 'Justificatif attribué — cliquer pour voir' : 'Cliquer pour attribuer un justificatif'}
+                            disabled={isExempt && !hasJustif}
+                            title={
+                              hasJustif
+                                ? 'Justificatif attribué — cliquer pour voir'
+                                : isExempt
+                                  ? `Catégorie « ${op['Catégorie']} » exemptée — pas de justificatif requis`
+                                  : 'Cliquer pour attribuer un justificatif'
+                            }
                             className={cn(
                               'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
                               hasJustif
                                 ? 'text-emerald-400 hover:bg-emerald-500/15'
-                                : 'text-amber-400 hover:bg-amber-500/15'
+                                : isExempt
+                                  ? 'text-sky-400 cursor-default'
+                                  : 'text-amber-400 hover:bg-amber-500/15'
                             )}
                           >
-                            {hasJustif ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                            {hasJustif
+                              ? <CheckCircle2 size={18} />
+                              : isExempt
+                                ? <CheckCircle2 size={18} />
+                                : <Circle size={18} />}
                           </button>
                           {hasJustif && isReconstitue(op['Lien justificatif'] || '') && (
                             <span className="text-[10px]" title="Fac-similé reconstitué">😈</span>
+                          )}
+                          {isExempt && !hasJustif && (
+                            <div className="text-[9px] text-sky-400/80 mt-0.5" title="Catégorie exemptée">
+                              exempté
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -695,19 +764,12 @@ export default function JustificatifsPage() {
         </>
       )}
 
-      {/* Attribution Drawer (uniquement pour ops sans justificatif) */}
-      <RapprochementManuelDrawer
+      {/* Attribution Drawer (workflow unifié) */}
+      <RapprochementWorkflowDrawer
         isOpen={drawerOpen}
+        operations={operations}
+        initialIndex={drawerInitialIndex}
         onClose={() => setDrawerOpen(false)}
-        filename={selectedOpFilename}
-        operation={selectedOperation ? {
-          index: selectedOpIndex ?? 0,
-          date: selectedOperation.Date || '',
-          libelle: selectedOperation['Libellé'] || '',
-          debit: selectedOperation['Débit'] || 0,
-          credit: selectedOperation['Crédit'] || 0,
-          ventilation: selectedOperation.ventilation,
-        } : null}
       />
 
       {/* Batch fac-similé drawer (overview tous templates) */}

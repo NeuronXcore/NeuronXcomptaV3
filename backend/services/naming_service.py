@@ -1,4 +1,4 @@
-"""Service de nommage des justificatifs selon la convention fournisseur_YYYYMMDD_montant,XX.pdf."""
+"""Service de nommage des justificatifs selon la convention fournisseur_YYYYMMDD_montant.XX.pdf."""
 from __future__ import annotations
 
 import re
@@ -31,10 +31,11 @@ def build_convention_filename(
     date_str: Optional[str],  # format "YYYY-MM-DD"
     amount: Optional[float],
 ) -> Optional[str]:
-    """Construit le nom selon la convention fournisseur_YYYYMMDD_montant,XX.pdf.
+    """Construit le nom selon la convention fournisseur_YYYYMMDD_montant.XX.pdf.
 
     Retourne None si date OU montant manquants (supplier fallback "inconnu").
-    Le montant utilise une virgule comme séparateur décimal.
+    Le montant utilise un point comme séparateur décimal (convention internationale,
+    évite les conflits de parsing avec les outils shell).
     """
     if not date_str or amount is None:
         return None
@@ -42,8 +43,8 @@ def build_convention_filename(
     clean_supplier = normalize_supplier(supplier or "inconnu")
     date_compact = date_str.replace("-", "")  # "20250409"
 
-    # Formater montant : 1439.87 → "1439,87"
-    amount_str = f"{abs(amount):.2f}".replace(".", ",")
+    # Formater montant : 1439.87 → "1439.87" (point décimal conservé)
+    amount_str = f"{abs(amount):.2f}"
 
     return f"{clean_supplier}_{date_compact}_{amount_str}.pdf"
 

@@ -5,6 +5,7 @@ import { formatCurrency } from '@/lib/utils'
 import { useReverseLookup, useJustificatifOperationSuggestions } from '@/hooks/useJustificatifs'
 import { useManualAssociate } from '@/hooks/useRapprochement'
 import { useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import type { OperationSuggestion } from '@/types'
 
 interface JustificatifOperationLinkProps {
@@ -31,7 +32,7 @@ export default function JustificatifOperationLink({
         <button
           onClick={() =>
             navigate(
-              `/editor?file=${encodeURIComponent(result.operation_file)}&highlight=${result.operation_index}${vlParam}`
+              `/justificatifs?file=${encodeURIComponent(result.operation_file)}&highlight=${result.operation_index}${vlParam}&filter=avec`
             )
           }
           className="inline-flex items-center gap-1.5 bg-warning text-background hover:bg-warning/90 font-medium text-sm px-3 py-1.5 rounded-md transition-colors shadow-sm"
@@ -57,27 +58,34 @@ function PendingView({ justificatifFilename, className }: { justificatifFilename
   const { data: suggestions, isLoading } = useJustificatifOperationSuggestions(justificatifFilename)
   const associateMutation = useManualAssociate()
 
+  const getScoreValue = (score: unknown): number => {
+    if (typeof score === 'number') return score
+    if (score && typeof score === 'object' && 'total' in score) return (score as { total: number }).total
+    return 0
+  }
+
   const handleAssociate = (s: OperationSuggestion) => {
     associateMutation.mutate(
       {
         justificatif_filename: justificatifFilename,
         operation_file: s.operation_file,
         operation_index: s.operation_index,
-        rapprochement_score: s.score,
+        // Le backend retourne `score` comme un objet MatchScore → on extrait le total
+        rapprochement_score: getScoreValue(s.score),
+        // Forward ventilation_index pour les sous-lignes ventilées
+        ventilation_index: s.ventilation_index ?? undefined,
       },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['justificatif-reverse-lookup'] })
           queryClient.invalidateQueries({ queryKey: ['justificatif-operation-suggestions'] })
+          toast.success('Justificatif associé')
+        },
+        onError: (err: Error) => {
+          toast.error(err.message || "Erreur lors de l'association")
         },
       }
     )
-  }
-
-  const getScoreValue = (score: unknown): number => {
-    if (typeof score === 'number') return score
-    if (score && typeof score === 'object' && 'total' in score) return (score as { total: number }).total
-    return 0
   }
 
   const scoreBadgeClass = (score: number) => {
@@ -133,7 +141,16 @@ function PendingView({ justificatifFilename, className }: { justificatifFilename
       )}
 
       <button
-        onClick={() => navigate('/justificatifs')}
+        onClick={() => {
+          // Extraire année/mois du filename canonique si possible pour pré-filtrer
+          const match = justificatifFilename.match(/_(\d{4})(\d{2})\d{2}_/)
+          const params = new URLSearchParams({ filter: 'sans' })
+          if (match) {
+            params.set('year', match[1])
+            params.set('month', String(parseInt(match[2], 10)))
+          }
+          navigate(`/justificatifs?${params.toString()}`)
+        }}
         className="inline-flex items-center gap-1 text-xs text-text-muted hover:bg-surface border border-border/50 px-2 py-1 rounded-md transition-colors"
       >
         <Search size={12} />

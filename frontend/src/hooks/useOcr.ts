@@ -114,3 +114,62 @@ export function useDeleteOcrCache() {
     },
   })
 }
+
+// ─── Scan & Rename (convention filename-first) ───────────────────────────
+
+export interface ScanRenamePlan {
+  scanned: number
+  already_canonical: number
+  to_rename_safe: { old: string; new: string }[]
+  to_rename_ocr: { old: string; new: string; supplier_ocr: string }[]
+  skipped: {
+    no_ocr: string[]
+    bad_supplier: { filename: string; supplier: string }[]
+    no_date_amount: string[]
+  }
+  applied?: {
+    ok: number
+    errors: { old: string; new: string; error: string }[]
+    renamed: Array<{ old: string; new: string; location: string }>
+  }
+}
+
+/**
+ * Dry-run scan — ne modifie rien, renvoie juste le plan.
+ * Pas d'invalidation de cache car aucun fichier n'est touché.
+ */
+export function useScanRename() {
+  return useMutation<ScanRenamePlan, Error, void>({
+    mutationFn: () => api.post('/justificatifs/scan-rename?apply=false'),
+  })
+}
+
+/**
+ * Apply scan — applique les renames SAFE (filename-parsed) et optionnellement
+ * les renames OCR (opt-in via `applyOcr: true`). Invalide les caches concernés.
+ */
+export function useApplyScanRename() {
+  const qc = useQueryClient()
+  return useMutation<ScanRenamePlan, Error, { applyOcr?: boolean }>({
+    mutationFn: ({ applyOcr = false }) =>
+      api.post(`/justificatifs/scan-rename?apply=true&apply_ocr=${applyOcr}`),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['justificatifs'] })
+      qc.invalidateQueries({ queryKey: ['justificatif-stats'] })
+      qc.invalidateQueries({ queryKey: ['ocr-history'] })
+      qc.invalidateQueries({ queryKey: ['ocr-status'] })
+      qc.invalidateQueries({ queryKey: ['pipeline'] })
+      const ok = data.applied?.ok ?? 0
+      const errs = data.applied?.errors?.length ?? 0
+      if (ok > 0) {
+        toast.success(`${ok} justificatif(s) renommé(s)`)
+      } else {
+        toast('Aucun renommage appliqué', { icon: 'ℹ️' })
+      }
+      if (errs > 0) {
+        toast.error(`${errs} erreur(s) lors du renommage`)
+      }
+    },
+    onError: (err) => toast.error(err.message),
+  })
+}

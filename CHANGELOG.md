@@ -8,6 +8,186 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added / Changed (2026-04-11) — Session 11
+
+- **Intégrité des liens justificatifs (scan + répare auto)**
+  - Nouveau service `backend/services/justificatif_service.scan_link_issues()` + `apply_link_repair()` qui détecte 6 classes d'incohérences disque ↔ opérations et les répare
+  - Catégories : (A1) duplicatas `en_attente/` avec hash identique à la copie `traites/` référencée → suppression de la copie fantôme ; (A2) fichiers référencés mais physiquement en `en_attente/` → move vers `traites/` ; (B1) orphelins `traites/` duplicatas identiques en `en_attente/` → suppression copie orpheline ; (B2) orphelins `traites/` uniques → move vers `en_attente/` pour réattribution ; (C) liens fantômes (op → fichier absent) → clear `Justificatif`+`Lien justificatif` ; (SKIP) `hash_conflicts` (versions divergentes) → log warning, jamais modifiés
+  - Helpers internes `_md5_file()` (stream par blocs 64 Ko), `_collect_referenced_justificatifs()`, `_move_pdf_with_ocr()`, `_delete_pdf_with_ocr()`
+  - Endpoints : `GET /api/justificatifs/scan-links` (dry-run typé) + `POST /api/justificatifs/repair-links` (apply)
+  - **Exécution automatique au démarrage du backend** via `lifespan()` dans `main.py` — silencieux avec logs `info` si actions appliquées, `warning` si conflits restants (pointant vers l'endpoint)
+  - Script CLI `scripts/repair_justificatif_links.py` refactoré en thin wrapper autour du service (supporte `--dry-run`)
+  - Frontend : section « Intégrité des justificatifs » dans `SettingsPage > Stockage` (`JustificatifsIntegritySection`), grille 6 métriques colorées (`IntegrityMetric`), bouton Scanner + bouton Réparer (avec compteur `totalFixable`), conflits listés en `<details>` collapsible
+  - Hooks `useScanLinks` (`enabled: false` + refetch manuel), `useRepairLinks` (invalidation caches justificatifs/ged/ocr-history/operations)
+  - Types `ScanLinksResult` + `RepairLinksResult` ajoutés dans `hooks/useJustificatifs.ts`
+  - Premier scan en prod : 21 fichiers touchés + 2 conflits signalés (`auchan_20241229_34.78_fs.pdf`, `contabo_20250327_11.40.pdf`) skippés pour inspection manuelle
+
+- **Redémarrage backend depuis l'UI (dev only)**
+  - Endpoint `POST /api/settings/restart` qui touche un sentinel Python (`backend/_reload_trigger.py`) en y écrivant un timestamp ; uvicorn `--reload` détecte la modification et redémarre automatiquement
+  - Hook `useRestartBackend()` dans `useApi.ts` : POST restart → sleep 1.5s → poll `GET /api/settings` (500ms, timeout 20s) → `window.location.reload()` hard
+  - Bouton « Redémarrer backend » (icône `Power`, tint warning amber) dans le header de `JustificatifsIntegritySection`, à côté du bouton Scanner, avec `window.confirm()` avant exécution
+  - Usage principal : rejouer la réparation des liens justificatifs au boot (lifespan) après modification manuelle
+
+- **Garde défensive `generate_reconstitue()`**
+  - Dans `template_service.generate_reconstitue()`, nouvelle garde après `_build_field_values()` qui vérifie que `field_values.get("date")` est non vide ET que `field_values.get("montant_ttc") > 0`
+  - Si manquant, lève `ValueError` explicite mentionnant le template ID et les valeurs → empêche la création silencieuse de fac-similés vides (PDFs ~1736 octets) quand un template a `fields: []`
+  - Cause du bug historique : 2 fac-similés Ibis Hotel vides liés à 4 opérations d'hébergement remplaçant (DU220525 76,42 / DU270525 33,00 / DU190625 63,12 / DU230625 23,00)
+  - Script one-shot `scripts/fix_ibis_reconstitue.py` créé pour réparer : fix template (ajoute 3 champs `date`/`montant_ttc`/`fournisseur`) + dissociation des 4 ops + suppression des 2 PDFs vides + regénération propre en mode ReportLab sobre avec noms canoniques `ibis-hotel_YYYYMMDD_XX.XX_fs.pdf`
+
+### Added / Changed (2026-04-10) — Session 10
+
+- **Refactor RapprochementWorkflowDrawer (unification drawers)**
+  - Fusion de `RapprochementManuelDrawer` (EditorPage) + `JustificatifAttributionDrawer` (JustificatifsPage) en un unique `RapprochementWorkflowDrawer` 700px
+  - 2 modes : « Toutes sans justificatif » (flux itératif avec auto-skip post-attribution) / « Opération ciblée » (mono-op)
+  - Header navigator ‹ › + compteur « N/Total · X restants », barre progression 3px, tabs mode, contexte op (date/libellé/montant/catégorie), sélecteur ventilation pills
+  - Section suggestions avec recherche libre exclusive (masque les suggestions quand active), PDF preview pleine hauteur via `<object>`, barre actions (Attribuer `⏎` / Reconstituer / Passer `→`)
+  - Thumbnails PDF à gauche des suggestions via endpoint GED `/api/ged/documents/{doc_id:path}/thumbnail`, **lazy-loaded via `IntersectionObserver`** (rootMargin 200px) — évite les 30+ fetches simultanés à l'ouverture
+  - **Lazy-mount du subtree** : contenu interne rendu uniquement après le 1er open (`hasBeenOpened` flag) pour éviter les fetches eager au mount de la page
+  - Raccourcis clavier ⏎/←/→/Esc (ignorés dans les inputs)
+  - `useRapprochementWorkflow` hook central avec gestion state (mode, currentIndex, ventilation, search, selectedSuggestion, doneCount, progressPct, prefetch N+1 des suggestions via `queryClient.prefetchQuery`)
+  - Drawers supprimés : `RapprochementManuelDrawer.tsx`, `JustificatifAttributionDrawer.tsx`, `RapprochementPage.tsx` (orphelin), `useRapprochementManuel.ts`
+  - Nouveau hook `useJustificatifsPage.drawerInitialIndex` pour distinguer mode ciblé vs mode flux
+
+- **Scoring v2 (moteur 4 critères + pondération dynamique)**
+  - Backend `rapprochement_service.compute_score()` réécrit autour de 4 sous-scores orthogonaux
+  - `score_montant()` : paliers graduels 0/1%/2%/5% → 1.0/0.95/0.85/0.60/0.0, + test HT/TTC (plancher 0.95 si `ocr / TVA ≈ op` pour TVA 20/10/5,5%)
+  - `score_date()` : paliers symétriques ±0/±1/±3/±7/±14 → 1.0/0.95/0.80/0.50/0.20/0.0
+  - `score_fournisseur()` : `max(substring, Jaccard, Levenshtein)` — Levenshtein via `difflib.SequenceMatcher` (seuil 0.5)
+  - `score_categorie()` : inférence ML via `ml_service.predict_category(fournisseur)` (rules + sklearn fallback + confiance ≥0.5) comparée à `op.categorie` (1.0 / 0.6 / 0.0) ; retourne `None` si non-inférable → critère neutre
+  - `compute_total_score()` : pondération `0.35*M + 0.25*F + 0.20*D + 0.20*C` ou redistribution `0.4375/0.3125/0.25` sur 3 critères si catégorie `None`
+  - Les 4 sous-scores retournés dans `score_detail` à côté du total pour affichage frontend
+  - `compute_score` signature étendue avec `override_categorie`/`override_sous_categorie` pour les sous-lignes ventilées ; tous les callers ventilés (`get_suggestions_for_operation`, `run_auto_rapprochement`, `get_suggestions_for_justificatif`, `get_batch_hints`, `get_batch_justificatif_scores`) propagent ces params
+  - Frontend : nouveau composant `ScorePills` (components/justificatifs/ScorePills.tsx) qui affiche 3-4 pills colorées (M/D/F/C) + pill total compact, couleurs dynamiques (vert ≥0.8 / ambre ≥0.5 / rouge <0.5), delta jours inline sur la pill `D`, pill `C` masquée si `null`
+  - Type `JustificatifScoreDetail` ajouté dans `types/index.ts`
+  - Best-match highlight (bordure emerald) sur la 1ère suggestion si score ≥0.80, label « Meilleur match » (Sparkles icon) si ≥0.95
+
+- **Rename service filename-first (backend)**
+  - Nouveau module `backend/services/rename_service.py` qui porte la logique filename-first (ex-script one-shot désormais un thin CLI wrapper)
+  - `CANONICAL_RE` : `^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}(_[a-z0-9]+)*\.pdf$` (point décimal, suffix optionnel `_fs`/`_a`/`_2`)
+  - `FACSIMILE_RE` : détection `_fs(_\d+)?\.pdf$` pour fac-similés
+  - `is_canonical()`, `is_facsimile()` (détecte nouveau `_fs` + legacy `reconstitue_`)
+  - `normalize_filename_quirks()` : gère `.pdf.pdf`, `NNpdf.pdf`, `name (1).pdf`
+  - `try_parse_filename()` : 3 regex tolérantes (underscore, dash, pas de séparateur) avec garde-fous supplier non-générique, date plausible, montant ≤100 000 €
+  - `build_from_parsed()` : reconstruit le nom canonique avec point décimal
+  - `_load_ocr_cache()` : charge `.ocr.json`, supporte 2 shapes (OCR avec `status=success` + `extracted_data`, et reconstitue avec champs à la racine + `source: "reconstitue"`), retourne `(data, is_reconstitue)`
+  - `compute_canonical_name(filename, ocr_data, source_dir, is_reconstitue)` : point d'entrée unifié, stratégie filename-first → OCR fallback, inject `_fs` pour les reconstitues
+  - `scan_and_plan_renames(directory)` : scanner qui classifie en 6 buckets (canonique, safe, ocr, no_ocr, bad_supplier, no_date_amount), retourne `ScanPlan` TypedDict
+  - `deduplicate_against()` : wrapper sur `naming_service.deduplicate_filename` avec self-collision check
+  - `is_suspicious_supplier()` : filtre les OCR misread (liste `SUSPICIOUS_SUPPLIERS`, len < 3)
+  - `justificatif_service.auto_rename_from_ocr()` réécrit pour déléguer à `compute_canonical_name()` — corrige les 3 cas bogués historiques : `openai_20250214_24.pdf` ne devient plus `_824,00.pdf`, `ldlc-20250524_409.90.pdf` ne devient plus `sasu-au-capital-de-10-500-000_*`, `curso20250815_23.85.pdf` ne devient plus `visa-2955_*`
+
+- **Convention point décimal**
+  - Migration virgule → point : `fournisseur_YYYYMMDD_montant.XX.pdf` (au lieu de `montant,XX`)
+  - `naming_service.build_convention_filename()` retire le `.replace(".", ",")` (garde le point naturel)
+  - `rename_service.CANONICAL_RE` échappe `\.`
+  - Self-healing : les 130 fichiers en virgule sont automatiquement convertis au prochain `scan-rename` (parser accepte `[.,]`, rebuild en point)
+  - CLAUDE.md, README.md, naming_service docstring, architecture.md mis à jour
+  - 137 fichiers `en_attente` + 238 fichiers `traites` au format canonique point après migration
+
+- **Fac-similé `_fs` suffix**
+  - Nouveau format `supplier_YYYYMMDD_montant.XX_fs.pdf` (au lieu de `reconstitue_YYYYMMDD_HHMMSS_supplier.pdf`)
+  - `template_service.generate_reconstitue()` construit désormais via `naming_service.build_convention_filename` + injection `_fs` avant `.pdf`, fallback timestampé uniquement si date/montant manquants
+  - Les fac-similés sont désormais **parsables par le moteur de scoring** (supplier/date/montant extraits du filename) — ils remontent correctement dans les suggestions de rapprochement
+  - `rename_service.is_facsimile()` détecte les 2 formats (nouveau `_fs` + legacy `reconstitue_`) pour période de migration
+  - Frontend `isReconstitue()` dans `lib/utils.ts` réécrit : `/_fs(_\d+)?\.pdf$/i` OR `startsWith('reconstitue_')`
+  - Backend `ged_service.py:612`, `ocr_service.py:278`, `export_service.py:58` utilisent `rename_service.is_facsimile()` pour la détection (via lazy import pour éviter les circulaires)
+  - Migration des 10 reconstitue_* existants via scan-rename endpoint — 11/13 migrés automatiquement (2 Ibis Hotel sans date/montant OCR restent en legacy, transparent pour l'UI)
+
+- **Endpoint scan-rename on-demand**
+  - `POST /api/justificatifs/scan-rename` avec params : `apply: bool = False`, `apply_ocr: bool = False`, `scope: "en_attente"|"traites"|"both" = "both"`
+  - Dry-run par défaut, retourne le plan sans modifier le filesystem
+  - `scope=both` fusionne les 2 dossiers (`en_attente` + `traites`), scan 398 fichiers
+  - Sur `apply=true` : itère `to_rename_from_name` (+ `to_rename_from_ocr` si `apply_ocr=true`), appelle `rename_justificatif()` qui met à jour PDF + .ocr.json + ops refs + GED metadata
+  - Retourne `{scope, scanned, already_canonical, to_rename_safe, to_rename_ocr, skipped: {no_ocr, bad_supplier, no_date_amount}, applied?: {ok, errors, renamed}}`
+  - Route placée AVANT `/{filename}/rename` et `/{filename}` pour éviter la capture FastAPI
+
+- **ScanRenameDrawer + bouton OCR Historique**
+  - Nouveau composant `frontend/src/components/ocr/ScanRenameDrawer.tsx` (680px)
+  - Bouton **orange « Scanner & Renommer »** (bg-warning + Wand2 icon) dans la barre de filtres de l'onglet Historique de la page OCR
+  - Au mount du drawer : appelle `useScanRename()` (dry-run) → loader → affiche 3 cartes résumé (scannés / déjà canoniques / à renommer)
+  - Section SAFE (emerald) : renames parsés depuis le filename (toujours appliqués)
+  - Section OCR (warning orange) : renames reconstruits depuis l'OCR, **checkbox opt-in** « Inclure les renames OCR dans l'application »
+  - Section Skipped collapsible : 3 sous-listes (no_ocr, bad_supplier, no_date_amount)
+  - Bouton « Appliquer » dans footer → `useApplyScanRename({ applyOcr })` → invalidation caches TanStack (`justificatifs`, `justificatif-stats`, `ocr-history`, `ocr-status`, `pipeline`) + toast succès/erreurs
+  - 2 hooks séparés : dry-run (pas d'invalidation) + apply (invalidation)
+  - `useApplyScanRename` déclenche un refresh post-mutation pour refléter l'état final
+  - Auto-ferme le drawer quand tout est appliqué
+
+- **Script CLI thin wrapper**
+  - `scripts/rename_justificatifs_convention.py` réduit à un wrapper CLI qui importe `rename_service` (source de vérité unique partagée avec le backend et l'endpoint)
+  - Conserve les flags `--dry-run`, `--force-generic`, `--apply-ocr`
+
+- **Recherche multifocale OCR Historique**
+  - Input texte dans la barre de filtres à droite du dropdown fournisseur dans `HistoriqueTab` de `OcrPage`
+  - Debounce 250ms
+  - Parent fetch parallel via `useQueries` sur les reverse-lookups de tous les items de l'année (même queryKey que `HistoriqueOperationCell` → React Query dédoublonne, zéro surcoût réseau)
+  - Haystack normalisé lowercase + NFD + strip diacritics (accent-insensitive) : `supplier` OCR, `best_amount` (3 variantes `107`/`107.00`/`107,00`), `libelle`/`categorie`/`sous_categorie` de l'op liée (via reverse-lookup), `debit`/`credit` comptables
+  - **Filename exclu** du haystack pour éviter les faux positifs (ex. `20251107` matchant "107")
+  - **Multi-termes AND logic** via `split(/\s+/)` + `every()` : `"uber 41"` match les lignes avec à la fois `uber` ET `41`
+  - Placeholder : « Rechercher (libellé, catégorie, montant…) »
+  - Bouton × pour effacer (visible uniquement si texte saisi)
+  - `vehicule` (sans accent) matche `Véhicule` (accent-insensitive)
+
+- **Navigation OCR → Justificatifs (« Voir l'opération »)**
+  - `JustificatifOperationLink.tsx` : bouton « Voir l'opération » navigate désormais vers `/justificatifs?file=X&highlight=Y&filter=avec` (au lieu de `/editor?file=X&highlight=Y`)
+  - `PendingView` bouton « Rechercher manuellement » navigate vers `/justificatifs?filter=sans&year=Y&month=M` (année/mois extraits du filename canonique)
+  - `useJustificatifsPage` lit les params URL : `file` → year/month sync, `highlight` → `selectedOpIndex`/`selectedOpFilename`, `filter` → `justifFilter`, + fallback `year`/`month` directs
+  - `JustificatifsPage` : nouvelle logique `isNavTarget` dérivée de `selectedOpIndex`/`selectedOpFilename` dans le `map` des rows, ajoutée à `isSelected` → **surlignage persistant** `bg-warning/15 outline-warning` tant que la navigation cible cette row (ne dépend plus de `drawerOpen`/`previewJustif`)
+  - `useEffect` scroll-into-view via `useRef` anti-re-scroll, re-run au chargement des operations
+  - **Auto-open du drawer preview retiré** (chargeait le PDF via `<object>` ce qui ralentissait le chargement) — la row surlignée persistante suffit, user clique l'icône justif pour voir le PDF s'il le souhaite
+  - Effect preview réduit à un simple cleanup URL (retire `preview`/`vl` sans ouvrir de drawer) ; on garde `file`/`highlight`/`filter` dans l'URL pour que `selectedFile` reste stable et que le row cible reste surligné après close drawer
+
+- **PendingView Associer fix**
+  - `JustificatifOperationLink.PendingView.handleAssociate()` utilise désormais `getScoreValue(s.score)` pour extraire le total numérique (le backend retourne `score` comme objet MatchScore `{total, detail, confidence_level}`)
+  - Forwards `ventilation_index` au backend pour les sous-lignes ventilées
+  - `useManualAssociate` mutation signature étendue avec `ventilation_index?: number | null`
+  - Type `OperationSuggestion.score` updated: `number | { total: number; confidence_level?; detail? }`
+  - Toast success/error ajouté pour feedback utilisateur
+  - Fix 422 Pydantic error qui bloquait silencieusement l'association
+
+- **Year-wide mode édition catégorie**
+  - `JustificatifsPage.handleCategoryChange()` : suppression du guard `if (isYearWide) return` qui bloquait l'édition en mode « Toute l'année »
+  - `<select Catégorie>` et `<select Sous-catégorie>` : suppression de `disabled={isYearWide}`
+  - `queryClient.fetchQuery` avec `queryFn: () => api.get(\`/operations/\${op._filename}\`)` explicite pour garantir le fetch si cache invalide
+  - Utilise `op._filename` + `op._originalIndex` peuplés par `useJustificatifsPage.enrichedOps` pour identifier le fichier cible et l'index
+  - Sous-catégorie dropdown toujours rendu (plus de fallback `<span>` text-only), avec préservation de la valeur actuelle via injection d'une option supplémentaire si `currentSub` pas dans `subcategoriesMap`
+
+- **Dropdown mois « Toute l'année » visual fix**
+  - `value={selectedMonth !== null ? selectedMonth : (selectedFile?.month ?? '')}` (priorité à `selectedMonth` qui inclut `0`)
+  - Avant : `value={selectedFile?.month ?? selectedMonth ?? ''}` → fallback sur `monthsForYear[0]` (Janvier) en mode year-wide, dropdown affichait « Janvier » alors que les ops étaient en mode year-wide
+
+- **Exemptions justificatifs**
+  - `useJustificatifsPage` expose `isOpExempt(op)` basé sur `appSettings.justificatif_exemptions`
+  - Row rendering : si exempt, icône `CheckCircle2` **bleu ciel** (`text-sky-400`) au lieu de `Circle` ambre, tooltip « Catégorie X exemptée — pas de justificatif requis », bouton disabled, pas de cursor pointer, pas de checkbox batch, click handler early return
+  - Filter `sans`/`avec` exclut/inclut les exempts correctement
+  - `selectableOps` exclut les exempts pour la sélection batch
+
+- **Performance drawer (lazy-mount + IntersectionObserver)**
+  - `RapprochementWorkflowDrawer` : subtree interne lazy-monté via flag `hasBeenOpened` — avant le 1er open, `{!hasBeenOpened ? null : <>...</>}` évite les fetches eager au mount (`ReconstituerButton` avec `useTemplateSuggestion`, etc.)
+  - `Thumbnail` component utilise `IntersectionObserver` (rootMargin 200px) pour ne charger l'`<img>` qu'au moment où la vignette entre dans le viewport du scroll container — avant : 30+ `<img>` simultanés au drawer open, maintenant ~5 (rows visibles) puis au fil du scroll
+  - Placeholder `FileText` icon 16px affiché tant que l'image n'est pas chargée, ou si `onError`
+  - Résultat : 0 thumbnails fetched au chargement de `/justificatifs`, 5 au drawer open (rows visibles initialement)
+
+- **Orange prix + date suggestions**
+  - `SuggestionRow` et `SearchResultRow` du `RapprochementWorkflowDrawer` : date (`formatShortDate(ocr_date)`) et prix (`formatCurrency(ocr_montant)`) rendus en `text-warning font-medium` (orange) au lieu de `text-text-muted`
+  - Hiérarchie visuelle plus claire : fournisseur (blanc, gros) / date+montant (orange) / score pills (colorées)
+
+- **OCR reprocess script + 4 Uber HTML-masked**
+  - `scripts/reprocess_orphan_ocr.py` : scan tous les PDFs dans `en_attente/` sans `.ocr.json` associé, lance OCR on-demand
+  - 61 orphelins traités, 55 Uber correctement OCR-isés
+  - 4 Uber HTML-masked identifiés (fichiers HTML renommés `.pdf`, tous 635379 octets) — signalés pour re-téléchargement manuel depuis Uber
+
+- **Backend détection fac-similé unifié**
+  - `ged_service.py:612` : `is_reconstitue = rename_service.is_facsimile(basename)` (au lieu de `startswith("reconstitue_")`)
+  - `ocr_service.py` : nouveau helper `_detect_facsimile()` via lazy import de `rename_service.is_facsimile` (évite circular imports)
+  - `export_service.py:58` : même pattern pour le tag `[R]` dans les exports comptables
+
+- **Fichiers supprimés**
+  - `frontend/src/components/rapprochement/RapprochementManuelDrawer.tsx` (fusionné)
+  - `frontend/src/components/justificatifs/JustificatifAttributionDrawer.tsx` (fusionné)
+  - `frontend/src/components/rapprochement/RapprochementPage.tsx` (orphelin, `/rapprochement` redirige vers `/justificatifs`)
+  - `frontend/src/hooks/useRapprochementManuel.ts` (fusionné dans `useRapprochementWorkflow.ts`)
+
 ### Added (2026-04-10) — Session 9
 
 - **Auto-rename justificatifs post-OCR**

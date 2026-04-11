@@ -456,8 +456,11 @@ export interface OperationSuggestion {
   debit: number
   credit: number
   categorie?: string
-  score: number
-  score_detail: string
+  // Note : le backend retourne `score` comme MatchScore object (`{ total, detail, confidence_level }`)
+  // dans `get_suggestions_for_justificatif`, pas un float. Utiliser un helper pour extraire le total.
+  score: number | { total: number; confidence_level?: string; detail?: unknown }
+  score_detail?: string
+  ventilation_index?: number | null
 }
 
 export interface ReverseLookupResult {
@@ -658,6 +661,25 @@ export interface RapprochementSuggestion {
   operation_date: string
   operation_montant: number
   score: MatchScore
+}
+
+export interface JustificatifScoreDetail {
+  montant: number
+  date: number
+  fournisseur: number
+  // null = critère non inférable (ex: ML n'a pas de prédiction confiante pour le fournisseur)
+  // Son poids est redistribué sur les 3 autres critères côté backend.
+  categorie: number | null
+}
+
+export interface JustificatifSuggestion {
+  filename: string
+  ocr_date: string
+  ocr_montant: number | null
+  ocr_fournisseur: string
+  score: number
+  score_detail?: JustificatifScoreDetail
+  size_human: string
 }
 
 export interface AutoRapprochementReport {

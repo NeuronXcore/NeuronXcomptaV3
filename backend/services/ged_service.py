@@ -609,7 +609,9 @@ def backfill_justificatifs_metadata() -> int:
                 except Exception:
                     pass
 
-        doc["is_reconstitue"] = basename.startswith("reconstitue_")
+        # Détection fac-similé : nouveau format `_fs` ou legacy `reconstitue_`
+        from backend.services import rename_service as _rn
+        doc["is_reconstitue"] = _rn.is_facsimile(basename)
         doc["statut_justificatif"] = "traite" if is_traite else "en_attente"
         count += 1
 
@@ -1120,10 +1122,11 @@ def _build_type_tree(docs: dict, postes_map: dict) -> list[dict]:
         "children": rapports_children, "icon": "BarChart3",
     }
 
-    # Documents libres par année/mois
+    # Documents libres par année/mois (inclut les types custom non standard)
+    KNOWN_TYPES = {"releve", "justificatif", "rapport"}
     libre_by_year: dict[int, dict[int, int]] = {}
     for d in docs.values():
-        if d["type"] != "document_libre":
+        if d["type"] in KNOWN_TYPES:
             continue
         y = d.get("year") or 0
         m = d.get("month") or 0
@@ -1174,6 +1177,8 @@ def _build_tree_by_year(docs: dict) -> list[dict]:
     for d in docs.values():
         y = d.get("year")
         dtype = d.get("type", "document_libre")
+        if dtype not in ("releve", "justificatif", "rapport", "document_libre"):
+            dtype = "document_libre"
         m = d.get("month") or 0
 
         if y:
@@ -1299,7 +1304,12 @@ def get_documents(
     docs = list(metadata.get("documents", {}).values())
 
     if type_filter:
-        docs = [d for d in docs if d["type"] == type_filter]
+        if type_filter == "document_libre":
+            # Inclure document_libre ET tout type custom (non standard)
+            _STANDARD_TYPES = {"releve", "justificatif", "rapport"}
+            docs = [d for d in docs if d["type"] not in _STANDARD_TYPES]
+        else:
+            docs = [d for d in docs if d["type"] == type_filter]
     if year:
         docs = [d for d in docs if d.get("year") == year or (d.get("period") or {}).get("year") == year]
     if month:
@@ -1460,7 +1470,7 @@ def delete_document(doc_id: str) -> bool:
             logger.error(f"GED: erreur suppression rapport {doc_id}: {e}")
             return False
 
-    if doc["type"] not in ("document_libre", "justificatif"):
+    if doc["type"] in ("releve",):
         raise ValueError("Ce type de document ne peut pas être supprimé via la GED")
 
     # Supprimer le fichier

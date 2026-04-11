@@ -31,11 +31,18 @@ export const MOIS_FR = [
 ]
 
 /**
- * Génère un titre lisible pour un fichier d'opérations.
- * Ex: "Relevé Septembre 2024" au lieu de "operations_20250520_094452_d9faa5a9.json"
+ * Détecte un justificatif fac-similé reconstitué.
+ *
+ * Supporte :
+ * - Nouveau format : suffix `_fs` avant `.pdf` (ex: `auchan_20250315_87.81_fs.pdf`),
+ *   éventuellement suivi d'une marque de dédup (`_fs_2.pdf`)
+ * - Legacy : préfixe `reconstitue_` (pendant la période de migration)
  */
 export function isReconstitue(lienJustificatif: string): boolean {
-  return (lienJustificatif || '').includes('reconstitue_')
+  if (!lienJustificatif) return false
+  const basename = lienJustificatif.split('/').pop() || ''
+  if (basename.startsWith('reconstitue_')) return true
+  return /_fs(_\d+)?\.pdf$/i.test(basename)
 }
 
 export function formatFileTitle(file: { filename: string; month?: number; year?: number; count: number }): string {

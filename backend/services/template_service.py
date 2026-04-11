@@ -553,10 +553,50 @@ def generate_reconstitue(request: GenerateRequest) -> dict:
     # 3. Construire les valeurs des champs
     field_values = _build_field_values(tpl, operation, request.field_values)
 
-    # 4. Générer le PDF
-    vendor_slug = re.sub(r"[^a-z0-9]", "_", tpl.vendor.lower().strip())[:30]
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    pdf_filename = f"reconstitue_{timestamp}_{vendor_slug}.pdf"
+    # 3.bis Garde : rejeter les fac-similés vides (template sans champs, ou
+    # date/montant manquants). Sans cette garde, un template mal configuré
+    # (ex. `fields: []`) produit un PDF de ~1.7 Ko totalement vide avec un
+    # `.ocr.json` sans `best_date`/`best_amount`, ce qui casse ensuite la
+    # migration `_fs` et donne l'impression d'une vignette cassée.
+    _check_date = field_values.get("date", "") or ""
+    _check_amount = field_values.get("montant_ttc") or field_values.get("montant") or 0
+    try:
+        _check_amount = float(_check_amount) if _check_amount else 0.0
+    except (TypeError, ValueError):
+        _check_amount = 0.0
+    if not _check_date or _check_amount <= 0:
+        raise ValueError(
+            f"Impossible de generer un fac-simile vide pour le template "
+            f"'{tpl.vendor}' ({tpl.id}) : date={_check_date!r}, montant={_check_amount}. "
+            f"Verifier que le template a au moins les champs 'date' et 'montant_ttc' "
+            f"(source='operation') ou que l'operation contient ces donnees."
+        )
+
+    # 4. Générer le PDF — nom canonique + suffix `_fs` (fac-similé)
+    # Format : `supplier_YYYYMMDD_montant.XX_fs.pdf`
+    from backend.services import naming_service
+
+    _date = field_values.get("date", "") or ""
+    _amount = field_values.get("montant_ttc") or field_values.get("montant") or 0
+    try:
+        _amount = float(_amount) if _amount else 0.0
+    except (TypeError, ValueError):
+        _amount = 0.0
+
+    canonical = naming_service.build_convention_filename(tpl.vendor, _date, _amount)
+    if canonical and _amount > 0:
+        # Injecter suffix `_fs` avant `.pdf` → `auchan_20250315_87.81_fs.pdf`
+        pdf_filename = canonical[:-4] + "_fs.pdf"
+    else:
+        # Fallback : date/montant manquants → ancien format timestampé
+        vendor_slug = re.sub(r"[^a-z0-9]", "_", tpl.vendor.lower().strip())[:30]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pdf_filename = f"reconstitue_{timestamp}_{vendor_slug}.pdf"
+
+    # Dédup si collision (plusieurs reconstitues même supplier/date/montant)
+    pdf_filename = naming_service.deduplicate_filename(
+        JUSTIFICATIFS_EN_ATTENTE_DIR, pdf_filename
+    )
     pdf_path = JUSTIFICATIFS_EN_ATTENTE_DIR / pdf_filename
 
     # Tenter le fac-similé si le template a un source_justificatif avec coordonnées

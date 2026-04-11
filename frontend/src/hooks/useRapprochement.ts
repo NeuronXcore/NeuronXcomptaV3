@@ -77,6 +77,7 @@ export function useManualAssociate() {
       operation_file: string
       operation_index: number
       rapprochement_score?: number
+      ventilation_index?: number | null
     }) => api.post('/rapprochement/associate-manual', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['justificatifs'] })

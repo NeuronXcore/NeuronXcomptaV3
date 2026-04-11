@@ -55,8 +55,14 @@ def _get_justificatif_name(op: dict) -> str:
     if not lien:
         return ""
     basename = os.path.basename(lien)
-    if basename.startswith("reconstitue_"):
-        return f"{basename} [R]"
+    # Détection fac-similé : nouveau format `_fs` ou legacy `reconstitue_`
+    try:
+        from backend.services import rename_service
+        if rename_service.is_facsimile(basename):
+            return f"{basename} [R]"
+    except Exception:
+        if basename.startswith("reconstitue_") or "_fs.pdf" in basename.lower():
+            return f"{basename} [R]"
     return basename
 
 

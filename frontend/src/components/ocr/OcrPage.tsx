@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
+import { useQueries } from '@tanstack/react-query'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import {
@@ -10,17 +11,20 @@ import {
 import type { BatchUploadResult } from '@/hooks/useOcr'
 import { useJustificatifs } from '@/hooks/useJustificatifs'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import { api } from '@/api/client'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
-  ArrowRight, DollarSign, Calendar, User, Filter, Tag, Eye,
+  ArrowRight, DollarSign, Calendar, User, Filter, Tag, Eye, Wand2,
+  Search, X,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
+import ScanRenameDrawer from './ScanRenameDrawer'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import FilenameEditor from '@/components/justificatifs/FilenameEditor'
 import { useReverseLookup } from '@/hooks/useJustificatifs'
-import type { OCRResult, OCRHistoryItem } from '@/types'
+import type { OCRResult, OCRHistoryItem, ReverseLookupResult } from '@/types'
 
 type Tab = 'upload' | 'test' | 'historique' | 'templates'
 
@@ -686,6 +690,15 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
   const [filterSupplier, setFilterSupplier] = useState('')
   const [sortField, setSortField] = useState<'date' | 'supplier' | 'confidence'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [scanRenameOpen, setScanRenameOpen] = useState(false)
+
+  // Recherche multifocale (libellé, catégorie, montant, fournisseur, filename)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 250)
+    return () => clearTimeout(t)
+  }, [searchQuery])
 
   // Enrichir avec date parsée du filename
   const enriched = useMemo(() => {
@@ -695,12 +708,86 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
     })
   }, [history])
 
-  // Filtrer par année de la sidebar + mois + fournisseur
+  // Items de l'année courante (avant filtres month/supplier/search) — base pour les reverse-lookups
+  const yearItems = useMemo(
+    () => enriched.filter(i => i._year === selectedYear),
+    [enriched, selectedYear]
+  )
+
+  // Fetch parallèle des reverse-lookups pour permettre le filtre multifocal
+  // (catégorie + libellé viennent de l'opération liée, pas du résultat OCR).
+  // Même queryKey que `useReverseLookup` → React Query dédoublonne avec les
+  // HistoriqueOperationCell qui affichent la colonne "Opération" (zéro surcoût réseau).
+  const lookupQueries = useQueries({
+    queries: yearItems.map(item => ({
+      queryKey: ['justificatif-reverse-lookup', item.filename],
+      queryFn: () =>
+        api.get<ReverseLookupResult[]>(
+          `/justificatifs/reverse-lookup/${item.filename}`
+        ),
+      enabled: !!item.filename,
+      staleTime: 60_000,
+    })),
+  })
+
+  const lookupByFilename = useMemo(() => {
+    const map = new Map<string, ReverseLookupResult[]>()
+    yearItems.forEach((item, i) => {
+      const data = lookupQueries[i]?.data
+      if (data && data.length > 0) map.set(item.filename, data)
+    })
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearItems, lookupQueries.map(q => q.data).join('|')])
+
+  // Filtrer par mois + fournisseur + recherche multifocale
   const filtered = useMemo(() => {
-    let items = enriched.filter(item => item._year === selectedYear)
+    let items = yearItems
     if (filterMonth) items = items.filter(item => item._month === filterMonth)
     if (filterSupplier) items = items.filter(item => (item.supplier || '').toLowerCase().includes(filterSupplier.toLowerCase()))
+
+    // Recherche multifocale : libellé, catégorie, sous-catégorie, fournisseur, montant
+    // (on exclut volontairement le filename pour éviter les faux positifs avec les dates
+    // type uber_20251107_... qui matchent "107")
+    // Normalisation lowercase + accent-insensitive : "vehicule" matche "Véhicule".
+    const normalize = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    const q = normalize(debouncedSearch.trim())
+    if (q) {
+      const terms = q.split(/\s+/).filter(Boolean)
+      items = items.filter(item => {
+        const haystack: string[] = [
+          normalize(item.supplier || ''),
+        ]
+        if (item.best_amount != null) {
+          haystack.push(String(item.best_amount))
+          haystack.push(item.best_amount.toFixed(2))
+          haystack.push(item.best_amount.toFixed(2).replace('.', ','))
+        }
+        const lookups = lookupByFilename.get(item.filename)
+        if (lookups) {
+          for (const lu of lookups) {
+            if (lu.libelle) haystack.push(normalize(lu.libelle))
+            if (lu.categorie) haystack.push(normalize(lu.categorie))
+            if (lu.sous_categorie) haystack.push(normalize(lu.sous_categorie))
+            // Montants de l'op liée (débit/crédit) pour matcher par prix comptable
+            if (lu.debit) {
+              haystack.push(String(lu.debit))
+              haystack.push(lu.debit.toFixed(2))
+            }
+            if (lu.credit) {
+              haystack.push(String(lu.credit))
+              haystack.push(lu.credit.toFixed(2))
+            }
+          }
+        }
+        const joined = haystack.join(' ')
+        return terms.every(term => joined.includes(term))
+      })
+    }
+
     // Tri
+    items = [...items]
     items.sort((a, b) => {
       let cmp = 0
       if (sortField === 'date') {
@@ -713,7 +800,7 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
       return sortDir === 'desc' ? -cmp : cmp
     })
     return items
-  }, [enriched, selectedYear, filterMonth, filterSupplier, sortField, sortDir])
+  }, [yearItems, filterMonth, filterSupplier, debouncedSearch, lookupByFilename, sortField, sortDir])
 
   // Extraire les fournisseurs uniques pour le filtre
   const suppliers = useMemo(() => {
@@ -771,7 +858,38 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <span className="text-[10px] text-text-muted ml-auto">
+
+        {/* Recherche multifocale : libellé, catégorie, montant, fournisseur */}
+        <div className="relative flex-1 min-w-[200px] max-w-[340px]">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher (libellé, catégorie, montant…)"
+            className="w-full bg-background border border-border rounded-md pl-7 pr-7 py-1 text-xs text-text placeholder:text-text-muted/60 focus:outline-none focus:border-primary"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-text"
+              title="Effacer"
+              type="button"
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={() => setScanRenameOpen(true)}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-warning text-background shadow-sm shadow-warning/25 hover:bg-warning/90 hover:shadow-warning/40 hover:scale-[1.02] transition-all"
+          title="Scanner et renommer les justificatifs selon la convention fournisseur_YYYYMMDD_montant.XX.pdf"
+        >
+          <Wand2 size={13} />
+          Scanner & Renommer
+        </button>
+        <span className="text-[10px] text-text-muted">
           {filtered.length} justificatif{filtered.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -890,6 +1008,9 @@ function HistoriqueTab({ history, isLoading }: { history: OCRHistoryItem[]; isLo
           </div>
         </div>
       )}
+
+      {/* Drawer scan & rename */}
+      <ScanRenameDrawer open={scanRenameOpen} onClose={() => setScanRenameOpen(false)} />
     </div>
   )
 }

@@ -70,7 +70,8 @@ Batch PDF/JPG/PNG → POST /api/ocr/batch-upload
   → Si image (JPG/PNG) : _convert_image_to_pdf() via Pillow → bytes PDF
   → justificatif_service.upload_justificatifs() (validation magic bytes, sauvegarde en_attente/)
   → ocr_service.extract_or_cached() pour chaque fichier (synchrone)
-  → auto_rename_from_ocr() → renomme en fournisseur_YYYYMMDD_montant,XX.pdf (naming_service)
+  → auto_rename_from_ocr() → délègue à rename_service.compute_canonical_name() (filename-first puis OCR fallback)
+  → renomme en fournisseur_YYYYMMDD_montant.XX.pdf (ou suffix _fs pour les fac-similés reconstitués)
   → Retour : résultats avec données OCR + auto_renamed flag
 
 Alternative : Sandbox watchdog
@@ -88,29 +89,187 @@ Validation : magic bytes (config.MAGIC_BYTES), limite 10 Mo
 Images converties en PDF à l'intake, original non conservé
 ```
 
-### Rapprochement bancaire
+### Rapprochement bancaire (scoring v2)
 
 ```
+Scoring v2 : 4 critères orthogonaux + pondération dynamique
+  compute_score(ocr_data, operation, override_montant?, override_categorie?, override_sous_categorie?)
+    → score_montant(ocr, op) :
+       paliers graduels 0/1%/2%/5% → 1.0/0.95/0.85/0.60/0.0
+       + test HT/TTC (plancher 0.95 si ocr / TVA ≈ op pour TVA 20/10/5,5%)
+    → score_date(ocr, op) :
+       paliers symétriques ±0/±1/±3/±7/±14 → 1.0/0.95/0.80/0.50/0.20/0.0
+    → score_fournisseur(ocr, op) :
+       max(substring, Jaccard, Levenshtein)
+       - substring : "amazon" dans "PRLVSEPAAMAZONPAYMENT" → 1.0
+       - Jaccard : tokens normalisés hors stopwords
+       - Levenshtein : difflib.SequenceMatcher, seuil 0.5
+    → score_categorie(ocr_fournisseur, op_categorie, op_sous_categorie?) :
+       - ml_service.predict_category(fournisseur) → rules-based prioritaire
+         fallback sklearn via evaluate_hallucination_risk (confiance ≥ 0.5)
+       - Compare avec op_categorie : 1.0 match / 0.6 cat match sub ≠ / 0.0 mismatch
+       - Retourne None si non-inférable → critère neutre
+  compute_total_score(M, D, F, C) :
+    - Si C non-None : 0.35*M + 0.25*F + 0.20*D + 0.20*C
+    - Si C None : redistribution 0.4375*M + 0.3125*F + 0.25*D
+  Retourne {total, detail: {montant, date, fournisseur, categorie}, confidence_level}
+
 Rapprochement automatique : POST /rapprochement/run-auto
   → Parcourt justificatifs en_attente avec OCR
-  → Score = 45% montant + 35% date + 20% fournisseur (Jaccard + sous-chaîne)
-  → score_fournisseur : max(Jaccard, substring matching)
-    ex: "amazon" dans "PRLVSEPAAMAZONPAYMENT" → 1.0
-  → Auto-associe si score >= 0.80 et écart >= 0.02 avec 2ème match
+  → compute_score pour chaque (op, justif), best_match si score ≥ 0.80 ET écart ≥ 0.02 avec 2ème
   → Chaîné automatiquement après OCR (3 points d'entrée) :
-    - _run_ocr_background() dans justificatifs.py
+    - _run_ocr_background() dans justificatifs.py (upload)
     - batch_upload() dans ocr.py
     - _process_file() dans sandbox_service.py
 
-Rapprochement manuel : drawer avec filtres + recherche libre
-  → Suggestions scorées : GET /suggestions/operation/{file}/{index}
-  → Recherche libre : GET /justificatifs/?status=en_attente&search=...
-  → Bouton Attribuer orange (bg-warning) + preview PDF
-  → Score affiché en % (score.total × 100)
+Rapprochement manuel : RapprochementWorkflowDrawer unifié (700px)
+  → 2 modes : "Toutes sans justificatif" (flux) / "Opération ciblée" (mono-op)
+  → Suggestions scorées : GET /rapprochement/{file}/{index}/suggestions
+  → Recherche libre exclusive : GET /justificatifs/?status=en_attente&search=...
+  → ScorePills (frontend) : 3-4 pills colorées M/D/F/C + total, delta jours inline, couleurs dynamiques
+  → Thumbnails PDF lazy-loaded via IntersectionObserver (rootMargin 200px)
+  → Attribuer via POST /rapprochement/associate-manual (rapprochement_score + ventilation_index)
+  → Auto-skip post-attribution en mode flux, raccourcis ⏎/←/→/Esc
 
 Bouton "Associer automatiquement" sur JustificatifsPage :
   → Bandeau CTA contextuel (visible quand ops sans justificatif)
-  → Toast cliquable → filtre "Sans justif." + ouvre drawer
+  → Toast cliquable → filtre "Sans justif." + ouvre drawer mode flux
+```
+
+### Rename service filename-first (backend)
+
+```
+rename_service.py : module pur qui porte la logique filename-first
+  CANONICAL_RE = ^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}(_[a-z0-9]+)*\.pdf$
+  FACSIMILE_RE = _fs(_\d+)?\.pdf$
+  GENERIC_FILENAME_PREFIXES = {facture, justificatif, document, scan, receipt, invoice, reconstitue}
+
+  is_canonical(name) : matche CANONICAL_RE
+  is_facsimile(name) : FACSIMILE_RE OR startsWith("reconstitue_") (legacy)
+  normalize_filename_quirks(name) : .pdf.pdf, NNpdf.pdf, name (1).pdf
+  try_parse_filename(name) → (supplier, YYYYMMDD, amount, suffix) | None
+    - 3 regex tolérantes (underscore, dash, pas de séparateur)
+    - Garde-fous : supplier non-générique, date plausible 2000-2100, montant ≤ 100 000 €
+  build_from_parsed(supplier, date, amount, suffix) : reconstruit canonique avec point décimal
+  is_suspicious_supplier(raw) : vide, len < 3, dans SUSPICIOUS_SUPPLIERS set
+  _load_ocr_cache(pdf_path) → (extracted_data, is_reconstitue) | None
+    - Reconstitue : champs à la racine (best_date, best_amount, supplier, source)
+    - OCR normal : nested dans extracted_data, status doit être success
+  _inject_fs_suffix(canonical_name) : insère _fs avant .pdf pour les fac-similés
+  deduplicate_against(target_dir, desired_name, source_path) : self-collision-aware
+
+  compute_canonical_name(filename, ocr_data?, source_dir?, is_reconstitue?) → (new_name, source) | None
+    Stratégie 1 : filename-first via try_parse_filename + build_from_parsed
+    Stratégie 2 : OCR fallback (si ocr_data fourni + supplier non-suspect)
+    Injecte _fs si is_reconstitue = True
+
+  scan_and_plan_renames(directory, force_generic?) → ScanPlan
+    Walk *.pdf, classifie en 6 buckets :
+      already_canonical, to_rename_from_name (SAFE), to_rename_from_ocr (review),
+      skipped_no_ocr, skipped_bad_supplier, skipped_no_date_amount
+
+Appelé depuis :
+  - justificatif_service.auto_rename_from_ocr() (post-OCR via 3 entry points)
+  - routers/justificatifs.scan_rename() (POST /api/justificatifs/scan-rename)
+  - scripts/rename_justificatifs_convention.py (CLI thin wrapper)
+
+Convention canonique : fournisseur_YYYYMMDD_montant.XX.pdf (point décimal)
+Suffix _fs : supplier_YYYYMMDD_montant.XX_fs.pdf pour les fac-similés reconstitués
+Suffix _a/_b/_2 : autorisé pour ventilation multi-justificatifs + déduplication
+
+Endpoint scan-rename :
+  POST /api/justificatifs/scan-rename?apply=&apply_ocr=&scope=both
+  Dry-run par défaut, apply=true pour exécuter
+  scope=both fusionne en_attente/ + traites/ (398 fichiers scannés)
+  Frontend : ScanRenameDrawer (OCR Historique tab) avec preview + confirm
+```
+
+### Intégrité des liens justificatifs (scan + répare auto)
+
+```
+justificatif_service.py : service de réparation des incohérences disque ↔ ops
+
+  scan_link_issues() → dict typé (6 catégories, jamais None)
+    1. _collect_referenced_justificatifs() : walk IMPORTS_OPERATIONS_DIR/operations_*.json
+       → {filename: [(op_file, op_idx)]}
+    2. Enum traites_pdfs = {p.name for p in TRAITES.glob("*.pdf")}
+    3. Enum attente_pdfs = {p.name for p in EN_ATTENTE.glob("*.pdf")}
+    4. Intersections :
+       A : attente_pdfs ∩ referenced → check dst.exists()
+           - Both : _md5_file(src) == _md5_file(dst) ?
+             - identique → duplicates_to_delete_attente (A1)
+             - différent → hash_conflicts (SKIP, log warning)
+           - Attente only → misplaced_to_move_to_traites (A2)
+       B : traites_pdfs - referenced → orphan
+           - Dup existe en attente : hashes identiques ?
+             - identique → orphans_to_delete_traites (B1)
+             - différent → hash_conflicts (SKIP)
+           - Traites only → orphans_to_move_to_attente (B2)
+       C : referenced - (traites ∪ attente) → ghost_refs (Justificatif=true mais fichier absent)
+
+  apply_link_repair(plan=None) → dict résultat typé
+    - Si plan=None, re-scanne
+    - Ordre : A1 delete → A2 move → B1 delete → B2 move → C clear op.Lien
+    - Hash conflicts : count uniquement, jamais modifiés (log warning)
+    - Chaque action propage le .ocr.json compagnon (_move_pdf_with_ocr, _delete_pdf_with_ocr)
+    - Ghost refs groupés par op_file pour 1 seul load/save par fichier
+    - Retourne {deleted_from_attente, moved_to_traites, deleted_from_traites,
+                moved_to_attente, ghost_refs_cleared, conflicts_skipped, errors}
+
+  Helpers :
+    _md5_file(path, block=65536) : MD5 streamé par blocs
+    _move_pdf_with_ocr(src, dst) : shutil.move PDF + .ocr.json compagnon
+    _delete_pdf_with_ocr(path) : unlink PDF + .ocr.json
+
+Points d'appel :
+  1. Backend lifespan (backend/main.py) : appel silencieux au démarrage
+     - Log INFO si actions appliquées, WARNING si conflits restants
+     - Intégré après reconcile_index() pour report_service
+  2. GET /api/justificatifs/scan-links : dry-run typé pour l'UI
+  3. POST /api/justificatifs/repair-links : apply pour l'UI
+  4. Script CLI scripts/repair_justificatif_links.py (thin wrapper)
+
+Frontend :
+  - Hooks useScanLinks (enabled: false, refetch manuel) / useRepairLinks
+  - Types ScanLinksResult + RepairLinksResult
+  - Section JustificatifsIntegritySection dans SettingsPage > Stockage
+  - 6 IntegrityMetric colorés (grid-cols-2 md:grid-cols-3)
+  - Bouton Réparer avec compteur totalFixable + conflicts en <details>
+
+Invariant garanti :
+  Les conflits de hash (duplicatas aux versions divergentes) ne sont JAMAIS
+  modifiés automatiquement. L'utilisateur doit les résoudre manuellement après
+  comparaison du contenu des 2 versions.
+```
+
+### Redémarrage backend depuis l'UI (dev only)
+
+```
+POST /api/settings/restart
+  → écrit un timestamp dans backend/_reload_trigger.py (sentinel vide)
+  → uvicorn --reload détecte la modification et redémarre automatiquement
+  → retourne {"restarting": true, "sentinel": "_reload_trigger.py"}
+
+backend/_reload_trigger.py : fichier sentinel
+  - Contient juste RELOAD_TIMESTAMP = N
+  - Jamais importé par le code applicatif (volontaire)
+  - Réécrit à chaque POST /restart avec un nouveau timestamp
+
+Hook useRestartBackend (useApi.ts) :
+  1. POST /settings/restart
+  2. sleep 1500ms (laisser uvicorn kill l'ancien process)
+  3. Poll GET /api/settings toutes les 500ms (timeout 20s)
+  4. window.location.reload() hard pour re-fetch le bundle frontend
+
+Bouton Restart dans JustificatifsIntegritySection :
+  - window.confirm() avant déclenchement
+  - Icône Power, tint warning amber
+  - Désactivé pendant restart.isPending
+  - Usage principal : rejouer la réparation des liens au boot après fix manuel
+
+Contrainte : fonctionne UNIQUEMENT en dev (uvicorn --reload). En production,
+un supervisor externe (systemd, launchd, PM2) serait nécessaire pour relancer
+le process après un SIGTERM.
 ```
 
 ### Catégorisation IA

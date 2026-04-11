@@ -156,3 +156,29 @@ async def get_file_tree():
 
     tree = scan_dir(DATA_DIR)
     return tree or {"name": "data", "type": "dir", "children": [], "count": 0, "size": 0, "size_human": "0 o"}
+
+
+@router.post("/restart")
+async def restart_backend():
+    """Redémarre le backend en touchant un fichier sentinel Python.
+
+    Fonctionne uniquement en mode dev (uvicorn --reload). Uvicorn surveille
+    le dossier backend/ et détecte la modification du sentinel → restart auto.
+
+    Le frontend doit poller `GET /` pour détecter que le backend est revenu,
+    puis faire `window.location.reload()`.
+    """
+    import time
+
+    sentinel = Path(__file__).resolve().parent.parent / "_reload_trigger.py"
+    try:
+        sentinel.write_text(
+            f'"""Fichier sentinel pour declencher un reload uvicorn.\n'
+            f'Touche par POST /api/settings/restart a {datetime.now().isoformat()}.\n'
+            f'"""\n'
+            f"RELOAD_TIMESTAMP = {time.time()}\n",
+            encoding="utf-8",
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Impossible de toucher le sentinel: {e}")
+    return {"restarting": True, "sentinel": sentinel.name}

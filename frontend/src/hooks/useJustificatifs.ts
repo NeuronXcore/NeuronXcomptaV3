@@ -133,3 +133,63 @@ export function useRenameJustificatif() {
     },
   })
 }
+
+// ─── Link integrity scan & repair ───
+
+export interface ScanLinksResult {
+  scanned: { traites: number; attente: number; op_refs: number }
+  duplicates_to_delete_attente: Array<{ name: string; refs: number; hash: string }>
+  misplaced_to_move_to_traites: Array<{ name: string; refs: number }>
+  orphans_to_delete_traites: Array<{ name: string; hash: string }>
+  orphans_to_move_to_attente: Array<{ name: string }>
+  hash_conflicts: Array<{
+    name: string
+    hash_attente: string
+    hash_traites: string
+    location: string
+    refs: number
+  }>
+  ghost_refs: Array<{ name: string; op_file: string; op_idx: number }>
+}
+
+export interface RepairLinksResult {
+  deleted_from_attente: number
+  moved_to_traites: number
+  deleted_from_traites: number
+  moved_to_attente: number
+  ghost_refs_cleared: number
+  conflicts_skipped: number
+  errors: string[]
+}
+
+/**
+ * Dry-run scan — détecte les incohérences disque ↔ opérations sans rien modifier.
+ * `enabled: false` — le composant appelle `refetch()` manuellement au clic.
+ */
+export function useScanLinks() {
+  return useQuery<ScanLinksResult>({
+    queryKey: ['justificatifs-scan-links'],
+    queryFn: () => api.get('/justificatifs/scan-links'),
+    enabled: false,
+    staleTime: 0,
+  })
+}
+
+/**
+ * Apply — répare les incohérences (duplicatas, orphelins, ghosts).
+ * Skippe systématiquement les conflits de hash. Invalide tous les caches concernés.
+ */
+export function useRepairLinks() {
+  const queryClient = useQueryClient()
+  return useMutation<RepairLinksResult, Error, void>({
+    mutationFn: () => api.post('/justificatifs/repair-links'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+      queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['justificatifs-scan-links'] })
+      queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+      queryClient.invalidateQueries({ queryKey: ['operations'] })
+      queryClient.invalidateQueries({ queryKey: ['ged'] })
+    },
+  })
+}

@@ -190,6 +190,118 @@ async def dissociate_justificatif(request: DissociateRequest):
     return {"success": True, "message": "Justificatif dissocié"}
 
 
+@router.post("/scan-rename")
+async def scan_rename(
+    apply: bool = Query(False, description="Appliquer les renames (défaut: dry-run)"),
+    apply_ocr: bool = Query(False, description="Inclure les renames basés sur l'OCR"),
+    scope: str = Query("both", description="Dossiers à scanner : en_attente, traites, both"),
+):
+    """Scanne les justificatifs, plan les renames filename-first, applique si demandé.
+
+    - `scope=both` (défaut) : scanne en_attente/ ET traites/
+    - `scope=en_attente` : uniquement les justificatifs non encore associés
+    - `scope=traites` : uniquement les justificatifs associés à une opération
+    - `apply=false` (défaut) : dry-run, renvoie juste le plan
+    - `apply=true` : applique les renames SAFE (parsés depuis le filename)
+    - `apply=true&apply_ocr=true` : applique aussi les renames basés sur l'OCR
+    """
+    from backend.services import rename_service
+    from backend.core.config import JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR
+
+    if scope not in ("en_attente", "traites", "both"):
+        raise HTTPException(400, f"scope invalide: {scope}")
+
+    # Directories à scanner
+    dirs = []
+    if scope in ("en_attente", "both"):
+        dirs.append(JUSTIFICATIFS_EN_ATTENTE_DIR)
+    if scope in ("traites", "both"):
+        dirs.append(JUSTIFICATIFS_TRAITES_DIR)
+
+    # Fusion des plans des différents dossiers
+    merged = {
+        "scanned": 0,
+        "already_canonical": 0,
+        "to_rename_from_name": [],
+        "to_rename_from_ocr": [],
+        "skipped_no_ocr": [],
+        "skipped_bad_supplier": [],
+        "skipped_no_date_amount": [],
+    }
+    for directory in dirs:
+        plan = rename_service.scan_and_plan_renames(directory)
+        merged["scanned"] += plan["scanned"]
+        merged["already_canonical"] += plan["already_canonical"]
+        merged["to_rename_from_name"].extend(plan["to_rename_from_name"])
+        merged["to_rename_from_ocr"].extend(plan["to_rename_from_ocr"])
+        merged["skipped_no_ocr"].extend(plan["skipped_no_ocr"])
+        merged["skipped_bad_supplier"].extend(plan["skipped_bad_supplier"])
+        merged["skipped_no_date_amount"].extend(plan["skipped_no_date_amount"])
+
+    response: dict = {
+        "scope": scope,
+        "scanned": merged["scanned"],
+        "already_canonical": merged["already_canonical"],
+        "to_rename_safe": merged["to_rename_from_name"],
+        "to_rename_ocr": merged["to_rename_from_ocr"],
+        "skipped": {
+            "no_ocr": merged["skipped_no_ocr"],
+            "bad_supplier": merged["skipped_bad_supplier"],
+            "no_date_amount": merged["skipped_no_date_amount"],
+        },
+    }
+
+    if not apply:
+        return response
+
+    to_apply: list = list(merged["to_rename_from_name"])
+    if apply_ocr:
+        to_apply += merged["to_rename_from_ocr"]
+
+    ok_list: list = []
+    errors: list = []
+    for item in to_apply:
+        try:
+            result = justificatif_service.rename_justificatif(item["old"], item["new"])
+            ok_list.append(result)
+        except Exception as e:
+            errors.append({"old": item["old"], "new": item["new"], "error": str(e)})
+            logger.warning("scan-rename échoué pour %s → %s : %s", item["old"], item["new"], e)
+
+    response["applied"] = {
+        "ok": len(ok_list),
+        "errors": errors,
+        "renamed": ok_list,
+    }
+    return response
+
+
+@router.get("/scan-links")
+async def scan_links():
+    """Dry-run : liste les incohérences disque ↔ opérations sans rien modifier.
+
+    Catégories détectées :
+    - `duplicates_to_delete_attente` : fichier référencé par une op, présent en
+      double dans en_attente/ ET traites/ avec hashes identiques (copie fantôme)
+    - `misplaced_to_move_to_traites` : fichier référencé par une op, présent
+      uniquement dans en_attente/ (doit être déplacé)
+    - `orphans_to_delete_traites` / `orphans_to_move_to_attente` : fichiers
+      dans traites/ sans op qui les référence
+    - `hash_conflicts` : duplicatas aux hashes différents (skippés à l'apply)
+    - `ghost_refs` : liens pointant vers un fichier absent des deux dossiers
+    """
+    return justificatif_service.scan_link_issues()
+
+
+@router.post("/repair-links")
+async def repair_links():
+    """Apply : répare les incohérences détectées par scan-links.
+
+    Skippe systématiquement les conflits de hash (inspection manuelle requise).
+    """
+    return justificatif_service.apply_link_repair()
+
+
 @router.post("/{filename}/rename")
 async def rename_justificatif(filename: str, body: RenameRequest):
     """Renomme un justificatif. Met à jour PDF, .ocr.json, associations et GED."""

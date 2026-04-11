@@ -57,6 +57,44 @@ export function useUpdateSettings() {
   })
 }
 
+/**
+ * Redémarre le backend (dev only, uvicorn --reload) puis recharge le frontend.
+ *
+ * Flow :
+ * 1. POST /api/settings/restart → le backend touche un sentinel Python
+ * 2. Uvicorn détecte la modification et redémarre (~2-3s)
+ * 3. On poll GET /api/ jusqu'à réponse (timeout 20s)
+ * 4. window.location.reload() pour re-fetch le bundle frontend
+ */
+export function useRestartBackend() {
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      // 1. Déclenche le reload
+      await api.post('/settings/restart')
+
+      // 2. Laisser uvicorn kill l'ancien process
+      await new Promise((r) => setTimeout(r, 1500))
+
+      // 3. Poll jusqu'à ce que le backend réponde à nouveau
+      const deadline = Date.now() + 20_000
+      while (Date.now() < deadline) {
+        try {
+          const res = await fetch('/api/settings', { cache: 'no-store' })
+          if (res.ok) {
+            // 4. Hard reload du frontend
+            window.location.reload()
+            return
+          }
+        } catch {
+          // backend down, continue polling
+        }
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      throw new Error('Timeout : backend non répondant après 20s')
+    },
+  })
+}
+
 export function useMLModel() {
   return useQuery<MLModelInfo>({
     queryKey: ['ml-model'],

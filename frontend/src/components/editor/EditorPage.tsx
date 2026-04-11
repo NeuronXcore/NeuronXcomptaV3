@@ -25,7 +25,7 @@ import toast from 'react-hot-toast'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import RapprochementManuelDrawer from '@/components/rapprochement/RapprochementManuelDrawer'
+import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
 import VentilationDrawer from '@/components/editor/VentilationDrawer'
 import VentilationLines from '@/components/editor/VentilationLines'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
@@ -1545,19 +1545,13 @@ export default function EditorPage() {
         </>
       )}
 
-      {/* Attribution justificatif Drawer (ops sans justificatif uniquement) */}
-      <RapprochementManuelDrawer
+      {/* Attribution justificatif Drawer (workflow unifié) */}
+      <RapprochementWorkflowDrawer
         isOpen={drawerOpen}
+        operations={operations}
+        initialIndex={drawerOpIndex ?? undefined}
+        fallbackFilename={selectedFile ?? undefined}
         onClose={() => { setDrawerOpen(false); setDrawerOpIndex(null) }}
-        filename={selectedFile}
-        operation={drawerOpIndex !== null && operations[drawerOpIndex] ? {
-          index: drawerOpIndex,
-          date: operations[drawerOpIndex].Date || '',
-          libelle: operations[drawerOpIndex]['Libellé'] || '',
-          debit: operations[drawerOpIndex]['Débit'] || 0,
-          credit: operations[drawerOpIndex]['Crédit'] || 0,
-          ventilation: operations[drawerOpIndex].ventilation,
-        } : null}
       />
 
       {/* Ventilation Drawer */}

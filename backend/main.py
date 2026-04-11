@@ -57,6 +57,33 @@ async def lifespan(app: FastAPI):
     # Réconciliation index rapports
     from backend.services.report_service import reconcile_index
     reconcile_index()
+    # Réparation silencieuse des liens justificatifs (duplicatas, orphelins, ghosts)
+    try:
+        from backend.services import justificatif_service
+        repair_result = justificatif_service.apply_link_repair()
+        total_touched = (
+            repair_result["deleted_from_attente"]
+            + repair_result["moved_to_traites"]
+            + repair_result["deleted_from_traites"]
+            + repair_result["moved_to_attente"]
+            + repair_result["ghost_refs_cleared"]
+        )
+        if total_touched > 0:
+            logging.getLogger(__name__).info(
+                f"Justificatifs link repair: "
+                f"{repair_result['moved_to_traites']} moves→traites, "
+                f"{repair_result['moved_to_attente']} moves→en_attente, "
+                f"{repair_result['deleted_from_attente'] + repair_result['deleted_from_traites']} dup supprimés, "
+                f"{repair_result['ghost_refs_cleared']} ghosts clearés, "
+                f"{repair_result['conflicts_skipped']} conflits skippés"
+            )
+        elif repair_result["conflicts_skipped"] > 0:
+            logging.getLogger(__name__).warning(
+                f"Justificatifs: {repair_result['conflicts_skipped']} conflits de hash à résoudre manuellement "
+                "(voir GET /api/justificatifs/scan-links)"
+            )
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Justificatifs link repair error: {e}")
     # Demarrer la tache previsionnel en arriere-plan
     _prev_task = asyncio.create_task(_previsionnel_background_loop())
     yield

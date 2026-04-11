@@ -12,7 +12,7 @@ interface GedUploadZoneProps {
 
 export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
   const [file, setFile] = useState<File | null>(null)
-  const [docType, setDocType] = useState('divers')
+  const [docType, setDocType] = useState('document_libre')
   const [poste, setPoste] = useState('')
   const [categorie, setCategorie] = useState('')
   const [sousCategorie, setSousCategorie] = useState('')

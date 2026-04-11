@@ -208,6 +208,21 @@ def _parse_filename_convention(filename: str) -> Optional[dict]:
     return {"supplier": supplier, "date": date_iso, "amount": amount}
 
 
+def _detect_facsimile(filename: Optional[str]) -> bool:
+    """Détecte un fac-similé reconstitué (nouveau format `_fs` ou legacy `reconstitue_`).
+
+    Délégué à `rename_service.is_facsimile` via lazy import pour éviter les circulaires.
+    """
+    if not filename:
+        return False
+    try:
+        from backend.services import rename_service
+        return rename_service.is_facsimile(filename)
+    except Exception:
+        # Fallback : détection minimale
+        return filename.startswith("reconstitue_") or "_fs.pdf" in filename.lower()
+
+
 # ─── Extraction ───
 
 def extract_from_pdf(pdf_path: Path, original_filename: Optional[str] = None) -> dict:
@@ -275,7 +290,7 @@ def extract_from_pdf(pdf_path: Path, original_filename: Optional[str] = None) ->
                 fournisseur=extracted.get("supplier"),
                 date_document=extracted.get("best_date"),
                 montant=extracted.get("best_amount"),
-                is_reconstitue=(filename or "").startswith("reconstitue_"),
+                is_reconstitue=_detect_facsimile(filename),
             )
         except Exception:
             pass

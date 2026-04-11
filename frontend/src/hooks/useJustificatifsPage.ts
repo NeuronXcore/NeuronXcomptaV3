@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useFiscalYearStore } from '../stores/useFiscalYearStore'
 import { useOperationFiles, useOperations, useYearOperations } from './useOperations'
 import { useSettings } from './useApi'
+import { isReconstitue } from '@/lib/utils'
 import type { Operation, OperationFile, JustificatifExemptions } from '@/types'
 
 function isOpExempt(op: Operation, exemptions: JustificatifExemptions | undefined): boolean {
@@ -37,6 +38,7 @@ export function useJustificatifsPage() {
   const [selectedOpIndex, setSelectedOpIndex] = useState<number | null>(null)
   const [selectedOpFilename, setSelectedOpFilename] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerInitialIndex, setDrawerInitialIndex] = useState<number | undefined>(undefined)
 
   // Multi-sélection pour batch fac-similé
   const [selectedOps, setSelectedOps] = useState<Set<string>>(new Set())
@@ -54,6 +56,39 @@ export function useJustificatifsPage() {
       if (match.month !== selectedMonth) setSelectedMonth(match.month ?? null)
     }
   }, [fileParam, files]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync filter via URL ?filter=sans|avec|all|facsimile (OCR Historique → justificatifs)
+  const filterParam = searchParams.get('filter')
+  useEffect(() => {
+    if (filterParam && ['all', 'sans', 'avec', 'facsimile'].includes(filterParam)) {
+      setJustifFilter(filterParam as JustifFilter)
+    }
+  }, [filterParam])
+
+  // Sync year/month via URL ?year=YYYY&month=M (fallback quand file= n'est pas fourni)
+  const yearParam = searchParams.get('year')
+  const monthParam = searchParams.get('month')
+  useEffect(() => {
+    if (yearParam) {
+      const y = parseInt(yearParam, 10)
+      if (!isNaN(y) && y !== year) setYear(y)
+    }
+    if (monthParam) {
+      const m = parseInt(monthParam, 10)
+      if (!isNaN(m) && m !== selectedMonth) setSelectedMonth(m)
+    }
+  }, [yearParam, monthParam]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync opération surlignée via URL ?highlight=N&file=X (OCR Historique → Voir l'opération)
+  const highlightParam = searchParams.get('highlight')
+  useEffect(() => {
+    if (!highlightParam || !fileParam) return
+    const idx = parseInt(highlightParam, 10)
+    if (!isNaN(idx)) {
+      setSelectedOpIndex(idx)
+      setSelectedOpFilename(fileParam)
+    }
+  }, [highlightParam, fileParam])
 
   // Années et mois disponibles
   const availableYears = useMemo(() => {
@@ -120,7 +155,7 @@ export function useJustificatifsPage() {
     } else if (justifFilter === 'avec') {
       ops = ops.filter(op => !!op['Lien justificatif'] || isOpExempt(op, exemptions))
     } else if (justifFilter === 'facsimile') {
-      ops = ops.filter(op => (op['Lien justificatif'] || '').includes('reconstitue_'))
+      ops = ops.filter(op => isReconstitue(op['Lien justificatif'] || ''))
     }
 
     if (search.trim()) {
@@ -167,10 +202,20 @@ export function useJustificatifsPage() {
     }
   }, [sortKey])
 
-  // Ouvrir drawer pour une opération
+  // Ouvrir drawer pour une opération (mode ciblé)
   const openDrawer = useCallback((op: EnrichedOperation) => {
     setSelectedOpIndex(op._originalIndex)
     setSelectedOpFilename(op._filename)
+    const idx = operations.findIndex(
+      o => o._originalIndex === op._originalIndex && o._filename === op._filename
+    )
+    setDrawerInitialIndex(idx >= 0 ? idx : undefined)
+    setDrawerOpen(true)
+  }, [operations])
+
+  // Ouvrir drawer en mode flux (toutes les ops sans justif)
+  const openDrawerFlow = useCallback(() => {
+    setDrawerInitialIndex(undefined)
     setDrawerOpen(true)
   }, [])
 
@@ -212,9 +257,15 @@ export function useJustificatifsPage() {
   // Helpers sélection batch
   const opKey = useCallback((op: EnrichedOperation) => `${op._filename}:${op._originalIndex}`, [])
 
+  // Helper exposé pour vérifier si une op est exemptée (CARMF, URSSAF, Honoraires, Perso, …)
+  const isOpExemptFn = useCallback(
+    (op: Operation) => isOpExempt(op, exemptions),
+    [exemptions]
+  )
+
   const selectableOps = useMemo(
-    () => operations.filter(op => !op['Lien justificatif']),
-    [operations]
+    () => operations.filter(op => !op['Lien justificatif'] && !isOpExempt(op, exemptions)),
+    [operations, exemptions]
   )
 
   const toggleOp = useCallback((op: EnrichedOperation) => {
@@ -257,10 +308,12 @@ export function useJustificatifsPage() {
     justifFilter, setJustifFilter,
     selectedOpIndex, selectedOpFilename,
     drawerOpen, setDrawerOpen,
+    drawerInitialIndex, setDrawerInitialIndex,
     availableYears, monthsForYear, selectedFile,
     operations, stats,
     isYearWide, isLoading: yearLoading,
-    openDrawer, goToNextWithout,
+    isOpExempt: isOpExemptFn,
+    openDrawer, openDrawerFlow, goToNextWithout,
     // Multi-sélection batch
     selectedOps, opKey, toggleOp, toggleAllFiltered, clearSelection,
     selectedCount, isAllFilteredSelected, isSomeFilteredSelected,

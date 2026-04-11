@@ -402,13 +402,113 @@ Renommer un justificatif. Met a jour PDF + .ocr.json + associations operations +
 
 **Body :**
 ```json
-{ "new_filename": "fournisseur_20250315_50,00.pdf" }
+{ "new_filename": "fournisseur_20250315_50.00.pdf" }
 ```
 
 **Reponse :**
 ```json
-{ "old": "justificatif_20250315_143022_edf.pdf", "new": "fournisseur_20250315_50,00.pdf", "location": "en_attente" }
+{ "old": "justificatif_20250315_143022_edf.pdf", "new": "fournisseur_20250315_50.00.pdf", "location": "en_attente" }
 ```
+
+### `POST /scan-rename?apply=&apply_ocr=&scope=both`
+Scanner + renommer en lot selon la convention `fournisseur_YYYYMMDD_montant.XX.pdf` via la stratégie filename-first (cf. `rename_service.compute_canonical_name()`).
+
+**Query params :**
+- `apply: bool = false` — Par défaut, dry-run (renvoie juste le plan sans modifier). `apply=true` exécute les renommages.
+- `apply_ocr: bool = false` — Inclure les renames basés sur l'OCR (bucket `to_rename_ocr`, confiance plus faible). Opt-in explicite.
+- `scope: "en_attente" | "traites" | "both" = "both"` — Dossiers à scanner. Défaut `both` fusionne les deux.
+
+**Réponse (dry-run) :**
+```json
+{
+  "scope": "both",
+  "scanned": 398,
+  "already_canonical": 387,
+  "to_rename_safe": [{"old": "ldlc-20250524_409.90.pdf", "new": "ldlc_20250524_409.90.pdf"}],
+  "to_rename_ocr": [{"old": "facture_9053945213_2026-01-26.pdf", "new": "facture_20260126_35.65.pdf", "supplier_ocr": "Facture"}],
+  "skipped": {
+    "no_ocr": ["reconstitue_20260408_194132_essence.pdf"],
+    "bad_supplier": [{"filename": "justificatif_20260409_064405_Sans_titre_16.pdf", "supplier": "Le."}],
+    "no_date_amount": ["09042026.pdf"]
+  }
+}
+```
+
+**Réponse (apply=true) :** ajoute le champ `applied: { ok: 163, errors: [], renamed: [...] }`.
+
+**Stratégie filename-first** : 6 buckets de classification.
+- `to_rename_from_name` (SAFE) : parsé depuis le filename existant via 3 regex tolérantes (underscore, dash, pas de séparateur), avec garde-fous (supplier non-générique, date 2000-2100, montant ≤ 100 000 €).
+- `to_rename_from_ocr` (review) : filename non structuré, fallback sur les données OCR du `.ocr.json` si supplier non-suspect.
+- `skipped_no_ocr` : pas de `.ocr.json` ET filename non parsable.
+- `skipped_bad_supplier` : supplier OCR vide/court/dans la liste `SUSPICIOUS_SUPPLIERS`.
+- `skipped_no_date_amount` : OCR incomplet (pas de `best_date` ou `best_amount`).
+- `already_canonical` : matche déjà `^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}(_[a-z0-9]+)*\.pdf$`.
+
+**Convention** : point décimal (`107.45`, pas `107,45`). Suffix optionnel `_fs` (fac-similé), `_a`/`_b` (ventilation multi-justif), `_2`/`_3` (dédup).
+
+Déclenché aussi automatiquement après OCR via `justificatif_service.auto_rename_from_ocr()` qui délègue à `rename_service.compute_canonical_name()`.
+
+### `GET /scan-links`
+Dry-run : scanne les justificatifs et détecte les incohérences disque ↔ opérations, sans rien modifier.
+
+Détecte 6 catégories :
+- `duplicates_to_delete_attente` — fichier référencé par une op, présent en double dans `en_attente/` ET `traites/` avec hashes MD5 identiques. La copie de `en_attente/` est fantôme (`get_justificatif_path()` la sert en premier alors que le lien stocké pointe vers `traites/`).
+- `misplaced_to_move_to_traites` — fichier référencé par une op, présent uniquement dans `en_attente/` (pas déplacé lors d'une association antérieure).
+- `orphans_to_delete_traites` — fichier dans `traites/` sans op qui le référence, mais duplicate identique présent en `en_attente/` → la copie `traites/` est orpheline.
+- `orphans_to_move_to_attente` — fichier dans `traites/` sans op ET sans duplicate ailleurs → doit redevenir attribuable en `en_attente/`.
+- `hash_conflicts` — fichier en double avec hashes MD5 différents. **Jamais modifié automatiquement** (inspection manuelle requise).
+- `ghost_refs` — op dont `Lien justificatif` pointe vers un fichier absent des deux dossiers → clear du lien.
+
+**Réponse :**
+```json
+{
+  "scanned": { "traites": 248, "attente": 139, "op_refs": 251 },
+  "duplicates_to_delete_attente": [
+    { "name": "amazon_20250101_107.45.pdf", "refs": 1, "hash": "abc123..." }
+  ],
+  "misplaced_to_move_to_traites": [
+    { "name": "auchan_20250330_111.19_fs_3.pdf", "refs": 1 }
+  ],
+  "orphans_to_delete_traites": [
+    { "name": "amazon_20250128_139.85.pdf", "hash": "def456..." }
+  ],
+  "orphans_to_move_to_attente": [
+    { "name": "orange_20251212_46.99.pdf" }
+  ],
+  "hash_conflicts": [
+    {
+      "name": "auchan_20241229_34.78_fs.pdf",
+      "hash_attente": "ee5a0fb5...",
+      "hash_traites": "c26da2eb...",
+      "location": "both",
+      "refs": 1
+    }
+  ],
+  "ghost_refs": []
+}
+```
+
+### `POST /repair-links`
+Apply : répare les incohérences détectées par `scan-links`.
+
+Ordre d'exécution : A1 delete en_attente → A2 move vers traites → B1 delete traites → B2 move vers en_attente → C clear ghost refs. Les `hash_conflicts` sont systématiquement **skippés** (jamais de perte automatique). Le `.ocr.json` compagnon est toujours propagé lors des moves/deletes.
+
+**Réponse :**
+```json
+{
+  "deleted_from_attente": 11,
+  "moved_to_traites": 1,
+  "deleted_from_traites": 2,
+  "moved_to_attente": 5,
+  "ghost_refs_cleared": 0,
+  "conflicts_skipped": 2,
+  "errors": []
+}
+```
+
+**Automatisation** : `apply_link_repair()` est également appelé silencieusement au démarrage du backend via le `lifespan()` dans `backend/main.py`. Les logs sortent en `INFO` si des actions ont été appliquées, en `WARNING` si des conflits restent non résolus.
+
+Frontend : exposé via la section « Intégrité des justificatifs » dans `SettingsPage > Stockage` (bouton Scanner puis bouton Réparer).
 
 ### `DELETE /{filename}`
 Supprimer un justificatif.
@@ -602,6 +702,14 @@ Couverture d'envoi par mois pour une année : `{ 1: true, 2: false, ... }`.
 
 ## Rapprochement (`/api/rapprochement`)
 
+**Scoring v2 — 4 critères + pondération dynamique** (backend `rapprochement_service.compute_score()`) :
+- `score_montant` : paliers graduels 0/1%/2%/5% → 1.0/0.95/0.85/0.60/0.0 + test HT/TTC (plancher 0.95)
+- `score_date` : paliers symétriques ±0/±1/±3/±7/±14 → 1.0/0.95/0.80/0.50/0.20/0.0
+- `score_fournisseur` : `max(substring, Jaccard, Levenshtein)` (difflib, seuil 0.5)
+- `score_categorie` : inférence ML (`ml_service.predict_category(fournisseur)` → rules + sklearn fallback confiance ≥0.5) comparée à `op.categorie` (1.0 / 0.6 / 0.0). Retourne `None` si non-inférable → critère neutre.
+- `compute_total_score` : `0.35*M + 0.25*F + 0.20*D + 0.20*C` quand C présent, sinon redistribution `0.4375*M + 0.3125*F + 0.25*D` sur les 3 critères restants.
+- Retour : `{ total: float, detail: { montant, date, fournisseur, categorie }, confidence_level }` — les 4 sous-scores sont exposés dans `detail` pour affichage frontend (`ScorePills`).
+
 ### `POST /run-auto`
 Rapprochement automatique : parcourt tous les justificatifs en attente, auto-associe ceux avec score >= 0.80 et match unique (écart >= 0.02 avec le 2ème meilleur). Déclenché automatiquement après chaque upload de justificatif (via OCR background, batch upload OCR, et sandbox watchdog).
 
@@ -642,7 +750,7 @@ Suggestions de justificatifs pour une opération. Si `ventilation_index` fourni,
 Suggestions d'opérations pour un justificatif. Inclut les sous-lignes ventilées.
 
 ### `GET /{filename}/{index}/suggestions`
-Suggestions filtrées pour le rapprochement manuel (drawer).
+Suggestions filtrées pour le `RapprochementWorkflowDrawer` (drawer unifié). Utilise `rename_service.compute_canonical_name()` indirectement via `compute_score()` pour le scoring v2.
 
 **Paramètres :** `montant_min`, `montant_max`, `date_from`, `date_to`, `search`, `ventilation_index` (tous optional)
 
@@ -655,10 +763,18 @@ Suggestions filtrées pour le rapprochement manuel (drawer).
     "ocr_montant": 500.00,
     "ocr_fournisseur": "Fournisseur XYZ",
     "score": 0.85,
+    "score_detail": {
+      "montant": 1.0,
+      "date": 0.95,
+      "fournisseur": 1.0,
+      "categorie": 1.0
+    },
     "size_human": "245.3 Ko"
   }
 ]
 ```
+
+Le champ `score_detail` expose les 4 sous-scores (M/D/F/C) pour permettre au frontend d'afficher des `ScorePills` avec couleurs dynamiques. `categorie` peut être `null` si le critère est non-inférable.
 
 ---
 
@@ -1074,6 +1190,25 @@ Statistiques par dossier de données.
 
 ### `GET /system-info`
 Informations système (version app, Python, plateforme).
+
+### `POST /restart`
+Redémarre le backend en touchant un sentinel Python (`backend/_reload_trigger.py`). Uvicorn `--reload` détecte la modification et redémarre automatiquement (~2-3s).
+
+**Contrainte :** fonctionne UNIQUEMENT en mode dev (uvicorn lancé avec `--reload`). En production, un supervisor externe (systemd, launchd, PM2) serait nécessaire.
+
+**Réponse :**
+```json
+{ "restarting": true, "sentinel": "_reload_trigger.py" }
+```
+
+Le frontend (hook `useRestartBackend` dans `useApi.ts`) gère ensuite automatiquement :
+1. Sleep 1.5s pour laisser uvicorn kill l'ancien process
+2. Poll `GET /api/settings` toutes les 500ms (timeout 20s) jusqu'à réponse
+3. `window.location.reload()` hard pour re-fetch le bundle frontend
+
+Usage principal : rejouer la réparation des liens justificatifs au boot (via le `lifespan()`) après une modification manuelle, sans avoir à quitter le terminal.
+
+Bouton « Redémarrer backend » disponible dans `SettingsPage > Stockage > Intégrité des justificatifs`.
 
 ---
 

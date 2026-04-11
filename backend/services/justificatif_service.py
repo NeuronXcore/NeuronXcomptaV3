@@ -690,36 +690,38 @@ def rename_justificatif(old_filename: str, new_filename: str) -> dict:
 
 
 def auto_rename_from_ocr(filename: str, ocr_data: dict) -> Optional[str]:
-    """Tente un auto-rename basé sur les données OCR.
+    """Tente un auto-rename en stratégie filename-first (fallback OCR).
 
     Retourne le nouveau filename si renommé, None sinon.
-    Ne renomme PAS si le fichier suit déjà la convention (3 segments valides).
+
+    La logique vit dans `rename_service.compute_canonical_name` :
+      1. Si le filename est déjà canonique, on ne touche à rien
+      2. Sinon, on tente de le parser (source prioritaire, plus fiable que l'OCR)
+      3. Sinon, fallback sur les données OCR (si supplier non suspect + date + montant)
     """
-    from backend.services.ocr_service import _parse_filename_convention
+    from backend.services import rename_service
 
-    # Si le fichier est déjà nommé selon la convention, ne pas re-renommer
-    existing_parsed = _parse_filename_convention(filename)
-    if existing_parsed and all(existing_parsed.get(k) for k in ("supplier", "date", "amount")):
-        return None
-
-    supplier = ocr_data.get("supplier")
-    best_date = ocr_data.get("best_date")
-    best_amount = ocr_data.get("best_amount")
-
-    new_name = build_convention_filename(supplier, best_date, best_amount)
-    if not new_name or new_name == filename:
-        return None
-
-    # Dédupliquer — chercher dans en_attente (cas le plus courant post-OCR)
+    # Localiser le répertoire source (en_attente ou traites)
     en_attente = JUSTIFICATIFS_EN_ATTENTE_DIR / filename
     traites = JUSTIFICATIFS_TRAITES_DIR / filename
-    target_dir = en_attente.parent if en_attente.exists() else traites.parent
+    if en_attente.exists():
+        source_dir = en_attente.parent
+    elif traites.exists():
+        source_dir = traites.parent
+    else:
+        return None
 
-    final_name = deduplicate_filename(target_dir, new_name)
+    result = rename_service.compute_canonical_name(
+        filename, ocr_data=ocr_data, source_dir=source_dir
+    )
+    if not result:
+        return None
+    new_name, _source = result
+    if new_name == filename:
+        return None
 
     try:
-        result = rename_justificatif(filename, final_name)
-        return result["new"]
+        return rename_justificatif(filename, new_name)["new"]
     except Exception as e:
         logger.warning("Auto-rename échoué pour %s: %s", filename, e)
         return None
@@ -797,3 +799,274 @@ def _update_ged_metadata_reference(old_filename: str, new_filename: str) -> None
 
     metadata["documents"] = documents
     ged_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# ─── Link integrity scan & repair ───
+
+def _md5_file(path: Path, block_size: int = 65536) -> str:
+    """Calcule le hash MD5 d'un fichier en streamant par blocs."""
+    import hashlib
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(block_size), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _collect_referenced_justificatifs() -> dict:
+    """Parcourt tous les fichiers d'opérations et retourne
+    {filename: [(op_file, op_index), ...]} des justificatifs référencés."""
+    referenced: dict = {}
+    for fp in sorted(IMPORTS_OPERATIONS_DIR.glob("operations_*.json")):
+        try:
+            with open(fp, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            logger.warning(f"scan_link_issues: impossible de lire {fp.name}: {e}")
+            continue
+        ops = data.get("operations", data) if isinstance(data, dict) else data
+        if not isinstance(ops, list):
+            continue
+        for i, op in enumerate(ops):
+            lien = (op.get("Lien justificatif") or "").strip()
+            if lien:
+                fname = Path(lien).name
+                referenced.setdefault(fname, []).append((fp.name, i))
+    return referenced
+
+
+def scan_link_issues() -> dict:
+    """Scanne les justificatifs à la recherche d'incohérences disque ↔ op.
+
+    Retourne une structure typée utilisable en dry-run pour l'UI :
+    - duplicates_to_delete_attente : fichier en double, référencé par une op,
+      hash identique dans les 2 dossiers → la copie de en_attente/ est fantôme.
+    - misplaced_to_move_to_traites : fichier référencé par une op, présent
+      uniquement dans en_attente/ → déplacer vers traites/.
+    - orphans_to_delete_traites : fichier dans traites/ sans op qui le référence,
+      mais duplicate identique présent en en_attente/ → supprimer la copie traites/.
+    - orphans_to_move_to_attente : fichier dans traites/ sans op qui le référence
+      et pas de duplicate en en_attente/ → déplacer vers en_attente/ pour
+      qu'il redevienne attribuable.
+    - hash_conflicts : fichiers en double mais hashes différents → skip
+      (inspection manuelle requise).
+    - ghost_refs : op dont le Lien justificatif pointe vers un fichier absent
+      des deux dossiers → le lien doit être vidé.
+    """
+    referenced = _collect_referenced_justificatifs()
+    traites_pdfs = {p.name for p in JUSTIFICATIFS_TRAITES_DIR.glob("*.pdf")}
+    attente_pdfs = {p.name for p in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf")}
+
+    duplicates_to_delete_attente: list[dict] = []
+    misplaced_to_move_to_traites: list[dict] = []
+    orphans_to_delete_traites: list[dict] = []
+    orphans_to_move_to_attente: list[dict] = []
+    hash_conflicts: list[dict] = []
+    ghost_refs: list[dict] = []
+
+    # A : fichiers référencés par une op, présents dans en_attente/
+    for name in sorted(attente_pdfs & set(referenced.keys())):
+        src = JUSTIFICATIFS_EN_ATTENTE_DIR / name
+        dst = JUSTIFICATIFS_TRAITES_DIR / name
+        refs_count = len(referenced[name])
+        if dst.exists():
+            # Duplicate : comparer les hashes
+            try:
+                h_src = _md5_file(src)
+                h_dst = _md5_file(dst)
+            except Exception as e:
+                logger.warning(f"scan_link_issues: hash failed pour {name}: {e}")
+                continue
+            if h_src == h_dst:
+                duplicates_to_delete_attente.append(
+                    {"name": name, "refs": refs_count, "hash": h_src}
+                )
+            else:
+                hash_conflicts.append(
+                    {
+                        "name": name,
+                        "hash_attente": h_src,
+                        "hash_traites": h_dst,
+                        "location": "both",
+                        "refs": refs_count,
+                    }
+                )
+        else:
+            misplaced_to_move_to_traites.append(
+                {"name": name, "refs": refs_count}
+            )
+
+    # B : fichiers dans traites/ sans op qui les référence
+    for name in sorted(traites_pdfs - set(referenced.keys())):
+        src = JUSTIFICATIFS_TRAITES_DIR / name
+        dst = JUSTIFICATIFS_EN_ATTENTE_DIR / name
+        if dst.exists():
+            try:
+                h_src = _md5_file(src)
+                h_dst = _md5_file(dst)
+            except Exception as e:
+                logger.warning(f"scan_link_issues: hash failed pour {name}: {e}")
+                continue
+            if h_src == h_dst:
+                orphans_to_delete_traites.append({"name": name, "hash": h_src})
+            else:
+                hash_conflicts.append(
+                    {
+                        "name": name,
+                        "hash_attente": h_dst,
+                        "hash_traites": h_src,
+                        "location": "both",
+                        "refs": 0,
+                    }
+                )
+        else:
+            orphans_to_move_to_attente.append({"name": name})
+
+    # C : ghosts — op référence un fichier absent des deux dossiers
+    on_disk = traites_pdfs | attente_pdfs
+    for name in sorted(set(referenced.keys()) - on_disk):
+        for op_file, op_idx in referenced[name]:
+            ghost_refs.append({"name": name, "op_file": op_file, "op_idx": op_idx})
+
+    return {
+        "scanned": {
+            "traites": len(traites_pdfs),
+            "attente": len(attente_pdfs),
+            "op_refs": sum(len(v) for v in referenced.values()),
+        },
+        "duplicates_to_delete_attente": duplicates_to_delete_attente,
+        "misplaced_to_move_to_traites": misplaced_to_move_to_traites,
+        "orphans_to_delete_traites": orphans_to_delete_traites,
+        "orphans_to_move_to_attente": orphans_to_move_to_attente,
+        "hash_conflicts": hash_conflicts,
+        "ghost_refs": ghost_refs,
+    }
+
+
+def _move_pdf_with_ocr(src: Path, dst: Path) -> None:
+    """Déplace un PDF + son .ocr.json compagnon. dst.parent doit exister."""
+    shutil.move(str(src), str(dst))
+    src_ocr = src.with_suffix(".ocr.json")
+    if src_ocr.exists():
+        shutil.move(str(src_ocr), str(dst.with_suffix(".ocr.json")))
+
+
+def _delete_pdf_with_ocr(path: Path) -> None:
+    """Supprime un PDF + son .ocr.json compagnon."""
+    if path.exists():
+        path.unlink()
+    ocr = path.with_suffix(".ocr.json")
+    if ocr.exists():
+        ocr.unlink()
+
+
+def apply_link_repair(plan: Optional[dict] = None) -> dict:
+    """Applique un plan de réparation. Si `plan=None`, re-scanne juste avant.
+
+    Skippe systématiquement les `hash_conflicts` (inspection manuelle requise).
+    Les autres incohérences sont réparées dans l'ordre :
+      1. duplicates_to_delete_attente → unlink
+      2. misplaced_to_move_to_traites → shutil.move
+      3. orphans_to_delete_traites → unlink
+      4. orphans_to_move_to_attente → shutil.move
+      5. ghost_refs → Justificatif=false + Lien justificatif=""
+    """
+    if plan is None:
+        plan = scan_link_issues()
+
+    result = {
+        "deleted_from_attente": 0,
+        "moved_to_traites": 0,
+        "deleted_from_traites": 0,
+        "moved_to_attente": 0,
+        "ghost_refs_cleared": 0,
+        "conflicts_skipped": len(plan.get("hash_conflicts", [])),
+        "errors": [],
+    }
+
+    # 1. Duplicates en_attente (hash identique au canonique dans traites/)
+    for item in plan.get("duplicates_to_delete_attente", []):
+        name = item["name"]
+        try:
+            _delete_pdf_with_ocr(JUSTIFICATIFS_EN_ATTENTE_DIR / name)
+            result["deleted_from_attente"] += 1
+        except Exception as e:
+            result["errors"].append(f"delete en_attente/{name}: {e}")
+            logger.warning(f"apply_link_repair: delete en_attente/{name} failed: {e}")
+
+    # 2. Misplaced (en_attente → traites)
+    for item in plan.get("misplaced_to_move_to_traites", []):
+        name = item["name"]
+        src = JUSTIFICATIFS_EN_ATTENTE_DIR / name
+        dst = JUSTIFICATIFS_TRAITES_DIR / name
+        if dst.exists():
+            # État concurrent : un autre process a créé le fichier entre-temps
+            result["errors"].append(f"move {name}: destination déjà présente")
+            continue
+        try:
+            _move_pdf_with_ocr(src, dst)
+            result["moved_to_traites"] += 1
+        except Exception as e:
+            result["errors"].append(f"move en_attente→traites/{name}: {e}")
+            logger.warning(f"apply_link_repair: move en_attente→traites/{name} failed: {e}")
+
+    # 3. Orphans duplicates dans traites/
+    for item in plan.get("orphans_to_delete_traites", []):
+        name = item["name"]
+        try:
+            _delete_pdf_with_ocr(JUSTIFICATIFS_TRAITES_DIR / name)
+            result["deleted_from_traites"] += 1
+        except Exception as e:
+            result["errors"].append(f"delete traites/{name}: {e}")
+            logger.warning(f"apply_link_repair: delete traites/{name} failed: {e}")
+
+    # 4. Orphans à redéplacer en en_attente/
+    for item in plan.get("orphans_to_move_to_attente", []):
+        name = item["name"]
+        src = JUSTIFICATIFS_TRAITES_DIR / name
+        dst = JUSTIFICATIFS_EN_ATTENTE_DIR / name
+        if dst.exists():
+            result["errors"].append(f"move {name}: destination déjà présente")
+            continue
+        try:
+            _move_pdf_with_ocr(src, dst)
+            result["moved_to_attente"] += 1
+        except Exception as e:
+            result["errors"].append(f"move traites→en_attente/{name}: {e}")
+            logger.warning(f"apply_link_repair: move traites→en_attente/{name} failed: {e}")
+
+    # 5. Ghost refs : clearer le Lien justificatif dans les ops
+    # Grouper par (op_file, op_idx) pour un seul load/save par op
+    ghost_by_op: dict = {}
+    for g in plan.get("ghost_refs", []):
+        ghost_by_op.setdefault(g["op_file"], set()).add(g["op_idx"])
+
+    for op_file, indices in ghost_by_op.items():
+        try:
+            ops = operation_service.load_operations(op_file)
+        except Exception as e:
+            result["errors"].append(f"load {op_file}: {e}")
+            continue
+        changed = False
+        for idx in indices:
+            if 0 <= idx < len(ops):
+                ops[idx]["Justificatif"] = False
+                ops[idx]["Lien justificatif"] = ""
+                changed = True
+                result["ghost_refs_cleared"] += 1
+        if changed:
+            try:
+                operation_service.save_operations(ops, filename=op_file)
+            except Exception as e:
+                result["errors"].append(f"save {op_file}: {e}")
+                logger.warning(f"apply_link_repair: save {op_file} failed: {e}")
+
+    # Warning log pour les conflits (skippés volontairement)
+    if result["conflicts_skipped"] > 0:
+        names = ", ".join(c["name"] for c in plan.get("hash_conflicts", []))
+        logger.warning(
+            f"apply_link_repair: {result['conflicts_skipped']} conflits hash skippés "
+            f"(inspection manuelle requise): {names}"
+        )
+
+    return result

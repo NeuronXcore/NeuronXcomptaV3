@@ -4,7 +4,8 @@ import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import JustificatifExemptionsSection from './JustificatifExemptionsSection'
-import { useSettings } from '@/hooks/useApi'
+import { useSettings, useRestartBackend } from '@/hooks/useApi'
+import { useScanLinks, useRepairLinks } from '@/hooks/useJustificatifs'
 import { api } from '@/api/client'
 import { cn, MOIS_FR } from '@/lib/utils'
 import type { AppSettings } from '@/types'
@@ -13,7 +14,8 @@ import {
   Loader2, Check, Moon, Sun, Bell, BellOff, Eye, EyeOff,
   FolderOpen, Database, Paperclip, Brain, ScrollText,
   Archive, Clock, Info, Monitor, Pencil, Trash2, X, ChevronDown,
-  Mail, CheckCircle2, Send, FileCheck,
+  Mail, CheckCircle2, Send, FileCheck, ShieldCheck, AlertTriangle, RefreshCw,
+  Power,
 } from 'lucide-react'
 import EmailChipsInput from '@/components/common/EmailChipsInput'
 import { useTestEmailConnection } from '@/hooks/useEmail'
@@ -648,6 +650,9 @@ function StorageTab() {
         </div>
       </div>
 
+      {/* Intégrité des liens justificatifs */}
+      <JustificatifsIntegritySection />
+
       {/* Operation files management — grouped by year */}
       <OperationFilesSection
         operationFiles={operationFiles}
@@ -663,6 +668,217 @@ function StorageTab() {
         deleteMutation={deleteMutation}
         setRenamingFile={setRenamingFile}
       />
+    </div>
+  )
+}
+
+
+// ──── Justificatifs integrity — scan & repair ────
+
+function JustificatifsIntegritySection() {
+  const scan = useScanLinks()
+  const repair = useRepairLinks()
+  const restart = useRestartBackend()
+  const data = scan.data
+
+  const handleScan = () => {
+    scan.refetch()
+  }
+
+  const handleRepair = async () => {
+    try {
+      const result = await repair.mutateAsync()
+      const total =
+        result.deleted_from_attente +
+        result.moved_to_traites +
+        result.deleted_from_traites +
+        result.moved_to_attente +
+        result.ghost_refs_cleared
+      if (total > 0) {
+        toast.success(`${total} action(s) appliquée(s)`)
+      } else {
+        toast('Aucune action appliquée', { icon: 'ℹ️' })
+      }
+      if (result.conflicts_skipped > 0) {
+        toast(`${result.conflicts_skipped} conflit(s) skippé(s)`, { icon: '⚠️' })
+      }
+      if (result.errors.length > 0) {
+        toast.error(`${result.errors.length} erreur(s)`)
+      }
+      // Re-scan pour rafraîchir l'état
+      scan.refetch()
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erreur réparation')
+    }
+  }
+
+  const handleRestart = async () => {
+    const confirmed = window.confirm(
+      "Redémarrer le backend ?\n\nLe serveur sera relancé (~3s), la page se rechargera ensuite automatiquement. Utile pour rejouer la réparation au boot ou recharger la config."
+    )
+    if (!confirmed) return
+    try {
+      await restart.mutateAsync()
+      // Si on arrive ici c'est que le hard reload n'a pas encore eu lieu
+      toast.success('Backend redémarré')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Erreur redémarrage')
+    }
+  }
+
+  const totalFixable = data
+    ? data.duplicates_to_delete_attente.length +
+      data.misplaced_to_move_to_traites.length +
+      data.orphans_to_delete_traites.length +
+      data.orphans_to_move_to_attente.length +
+      data.ghost_refs.length
+    : 0
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-text flex items-center gap-2">
+          <ShieldCheck size={18} />
+          Intégrité des justificatifs
+        </h3>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleScan}
+            disabled={scan.isFetching}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-background hover:bg-border rounded-lg border border-border text-text transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={cn(scan.isFetching && 'animate-spin')} />
+            {scan.isFetching ? 'Scan…' : 'Scanner'}
+          </button>
+          <button
+            onClick={handleRestart}
+            disabled={restart.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-warning/15 hover:bg-warning/25 rounded-lg border border-warning/40 text-warning transition-colors disabled:opacity-50"
+            title="Redémarre le backend (dev) pour rejouer la réparation au boot. La page se rechargera automatiquement."
+          >
+            <Power size={12} className={cn(restart.isPending && 'animate-spin')} />
+            {restart.isPending ? 'Redémarrage…' : 'Redémarrer backend'}
+          </button>
+        </div>
+      </div>
+
+      <p className="text-xs text-text-muted mb-4">
+        Détecte duplicatas, orphelins, fichiers déplacés et liens cassés entre{' '}
+        <code className="bg-background px-1 rounded">en_attente/</code> et{' '}
+        <code className="bg-background px-1 rounded">traites/</code>. La
+        réparation est appliquée automatiquement au démarrage du backend, ce
+        bouton permet de la lancer à la demande.
+      </p>
+
+      {!data && !scan.isFetching && (
+        <div className="text-xs text-text-muted italic">
+          Clique sur « Scanner » pour lancer l'audit.
+        </div>
+      )}
+
+      {data && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+            <IntegrityMetric
+              label="Duplicatas en_attente"
+              value={data.duplicates_to_delete_attente.length}
+              hint="Copies fantômes à supprimer"
+            />
+            <IntegrityMetric
+              label="Fichiers mal placés"
+              value={data.misplaced_to_move_to_traites.length}
+              hint="en_attente/ → traites/"
+            />
+            <IntegrityMetric
+              label="Orphelins duplicatas"
+              value={data.orphans_to_delete_traites.length}
+              hint="traites/ à supprimer"
+            />
+            <IntegrityMetric
+              label="Orphelins à déplacer"
+              value={data.orphans_to_move_to_attente.length}
+              hint="traites/ → en_attente/"
+            />
+            <IntegrityMetric
+              label="Liens fantômes"
+              value={data.ghost_refs.length}
+              hint="Ops → fichier inexistant"
+            />
+            <IntegrityMetric
+              label="Conflits hashs"
+              value={data.hash_conflicts.length}
+              hint="Skippés à l'apply"
+              warning
+            />
+          </div>
+
+          <div className="flex items-center gap-3 pt-3 border-t border-border">
+            <button
+              onClick={handleRepair}
+              disabled={totalFixable === 0 || repair.isPending}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {repair.isPending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <ShieldCheck size={14} />
+              )}
+              Réparer {totalFixable > 0 && `(${totalFixable} action${totalFixable > 1 ? 's' : ''})`}
+            </button>
+            <span className="text-xs text-text-muted">
+              {data.scanned.traites} traités · {data.scanned.attente} en attente · {data.scanned.op_refs} liens op
+            </span>
+          </div>
+
+          {data.hash_conflicts.length > 0 && (
+            <details className="mt-4 text-xs">
+              <summary className="cursor-pointer text-warning flex items-center gap-1.5 hover:text-warning/80">
+                <AlertTriangle size={12} />
+                {data.hash_conflicts.length} conflit{data.hash_conflicts.length > 1 ? 's' : ''} — inspection manuelle requise
+              </summary>
+              <ul className="mt-2 space-y-1 pl-5">
+                {data.hash_conflicts.map((c) => (
+                  <li key={c.name} className="font-mono text-text-muted">
+                    {c.name}
+                    <span className="ml-2 text-[10px]">
+                      (attente={c.hash_attente.slice(0, 8)} vs traites={c.hash_traites.slice(0, 8)})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function IntegrityMetric({
+  label,
+  value,
+  hint,
+  warning,
+}: {
+  label: string
+  value: number
+  hint: string
+  warning?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        'bg-background rounded-xl p-3 border',
+        value === 0
+          ? 'border-border text-text-muted'
+          : warning
+          ? 'border-warning/30 text-warning'
+          : 'border-primary/30 text-primary',
+      )}
+    >
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-[11px] text-text mt-0.5">{label}</div>
+      <div className="text-[10px] text-text-muted">{hint}</div>
     </div>
   )
 }
