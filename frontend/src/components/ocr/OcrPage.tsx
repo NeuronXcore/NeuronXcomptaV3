@@ -4,6 +4,7 @@ import { useDropzone } from 'react-dropzone'
 import { useQueries } from '@tanstack/react-query'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
+import PdfThumbnail from '@/components/shared/PdfThumbnail'
 import {
   useOcrStatus, useOcrHistory, useExtractOcr, useExtractUpload,
   useBatchUploadOcr,
@@ -715,13 +716,15 @@ function PdfPreviewHover({ filename }: { filename: string }) {
           onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current) }}
           onMouseLeave={handleLeave}
         >
-          <div className="w-[300px] h-[400px]">
-            <iframe
-              src={`/api/justificatifs/${encodeURIComponent(filename)}/preview`}
-              className="w-full h-full"
-              title="Aperçu PDF"
-            />
-          </div>
+          {/* Thumbnail PNG (endpoint cache backend) au lieu d'un <iframe>/preview :
+              le plugin PDF du navigateur se décharge en grille/popover et force un hard refresh. */}
+          <PdfThumbnail
+            justificatifFilename={filename}
+            alt="Aperçu PDF"
+            className="w-[300px] h-[400px] rounded-none border-0 bg-white [&>img]:object-contain"
+            iconSize={48}
+            lazy={false}
+          />
         </div>
       )}
     </>

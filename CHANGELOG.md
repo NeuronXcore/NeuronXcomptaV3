@@ -8,6 +8,22 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-04-11) — Patch fix-thumbnail-preview
+
+- **Hover popover OCR Gestion OCR : migration `<iframe>` PDF → `<img>` thumbnail PNG**
+  - Symptôme : le popover 300×400 au hover du bouton « Aperçu » dans la colonne Fichier affichait un `<iframe src=".../preview">` qui se déchargeait silencieusement lorsque le plugin PDF du navigateur n'arrivait pas à conserver 30+ instances en parallèle — forçait un hard refresh
+  - Fix : `OcrPage.tsx:711` — remplacement de `<iframe>` par `<PdfThumbnail justificatifFilename={filename}>` qui pointe vers l'endpoint PNG `/api/justificatifs/{filename}/thumbnail` (cache `data/ged/thumbnails/{md5}.png`, 200×N)
+  - `lazy={false}` car le popover n'existe qu'au hover → chargement immédiat voulu
+  - Classes Tailwind passées via `className` pour conserver le sizing 300×400 + `object-contain` (au lieu du `object-cover` par défaut du composant)
+  - Vérifié en preview : hover sur un item affiche le thumbnail Orange 200×283 sans aucun déchargement, 0 erreur console
+
+- **Nouveau composant partagé `PdfThumbnail`** — `frontend/src/components/shared/PdfThumbnail.tsx`
+  - Props : `docId?` (→ endpoint GED) OU `justificatifFilename?` (→ endpoint justificatifs avec résolution auto `en_attente`/`traites`), `cacheBuster?`, `lazy?` (défaut `true`), `className?`, `iconSize?`, `onClick?`
+  - IntersectionObserver lazy-load avec `rootMargin: 200px` (détecte les scrolls internes, contrairement au `loading="lazy"` natif qui ne couvre que le viewport racine)
+  - Fallback visuel : icône `FileText` Lucide centrée au même endroit (placeholder pendant load + état erreur)
+  - Pensé pour éliminer la duplication existante de logique `Thumbnail` (aujourd'hui présente dans `RapprochementWorkflowDrawer`, `ScanRenameDrawer`, `GedDocumentCard` avec des variantes) — migration progressive à suivre
+  - Backend : aucun changement, les endpoints `GET /api/justificatifs/{filename}/thumbnail` + `GET /api/ged/documents/{doc_id}/thumbnail` existaient déjà (cf. session 8)
+
 ### Added / Changed (2026-04-11) — Session 12
 
 - **OCR — refonte de l'onglet « Historique » en « Gestion OCR »**
