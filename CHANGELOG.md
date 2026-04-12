@@ -8,6 +8,21 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-12)
+
+- **Compte d'attente — filtres catégorie + sous-catégorie**
+  - 2 dropdowns de filtre ajoutés dans `AlertesPage` entre les boutons mois et le tableau
+  - Dropdown **Catégorie** : liste complète du référentiel (via `useCategories()`), pas seulement les catégories présentes dans les opérations en attente
+  - Dropdown **Sous-catégorie** : activé quand une catégorie est sélectionnée, affiche la liste complète des sous-catégories du référentiel pour cette catégorie
+  - Reset automatique de la sous-catégorie au changement de catégorie
+  - Bouton **Réinitialiser** (X) pour remettre les 2 filtres à zéro
+  - Compteur d'opérations filtrées affiché à droite (ex. « 12 opérations »)
+  - Filtrage côté client uniquement (pas de changement backend)
+
+- **Sandbox toast persistant**
+  - `SandboxArrivalToast` passe de `duration: 6000` à `duration: Infinity`
+  - Le toast d'arrivée d'un nouveau scan OCR reste affiché jusqu'à action utilisateur (clic carte ou bouton X)
+
 ### Fixed (2026-04-11) — Patch fix-thumbnail-preview
 
 - **Hover popover OCR Gestion OCR : migration `<iframe>` PDF → `<img>` thumbnail PNG**

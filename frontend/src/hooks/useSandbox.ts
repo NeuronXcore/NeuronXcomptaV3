@@ -38,7 +38,7 @@ function showArrivalToast(data: SandboxEvent) {
         originalFilename: data.original_filename,
         onClickOpen: () => navigateToHistorique(data.filename),
       }),
-    { duration: 6000, position: 'top-right' },
+    { duration: Infinity, position: 'top-right' },
   )
 }
 

@@ -955,7 +955,7 @@ useFiscalYearStore (Zustand + persist localStorage)
     ├── EditorPage : dropdown année → mois en cascade
     ├── DashboardPage : YearSelector
     ├── CloturePage : boutons ◀▶
-    ├── AlertesPage : dropdown année → mois
+    ├── AlertesPage : dropdown année → mois + filtres catégorie/sous-catégorie
     ├── ComptaAnalytiquePage : filtre année global
     ├── ExportPage : boutons année
     ├── ReportsPage : filtre année dans filters

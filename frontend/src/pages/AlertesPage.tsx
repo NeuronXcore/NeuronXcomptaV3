@@ -16,6 +16,7 @@ import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import AlerteBadge from '@/components/AlerteBadge'
 import { useAlertesSummary, useAlertesFichier, useResolveAlerte, useRefreshAlertes, useExportCompteAttente, downloadCompteAttenteExport } from '@/hooks/useAlertes'
+import { useCategories } from '@/hooks/useApi'
 import { formatCurrency, formatDate, cn, MOIS_FR } from '@/lib/utils'
 import type { Operation, AlerteType } from '@/types'
 
@@ -45,6 +46,9 @@ export default function AlertesPage() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [showExportMenu, setShowExportMenu] = useState(false)
   const exportMenuRef = useRef<HTMLDivElement>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string>('')
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>('')
+  const { data: categoriesData } = useCategories()
 
   const hasAutoSelected = useRef(false)
 
@@ -91,10 +95,44 @@ export default function AlertesPage() {
     }
   }, [summary, selectedYear])
 
-  const sortedOps = useMemo(
-    () => [...(operations || [])].sort((a, b) => alertePriority(a) - alertePriority(b)),
-    [operations]
-  )
+  // Sous-catégories par catégorie
+  const subcategoriesMap = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    if (categoriesData?.categories) {
+      for (const cat of categoriesData.categories) {
+        map[cat.name] = cat.subcategories.map((s) => s.name)
+      }
+    }
+    return map
+  }, [categoriesData])
+
+  // Liste complète des catégories depuis le référentiel
+  const allCategories = useMemo(() => {
+    if (!categoriesData?.categories) return []
+    return categoriesData.categories.map((c) => c.name).sort()
+  }, [categoriesData])
+
+  // Sous-catégories complètes pour la catégorie filtrée
+  const allSubcategories = useMemo(() => {
+    if (!categoryFilter) return []
+    return subcategoriesMap[categoryFilter] || []
+  }, [categoryFilter, subcategoriesMap])
+
+  // Reset sous-catégorie quand la catégorie change
+  useEffect(() => {
+    setSubcategoryFilter('')
+  }, [categoryFilter])
+
+  const sortedOps = useMemo(() => {
+    let ops = [...(operations || [])]
+    if (categoryFilter) {
+      ops = ops.filter((op) => op['Catégorie'] === categoryFilter)
+    }
+    if (subcategoryFilter) {
+      ops = ops.filter((op) => op['Sous-catégorie'] === subcategoryFilter)
+    }
+    return ops.sort((a, b) => alertePriority(a) - alertePriority(b))
+  }, [operations, categoryFilter, subcategoryFilter])
 
   const columns = useMemo<ColumnDef<Operation>[]>(() => [
     {
@@ -380,6 +418,48 @@ export default function AlertesPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Filtres catégorie / sous-catégorie */}
+      {selectedFile && (operations || []).length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text min-w-[180px]"
+          >
+            <option value="">Toutes les catégories</option>
+            {allCategories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          <select
+            value={subcategoryFilter}
+            onChange={(e) => setSubcategoryFilter(e.target.value)}
+            disabled={!categoryFilter}
+            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text min-w-[180px] disabled:opacity-40"
+          >
+            <option value="">Toutes les sous-catégories</option>
+            {allSubcategories.map((sub) => (
+              <option key={sub} value={sub}>{sub}</option>
+            ))}
+          </select>
+
+          {(categoryFilter || subcategoryFilter) && (
+            <button
+              onClick={() => { setCategoryFilter(''); setSubcategoryFilter('') }}
+              className="flex items-center gap-1 px-2.5 py-2 text-xs text-text-muted hover:text-text rounded-lg hover:bg-surface transition-colors"
+            >
+              <X size={14} />
+              Réinitialiser
+            </button>
+          )}
+
+          <span className="text-xs text-text-muted ml-auto">
+            {sortedOps.length} opération{sortedOps.length > 1 ? 's' : ''}
+          </span>
         </div>
       )}
 

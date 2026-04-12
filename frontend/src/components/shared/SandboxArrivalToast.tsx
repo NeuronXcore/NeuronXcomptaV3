@@ -23,7 +23,7 @@ interface Props {
  * - Supplier + montant + date OCR si disponibles
  * - Badge "auto-renommé" (suppliers + dates corrigées depuis le filename source)
  * - Clic → onClickOpen (navigation vers /ocr Historique tri scan_date + highlight)
- * - Bouton X pour dismiss manuel (auto-dismiss à 6s géré par react-hot-toast)
+ * - Bouton X pour dismiss manuel (persistant, duration: Infinity)
  */
 export default function SandboxArrivalToast({
   toastId,
