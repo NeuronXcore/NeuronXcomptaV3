@@ -1,0 +1,11 @@
+{
+  "annee": 2025,
+  "reference_legale": "BOI-BNC-BASE-40-20",
+  "mode_defaut": "domicile",
+  "decote_domicile": 0.30,
+  "articles": [
+    { "type": "Blouse médicale", "tarif_pressing": 7.00, "quantite_jour": 1 },
+    { "type": "Pantalon médical", "tarif_pressing": 8.00, "quantite_jour": 1 },
+    { "type": "Serviette de soins", "tarif_pressing": 2.00, "quantite_jour": 2 }
+  ]
+}

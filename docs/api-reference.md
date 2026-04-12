@@ -1818,3 +1818,67 @@ Régénère les tâches auto pour l'année donnée et applique la déduplication
   "completed_at": null,
   "order": 0
 }
+
+---
+
+## Charges Forfaitaires (`/api/charges-forfaitaires`)
+
+### `POST /calculer/blanchissage`
+Calcule le montant déductible sans générer d'OD.
+
+**Body :**
+```json
+{
+  "year": 2026,
+  "jours_travailles": 176.5,
+  "mode": "domicile",
+  "honoraires_liasse": 300000
+}
+```
+
+**Réponse :** `ForfaitResult` avec `montant_deductible`, `cout_jour`, `detail[]`, `reference_legale`.
+
+### `POST /generer`
+Génère l'OD + PDF rapport + enregistrement GED.
+
+**Body :**
+```json
+{
+  "type_forfait": "blanchissage",
+  "year": 2026,
+  "jours_travailles": 176.5,
+  "mode": "domicile",
+  "honoraires_liasse": 300000
+}
+```
+
+**Réponse :**
+```json
+{
+  "od_filename": "operations_xxx.json",
+  "od_index": 89,
+  "pdf_filename": "blanchissage_20261231_2347,45.pdf",
+  "ged_doc_id": "data/reports/blanchissage_20261231_2347,45.pdf",
+  "montant": 2347.45
+}
+```
+
+**Erreur 409** si un forfait blanchissage existe déjà pour l'année.
+
+### `GET /generes?year=2026`
+Liste les forfaits déjà générés pour l'année. Retourne `pdf_filename` et `ged_doc_id` pour preview et navigation.
+
+### `DELETE /supprimer/{type_forfait}?year=2026`
+Supprime l'OD + PDF (reports + justificatifs legacy) + entrée GED.
+
+### `GET /config?year=2026`
+Retourne la config persistée pour l'année (jours travaillés, honoraires liasse).
+
+### `PUT /config?year=2026`
+Met à jour la config persistée. Body partiel accepté.
+
+```json
+{
+  "honoraires_liasse": 300000,
+  "jours_travailles": 176.5
+}

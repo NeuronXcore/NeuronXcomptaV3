@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { AlertTriangle, TrendingDown, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import MetricCard from '@/components/shared/MetricCard'
@@ -9,6 +10,7 @@ import {
   simulateAll, calculateTauxMarginalReel,
   getMadelinPlafonds, getPERPlafond,
 } from '@/lib/fiscal-engine'
+import { useForfaitsGeneres } from '@/hooks/useChargesForfaitaires'
 import { formatCurrency } from '@/lib/utils'
 import type { SimulationLeviers } from '@/types'
 
@@ -41,8 +43,10 @@ export default function SimulationOptimisationSection({ year }: Props) {
   })
   const [parts, setParts] = useState(1.75)
   const [depensesOpen, setDepensesOpen] = useState(false)
+  const [forfaitExclus, setForfaitExclus] = useState<Record<string, boolean>>({})
 
   const { data: baremes } = useBaremes(year)
+  const { data: forfaitsGeneres } = useForfaitsGeneres(year)
   const { data: dotations } = useDotationsExercice(year)
   const { data: dashboard } = useDashboard(year)
   const { data: projections } = useProjections(5)
@@ -275,6 +279,39 @@ export default function SimulationOptimisationSection({ year }: Props) {
                     step={cat.step}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Charges forfaitaires */}
+          <div>
+            <div className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2 mt-4">Charges forfaitaires</div>
+            {forfaitsGeneres?.map(f => (
+              <div key={f.type_forfait} className="flex items-center gap-3 py-1.5">
+                <input
+                  type="checkbox"
+                  checked={!forfaitExclus[f.type_forfait]}
+                  onChange={() => setForfaitExclus(prev => ({
+                    ...prev,
+                    [f.type_forfait]: !prev[f.type_forfait],
+                  }))}
+                  className="rounded border-border"
+                />
+                <span className="text-sm text-text">
+                  {f.type_forfait === 'blanchissage' ? 'Blanchissage professionnel' : f.type_forfait}
+                </span>
+                <span className="ml-auto text-sm font-medium text-text font-mono">
+                  -{formatCurrency(f.montant)}
+                </span>
+              </div>
+            ))}
+            {!forfaitsGeneres?.find(f => f.type_forfait === 'blanchissage') && (
+              <div className="flex items-center gap-3 py-1.5 opacity-40">
+                <input type="checkbox" disabled className="rounded border-border" />
+                <span className="text-sm text-text">Blanchissage professionnel</span>
+                <Link to="/charges-forfaitaires" className="ml-auto text-xs text-primary hover:underline">
+                  Configurer →
+                </Link>
               </div>
             )}
           </div>

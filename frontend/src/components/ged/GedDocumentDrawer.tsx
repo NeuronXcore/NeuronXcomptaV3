@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  X, FileText, ExternalLink, Download, Save, Trash2, Loader2,
+  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import GedMetadataEditor from './GedMetadataEditor'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
@@ -19,6 +20,7 @@ const MAX_WIDTH = 1200
 const DEFAULT_WIDTH = 700
 
 export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumentDrawerProps) {
+  const navigate = useNavigate()
   const open = docId != null
   const [localDoc, setLocalDoc] = useState<GedDocument | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
@@ -177,6 +179,17 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
               showEditorLink
               className="mt-3"
             />
+          )}
+
+          {/* Lien module source (charges forfaitaires) */}
+          {(localDoc?.source_module === 'charges-forfaitaires' || localDoc?.doc_id?.includes('blanchissage_')) && (
+            <button
+              onClick={() => { navigate('/charges-forfaitaires'); onClose() }}
+              className="flex items-center gap-2 mt-3 px-3 py-2 bg-primary/10 text-primary rounded-lg text-sm hover:bg-primary/20 transition-colors w-full"
+            >
+              <Receipt size={16} />
+              Voir dans Charges forfaitaires
+            </button>
           )}
 
           {/* Actions */}

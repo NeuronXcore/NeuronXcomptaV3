@@ -22,6 +22,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/export': 'Export Comptable',
   '/cloture': 'Clôture',
   '/amortissements': 'Amortissements',
+  '/charges-forfaitaires': 'Charges forfaitaires',
   '/ged': 'Bibliothèque',
   '/tasks': 'Tâches',
   '/agent-ai': 'Agent IA',

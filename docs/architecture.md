@@ -26,7 +26,7 @@
 │                                                           │
 │  ┌────────────┐     ┌─────────────┐     ┌──────────────┐ │
 │  │  Routers   │ ──▶ │  Services   │ ──▶ │  Data (JSON) │ │
-│  │  (20 files)│     │  (19 files) │     │  data/       │ │
+│  │  (22 files)│     │  (25 files) │     │  data/       │ │
 │  └────────────┘     └─────────────┘     └──────────────┘ │
 │        │                   │                              │
 │  ┌─────▼──────┐     ┌─────▼──────┐                       │
@@ -753,6 +753,34 @@ Moteur de calcul (dupliqué Python + TypeScript) :
   └─ Quote-part pro : dotation_déductible = dotation_brute × quote_part_pro / 100
 
 Données : data/amortissements/immobilisations.json + config.json
+```
+
+### Charges Forfaitaires (blanchissage)
+
+```
+Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
+  ├─ Onglet Blanchissage (Véhicule préparé, non implémenté)
+  │   ├─ État 1 — Saisie :
+  │   │   ├─ Inputs : jours travaillés (décimales, step 0.5), honoraires liasse SCP (optionnel)
+  │   │   ├─ Barème éditable : tarifs pressing (€, step 0.01), qté/jour, décote domicile 30%
+  │   │   ├─ 3 MetricCards : honoraires bruts ou liasse, coût/jour, total déductible
+  │   │   ├─ Tableau détail articles (calcul live debounce 300ms)
+  │   │   └─ Bouton "Générer l'écriture" → toast custom brandé (logo + gradient violet)
+  │   └─ État 2 — Déjà généré :
+  │       ├─ Checklist 3✓ (OD, PDF, GED)
+  │       ├─ Aperçu PDF compact (280px) / agrandi (pleine largeur, 700px)
+  │       └─ Boutons : Ouvrir GED / Regénérer / Envoyer au comptable (objet pré-rempli)
+  │
+  ├─ Backend : ChargesForfaitairesService (calcul, OD, PDF ReportLab, GED)
+  │   ├─ Barème : data/baremes/blanchissage_{year}.json (fallback année récente)
+  │   ├─ PDF : data/reports/blanchissage_YYYYMMDD_montant.pdf
+  │   ├─ GED : type "rapport" + source_module "charges-forfaitaires"
+  │   └─ Config : data/charges_forfaitaires_config.json (par année)
+  │
+  └─ Intégrations :
+      ├─ Simulation BNC : section "Charges forfaitaires" (checkbox toggle)
+      ├─ GED : drawer bidirectionnel (bouton "Voir dans Charges forfaitaires")
+      └─ Email : sendDrawerStore.defaultSubject pour objet pré-rempli
 ```
 
 ### Prévisionnel (calendrier de trésorerie)

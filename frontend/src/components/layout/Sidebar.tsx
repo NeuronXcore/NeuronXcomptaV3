@@ -5,7 +5,7 @@ import {
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
   Library, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
-  Send,
+  Send, Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -52,6 +52,7 @@ const NAV_SECTIONS = [
       { to: '/export', label: 'Export Comptable', icon: PackageCheck },
       { to: '/cloture', label: 'Clôture', icon: CalendarCheck },
       { to: '/amortissements', label: 'Amortissements', icon: Landmark },
+      { to: '/charges-forfaitaires', label: 'Charges forfaitaires', icon: Receipt },
     ],
   },
   {

@@ -999,6 +999,7 @@ export interface GedDocument {
   statut_justificatif?: 'traite' | 'en_attente' | null
   operation_ref?: { file: string; index: number; ventilation_index?: number } | null
   rapport_meta?: RapportMeta | null
+  source_module?: string | null
 }
 
 export interface GedTreeNode {
@@ -1385,4 +1386,73 @@ export interface TaskUpdate {
   priority?: TaskPriority
   due_date?: string
   dismissed?: boolean
+}
+
+// --- Charges Forfaitaires ---
+
+export type TypeForfait = 'blanchissage' | 'vehicule'
+export type ModeBlanchissage = 'domicile' | 'pressing'
+
+export interface ArticleBlanchissage {
+  type: string
+  tarif_pressing: number
+  quantite_jour: number
+}
+
+export interface BaremeBlanchissage {
+  annee: number
+  reference_legale: string
+  mode_defaut: string
+  decote_domicile: number
+  articles: ArticleBlanchissage[]
+}
+
+export interface ArticleDetail {
+  type: string
+  tarif_pressing: number
+  montant_unitaire: number
+  quantite_jour: number
+  jours: number
+  sous_total: number
+}
+
+export interface ForfaitResult {
+  type_forfait: TypeForfait
+  year: number
+  montant_total: number
+  montant_deductible: number
+  detail: ArticleDetail[]
+  reference_legale: string
+  mode: string
+  decote: number
+  jours_travailles: number
+  cout_jour: number
+  honoraires_liasse?: number | null
+}
+
+export interface GenerateODRequest {
+  type_forfait: TypeForfait
+  year: number
+  jours_travailles: number
+  mode: ModeBlanchissage
+  date_ecriture?: string
+  honoraires_liasse?: number | null
+}
+
+export interface GenerateODResponse {
+  od_filename: string
+  od_index: number
+  pdf_filename: string
+  ged_doc_id: string
+  montant: number
+}
+
+export interface ForfaitGenere {
+  type_forfait: TypeForfait
+  montant: number
+  date_ecriture: string
+  od_filename: string
+  od_index: number
+  pdf_filename: string
+  ged_doc_id: string
 }

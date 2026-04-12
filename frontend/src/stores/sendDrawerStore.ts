@@ -5,7 +5,8 @@ interface SendDrawerState {
   isOpen: boolean
   preselected: DocumentRef[]
   defaultFilter?: string
-  open: (opts?: { preselected?: DocumentRef[]; defaultFilter?: string }) => void
+  defaultSubject?: string
+  open: (opts?: { preselected?: DocumentRef[]; defaultFilter?: string; defaultSubject?: string }) => void
   close: () => void
 }
 
@@ -13,14 +14,17 @@ export const useSendDrawerStore = create<SendDrawerState>((set) => ({
   isOpen: false,
   preselected: [],
   defaultFilter: undefined,
+  defaultSubject: undefined,
   open: (opts) => set({
     isOpen: true,
     preselected: opts?.preselected ?? [],
     defaultFilter: opts?.defaultFilter,
+    defaultSubject: opts?.defaultSubject,
   }),
   close: () => set({
     isOpen: false,
     preselected: [],
     defaultFilter: undefined,
+    defaultSubject: undefined,
   }),
 }))

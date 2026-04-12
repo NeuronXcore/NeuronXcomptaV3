@@ -22,7 +22,7 @@ const TYPE_CONFIG: { key: DocumentType; label: string; icon: typeof Archive }[] 
 const MAX_SIZE_MB = 25
 
 export default function SendToAccountantDrawer() {
-  const { isOpen, preselected, defaultFilter, close } = useSendDrawerStore()
+  const { isOpen, preselected, defaultFilter, defaultSubject, close } = useSendDrawerStore()
   const { data: settings } = useSettings()
   const { data: allDocuments, isLoading: docsLoading } = useAvailableDocuments()
   const previewMutation = useEmailPreview()
@@ -85,7 +85,7 @@ export default function SendToAccountantDrawer() {
     setSelected(sel)
     // Recipients from settings
     setDestinataires(settings?.email_comptable_destinataires ?? [])
-    setObjet('')
+    setObjet(defaultSubject ?? '')
     setCorps('')
     setCorpsHtml('')
     setPreviewMode('html')
