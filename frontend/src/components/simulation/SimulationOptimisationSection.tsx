@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, TrendingDown, Info, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, TrendingDown, Info, ChevronDown, ChevronUp, Car } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import MetricCard from '@/components/shared/MetricCard'
 import { useBaremes } from '@/hooks/useSimulation'
@@ -10,7 +10,7 @@ import {
   simulateAll, calculateTauxMarginalReel,
   getMadelinPlafonds, getPERPlafond,
 } from '@/lib/fiscal-engine'
-import { useForfaitsGeneres } from '@/hooks/useChargesForfaitaires'
+import { useForfaitsGeneres, useVehiculeGenere } from '@/hooks/useChargesForfaitaires'
 import { formatCurrency } from '@/lib/utils'
 import type { SimulationLeviers } from '@/types'
 
@@ -47,6 +47,7 @@ export default function SimulationOptimisationSection({ year }: Props) {
 
   const { data: baremes } = useBaremes(year)
   const { data: forfaitsGeneres } = useForfaitsGeneres(year)
+  const { data: vehiculeGenere } = useVehiculeGenere(year)
   const { data: dotations } = useDotationsExercice(year)
   const { data: dashboard } = useDashboard(year)
   const { data: projections } = useProjections(5)
@@ -309,6 +310,22 @@ export default function SimulationOptimisationSection({ year }: Props) {
               <div className="flex items-center gap-3 py-1.5 opacity-40">
                 <input type="checkbox" disabled className="rounded border-border" />
                 <span className="text-sm text-text">Blanchissage professionnel</span>
+                <Link to="/charges-forfaitaires" className="ml-auto text-xs text-primary hover:underline">
+                  Configurer →
+                </Link>
+              </div>
+            )}
+            {vehiculeGenere && (
+              <div className="flex items-center gap-3 py-1.5 opacity-70">
+                <Car className="w-4 h-4 text-secondary" />
+                <span className="text-sm text-text">Quote-part véhicule</span>
+                <span className="ml-auto text-sm font-medium text-text">{vehiculeGenere.ratio_pro}%</span>
+              </div>
+            )}
+            {!vehiculeGenere && (
+              <div className="flex items-center gap-3 py-1.5 opacity-40">
+                <Car className="w-4 h-4" />
+                <span className="text-sm text-text">Quote-part véhicule</span>
                 <Link to="/charges-forfaitaires" className="ml-auto text-xs text-primary hover:underline">
                   Configurer →
                 </Link>

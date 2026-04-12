@@ -755,11 +755,13 @@ Moteur de calcul (dupliqué Python + TypeScript) :
 Données : data/amortissements/immobilisations.json + config.json
 ```
 
-### Charges Forfaitaires (blanchissage)
+### Charges Forfaitaires (blanchissage + véhicule)
 
 ```
 Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
-  ├─ Onglet Blanchissage (Véhicule préparé, non implémenté)
+  ├─ Tabs badges pill colorés : Shirt violet (Blanchissage) / Car bleu (Véhicule)
+  │
+  ├─ Onglet Blanchissage :
   │   ├─ État 1 — Saisie :
   │   │   ├─ Inputs : jours travaillés (décimales, step 0.5), honoraires liasse SCP (optionnel)
   │   │   ├─ Barème éditable : tarifs pressing (€, step 0.01), qté/jour, décote domicile 30%
@@ -768,17 +770,39 @@ Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
   │   │   └─ Bouton "Générer l'écriture" → toast custom brandé (logo + gradient violet)
   │   └─ État 2 — Déjà généré :
   │       ├─ Checklist 3✓ (OD, PDF, GED)
-  │       ├─ Aperçu PDF compact (280px) / agrandi (pleine largeur, 700px)
+  │       ├─ Thumbnail PdfThumbnail (PNG) → clic → PdfPreviewDrawer (700px)
   │       └─ Boutons : Ouvrir GED / Regénérer / Envoyer au comptable (objet pré-rempli)
   │
-  ├─ Backend : ChargesForfaitairesService (calcul, OD, PDF ReportLab, GED)
-  │   ├─ Barème : data/baremes/blanchissage_{year}.json (fallback année récente)
-  │   ├─ PDF : data/reports/blanchissage_YYYYMMDD_montant.pdf
+  ├─ Onglet Véhicule (quote-part professionnelle) :
+  │   ├─ État 1 — Saisie :
+  │   │   ├─ 4 Inputs : distance aller (km), jours travaillés (partagé), km sup, km totaux compteur
+  │   │   ├─ Honoraires liasse SCP (optionnel, même pattern que blanchissage)
+  │   │   ├─ Calcul live côté client (useMemo, pas d'appel API) : jours × distance × 2 + km_sup
+  │   │   ├─ 3 MetricCards : km trajet habituel, km professionnels, % déductible
+  │   │   ├─ Barre visuelle pro/perso + encadré poste actuel + delta pts
+  │   │   ├─ Tableau dépenses véhicule (sous-catégories Véhicule+Transport, brut → déductible)
+  │   │   └─ Bouton "Appliquer X% au poste Véhicule" → toast brandé
+  │   └─ État 2 — Déjà appliqué :
+  │       ├─ Checklist 3✓ (Poste, PDF, GED)
+  │       ├─ Thumbnail PdfThumbnail (PNG) → clic → PdfPreviewDrawer (700px)
+  │       ├─ Tableau dépenses véhicule (live, pas figé)
+  │       ├─ Auto-regénération PDF silencieuse à la visite (useEffect + useRef)
+  │       └─ Boutons : Ouvrir GED / Regénérer / Envoyer au comptable
+  │
+  ├─ Backend : ChargesForfaitairesService
+  │   ├─ Blanchissage : calcul, OD décembre, PDF ReportLab, GED
+  │   ├─ Véhicule : calcul ratio, update poste GED, PDF avec dépenses, GED, historique barème
+  │   ├─ Barèmes : blanchissage_{year}.json + vehicule_{year}.json (fallback année récente)
+  │   ├─ PDF : data/reports/ (blanchissage_YYYYMMDD_montant.pdf, quote_part_vehicule_{year}.pdf)
   │   ├─ GED : type "rapport" + source_module "charges-forfaitaires"
-  │   └─ Config : data/charges_forfaitaires_config.json (par année)
+  │   └─ Config : data/charges_forfaitaires_config.json (par année, champs partagés + véhicule)
+  │
+  ├─ Composants partagés :
+  │   ├─ PdfPreviewDrawer.tsx : drawer 700px avec object PDF + boutons ouvrir/télécharger/fermer
+  │   └─ PdfThumbnail : image PNG cliquable (pas iframe/object — évite capture clics par plugin PDF)
   │
   └─ Intégrations :
-      ├─ Simulation BNC : section "Charges forfaitaires" (checkbox toggle)
+      ├─ Simulation BNC : blanchissage = checkbox toggle, véhicule = ligne informative (ratio %)
       ├─ GED : drawer bidirectionnel (bouton "Voir dans Charges forfaitaires")
       └─ Email : sendDrawerStore.defaultSubject pour objet pré-rempli
 ```

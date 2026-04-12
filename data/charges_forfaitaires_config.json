@@ -1,10 +1,16 @@
 {
   "2025": {
-    "honoraires_liasse": 300000.0,
-    "jours_travailles": 176.5
+    "honoraires_liasse": 0.0,
+    "jours_travailles": 176.5,
+    "vehicule_distance_km": 7.9,
+    "vehicule_km_supplementaires": 500.0,
+    "vehicule_km_totaux_compteur": 6500.0
   },
   "2026": {
-    "jours_travailles": 176.5
+    "jours_travailles": 176.5,
+    "vehicule_distance_km": 0.0,
+    "vehicule_km_supplementaires": 0.0,
+    "vehicule_km_totaux_compteur": 1.0
   },
   "2024": {
     "jours_travailles": 180.0

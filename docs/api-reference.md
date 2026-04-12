@@ -1875,10 +1875,55 @@ Supprime l'OD + PDF (reports + justificatifs legacy) + entrée GED.
 Retourne la config persistée pour l'année (jours travaillés, honoraires liasse).
 
 ### `PUT /config?year=2026`
-Met à jour la config persistée. Body partiel accepté.
+Met à jour la config persistée. Body partiel accepté. Champs véhicule inclus.
 
 ```json
 {
   "honoraires_liasse": 300000,
-  "jours_travailles": 176.5
+  "jours_travailles": 176.5,
+  "vehicule_distance_km": 18,
+  "vehicule_km_supplementaires": 1200,
+  "vehicule_km_totaux_compteur": 14000
 }
+```
+
+### `POST /calculer/vehicule`
+Calcule le ratio pro sans persister. Retourne aussi le delta avec le poste GED actuel.
+
+**Body :**
+```json
+{
+  "year": 2025,
+  "distance_domicile_clinique_km": 18,
+  "jours_travailles": 176.5,
+  "km_supplementaires": 1200,
+  "km_totaux_compteur": 14000
+}
+```
+
+**Réponse :** `VehiculeResult` avec `ratio_pro`, `ratio_perso`, `km_trajet_habituel`, `km_pro_total`, `ancien_ratio`, `delta_ratio`.
+
+### `POST /appliquer/vehicule`
+Applique le ratio : met à jour le poste GED `deductible_pct` + génère PDF rapport + enregistre GED + historique barème.
+
+**Body :** même que `/calculer/vehicule`
+
+**Réponse :**
+```json
+{
+  "ratio_pro": 54.0,
+  "ancien_ratio": 70.0,
+  "pdf_filename": "quote_part_vehicule_2025.pdf",
+  "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf",
+  "poste_updated": true
+}
+```
+
+### `POST /regenerer-pdf/vehicule?year=2025`
+Regénère uniquement le PDF rapport véhicule avec les dépenses à jour (sans modifier le ratio ni le poste).
+
+### `GET /vehicule/genere?year=2025`
+Vérifie si la quote-part véhicule a été appliquée pour l'année. Retourne `null` si non appliqué, sinon `VehiculeGenere` avec `ratio_pro`, `pdf_filename`, `ged_doc_id`, paramètres.
+
+### `DELETE /supprimer/vehicule?year=2025`
+Supprime le PDF rapport + entrée GED + réinitialise le barème (garde l'historique pour traçabilité). Ne modifie pas le poste GED.

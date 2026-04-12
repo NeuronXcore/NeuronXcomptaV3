@@ -7,6 +7,10 @@ import type {
   GenerateODRequest,
   GenerateODResponse,
   ForfaitGenere,
+  VehiculeRequest,
+  VehiculeResult,
+  ApplyVehiculeResponse,
+  VehiculeGenere,
 } from '@/types'
 
 // Barème blanchissage (via endpoint simulation barèmes existant)
@@ -60,6 +64,9 @@ export function useForfaitsGeneres(year: number) {
 export interface ChargesForfaitairesConfig {
   honoraires_liasse?: number | null
   jours_travailles?: number | null
+  vehicule_distance_km?: number | null
+  vehicule_km_supplementaires?: number | null
+  vehicule_km_totaux_compteur?: number | null
 }
 
 export function useChargesForfaitairesConfig(year: number) {
@@ -90,6 +97,67 @@ export function useSupprimerForfait() {
       qc.invalidateQueries({ queryKey: ['operations'] })
       qc.invalidateQueries({ queryKey: ['ged'] })
       toast.success('Forfait supprimé')
+    },
+  })
+}
+
+// ── Véhicule ──
+
+// Calcul véhicule (mutation car prend des paramètres)
+export function useCalculerVehicule() {
+  return useMutation<VehiculeResult, Error, VehiculeRequest>({
+    mutationFn: (data) => api.post('/charges-forfaitaires/calculer/vehicule', data),
+  })
+}
+
+// Application véhicule (poste GED + PDF + GED)
+export function useAppliquerVehicule() {
+  const qc = useQueryClient()
+  return useMutation<ApplyVehiculeResponse, Error, VehiculeRequest>({
+    mutationFn: (data) => api.post('/charges-forfaitaires/appliquer/vehicule', data),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['forfaits-generes', variables.year] })
+      qc.invalidateQueries({ queryKey: ['charges-forfaitaires-config', variables.year] })
+      qc.invalidateQueries({ queryKey: ['vehicule-genere', variables.year] })
+      qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['ged-postes'] })
+      qc.invalidateQueries({ queryKey: ['ged-stats'] })
+    },
+  })
+}
+
+// Véhicule déjà appliqué pour l'année
+export function useVehiculeGenere(year: number) {
+  return useQuery<VehiculeGenere | null>({
+    queryKey: ['vehicule-genere', year],
+    queryFn: () => api.get(`/charges-forfaitaires/vehicule/genere?year=${year}`),
+  })
+}
+
+// Regénération PDF véhicule (silencieuse, met à jour les dépenses dans le PDF)
+export function useRegenerPdfVehicule() {
+  const qc = useQueryClient()
+  return useMutation<{ pdf_filename: string }, Error, { year: number }>({
+    mutationFn: ({ year }) => api.post(`/charges-forfaitaires/regenerer-pdf/vehicule?year=${year}`),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['vehicule-genere', variables.year] })
+      qc.invalidateQueries({ queryKey: ['ged'] })
+    },
+  })
+}
+
+// Suppression véhicule (pour regénérer)
+export function useSupprimerVehicule() {
+  const qc = useQueryClient()
+  return useMutation<{ deleted: boolean }, Error, { year: number }>({
+    mutationFn: ({ year }) =>
+      api.delete(`/charges-forfaitaires/supprimer/vehicule?year=${year}`),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['forfaits-generes', variables.year] })
+      qc.invalidateQueries({ queryKey: ['vehicule-genere', variables.year] })
+      qc.invalidateQueries({ queryKey: ['charges-forfaitaires-config', variables.year] })
+      qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['ged-postes'] })
     },
   })
 }

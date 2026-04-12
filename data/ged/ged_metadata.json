@@ -4218,37 +4218,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "traite"
     },
-    "data/justificatifs/traites/udemy_20251031_274.75.pdf.pdf": {
-      "doc_id": "data/justificatifs/traites/udemy_20251031_274.75.pdf.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 10,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-08T22:12:49.974346",
-      "original_name": "udemy_20251031_274.75.pdf.pdf",
-      "ocr_file": null,
-      "categorie": "Formations",
-      "sous_categorie": "udemy",
-      "date_operation": "2025-10-31",
-      "montant": 274.75,
-      "operation_ref": {
-        "file": "operations_20260402_164709_e7ae1dab.json",
-        "index": 86,
-        "ventilation_index": null
-      },
-      "period": {
-        "year": 2025,
-        "month": 10,
-        "quarter": 4
-      },
-      "fournisseur": "Udemy",
-      "is_reconstitue": false,
-      "statut_justificatif": "traite"
-    },
     "data/justificatifs/traites/udemy_20251104_424.75.pdf": {
       "doc_id": "data/justificatifs/traites/udemy_20251104_424.75.pdf",
       "type": "justificatif",
@@ -6893,22 +6862,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/ged/2025/12/nb jours travalliés 2025.pdf": {
-      "doc_id": "data/ged/2025/12/nb jours travalliés 2025.pdf",
-      "type": "document_libre",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "categorie": null,
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-10T00:53:16.450921",
-      "original_name": "nb jours travalliés 2025.pdf",
-      "ocr_file": "data/ged/2025/12/nb jours travalliés 2025.ocr.json"
-    },
     "data/justificatifs/traites/amazon_20250217_39.99.pdf": {
       "doc_id": "data/justificatifs/traites/amazon_20250217_39.99.pdf",
       "type": "justificatif",
@@ -7155,7 +7108,8 @@
       },
       "fournisseur": "Boulanger",
       "is_reconstitue": false,
-      "statut_justificatif": "traite"
+      "statut_justificatif": "traite",
+      "date_document": "2025-09-18"
     },
     "data/justificatifs/traites/boulanger_20251024_1479.00.pdf": {
       "doc_id": "data/justificatifs/traites/boulanger_20251024_1479.00.pdf",
@@ -7186,7 +7140,8 @@
       },
       "fournisseur": "Boulanger",
       "is_reconstitue": false,
-      "statut_justificatif": "traite"
+      "statut_justificatif": "traite",
+      "date_document": "2025-10-24"
     },
     "data/justificatifs/traites/boulanger_20251130_699.00.pdf": {
       "doc_id": "data/justificatifs/traites/boulanger_20251130_699.00.pdf",
@@ -7204,7 +7159,7 @@
       "categorie": "Fournitures",
       "sous_categorie": null,
       "date_operation": "2025-11-22",
-      "montant": 699.99,
+      "montant": 699.0,
       "operation_ref": {
         "file": "operations_20260402_164722_e7eba879.json",
         "index": 68,
@@ -7217,7 +7172,8 @@
       },
       "fournisseur": "Boulanger",
       "is_reconstitue": false,
-      "statut_justificatif": "traite"
+      "statut_justificatif": "traite",
+      "date_document": "2025-11-30"
     },
     "data/justificatifs/traites/essence_20250925_96.84.pdf": {
       "doc_id": "data/justificatifs/traites/essence_20250925_96.84.pdf",
@@ -13430,8 +13386,8 @@
     "data/justificatifs/traites/boulanger_20260127_4506.99.pdf": {
       "doc_id": "data/justificatifs/traites/boulanger_20260127_4506.99.pdf",
       "type": "justificatif",
-      "year": null,
-      "month": null,
+      "year": 2026,
+      "month": 1,
       "poste_comptable": null,
       "montant_brut": null,
       "deductible_pct_override": null,
@@ -13440,16 +13396,25 @@
       "added_at": "2026-04-10T09:59:50.492335",
       "original_name": "boulanger_20260127_4506.99.pdf",
       "ocr_file": "data/justificatifs/traites/boulanger_20260127_4506.99.ocr.json",
-      "categorie": null,
+      "categorie": "Fournitures",
       "sous_categorie": null,
-      "date_operation": null,
-      "montant": null,
-      "operation_ref": null,
-      "period": null,
-      "fournisseur": null,
+      "date_operation": "2026-01-28",
+      "montant": 4506.99,
+      "operation_ref": {
+        "file": "operations_20260402_164952_18aef1a3.json",
+        "index": 55,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2026,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Boulanger",
       "is_reconstitue": false,
       "statut_justificatif": "traite",
-      "ventilation_index": null
+      "ventilation_index": null,
+      "date_document": "2026-01-27"
     },
     "data/justificatifs/traites/openai_20250514_24.00.pdf": {
       "doc_id": "data/justificatifs/traites/openai_20250514_24.00.pdf",
@@ -13522,8 +13487,8 @@
     "data/justificatifs/en_attente/parc-consul-dupuy_20250923_2.42.pdf": {
       "doc_id": "data/justificatifs/en_attente/parc-consul-dupuy_20250923_2.42.pdf",
       "type": "justificatif",
-      "year": null,
-      "month": null,
+      "year": 2025,
+      "month": 9,
       "poste_comptable": null,
       "montant_brut": null,
       "deductible_pct_override": null,
@@ -13536,7 +13501,13 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente",
       "filename": "parc-consul-dupuy_20250923_2.42.pdf",
-      "renamed_from": "09042026_006.pdf"
+      "renamed_from": "09042026_006.pdf",
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "montant": 2.42
     },
     "data/justificatifs/en_attente/auchan_20250315_87.81_2.pdf": {
       "doc_id": "data/justificatifs/en_attente/auchan_20250315_87.81_2.pdf",
@@ -13560,13 +13531,14 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente",
       "filename": "auchan_20250315_87.81_2.pdf",
-      "renamed_from": "justificatif_20260409_064405_Sans_titre_16.pdf"
+      "renamed_from": "justificatif_20260409_064405_Sans_titre_16.pdf",
+      "montant": 87.812
     },
     "data/justificatifs/en_attente/parking_20250908_0.70.pdf": {
       "doc_id": "data/justificatifs/en_attente/parking_20250908_0.70.pdf",
       "type": "justificatif",
-      "year": null,
-      "month": null,
+      "year": 2025,
+      "month": 9,
       "poste_comptable": null,
       "montant_brut": null,
       "deductible_pct_override": null,
@@ -13579,13 +13551,19 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente",
       "filename": "parking_20250908_0.70.pdf",
-      "renamed_from": "09042026.pdf"
+      "renamed_from": "09042026.pdf",
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "montant": 0.7
     },
     "data/justificatifs/en_attente/amazon_20250109_146.40.pdf": {
       "doc_id": "data/justificatifs/en_attente/amazon_20250109_146.40.pdf",
       "type": "justificatif",
-      "year": null,
-      "month": null,
+      "year": 2025,
+      "month": 1,
       "poste_comptable": null,
       "montant_brut": null,
       "deductible_pct_override": null,
@@ -13594,9 +13572,13 @@
       "added_at": "2026-04-07T19:48:22.326958",
       "original_name": "amazon_20250109_146.40.pdf",
       "ocr_file": "data/justificatifs/en_attente/amazon_20250109_146.40.ocr.json",
-      "fournisseur": null,
-      "period": null,
-      "montant": null,
+      "fournisseur": "Amazon",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 146.4,
       "is_reconstitue": false,
       "statut_justificatif": "en_attente",
       "filename": "amazon_20250109_146.40.pdf",
@@ -13610,8 +13592,8 @@
     "data/justificatifs/en_attente/essence_20250103_110.15.pdf": {
       "doc_id": "data/justificatifs/en_attente/essence_20250103_110.15.pdf",
       "type": "justificatif",
-      "year": null,
-      "month": null,
+      "year": 2025,
+      "month": 1,
       "poste_comptable": null,
       "montant_brut": null,
       "deductible_pct_override": null,
@@ -13623,16 +13605,168 @@
       "categorie": null,
       "sous_categorie": null,
       "date_operation": null,
-      "montant": null,
+      "montant": 110.15,
       "operation_ref": null,
-      "period": null,
-      "fournisseur": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Essence",
       "is_reconstitue": false,
       "statut_justificatif": "en_attente",
       "ventilation_index": null
     },
-    "data/justificatifs/en_attente/udemy_20251201_274.75.pdf": {
-      "doc_id": "data/justificatifs/en_attente/udemy_20251201_274.75.pdf",
+    "data/justificatifs/en_attente/ODM_2025.pdf": {
+      "doc_id": "data/justificatifs/en_attente/ODM_2025.pdf",
+      "type": "justificatif",
+      "year": null,
+      "month": null,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T06:40:03.395263",
+      "original_name": "ODM_2025.pdf",
+      "ocr_file": "data/justificatifs/en_attente/ODM_2025.ocr.json",
+      "fournisseur": "Ordre des médecins",
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/desci_20250103_45.07.pdf": {
+      "doc_id": "data/justificatifs/en_attente/desci_20250103_45.07.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T06:40:03.395263",
+      "original_name": "desci_20250103_45.07.pdf",
+      "ocr_file": "data/justificatifs/en_attente/desci_20250103_45.07.ocr.json",
+      "fournisseur": "Desci",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 45.07,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/odm_20260411_2.00.pdf": {
+      "doc_id": "data/justificatifs/en_attente/odm_20260411_2.00.pdf",
+      "type": "justificatif",
+      "year": 2026,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T06:40:03.395263",
+      "original_name": "odm_20260411_2.00.pdf",
+      "ocr_file": "data/justificatifs/en_attente/odm_20260411_2.00.ocr.json",
+      "fournisseur": "Odm",
+      "period": {
+        "year": 2026,
+        "month": 4,
+        "quarter": 2
+      },
+      "montant": 2.0,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/peage_20250525_3.20.pdf": {
+      "doc_id": "data/justificatifs/en_attente/peage_20250525_3.20.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T06:40:03.395263",
+      "original_name": "peage_20250525_3.20.pdf",
+      "ocr_file": "data/justificatifs/en_attente/peage_20250525_3.20.ocr.json",
+      "fournisseur": "Peage",
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "montant": 3.2,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/traites/parc-consul-dupuy_20250917_1.70.pdf": {
+      "doc_id": "data/justificatifs/traites/parc-consul-dupuy_20250917_1.70.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T06:40:03.395263",
+      "original_name": "parc-consul-dupuy_20250917_1.70.pdf",
+      "ocr_file": "data/justificatifs/traites/parc-consul-dupuy_20250917_1.70.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Parking",
+      "date_operation": "2025-09-17",
+      "montant": 1.7,
+      "operation_ref": {
+        "file": "operations_20260402_171459_7bbe45dd.json",
+        "index": 33,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Parc Consul Dupuy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/parking_20260109_3.90.pdf": {
+      "doc_id": "data/justificatifs/traites/parking_20260109_3.90.pdf",
+      "type": "justificatif",
+      "year": 2024,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T06:40:03.395263",
+      "original_name": "parking_20260109_3.90.pdf",
+      "ocr_file": "data/justificatifs/traites/parking_20260109_3.90.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Péage",
+      "date_operation": "2024-12-14",
+      "montant": 3.9,
+      "operation_ref": {
+        "file": "operations_20260402_180203_13875044.json",
+        "index": 24,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2024,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Parking",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251201_274.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251201_274.75.pdf",
       "type": "justificatif",
       "year": 2025,
       "month": 12,
@@ -13644,23 +13778,1093 @@
       "added_at": "2026-04-08T22:12:49.974346",
       "original_name": "udemy_20251201_274.75.pdf.pdf",
       "ocr_file": null,
-      "categorie": null,
-      "sous_categorie": null,
-      "date_operation": null,
-      "montant": null,
-      "operation_ref": null,
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-12-01",
+      "montant": 274.75,
+      "operation_ref": {
+        "file": "operations_20260402_164325_a4edeb28.json",
+        "index": 38,
+        "ventilation_index": null
+      },
       "period": {
         "year": 2025,
         "month": 12,
         "quarter": 4
       },
-      "fournisseur": null,
+      "fournisseur": "",
       "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
+      "statut_justificatif": "traite",
       "date_document": "2025-12-01",
       "filename": "udemy_20251201_274.75.pdf",
       "renamed_from": "udemy_20251201_274.75.pdf.pdf",
       "ventilation_index": null
+    },
+    "data/justificatifs/en_attente/boulanger_20250831_1099.00_20260412_080735.pdf": {
+      "doc_id": "data/justificatifs/en_attente/boulanger_20250831_1099.00_20260412_080735.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 8,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "boulanger_20250831_1099.00_20260412_080735.pdf",
+      "ocr_file": "data/justificatifs/en_attente/boulanger_20250831_1099.00_20260412_080735.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 8,
+        "quarter": 3
+      },
+      "montant": 1099.0020260412082,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/boulanger_20250917_698.00_20260412_080735.pdf": {
+      "doc_id": "data/justificatifs/en_attente/boulanger_20250917_698.00_20260412_080735.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "boulanger_20250917_698.00_20260412_080735.pdf",
+      "ocr_file": "data/justificatifs/en_attente/boulanger_20250917_698.00_20260412_080735.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "montant": 698.0020260412081,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/boulanger_20250924_1249.99_20260412_080736.pdf": {
+      "doc_id": "data/justificatifs/en_attente/boulanger_20250924_1249.99_20260412_080736.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "boulanger_20250924_1249.99_20260412_080736.pdf",
+      "ocr_file": "data/justificatifs/en_attente/boulanger_20250924_1249.99_20260412_080736.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "montant": 1249.992026041208,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/boulanger_20251022_449.99_20260412_080736.pdf": {
+      "doc_id": "data/justificatifs/en_attente/boulanger_20251022_449.99_20260412_080736.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "boulanger_20251022_449.99_20260412_080736.pdf",
+      "ocr_file": "data/justificatifs/en_attente/boulanger_20251022_449.99_20260412_080736.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "montant": 449.9920260412081,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/boulanger_20251130_2789.00_a_20260412_080737.pdf": {
+      "doc_id": "data/justificatifs/en_attente/boulanger_20251130_2789.00_a_20260412_080737.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "boulanger_20251130_2789.00_a_20260412_080737.pdf",
+      "ocr_file": "data/justificatifs/en_attente/boulanger_20251130_2789.00_a_20260412_080737.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/boulanger_20251130_2789.00_b_20260412_080738.pdf": {
+      "doc_id": "data/justificatifs/en_attente/boulanger_20251130_2789.00_b_20260412_080738.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "boulanger_20251130_2789.00_b_20260412_080738.pdf",
+      "ocr_file": "data/justificatifs/en_attente/boulanger_20251130_2789.00_b_20260412_080738.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/boulanger_20260202_699.99_20260412_080738.pdf": {
+      "doc_id": "data/justificatifs/en_attente/boulanger_20260202_699.99_20260412_080738.pdf",
+      "type": "justificatif",
+      "year": 2026,
+      "month": 2,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "boulanger_20260202_699.99_20260412_080738.pdf",
+      "ocr_file": "data/justificatifs/en_attente/boulanger_20260202_699.99_20260412_080738.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2026,
+        "month": 2,
+        "quarter": 1
+      },
+      "montant": 699.9920260412081,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/udemy_20250919_249.75.pdf": {
+      "doc_id": "data/justificatifs/en_attente/udemy_20250919_249.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250919_249.75.pdf",
+      "ocr_file": "data/justificatifs/en_attente/udemy_20250919_249.75.ocr.json",
+      "fournisseur": "Udemy",
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "montant": 249.75,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/udemy_20251021_249.75.pdf": {
+      "doc_id": "data/justificatifs/en_attente/udemy_20251021_249.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251021_249.75.pdf",
+      "ocr_file": "data/justificatifs/en_attente/udemy_20251021_249.75.ocr.json",
+      "fournisseur": "Udemy",
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "montant": 249.75,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/udemy_20251201_274.75_20260412_074935.pdf": {
+      "doc_id": "data/justificatifs/en_attente/udemy_20251201_274.75_20260412_074935.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251201_274.75_20260412_074935.pdf",
+      "ocr_file": "data/justificatifs/en_attente/udemy_20251201_274.75_20260412_074935.ocr.json",
+      "fournisseur": "Udemy",
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "montant": 274.7520260412075,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/udemy_20260130_174.75.pdf": {
+      "doc_id": "data/justificatifs/en_attente/udemy_20260130_174.75.pdf",
+      "type": "justificatif",
+      "year": 2026,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20260130_174.75.pdf",
+      "ocr_file": "data/justificatifs/en_attente/udemy_20260130_174.75.ocr.json",
+      "fournisseur": "Udemy",
+      "period": {
+        "year": 2026,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 174.75,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/traites/ibis_20250522_76.42.pdf": {
+      "doc_id": "data/justificatifs/traites/ibis_20250522_76.42.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "ibis_20250522_76.42.pdf",
+      "ocr_file": "data/justificatifs/traites/ibis_20250522_76.42.ocr.json",
+      "categorie": "Remplaçant",
+      "sous_categorie": "Hébergement",
+      "date_operation": "2025-05-22",
+      "montant": 76.42,
+      "operation_ref": {
+        "file": "operations_20260402_163338_38dd0f42.json",
+        "index": 38,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Ibis",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/ibis_20250527_33.00.pdf": {
+      "doc_id": "data/justificatifs/traites/ibis_20250527_33.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "ibis_20250527_33.00.pdf",
+      "ocr_file": "data/justificatifs/traites/ibis_20250527_33.00.ocr.json",
+      "categorie": "Remplaçant",
+      "sous_categorie": "Hébergement",
+      "date_operation": "2025-05-27",
+      "montant": 33.0,
+      "operation_ref": {
+        "file": "operations_20260402_163338_38dd0f42.json",
+        "index": 46,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Ibis",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/ibis_20250619_63.12.pdf": {
+      "doc_id": "data/justificatifs/traites/ibis_20250619_63.12.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "ibis_20250619_63.12.pdf",
+      "ocr_file": "data/justificatifs/traites/ibis_20250619_63.12.ocr.json",
+      "categorie": "Remplaçant",
+      "sous_categorie": "Hébergement",
+      "date_operation": "2025-06-19",
+      "montant": 63.12,
+      "operation_ref": {
+        "file": "operations_20260402_163812_41fcd232.json",
+        "index": 38,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Ibis",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/ibis_20250623_23.00.pdf": {
+      "doc_id": "data/justificatifs/traites/ibis_20250623_23.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "ibis_20250623_23.00.pdf",
+      "ocr_file": "data/justificatifs/traites/ibis_20250623_23.00.ocr.json",
+      "categorie": "Remplaçant",
+      "sous_categorie": "Hébergement",
+      "date_operation": "2025-06-23",
+      "montant": 23.0,
+      "operation_ref": {
+        "file": "operations_20260402_163812_41fcd232.json",
+        "index": 44,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Ibis",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250203_230.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250203_230.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 2,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250203_230.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250203_230.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-02-03",
+      "montant": 230.75,
+      "operation_ref": {
+        "file": "operations_20260402_120614_51b5892b.json",
+        "index": 45,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 2,
+        "quarter": 1
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250304_230.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250304_230.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250304_230.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250304_230.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-03-04",
+      "montant": 230.75,
+      "operation_ref": {
+        "file": "operations_20260402_171328_d238601f.json",
+        "index": 53,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": 1
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250402_230.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250402_230.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250402_230.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250402_230.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-04-02",
+      "montant": 230.75,
+      "operation_ref": {
+        "file": "operations_20260402_163034_4cf58a44.json",
+        "index": 60,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250407_247.66.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250407_247.66.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250407_247.66.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250407_247.66.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-04-07",
+      "montant": 247.66,
+      "operation_ref": {
+        "file": "operations_20260402_163034_4cf58a44.json",
+        "index": 62,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250502_230.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250502_230.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250502_230.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250502_230.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-05-02",
+      "montant": 230.75,
+      "operation_ref": {
+        "file": "operations_20260402_163338_38dd0f42.json",
+        "index": 61,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250506_247.66.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250506_247.66.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250506_247.66.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250506_247.66.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-05-05",
+      "montant": 247.66,
+      "operation_ref": {
+        "file": "operations_20260402_163338_38dd0f42.json",
+        "index": 63,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250603_247.66.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250603_247.66.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250603_247.66.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250603_247.66.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-06-03",
+      "montant": 247.66,
+      "operation_ref": {
+        "file": "operations_20260402_163812_41fcd232.json",
+        "index": 72,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250701_247.65.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250701_247.65.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250701_247.65.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250701_247.65.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-07-01",
+      "montant": 247.65,
+      "operation_ref": {
+        "file": "operations_20260402_163825_1c979f6e.json",
+        "index": 50,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250820_249.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250820_249.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 8,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250820_249.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250820_249.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-08-20",
+      "montant": 249.75,
+      "operation_ref": {
+        "file": "operations_20260402_171413_dd562f0f.json",
+        "index": 81,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 8,
+        "quarter": 3
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20250918_174.50.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250918_174.50.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20250918_174.50.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250918_174.50.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-09-18",
+      "montant": 174.5,
+      "operation_ref": {
+        "file": "operations_20260402_171459_7bbe45dd.json",
+        "index": 87,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251020_174.50.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251020_174.50.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251020_174.50.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251020_174.50.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "udemy",
+      "date_operation": "2025-10-20",
+      "montant": 174.5,
+      "operation_ref": {
+        "file": "operations_20260402_164709_e7ae1dab.json",
+        "index": 71,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251024_112.50.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251024_112.50.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251024_112.50.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251024_112.50.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "udemy",
+      "date_operation": "2025-10-24",
+      "montant": 112.5,
+      "operation_ref": {
+        "file": "operations_20260402_164709_e7ae1dab.json",
+        "index": 79,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251031_274.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251031_274.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251031_274.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251031_274.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "udemy",
+      "date_operation": "2025-10-31",
+      "montant": 274.75,
+      "operation_ref": {
+        "file": "operations_20260402_164709_e7ae1dab.json",
+        "index": 86,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251118_174.50.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251118_174.50.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251118_174.50.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251118_174.50.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-11-18",
+      "montant": 174.5,
+      "operation_ref": {
+        "file": "operations_20260402_164722_e7eba879.json",
+        "index": 95,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251118_249.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251118_249.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251118_249.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251118_249.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-11-18",
+      "montant": 249.75,
+      "operation_ref": {
+        "file": "operations_20260402_164722_e7eba879.json",
+        "index": 96,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251124_112.50.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251124_112.50.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251124_112.50.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251124_112.50.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-11-24",
+      "montant": 112.5,
+      "operation_ref": {
+        "file": "operations_20260402_164722_e7eba879.json",
+        "index": 105,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251202_174.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251202_174.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251202_174.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251202_174.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-12-02",
+      "montant": 174.75,
+      "operation_ref": {
+        "file": "operations_20260402_164325_a4edeb28.json",
+        "index": 43,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251216_174.50.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251216_174.50.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251216_174.50.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251216_174.50.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-12-16",
+      "montant": 174.5,
+      "operation_ref": {
+        "file": "operations_20260402_164325_a4edeb28.json",
+        "index": 55,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251231_174.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251231_174.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T10:19:22.350676",
+      "original_name": "udemy_20251231_174.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251231_174.75.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-12-31",
+      "montant": 174.75,
+      "operation_ref": {
+        "file": "operations_20260402_164325_a4edeb28.json",
+        "index": 84,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/reports/blanchissage_20251231_2347,45.pdf": {
+      "doc_id": "data/reports/blanchissage_20251231_2347,45.pdf",
+      "type": "rapport",
+      "filename": "blanchissage_20251231_2347,45.pdf",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "categorie": "Blanchissage professionnel",
+      "sous_categorie": "Forfait annuel",
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T18:54:16.022324",
+      "original_name": "blanchissage_20251231_2347,45.pdf",
+      "ocr_file": null,
+      "fournisseur": "Blanchissage",
+      "date_document": "2025-12-31",
+      "date_operation": "2025-12-31",
+      "period": {
+        "year": 2025,
+        "month": 12
+      },
+      "montant": 2347.45,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": "operations_20260402_164325_a4edeb28.json:89",
+      "source_module": "charges-forfaitaires",
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Frais de blanchissage professionnel 2025",
+        "description": "Charge forfaitaire blanchissage — 176.5 jours — 2347.45 €",
+        "filters": {
+          "year": 2025,
+          "month": 12
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-12T18:54:16.022324",
+        "can_regenerate": false,
+        "can_compare": false
+      }
+    },
+    "data/reports/quote_part_vehicule_2025.pdf": {
+      "doc_id": "data/reports/quote_part_vehicule_2025.pdf",
+      "type": "rapport",
+      "filename": "quote_part_vehicule_2025.pdf",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": "vehicule",
+      "categorie": "Véhicule",
+      "sous_categorie": "Quote-part professionnelle",
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-12T19:19:07.793200",
+      "original_name": "quote_part_vehicule_2025.pdf",
+      "ocr_file": null,
+      "fournisseur": "Véhicule",
+      "date_document": "2025-12-31",
+      "date_operation": "2025-12-31",
+      "period": {
+        "year": 2025,
+        "month": 12
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "source_module": "charges-forfaitaires",
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Quote-part véhicule 2025",
+        "description": "Quote-part professionnelle 50.6% — 176.5j × 7.9km",
+        "filters": {
+          "year": 2025,
+          "month": 12
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-12T19:19:07.793200",
+        "can_regenerate": false,
+        "can_compare": false
+      }
+    },
+    "data/ged/2025/04/nb jours travalliés 2025.pdf": {
+      "doc_id": "data/ged/2025/04/nb jours travalliés 2025.pdf",
+      "type": "document_libre",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": "divers",
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "nb jours travaillés 2025",
+      "added_at": "2026-04-12T19:16:58.501527",
+      "original_name": "nb jours travalliés 2025.pdf",
+      "ocr_file": "data/ged/2025/04/nb jours travalliés 2025.ocr.json"
     }
   }
 }

@@ -57,7 +57,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.761247",
     "completed_at": null,
-    "order": 0
+    "order": 1
   },
   {
     "id": "b1ecfbfd",
@@ -72,7 +72,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.761498",
     "completed_at": null,
-    "order": 0
+    "order": 2
   },
   {
     "id": "11397757",
@@ -87,7 +87,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.761821",
     "completed_at": null,
-    "order": 0
+    "order": 3
   },
   {
     "id": "71a97542",
@@ -102,7 +102,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.762109",
     "completed_at": null,
-    "order": 0
+    "order": 4
   },
   {
     "id": "67d60fe2",
@@ -117,7 +117,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.762778",
     "completed_at": null,
-    "order": 0
+    "order": 5
   },
   {
     "id": "a16fbd2e",
@@ -132,7 +132,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.763579",
     "completed_at": null,
-    "order": 0
+    "order": 6
   },
   {
     "id": "41a2ba46",
@@ -147,7 +147,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.764196",
     "completed_at": null,
-    "order": 0
+    "order": 7
   },
   {
     "id": "eba9c40a",
@@ -162,12 +162,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.764653",
     "completed_at": null,
-    "order": 0
+    "order": 8
   },
   {
     "id": "257b7c64",
-    "title": "Catégoriser 89 opérations — décembre 2025",
-    "description": "Fichier operations_20260402_164325_a4edeb28.json contient 89 opérations sans catégorie ou catégorie générique.",
+    "title": "Catégoriser 90 opérations — décembre 2025",
+    "description": "Fichier operations_20260402_164325_a4edeb28.json contient 90 opérations sans catégorie ou catégorie générique.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -177,7 +177,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.764971",
     "completed_at": null,
-    "order": 0
+    "order": 9
   },
   {
     "id": "28fe7307",
@@ -192,12 +192,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840899",
     "completed_at": null,
-    "order": 0
+    "order": 10
   },
   {
     "id": "ec1b62c0",
-    "title": "Clôturer Février 2025 (lettrage 32%, justificatifs 56%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 32%, taux justificatifs 56%.",
+    "title": "Clôturer Février 2025 (lettrage 36%, justificatifs 59%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 36%, taux justificatifs 59%.",
     "status": "todo",
     "priority": "normale",
     "source": "auto",
@@ -207,12 +207,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840918",
     "completed_at": null,
-    "order": 0
+    "order": 11
   },
   {
     "id": "9dbd4eca",
-    "title": "Clôturer Mars 2025 (lettrage 16%, justificatifs 37%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 16%, taux justificatifs 37%.",
+    "title": "Clôturer Mars 2025 (lettrage 24%, justificatifs 39%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 24%, taux justificatifs 39%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -222,12 +222,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840927",
     "completed_at": null,
-    "order": 0
+    "order": 12
   },
   {
     "id": "16556edb",
-    "title": "Clôturer Avril 2025 (lettrage 7%, justificatifs 19%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 7%, taux justificatifs 19%.",
+    "title": "Clôturer Avril 2025 (lettrage 11%, justificatifs 23%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 11%, taux justificatifs 23%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -237,12 +237,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840936",
     "completed_at": null,
-    "order": 0
+    "order": 13
   },
   {
     "id": "38237032",
-    "title": "Clôturer Mai 2025 (lettrage 11%, justificatifs 33%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 11%, taux justificatifs 33%.",
+    "title": "Clôturer Mai 2025 (lettrage 19%, justificatifs 41%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 19%, taux justificatifs 41%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -252,12 +252,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840943",
     "completed_at": null,
-    "order": 0
+    "order": 14
   },
   {
     "id": "37120d38",
-    "title": "Clôturer Juin 2025 (lettrage 29%, justificatifs 29%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 29%, taux justificatifs 29%.",
+    "title": "Clôturer Juin 2025 (lettrage 34%, justificatifs 35%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 34%, taux justificatifs 35%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -267,12 +267,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840950",
     "completed_at": null,
-    "order": 0
+    "order": 15
   },
   {
     "id": "3c929f93",
-    "title": "Clôturer Juillet 2025 (lettrage 26%, justificatifs 37%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 26%, taux justificatifs 37%.",
+    "title": "Clôturer Juillet 2025 (lettrage 27%, justificatifs 39%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 27%, taux justificatifs 39%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -282,12 +282,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840957",
     "completed_at": null,
-    "order": 0
+    "order": 16
   },
   {
     "id": "a7fbcb97",
-    "title": "Clôturer Août 2025 (lettrage 29%, justificatifs 41%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 29%, taux justificatifs 41%.",
+    "title": "Clôturer Août 2025 (lettrage 31%, justificatifs 43%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 31%, taux justificatifs 43%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -297,12 +297,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840964",
     "completed_at": null,
-    "order": 0
+    "order": 17
   },
   {
     "id": "81d4bbca",
-    "title": "Clôturer Septembre 2025 (lettrage 19%, justificatifs 30%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 19%, taux justificatifs 30%.",
+    "title": "Clôturer Septembre 2025 (lettrage 21%, justificatifs 32%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 21%, taux justificatifs 32%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -312,12 +312,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840970",
     "completed_at": null,
-    "order": 0
+    "order": 19
   },
   {
     "id": "11a2a26b",
-    "title": "Clôturer Octobre 2025 (lettrage 12%, justificatifs 34%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 12%, taux justificatifs 34%.",
+    "title": "Clôturer Octobre 2025 (lettrage 17%, justificatifs 40%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 17%, taux justificatifs 40%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -327,12 +327,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840977",
     "completed_at": null,
-    "order": 0
+    "order": 20
   },
   {
     "id": "91ed8e32",
-    "title": "Clôturer Novembre 2025 (lettrage 9%, justificatifs 26%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 9%, taux justificatifs 26%.",
+    "title": "Clôturer Novembre 2025 (lettrage 13%, justificatifs 30%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 13%, taux justificatifs 30%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -342,14 +342,14 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840984",
     "completed_at": null,
-    "order": 0
+    "order": 21
   },
   {
     "id": "b8c394f6",
-    "title": "Clôturer Décembre 2025 (lettrage 15%, justificatifs 49%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 15%, taux justificatifs 49%.",
+    "title": "Clôturer Décembre 2025 (lettrage 23%, justificatifs 58%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 23%, taux justificatifs 58%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-12",
@@ -357,12 +357,12 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840990",
     "completed_at": null,
-    "order": 0
+    "order": 22
   },
   {
     "id": "20a081b0",
-    "title": "Traiter 483 alertes en compte d'attente",
-    "description": "483 opérations en compte d'attente nécessitent une résolution.",
+    "title": "Traiter 444 alertes en compte d'attente",
+    "description": "444 opérations en compte d'attente nécessitent une résolution.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -372,7 +372,7 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.981061",
     "completed_at": null,
-    "order": 0
+    "order": 23
   },
   {
     "id": "2bfb32dc",
@@ -856,8 +856,8 @@
   },
   {
     "id": "3c20ac8d",
-    "title": "Rapprocher 138 justificatifs en attente",
-    "description": "138 justificatifs PDF en attente de rapprochement bancaire.",
+    "title": "Rapprocher 149 justificatifs en attente",
+    "description": "149 justificatifs PDF en attente de rapprochement bancaire.",
     "status": "in_progress",
     "priority": "haute",
     "source": "auto",
@@ -973,5 +973,20 @@
     "created_at": "2026-04-12T07:10:39.798513",
     "completed_at": null,
     "order": 0
+  },
+  {
+    "id": "e852b826",
+    "title": "charges forfaitaires",
+    "description": null,
+    "status": "todo",
+    "priority": "normale",
+    "source": "manual",
+    "year": 2025,
+    "auto_key": null,
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-12T11:09:58.346364",
+    "completed_at": null,
+    "order": 18
   }
 ]

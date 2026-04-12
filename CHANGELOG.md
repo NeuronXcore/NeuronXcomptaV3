@@ -8,6 +8,35 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-12) — Session 15
+
+- **Charges forfaitaires — Onglet Véhicule (quote-part professionnelle)**
+  - Nouvel onglet Véhicule dans la page `/charges-forfaitaires` avec tabs badges pill colorés (Shirt violet / Car bleu)
+  - Calcul du ratio kilométrique pro : `(jours × distance_aller × 2 + km_sup) / km_totaux × 100`
+  - Calcul live **côté client** (`useMemo`) — instantané à chaque frappe (pas d'appel API)
+  - 4 inputs : distance domicile→clinique (km aller), jours travaillés (step 0.5, partagé avec blanchissage), km supplémentaires (gardes/formations), km totaux compteur (relevé annuel)
+  - Champ honoraires liasse fiscale SCP (optionnel, même pattern que blanchissage)
+  - 3 MetricCards (km trajet habituel, km professionnels, % déductible)
+  - Barre visuelle pro/perso avec labels %
+  - Encadré poste comptable actuel avec delta pts (warning/success)
+  - **Tableau dépenses véhicule** : sous-catégories agrégées depuis les ops Véhicule+Transport, montant brut × ratio = montant déductible. Visible dans les 2 états (saisie + appliqué)
+  - Application : mise à jour `deductible_pct` du poste GED "véhicule" dans `ged_postes.json` + PDF rapport ReportLab A4 (paramètres, résultat, ancien→nouveau taux, tableau dépenses, honoraires liasse si renseigné) + enregistrement GED + historique barème
+  - **Auto-regénération PDF** silencieuse à chaque visite de l'onglet (met à jour le tableau dépenses avec les dernières opérations catégorisées)
+  - Toast custom brandé (logo + gradient violet) à l'application
+  - Aperçu PDF via `PdfThumbnail` (PNG server-side) + `PdfPreviewDrawer` (drawer 700px avec boutons ouvrir/télécharger/fermer)
+  - Simulation BNC : ligne informative véhicule (ratio %, pas checkbox) + lien "Configurer →" si non appliqué
+  - Barème historique `data/baremes/vehicule_{year}.json` avec traçabilité des applications
+  - Config partagée dans `charges_forfaitaires_config.json` (jours_travailles partagé, champs vehicule_*)
+  - 6 nouveaux endpoints API : `POST /calculer/vehicule`, `POST /appliquer/vehicule`, `POST /regenerer-pdf/vehicule`, `GET /vehicule/genere`, `DELETE /supprimer/vehicule`
+  - 4 modèles Pydantic : `VehiculeRequest`, `VehiculeResult`, `ApplyVehiculeRequest`, `ApplyVehiculeResponse`
+  - 4 hooks React : `useCalculerVehicule`, `useAppliquerVehicule`, `useVehiculeGenere`, `useSupprimerVehicule`, `useRegenerPdfVehicule`
+  - Composants : `VehiculeTab.tsx`, `PdfPreviewDrawer.tsx` (partagé blanchissage/véhicule)
+
+- **Charges forfaitaires — Améliorations blanchissage**
+  - Thumbnail PDF migré de `<object>/<iframe>` vers `PdfThumbnail` (PNG) — résout le bug des clics capturés par le plugin PDF
+  - Aperçu PDF en drawer latéral (`PdfPreviewDrawer` 700px) au lieu de l'expand inline
+  - Fallback `pdf_filename` dans `get_forfaits_generes()` quand `Lien justificatif` est vide (nettoyé par repair links au boot)
+
 ### Added (2026-04-12)
 
 - **Compte d'attente — filtres catégorie + sous-catégorie**

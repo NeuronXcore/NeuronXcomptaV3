@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createElement } from 'react'
-import { Receipt, Check, FileText, Settings, RefreshCw, ExternalLink, Library, X, Sparkles, Maximize2, Minimize2, Send } from 'lucide-react'
+import { Receipt, Check, FileText, Settings, RefreshCw, ExternalLink, Library, X, Sparkles, Send, Shirt, Car } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
@@ -20,16 +20,19 @@ import { useDashboard } from '@/hooks/useApi'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { formatCurrency } from '@/lib/utils'
 import type { ForfaitResult } from '@/types'
+import VehiculeTab from './VehiculeTab'
+import PdfPreviewDrawer from './PdfPreviewDrawer'
+import PdfThumbnail from '@/components/shared/PdfThumbnail'
 
 export default function ChargesForfaitairesPage() {
   const navigate = useNavigate()
   const openSendDrawer = useSendDrawerStore(s => s.open)
   const year = useFiscalYearStore(s => s.selectedYear)
-  const [activeTab] = useState<'blanchissage'>('blanchissage')
+  const [activeTab, setActiveTab] = useState<'blanchissage' | 'vehicule'>('blanchissage')
   const [jours, setJours] = useState(230)
   const [honorairesLiasse, setHonorairesLiasse] = useState<string>('')
   const [showBareme, setShowBareme] = useState(false)
-  const [pdfExpanded, setPdfExpanded] = useState(false)
+  const [pdfDrawerOpen, setPdfDrawerOpen] = useState(false)
   const [calcResult, setCalcResult] = useState<ForfaitResult | null>(null)
 
   const { data: dashboard } = useDashboard(year)
@@ -133,26 +136,30 @@ export default function ChargesForfaitairesPage() {
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        <button
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'blanchissage'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-text-muted hover:text-text'
-          }`}
-        >
-          Blanchissage
-        </button>
-        <button
-          disabled
-          className="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-text-muted/40 cursor-not-allowed"
-        >
-          Véhicule
-        </button>
+      <div className="flex gap-2 border-b border-border pb-px">
+        {([
+          { id: 'blanchissage' as const, label: 'Blanchissage', Icon: Shirt, bg: 'bg-violet-500/15', bgActive: 'bg-violet-500/25', text: 'text-violet-400', iconBg: 'bg-violet-500' },
+          { id: 'vehicule' as const, label: 'Véhicule', Icon: Car, bg: 'bg-sky-500/15', bgActive: 'bg-sky-500/25', text: 'text-sky-400', iconBg: 'bg-sky-500' },
+        ]).map(({ id, label, Icon, bg, bgActive, text, iconBg }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium border-b-2 transition-all ${
+              activeTab === id
+                ? `border-primary ${bgActive} text-text`
+                : `border-transparent ${bg} text-text-muted hover:text-text hover:${bgActive}`
+            }`}
+          >
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${iconBg}`}>
+              <Icon className="w-3 h-3 text-white" />
+            </span>
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Contenu Blanchissage */}
-      {loadingGeneres ? (
+      {activeTab === 'blanchissage' && (loadingGeneres ? (
         <div className="text-text-muted text-sm">Chargement...</div>
       ) : blanchissageGenere ? (
         /* ── État 2 : Déjà généré ── */
@@ -219,50 +226,26 @@ export default function ChargesForfaitairesPage() {
               </div>
             </div>
 
-            {/* Colonne droite — Aperçu PDF (compact) */}
-            {blanchissageGenere.pdf_filename && !pdfExpanded && (
-              <div className="w-[280px] shrink-0 relative group">
-                <object
-                  data={`/api/reports/preview/${encodeURIComponent(blanchissageGenere.pdf_filename)}`}
-                  type="application/pdf"
-                  className="w-full h-[400px] rounded-lg border border-border bg-background pointer-events-none"
-                >
-                  <div className="flex items-center justify-center h-full text-text-muted text-sm">
-                    Aperçu non disponible
-                  </div>
-                </object>
-                <button
-                  onClick={() => setPdfExpanded(true)}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-background/80 border border-border text-text-muted hover:text-text opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Agrandir"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
-              </div>
+            {/* Colonne droite — Thumbnail PDF cliquable (PNG via PdfThumbnail) */}
+            {blanchissageGenere.pdf_filename && blanchissageGenere.ged_doc_id && (
+              <PdfThumbnail
+                docId={blanchissageGenere.ged_doc_id}
+                onClick={() => setPdfDrawerOpen(true)}
+                className="w-[200px] h-[280px] shrink-0 rounded-lg hover:ring-2 hover:ring-primary/40 transition-all"
+                iconSize={48}
+                lazy={false}
+              />
             )}
           </div>
 
-          {/* Aperçu PDF agrandi */}
-          {blanchissageGenere.pdf_filename && pdfExpanded && (
-            <div className="relative">
-              <button
-                onClick={() => setPdfExpanded(false)}
-                className="absolute top-2 right-2 z-10 p-1.5 rounded-lg bg-background/80 border border-border text-text-muted hover:text-text transition-colors"
-                title="Réduire"
-              >
-                <Minimize2 className="w-4 h-4" />
-              </button>
-              <object
-                data={`/api/reports/preview/${encodeURIComponent(blanchissageGenere.pdf_filename)}`}
-                type="application/pdf"
-                className="w-full h-[700px] rounded-lg border border-border bg-background"
-              >
-                <div className="flex items-center justify-center h-full text-text-muted text-sm">
-                  Aperçu non disponible
-                </div>
-              </object>
-            </div>
-          )}
+          {/* Drawer PDF */}
+          <PdfPreviewDrawer
+            open={pdfDrawerOpen}
+            onClose={() => setPdfDrawerOpen(false)}
+            filename={blanchissageGenere.pdf_filename || ''}
+            title="Frais de blanchissage professionnel"
+            subtitle={`Exercice ${year} — ${formatCurrency(blanchissageGenere.montant)}`}
+          />
         </div>
       ) : (
         /* ── État 1 : Pas encore généré ── */
@@ -454,7 +437,10 @@ export default function ChargesForfaitairesPage() {
             </button>
           </div>
         </div>
-      )}
+      ))}
+
+      {/* Contenu Véhicule */}
+      {activeTab === 'vehicule' && <VehiculeTab year={year} />}
     </div>
   )
 }

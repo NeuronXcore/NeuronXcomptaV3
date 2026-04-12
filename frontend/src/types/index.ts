@@ -1456,3 +1456,48 @@ export interface ForfaitGenere {
   pdf_filename: string
   ged_doc_id: string
 }
+
+// --- Véhicule (quote-part pro) ---
+
+export interface VehiculeRequest {
+  year: number
+  distance_domicile_clinique_km: number
+  jours_travailles: number
+  km_supplementaires: number
+  km_totaux_compteur: number
+}
+
+export interface VehiculeResult {
+  type_forfait: 'vehicule'
+  year: number
+  distance_domicile_clinique_km: number
+  jours_travailles: number
+  km_trajet_habituel: number
+  km_supplementaires: number
+  km_pro_total: number
+  km_totaux_compteur: number
+  ratio_pro: number
+  ratio_perso: number
+  ancien_ratio: number | null
+  delta_ratio: number | null
+}
+
+export interface ApplyVehiculeResponse {
+  ratio_pro: number
+  ancien_ratio: number
+  pdf_filename: string
+  ged_doc_id: string
+  poste_updated: boolean
+}
+
+export interface VehiculeGenere {
+  type_forfait: 'vehicule'
+  ratio_pro: number
+  date_application: string
+  pdf_filename: string
+  ged_doc_id: string
+  distance: number | null
+  jours: number | null
+  km_sup: number | null
+  km_totaux: number | null
+}

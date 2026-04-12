@@ -1,0 +1,62 @@
+{
+  "annee": 2025,
+  "date_derniere_application": "2026-04-12T18:54:35.038322",
+  "ratio_pro_applique": 50.6,
+  "historique": [
+    {
+      "date": "2026-04-12T17:57:56.899231",
+      "ratio": 34.9,
+      "ancien_ratio": 70,
+      "distance": 7.9,
+      "jours": 176.5,
+      "km_sup": 0.0,
+      "km_totaux": 8000.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    },
+    {
+      "date": "2026-04-12T18:02:23.967111",
+      "ratio": 50.6,
+      "ancien_ratio": 34.9,
+      "distance": 7.9,
+      "jours": 176.5,
+      "km_sup": 500.0,
+      "km_totaux": 6500.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    },
+    {
+      "date": "2026-04-12T18:19:42.236183",
+      "ratio": 50.6,
+      "ancien_ratio": 50.6,
+      "distance": 7.9,
+      "jours": 176.5,
+      "km_sup": 500.0,
+      "km_totaux": 6500.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    },
+    {
+      "date": "2026-04-12T18:21:14.720478",
+      "ratio": 50.6,
+      "ancien_ratio": 50.6,
+      "distance": 7.9,
+      "jours": 176.5,
+      "km_sup": 500.0,
+      "km_totaux": 6500.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    },
+    {
+      "date": "2026-04-12T18:54:35.038322",
+      "ratio": 50.6,
+      "ancien_ratio": 50.6,
+      "distance": 7.9,
+      "jours": 176.5,
+      "km_sup": 500.0,
+      "km_totaux": 6500.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    }
+  ]
+}
