@@ -944,7 +944,18 @@ task_service.generate_auto_tasks(year)
     GET /api/tasks/?year=YYYY → filtré par année
 ```
 
-Frontend : `DndContext` (@dnd-kit) → 3 colonnes `useDroppable` → cartes `useSortable`. Refresh auto au montage et au changement d'année (store Zustand).
+Frontend : `DndContext` (@dnd-kit, `closestCorners`) → 3 colonnes `useDroppable` + `SortableContext` → cartes `useSortable`. Refresh auto au montage et au changement d'année (store Zustand).
+
+```
+Réordonnancement drag & drop :
+    DndContext (closestCorners)
+    ├── KanbanColumn (useDroppable + SortableContext)
+    │   └── TaskCard (useSortable, champ order: int)
+    │
+    handleDragEnd :
+    ├── Intra-colonne → arrayMove(tasks, old, new) → POST /reorder {ordered_ids}
+    └── Inter-colonnes → PATCH /{id} {status} → POST /reorder {ordered_ids}
+```
 
 ### Sélecteur année global
 

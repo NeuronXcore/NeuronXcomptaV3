@@ -6,12 +6,6 @@ import { cn } from '@/lib/utils'
 import TaskCard from './TaskCard'
 import type { Task, TaskStatus } from '@/types'
 
-const PRIORITY_ORDER: Record<string, number> = {
-  haute: 0,
-  normale: 1,
-  basse: 2,
-}
-
 interface KanbanColumnProps {
   status: TaskStatus
   title: string
@@ -37,20 +31,8 @@ export default function KanbanColumn({
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status })
 
-  const sortedTasks = useMemo(() => {
-    return [...tasks].sort((a, b) => {
-      const pa = PRIORITY_ORDER[a.priority] ?? 1
-      const pb = PRIORITY_ORDER[b.priority] ?? 1
-      if (pa !== pb) return pa - pb
-      // due_date ascending, nulls last
-      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date)
-      if (a.due_date) return -1
-      if (b.due_date) return 1
-      return 0
-    })
-  }, [tasks])
-
-  const taskIds = useMemo(() => sortedTasks.map(t => t.id), [sortedTasks])
+  // Tasks are already sorted by order from the parent
+  const taskIds = useMemo(() => tasks.map(t => t.id), [tasks])
 
   return (
     <div
@@ -72,7 +54,7 @@ export default function KanbanColumn({
       {/* Cards */}
       <div className="flex-1 p-3 space-y-2 overflow-y-auto">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-          {sortedTasks.map(task => (
+          {tasks.map(task => (
             <TaskCard
               key={task.id}
               task={task}

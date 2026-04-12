@@ -1765,6 +1765,17 @@ Supprimer une tâche **manuelle uniquement**. Retourne 400 pour les tâches auto
 
 **Réponse** : `{ "success": true }` | 400 | 404
 
+### `POST /reorder`
+
+Persister l'ordre visuel des tâches au sein d'une colonne.
+
+**Body** :
+| Champ | Type | Description |
+|-------|------|-------------|
+| `ordered_ids` | string[] | Liste ordonnée des IDs de tâches |
+
+**Réponse** : `{ "success": true }`
+
 ### `POST /refresh`
 
 Régénère les tâches auto pour l'année donnée et applique la déduplication.
@@ -1804,5 +1815,6 @@ Régénère les tâches auto pour l'année donnée et applique la déduplication
   "due_date": null,
   "dismissed": false,
   "created_at": "2026-04-05T20:45:07.245",
-  "completed_at": null
+  "completed_at": null,
+  "order": 0
 }

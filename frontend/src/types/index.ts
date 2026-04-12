@@ -1366,6 +1366,7 @@ export interface Task {
   dismissed: boolean
   created_at: string
   completed_at?: string
+  order: number
 }
 
 export interface TaskCreate {

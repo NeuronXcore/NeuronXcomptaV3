@@ -23,6 +23,31 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   - `SandboxArrivalToast` passe de `duration: 6000` à `duration: Infinity`
   - Le toast d'arrivée d'un nouveau scan OCR reste affiché jusqu'à action utilisateur (clic carte ou bouton X)
 
+### Added / Changed (2026-04-12) — Session 13
+
+- **Tâches Kanban — réordonnancement drag & drop vertical**
+  - Nouveau champ `order: int` sur le modèle `Task` (backend + frontend) pour persister l'ordre des tâches au sein d'une colonne
+  - Nouveau endpoint `POST /api/tasks/reorder` accepte `{ ordered_ids: string[] }` et met à jour les `order` correspondants
+  - `handleDragEnd` réécrit : supporte le réordonnancement **intra-colonne** via `arrayMove` (@dnd-kit/sortable) en plus du déplacement inter-colonnes existant
+  - Collision detection `closestCorners` au lieu du défaut @dnd-kit (meilleure détection des cibles dans les SortableContext imbriqués)
+  - Tri des colonnes par `order` au lieu de priorité+date (suppression du `PRIORITY_ORDER` sort dans `KanbanColumn`)
+  - Auto-assignation de `order=max+1` à la création d'une tâche et au changement de colonne (PATCH status)
+  - Hook `useReorderTasks()` dans `useTasks.ts`
+
+- **Toast sandbox — affichage du nom de fichier original**
+  - `SandboxArrivalToast` affiche `originalFilename` (nom du fichier déposé) en titre principal
+  - Si auto-renommé, une ligne secondaire `→ filename` montre le nom canonique après renommage
+  - Corrige le feedback utilisateur : on voit désormais le nom qu'on a déposé, pas le nom cryptique post-OCR
+
+#### Fichiers modifiés
+- `backend/models/task.py` — champ `order: int = 0`
+- `backend/routers/tasks.py` — endpoint `/reorder`, auto-order dans `create_task` et `update_task`
+- `frontend/src/types/index.ts` — `order: number` sur `Task`
+- `frontend/src/hooks/useTasks.ts` — `useReorderTasks()`
+- `frontend/src/components/tasks/TasksPage.tsx` — `closestCorners`, `handleDragEnd` intra-colonne
+- `frontend/src/components/tasks/KanbanColumn.tsx` — suppression tri priorité, tasks pré-triées
+- `frontend/src/components/shared/SandboxArrivalToast.tsx` — affichage originalFilename
+
 ### Fixed (2026-04-11) — Patch fix-thumbnail-preview
 
 - **Hover popover OCR Gestion OCR : migration `<iframe>` PDF → `<img>` thumbnail PNG**

@@ -38,6 +38,7 @@ class Task(BaseModel):
     dismissed: bool = False
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     completed_at: Optional[str] = None
+    order: int = 0
 
 
 class TaskCreate(BaseModel):

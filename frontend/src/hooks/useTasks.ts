@@ -46,6 +46,18 @@ export function useDeleteTask() {
   })
 }
 
+export function useReorderTasks() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      api.post('/tasks/reorder', { ordered_ids: orderedIds }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
 export function useRefreshAutoTasks() {
   const qc = useQueryClient()
   return useMutation({

@@ -1,13 +1,15 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  closestCorners,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { RefreshCw, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/shared/PageHeader'
@@ -15,7 +17,7 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import KanbanColumn from './KanbanColumn'
 import TaskCard from './TaskCard'
 import TaskInlineForm from './TaskInlineForm'
-import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useRefreshAutoTasks } from '@/hooks/useTasks'
+import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useRefreshAutoTasks, useReorderTasks } from '@/hooks/useTasks'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import type { Task, TaskStatus, TaskCreate, TaskUpdate } from '@/types'
 
@@ -32,6 +34,7 @@ export default function TasksPage() {
   const updateMutation = useUpdateTask()
   const deleteMutation = useDeleteTask()
   const refreshMutation = useRefreshAutoTasks()
+  const reorderMutation = useReorderTasks()
 
   const [addingInColumn, setAddingInColumn] = useState<TaskStatus | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -49,7 +52,7 @@ export default function TasksPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
 
-  // Group tasks by status
+  // Group tasks by status, sorted by order
   const tasksByStatus = useMemo(() => {
     const grouped: Record<TaskStatus, Task[]> = {
       todo: [],
@@ -59,6 +62,10 @@ export default function TasksPage() {
     for (const t of tasks ?? []) {
       if (grouped[t.status]) grouped[t.status].push(t)
     }
+    // Sort each column by order field
+    for (const key of Object.keys(grouped) as TaskStatus[]) {
+      grouped[key].sort((a, b) => a.order - b.order)
+    }
     return grouped
   }, [tasks])
 
@@ -67,36 +74,59 @@ export default function TasksPage() {
     setActiveTask(task ?? null)
   }
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     setActiveTask(null)
     const { active, over } = event
-    if (!over) return
+    if (!over || active.id === over.id) return
 
-    const task = (tasks ?? []).find(t => t.id === active.id)
+    const allTasks = tasks ?? []
+    const task = allTasks.find(t => t.id === active.id)
     if (!task) return
 
     // Determine target column: `over.id` could be a column id or a card id
-    let targetStatus: TaskStatus | undefined
-    if (['todo', 'in_progress', 'done'].includes(over.id as string)) {
+    const columnStatuses: string[] = ['todo', 'in_progress', 'done']
+    let targetStatus: TaskStatus
+    if (columnStatuses.includes(over.id as string)) {
       targetStatus = over.id as TaskStatus
     } else {
-      // Dropped over a card — find which column it belongs to
-      const overTask = (tasks ?? []).find(t => t.id === over.id)
-      targetStatus = overTask?.status
+      const overTask = allTasks.find(t => t.id === over.id)
+      targetStatus = overTask?.status ?? task.status
     }
 
-    if (!targetStatus || targetStatus === task.status) return
+    const sameColumn = targetStatus === task.status
 
-    updateMutation.mutate(
-      { id: task.id, data: { status: targetStatus } },
-      {
-        onSuccess: () => {
-          const label = COLUMNS.find(c => c.status === targetStatus)?.title ?? targetStatus
-          toast.success(`Tâche déplacée vers ${label}`)
-        },
-      }
-    )
-  }
+    if (sameColumn) {
+      // Intra-column reorder
+      const columnTasks = [...tasksByStatus[task.status]]
+      const oldIndex = columnTasks.findIndex(t => t.id === active.id)
+      const newIndex = columnTasks.findIndex(t => t.id === over.id)
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
+
+      const reordered = arrayMove(columnTasks, oldIndex, newIndex)
+      // Persist order for this column
+      reorderMutation.mutate(reordered.map(t => t.id))
+    } else {
+      // Cross-column move: update status + insert at target position
+      const targetColumn = [...tasksByStatus[targetStatus]]
+      const overIndex = targetColumn.findIndex(t => t.id === over.id)
+
+      // Build new order: insert task into target column at the drop position
+      const insertIndex = overIndex === -1 ? targetColumn.length : overIndex
+      targetColumn.splice(insertIndex, 0, task)
+
+      updateMutation.mutate(
+        { id: task.id, data: { status: targetStatus } },
+        {
+          onSuccess: () => {
+            // Persist the new order for the target column
+            reorderMutation.mutate(targetColumn.map(t => t.id))
+            const label = COLUMNS.find(c => c.status === targetStatus)?.title ?? targetStatus
+            toast.success(`Tâche déplacée vers ${label}`)
+          },
+        }
+      )
+    }
+  }, [tasks, tasksByStatus, updateMutation, reorderMutation])
 
   const handleCreate = (data: TaskCreate) => {
     createMutation.mutate({ ...data, year: selectedYear }, {
@@ -157,7 +187,7 @@ export default function TasksPage() {
         }
       />
 
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-3 gap-4 mt-4">
           {COLUMNS.map(col => (
             <KanbanColumn

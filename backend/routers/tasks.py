@@ -7,9 +7,15 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from pydantic import BaseModel as _BaseModel
+
 from backend.core.config import TASKS_FILE
 from backend.models.task import Task, TaskCreate, TaskSource, TaskStatus, TaskUpdate
 from backend.services import task_service
+
+
+class ReorderPayload(_BaseModel):
+    ordered_ids: list[str]
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +54,8 @@ async def list_tasks(year: Optional[int] = Query(None), include_dismissed: bool 
 @router.post("/")
 async def create_task(data: TaskCreate):
     tasks = _load_tasks()
+    # New task goes to the end of its column
+    max_order = max((t.order for t in tasks if t.status == data.status), default=-1)
     task = Task(
         title=data.title,
         description=data.description,
@@ -56,6 +64,7 @@ async def create_task(data: TaskCreate):
         year=data.year,
         due_date=data.due_date,
         source=TaskSource.manual,
+        order=max_order + 1,
     )
     tasks.append(task)
     _save_tasks(tasks)
@@ -74,6 +83,10 @@ async def update_task(task_id: str, data: TaskUpdate):
     # Gérer completed_at automatiquement
     if "status" in update_data:
         new_status = update_data["status"]
+        if new_status != task.status:
+            # Assign order at the end of the target column
+            max_order = max((t.order for t in tasks if t.status == new_status), default=-1)
+            update_data["order"] = max_order + 1
         if new_status == TaskStatus.done and task.status != TaskStatus.done:
             update_data["completed_at"] = datetime.now().isoformat()
         elif new_status != TaskStatus.done and task.status == TaskStatus.done:
@@ -95,6 +108,18 @@ async def delete_task(task_id: str):
     if task.source == TaskSource.auto:
         raise HTTPException(400, "Impossible de supprimer une tâche auto. Utilisez dismiss.")
     tasks = [t for t in tasks if t.id != task_id]
+    _save_tasks(tasks)
+    return {"success": True}
+
+
+@router.post("/reorder")
+async def reorder_tasks(payload: ReorderPayload):
+    """Persist the visual ordering of tasks (within or across columns)."""
+    tasks = _load_tasks()
+    id_to_task = {t.id: t for t in tasks}
+    for idx, tid in enumerate(payload.ordered_ids):
+        if tid in id_to_task:
+            id_to_task[tid].order = idx
     _save_tasks(tasks)
     return {"success": True}
 

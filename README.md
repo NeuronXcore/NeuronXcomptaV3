@@ -28,7 +28,7 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Amortissements** | Registre immobilisations, calcul dotations linéaire/dégressif, détection auto candidates (> 500€), plafonds véhicules CO2, cessions avec plus/moins-value, moteur calcul temps réel |
 | **Prévisionnel** | Calendrier de trésorerie 12 mois : timeline charges/recettes (barres Recharts), fournisseurs récurrents (facture/échéancier), parsing OCR prélèvements, scan automatique documents, régression recettes + saisonnalité, paramètres catégories |
 | **Simulation BNC** | Simulateur fiscal : leviers Madelin/PER/CARMF/investissement/remplacement, dépenses détaillées par catégorie, taux marginal réel, comparatif charge/immobilisation, prévisions d'honoraires avec profil saisonnier |
-| **Tâches** | Vue kanban 3 colonnes (To do / In progress / Done) avec drag & drop, tâches auto-générées (5 détections : catégorisation, justificatifs, clôture, imports, alertes) + tâches manuelles, scopé par année, badge compteur sidebar |
+| **Tâches** | Vue kanban 3 colonnes (To do / In progress / Done) avec drag & drop et **réordonnancement vertical** intra-colonne (persisté), tâches auto-générées (5 détections : catégorisation, justificatifs, clôture, imports, alertes) + tâches manuelles, scopé par année, badge compteur sidebar |
 | **Paramètres** | Thème, export, stockage, informations système, **email comptable** (SMTP Gmail, app password, destinataires, nom expéditeur), **Intégrité des justificatifs** (scan + répare auto duplicatas/orphelins/liens fantômes, grille 6 métriques, détection conflits hash, bouton « Redémarrer backend » en dev) |
 
 ---

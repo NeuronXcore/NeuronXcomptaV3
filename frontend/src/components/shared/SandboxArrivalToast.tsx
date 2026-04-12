@@ -75,9 +75,14 @@ export default function SandboxArrivalToast({
               Nouveau scan re&#xe7;u
             </span>
           </div>
-          <div className="text-sm font-medium text-text truncate" title={filename}>
-            {filename}
+          <div className="text-sm font-medium text-text truncate" title={originalFilename || filename}>
+            {originalFilename || filename}
           </div>
+          {autoRenamed && originalFilename && originalFilename !== filename && (
+            <div className="text-[11px] text-text-muted truncate" title={filename}>
+              → {filename}
+            </div>
+          )}
           <div className="flex items-center gap-2 mt-1 text-[11px] text-text-muted">
             {supplier ? (
               <span className="truncate font-medium text-orange-400" title={supplier}>
