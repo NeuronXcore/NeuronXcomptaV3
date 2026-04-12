@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createElement } from 'react'
-import { Receipt, Check, FileText, Settings, RefreshCw, ExternalLink, Library, X, Sparkles, Send, Shirt, Car } from 'lucide-react'
+import { Receipt, Check, FileText, Settings, RefreshCw, ExternalLink, Library, X, Sparkles, Send, Shirt, Car, UtensilsCrossed } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
@@ -20,6 +20,7 @@ import { useDashboard } from '@/hooks/useApi'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { formatCurrency } from '@/lib/utils'
 import type { ForfaitResult } from '@/types'
+import RepasTab from './RepasTab'
 import VehiculeTab from './VehiculeTab'
 import PdfPreviewDrawer from './PdfPreviewDrawer'
 import PdfThumbnail from '@/components/shared/PdfThumbnail'
@@ -28,7 +29,7 @@ export default function ChargesForfaitairesPage() {
   const navigate = useNavigate()
   const openSendDrawer = useSendDrawerStore(s => s.open)
   const year = useFiscalYearStore(s => s.selectedYear)
-  const [activeTab, setActiveTab] = useState<'blanchissage' | 'vehicule'>('blanchissage')
+  const [activeTab, setActiveTab] = useState<'blanchissage' | 'repas' | 'vehicule'>('blanchissage')
   const [jours, setJours] = useState(230)
   const [honorairesLiasse, setHonorairesLiasse] = useState<string>('')
   const [showBareme, setShowBareme] = useState(false)
@@ -139,6 +140,7 @@ export default function ChargesForfaitairesPage() {
       <div className="flex gap-2 border-b border-border pb-px">
         {([
           { id: 'blanchissage' as const, label: 'Blanchissage', Icon: Shirt, bg: 'bg-violet-500/15', bgActive: 'bg-violet-500/25', text: 'text-violet-400', iconBg: 'bg-violet-500' },
+          { id: 'repas' as const, label: 'Repas', Icon: UtensilsCrossed, bg: 'bg-orange-500/15', bgActive: 'bg-orange-500/25', text: 'text-orange-400', iconBg: 'bg-orange-500' },
           { id: 'vehicule' as const, label: 'Véhicule', Icon: Car, bg: 'bg-sky-500/15', bgActive: 'bg-sky-500/25', text: 'text-sky-400', iconBg: 'bg-sky-500' },
         ]).map(({ id, label, Icon, bg, bgActive, text, iconBg }) => (
           <button
@@ -438,6 +440,9 @@ export default function ChargesForfaitairesPage() {
           </div>
         </div>
       ))}
+
+      {/* Contenu Repas */}
+      {activeTab === 'repas' && <RepasTab year={year} />}
 
       {/* Contenu Véhicule */}
       {activeTab === 'vehicule' && <VehiculeTab year={year} />}

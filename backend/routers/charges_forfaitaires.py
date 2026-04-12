@@ -11,6 +11,8 @@ from backend.models.charges_forfaitaires import (
     ForfaitResult,
     GenerateODRequest,
     GenerateODResponse,
+    RepasRequest,
+    RepasResult,
     VehiculeRequest,
     VehiculeResult,
 )
@@ -37,6 +39,26 @@ async def calculer_blanchissage(request: BlanchissageRequest):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.post("/calculer/repas", response_model=RepasResult)
+async def calculer_repas(request: RepasRequest):
+    """Calcule le forfait repas déductible sans générer d'OD."""
+    try:
+        return service.calculer_repas(request)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/bareme/repas")
+async def get_bareme_repas(year: int = Query(...)):
+    """Retourne le barème repas + forfait_jour calculé."""
+    try:
+        bareme = service._load_bareme_repas(year)
+        forfait_jour = round(bareme["plafond_repas_restaurant"] - bareme["seuil_repas_maison"], 2)
+        return {**bareme, "forfait_jour": forfait_jour}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.post("/generer", response_model=GenerateODResponse)
 async def generer_od(request: GenerateODRequest):
     """Génère l'OD + PDF reconstitué + enregistrement GED."""
@@ -50,12 +72,22 @@ async def generer_od(request: GenerateODRequest):
 
 @router.get("/generes")
 async def get_forfaits_generes(year: int = Query(...)):
-    """Liste les forfaits déjà générés pour l'année (blanchissage OD + véhicule ratio)."""
+    """Liste les forfaits déjà générés pour l'année (blanchissage + repas OD + véhicule ratio)."""
     results = service.get_forfaits_generes(year)
+    results.extend(service.get_repas_generes(year))
     vehicule = service.get_vehicule_genere(year)
     if vehicule:
         results.append(vehicule)
     return results
+
+
+@router.delete("/supprimer/repas")
+async def supprimer_repas(year: int = Query(...)):
+    """Supprime l'OD repas + PDF + GED."""
+    ok = service.supprimer_repas(year)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Aucun forfait repas trouvé pour {year}")
+    return {"deleted": True}
 
 
 @router.delete("/supprimer/vehicule")

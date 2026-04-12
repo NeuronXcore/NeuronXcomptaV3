@@ -20,8 +20,13 @@
     "Couleur": "#c9de40"
   },
   {
-    "Catégorie": "repas",
-    "Sous-catégorie": "",
+    "Catégorie": "Repas pro",
+    "Sous-catégorie": "Repas seul",
+    "Couleur": "#dde012"
+  },
+  {
+    "Catégorie": "Repas pro",
+    "Sous-catégorie": "Repas confrères",
     "Couleur": "#dde012"
   },
   {
@@ -37,6 +42,11 @@
   {
     "Catégorie": "perso",
     "Sous-catégorie": "virement",
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Catégorie": "perso",
+    "Sous-catégorie": "Repas",
     "Couleur": "#95A5A6"
   },
   {

@@ -17,6 +17,8 @@ from backend.models.charges_forfaitaires import (
     GenerateODRequest,
     GenerateODResponse,
     ModeBlanchissage,
+    RepasRequest,
+    RepasResult,
     TypeForfait,
     VehiculeRequest,
     VehiculeResult,
@@ -137,6 +139,9 @@ class ChargesForfaitairesService:
         4. Générer le PDF reconstitué
         5. Enregistrer dans la GED
         """
+        if request.type_forfait == TypeForfait.REPAS:
+            return self.generer_repas(request)
+
         # 1. Calcul
         calc_request = BlanchissageRequest(
             year=request.year,
@@ -533,6 +538,9 @@ class ChargesForfaitairesService:
         3. Supprimer le PDF
         4. Supprimer l'entrée GED
         """
+        if type_forfait == "repas":
+            return self.supprimer_repas(year)
+
         generes = self.get_forfaits_generes(year)
         if not generes:
             return False
@@ -564,6 +572,340 @@ class ChargesForfaitairesService:
                 doc_id for doc_id, doc in docs.items()
                 if doc.get("filename", "").startswith(f"blanchissage_{year}")
                 or doc.get("filename", "").startswith(f"reconstitue_blanchissage_{year}")
+            ]
+            for doc_id in to_remove:
+                docs.pop(doc_id, None)
+                logger.info(f"GED supprimé: {doc_id}")
+            metadata["documents"] = docs
+            save_metadata(metadata)
+
+        return True
+
+    # ══════════════════════════════════════════════════════════
+    # ── Repas professionnels (forfait déductible) ──
+    # ══════════════════════════════════════════════════════════
+
+    def _load_bareme_repas(self, year: int) -> dict:
+        """Charge baremes/repas_{year}.json. Fallback année la plus récente."""
+        ensure_directories()
+        target = BAREMES_DIR / f"repas_{year}.json"
+        if target.exists():
+            return json.loads(target.read_text(encoding="utf-8"))
+        candidates = sorted(BAREMES_DIR.glob("repas_*.json"), reverse=True)
+        if not candidates:
+            raise FileNotFoundError("Aucun barème repas trouvé")
+        return json.loads(candidates[0].read_text(encoding="utf-8"))
+
+    def calculer_repas(self, request: RepasRequest) -> RepasResult:
+        """Calcule le forfait repas déductible."""
+        bareme = self._load_bareme_repas(request.year)
+        forfait_jour = round(bareme["plafond_repas_restaurant"] - bareme["seuil_repas_maison"], 2)
+        montant_deductible = round(forfait_jour * request.jours_travailles, 2)
+
+        return RepasResult(
+            year=request.year,
+            montant_deductible=montant_deductible,
+            cout_jour=forfait_jour,
+            seuil_repas_maison=bareme["seuil_repas_maison"],
+            plafond_repas_restaurant=bareme["plafond_repas_restaurant"],
+            jours_travailles=request.jours_travailles,
+            reference_legale=bareme.get("reference_legale", "BOI-BNC-BASE-40-60"),
+        )
+
+    def generer_repas(self, request: GenerateODRequest) -> GenerateODResponse:
+        """Génère OD repas + PDF + GED."""
+        calc = self.calculer_repas(RepasRequest(
+            year=request.year,
+            jours_travailles=request.jours_travailles,
+        ))
+
+        date_ecriture = request.date_ecriture or f"{request.year}-12-31"
+        target_file = self._find_or_create_december_file(request.year)
+        filepath = IMPORTS_OPERATIONS_DIR / target_file
+        operations = json.loads(filepath.read_text(encoding="utf-8"))
+
+        # Déduplication
+        doublon_marker = f"Charge forfaitaire repas {request.year}"
+        for op in operations:
+            if op.get("Commentaire", "").startswith(doublon_marker):
+                raise ValueError(
+                    f"Un forfait repas existe déjà pour {request.year} dans {target_file}"
+                )
+
+        od = {
+            "Date": date_ecriture,
+            "Libellé": f"Forfait repas professionnels {request.year} — {calc.reference_legale}",
+            "Débit": calc.montant_deductible,
+            "Crédit": 0,
+            "Catégorie": "Repas pro",
+            "Sous-catégorie": "Repas seul",
+            "Justificatif": True,
+            "Lien justificatif": "",
+            "Important": False,
+            "A_revoir": False,
+            "Commentaire": f"{doublon_marker} — {calc.reference_legale}",
+            "alertes": [],
+            "compte_attente": False,
+            "alertes_resolues": [],
+            "lettre": True,
+            "type_operation": "OD",
+        }
+        operations.append(od)
+        od_index = len(operations) - 1
+        filepath.write_text(json.dumps(operations, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # PDF
+        pdf_filename = self._generer_pdf_repas(calc)
+
+        # Lien justificatif
+        operations[od_index]["Lien justificatif"] = f"reports/{pdf_filename}"
+        filepath.write_text(json.dumps(operations, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # GED
+        ged_doc_id = self._register_ged_repas(pdf_filename, calc, target_file, od_index)
+
+        return GenerateODResponse(
+            od_filename=target_file,
+            od_index=od_index,
+            pdf_filename=pdf_filename,
+            ged_doc_id=ged_doc_id,
+            montant=calc.montant_deductible,
+        )
+
+    def _generer_pdf_repas(self, result: RepasResult) -> str:
+        """PDF ReportLab A4 pour le forfait repas."""
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            Image,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+            Paragraph,
+        )
+
+        montant_str = f"{result.montant_deductible:.2f}".replace(".", ",")
+        date_str = f"{result.year}1231"
+        filename = f"repas_{date_str}_{montant_str}.pdf"
+
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        output_path = REPORTS_DIR / filename
+
+        doc = SimpleDocTemplate(
+            str(output_path),
+            pagesize=A4,
+            topMargin=20 * mm,
+            bottomMargin=20 * mm,
+            leftMargin=15 * mm,
+            rightMargin=15 * mm,
+        )
+
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Logo
+        logo_path = BASE_DIR / "backend" / "assets" / "logo_lockup_light_400.png"
+        if logo_path.exists():
+            elements.append(Image(str(logo_path), width=50 * mm, height=15 * mm))
+            elements.append(Spacer(1, 10 * mm))
+
+        # Titre
+        title_style = ParagraphStyle(
+            "CustomTitle", parent=styles["Heading1"], fontSize=16, spaceAfter=4 * mm
+        )
+        elements.append(Paragraph(f"Charges forfaitaires — Repas professionnels {result.year}", title_style))
+
+        subtitle_style = ParagraphStyle(
+            "Subtitle", parent=styles["Normal"], fontSize=11, textColor=colors.grey
+        )
+        elements.append(Paragraph(f"Référence légale : {result.reference_legale}", subtitle_style))
+        elements.append(Spacer(1, 6 * mm))
+
+        def fmt_eur(val: float) -> str:
+            return f"{val:,.2f} \u20ac".replace(",", "\u00a0").replace(".", ",").replace("\u00a0", "\u00a0")
+
+        # Tableau
+        data = [
+            ["Paramètre", "Valeur", "Source"],
+            ["Seuil repas pris au domicile", fmt_eur(result.seuil_repas_maison), "URSSAF"],
+            ["Plafond repas au restaurant", fmt_eur(result.plafond_repas_restaurant), "URSSAF"],
+            ["Forfait déductible / jour", fmt_eur(result.cout_jour), "Calculé"],
+            [f"Nombre de jours travaillés", f"{result.jours_travailles:g}", "Saisie"],
+            ["Total annuel déductible", fmt_eur(result.montant_deductible), "Calculé"],
+        ]
+
+        col_widths = [70 * mm, 40 * mm, 40 * mm]
+        table = Table(data, colWidths=col_widths)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            ("BOLD", (0, 0), (-1, 0), True),
+            ("BOLD", (0, -1), (-1, -1), True),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("ALIGN", (2, 0), (2, -1), "CENTER"),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.grey),
+            ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e8f5e9")),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 10 * mm))
+
+        # Notes
+        note_style = ParagraphStyle(
+            "Note", parent=styles["Normal"], fontSize=8, textColor=colors.grey
+        )
+        elements.append(Paragraph("Aucun justificatif requis pour ce forfait", note_style))
+        elements.append(Paragraph(
+            f"Formule : (plafond restaurant − seuil domicile) × jours = "
+            f"({result.plafond_repas_restaurant} − {result.seuil_repas_maison}) × {result.jours_travailles:g} = "
+            f"{result.montant_deductible:.2f} €",
+            note_style,
+        ))
+        now_str = datetime.now().strftime("%d/%m/%Y")
+        elements.append(Paragraph(f"Document généré le {now_str} — NeuronXcompta", note_style))
+
+        doc.build(elements)
+        logger.info(f"PDF repas généré: {filename}")
+        return filename
+
+    def _register_ged_repas(self, pdf_filename: str, result: RepasResult, op_file: str, op_index: int) -> str:
+        """Enregistre le PDF repas dans la GED metadata."""
+        from backend.services.ged_service import load_metadata, save_metadata
+
+        src_path = REPORTS_DIR / pdf_filename
+        try:
+            doc_id = str(src_path.relative_to(BASE_DIR))
+        except ValueError:
+            doc_id = str(src_path)
+
+        metadata = load_metadata()
+        docs = metadata.get("documents", {})
+
+        now = datetime.now().isoformat()
+        docs[doc_id] = {
+            "doc_id": doc_id,
+            "type": "rapport",
+            "filename": pdf_filename,
+            "year": result.year,
+            "month": 12,
+            "poste_comptable": None,
+            "categorie": "Repas pro",
+            "sous_categorie": "Repas seul",
+            "montant_brut": None,
+            "deductible_pct_override": None,
+            "tags": [],
+            "notes": "",
+            "added_at": now,
+            "original_name": pdf_filename,
+            "ocr_file": None,
+            "fournisseur": "Repas",
+            "date_document": f"{result.year}-12-31",
+            "date_operation": f"{result.year}-12-31",
+            "period": {"year": result.year, "month": 12},
+            "montant": result.montant_deductible,
+            "ventilation_index": None,
+            "is_reconstitue": False,
+            "operation_ref": f"{op_file}:{op_index}",
+            "source_module": "charges-forfaitaires",
+            "rapport_meta": {
+                "template_id": None,
+                "title": f"Forfait repas {result.year}",
+                "description": f"Charge forfaitaire repas — {result.jours_travailles:g} jours — {result.montant_deductible:.2f} €",
+                "filters": {"year": result.year, "month": 12},
+                "format": "pdf",
+                "favorite": False,
+                "generated_at": now,
+                "can_regenerate": False,
+                "can_compare": False,
+            },
+        }
+
+        metadata["documents"] = docs
+        save_metadata(metadata)
+        logger.info(f"GED repas enregistré: {doc_id}")
+        return doc_id
+
+    def get_repas_generes(self, year: int) -> list[dict]:
+        """Scanner les fichiers d'opérations pour trouver les OD repas."""
+        ensure_directories()
+        results: list[dict] = []
+        marker = f"Charge forfaitaire repas {year}"
+
+        for f in sorted(IMPORTS_OPERATIONS_DIR.glob("operations_*.json")):
+            try:
+                ops = json.loads(f.read_text(encoding="utf-8"))
+                for i, op in enumerate(ops):
+                    comment = op.get("Commentaire", "")
+                    if comment.startswith(marker) and op.get("type_operation") == "OD":
+                        lien = op.get("Lien justificatif", "")
+                        pdf_filename = lien.split("/")[-1] if lien else ""
+
+                        if not pdf_filename:
+                            candidates = sorted(REPORTS_DIR.glob(f"repas_{year}*"), reverse=True)
+                            if candidates:
+                                pdf_filename = candidates[0].name
+
+                        ged_doc_id = ""
+                        if pdf_filename:
+                            from backend.services.ged_service import load_metadata
+                            meta = load_metadata()
+                            docs = meta.get("documents", {})
+                            for doc_id, doc in docs.items():
+                                if doc.get("filename") == pdf_filename:
+                                    ged_doc_id = doc_id
+                                    break
+                            if not ged_doc_id:
+                                candidate_id = f"data/reports/{pdf_filename}"
+                                if candidate_id in docs:
+                                    ged_doc_id = candidate_id
+
+                        results.append({
+                            "type_forfait": "repas",
+                            "montant": op.get("Débit", 0),
+                            "date_ecriture": op.get("Date", ""),
+                            "od_filename": f.name,
+                            "od_index": i,
+                            "pdf_filename": pdf_filename,
+                            "ged_doc_id": ged_doc_id,
+                        })
+            except (json.JSONDecodeError, KeyError):
+                continue
+
+        return results
+
+    def supprimer_repas(self, year: int) -> bool:
+        """Supprime OD repas + PDF + GED."""
+        generes = self.get_repas_generes(year)
+        if not generes:
+            return False
+
+        from backend.services.ged_service import load_metadata, save_metadata
+
+        for g in generes:
+            filepath = IMPORTS_OPERATIONS_DIR / g["od_filename"]
+            ops = json.loads(filepath.read_text(encoding="utf-8"))
+            if g["od_index"] < len(ops):
+                ops.pop(g["od_index"])
+                filepath.write_text(json.dumps(ops, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            traites_dir = DATA_DIR / "justificatifs" / "traites"
+            for directory in [REPORTS_DIR, JUSTIFICATIFS_EN_ATTENTE_DIR, traites_dir]:
+                for pattern in [f"repas_{year}*"]:
+                    for pdf in directory.glob(pattern):
+                        pdf.unlink(missing_ok=True)
+                        logger.info(f"PDF supprimé: {pdf.name}")
+
+            metadata = load_metadata()
+            docs = metadata.get("documents", {})
+            to_remove = [
+                doc_id for doc_id, doc in docs.items()
+                if doc.get("filename", "").startswith(f"repas_{year}")
             ]
             for doc_id in to_remove:
                 docs.pop(doc_id, None)

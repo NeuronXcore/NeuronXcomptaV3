@@ -29,6 +29,7 @@ class Operation(BaseModel):
     A_revoir: bool = False
     lettre: bool = False
     Commentaire: Optional[str] = None
+    participants: Optional[str] = None
     rapprochement_score: Optional[float] = None
     rapprochement_mode: Optional[str] = None
     rapprochement_date: Optional[str] = None

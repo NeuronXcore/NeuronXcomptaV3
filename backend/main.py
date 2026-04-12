@@ -3,10 +3,14 @@ NeuronXcompta V3 - FastAPI Backend
 Point d'entrée principal de l'API.
 """
 
+from __future__ import annotations
+
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,6 +53,59 @@ async def _previsionnel_background_loop():
 
 _prev_task = None
 
+
+def _migrate_repas_to_repas_pro() -> None:
+    """Migration one-shot : 'repas' → 'Repas pro' + sous-cat 'Repas seul' dans les opérations."""
+    from backend.core.config import IMPORTS_OPERATIONS_DIR
+    log = logging.getLogger(__name__)
+    ops_dir = Path(IMPORTS_OPERATIONS_DIR)
+    if not ops_dir.exists():
+        return
+    total_migrated = 0
+    for fp in ops_dir.glob("*.json"):
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, list):
+            continue
+        changed = False
+        for op in data:
+            if op.get("Catégorie") == "repas":
+                op["Catégorie"] = "Repas pro"
+                if not op.get("Sous-catégorie"):
+                    op["Sous-catégorie"] = "Repas seul"
+                changed = True
+                total_migrated += 1
+        if changed:
+            fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    if total_migrated > 0:
+        log.info(f"Migration repas→Repas pro: {total_migrated} opérations mises à jour")
+
+    # Phase 2 : UBER EATS → perso (food delivery = personnel)
+    uber_migrated = 0
+    for fp in ops_dir.glob("*.json"):
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, list):
+            continue
+        changed = False
+        for op in data:
+            lib = (op.get("Libellé") or "").upper()
+            if ("UBER" in lib and "EATS" in lib) or "UBEREATS" in lib.replace(" ", ""):
+                if op.get("Catégorie") != "perso" or op.get("Sous-catégorie") != "Repas":
+                    op["Catégorie"] = "perso"
+                    op["Sous-catégorie"] = "Repas"
+                    changed = True
+                    uber_migrated += 1
+        if changed:
+            fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    if uber_migrated > 0:
+        log.info(f"Migration UBER EATS→perso: {uber_migrated} opérations mises à jour")
+
+
 # Lifespan — démarrage/arrêt du sandbox watchdog + previsionnel
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -84,6 +141,11 @@ async def lifespan(app: FastAPI):
             )
     except Exception as e:
         logging.getLogger(__name__).warning(f"Justificatifs link repair error: {e}")
+    # Migration one-shot : repas → Repas pro + Repas seul
+    try:
+        _migrate_repas_to_repas_pro()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Migration repas→Repas pro error: {e}")
     # Demarrer la tache previsionnel en arriere-plan
     _prev_task = asyncio.create_task(_previsionnel_background_loop())
     yield

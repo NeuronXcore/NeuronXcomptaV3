@@ -755,11 +755,11 @@ Moteur de calcul (dupliqué Python + TypeScript) :
 Données : data/amortissements/immobilisations.json + config.json
 ```
 
-### Charges Forfaitaires (blanchissage + véhicule)
+### Charges Forfaitaires (blanchissage + repas + véhicule)
 
 ```
 Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
-  ├─ Tabs badges pill colorés : Shirt violet (Blanchissage) / Car bleu (Véhicule)
+  ├─ Tabs badges pill colorés : Shirt violet (Blanchissage) / UtensilsCrossed orange (Repas) / Car bleu (Véhicule)
   │
   ├─ Onglet Blanchissage :
   │   ├─ État 1 — Saisie :
@@ -772,6 +772,20 @@ Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
   │       ├─ Checklist 3✓ (OD, PDF, GED)
   │       ├─ Thumbnail PdfThumbnail (PNG) → clic → PdfPreviewDrawer (700px)
   │       └─ Boutons : Ouvrir GED / Regénérer / Envoyer au comptable (objet pré-rempli)
+  │
+  ├─ Onglet Repas (forfait déductible BOI-BNC-BASE-40-60) :
+  │   ├─ Barème URSSAF : seuil repas maison (5,35 €) + plafond restaurant (20,20 €)
+  │   ├─ Forfait/jour = plafond − seuil (calculé, jamais stocké)
+  │   ├─ État 1 — Saisie :
+  │   │   ├─ Input jours travaillés (partagé avec blanchissage)
+  │   │   ├─ 3 MetricCards : seuil maison, plafond restaurant, forfait/jour (violet)
+  │   │   ├─ Tableau barème (Paramètre / Valeur / Source) + total déductible
+  │   │   ├─ Calcul live côté client (useMemo, pas d'appel API)
+  │   │   └─ Bouton "Générer l'écriture" → toast brandé
+  │   └─ État 2 — Déjà généré :
+  │       ├─ Checklist 3✓ (OD, PDF, GED)
+  │       ├─ Thumbnail PdfThumbnail → clic → PdfPreviewDrawer
+  │       └─ Boutons : Ouvrir GED / Regénérer / Envoyer au comptable
   │
   ├─ Onglet Véhicule (quote-part professionnelle) :
   │   ├─ État 1 — Saisie :
@@ -791,9 +805,10 @@ Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
   │
   ├─ Backend : ChargesForfaitairesService
   │   ├─ Blanchissage : calcul, OD décembre, PDF ReportLab, GED
+  │   ├─ Repas : calcul forfait (plafond − seuil × jours), OD décembre, PDF, GED
   │   ├─ Véhicule : calcul ratio, update poste GED, PDF avec dépenses, GED, historique barème
-  │   ├─ Barèmes : blanchissage_{year}.json + vehicule_{year}.json (fallback année récente)
-  │   ├─ PDF : data/reports/ (blanchissage_YYYYMMDD_montant.pdf, quote_part_vehicule_{year}.pdf)
+  │   ├─ Barèmes : blanchissage_{year}.json + repas_{year}.json + vehicule_{year}.json (fallback année récente)
+  │   ├─ PDF : data/reports/ (blanchissage_*.pdf, repas_*.pdf, quote_part_vehicule_*.pdf)
   │   ├─ GED : type "rapport" + source_module "charges-forfaitaires"
   │   └─ Config : data/charges_forfaitaires_config.json (par année, champs partagés + véhicule)
   │

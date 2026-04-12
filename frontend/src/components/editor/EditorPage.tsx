@@ -18,7 +18,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
-  CheckCircle2, Circle, Scissors, Unlink,
+  CheckCircle2, Circle, Scissors, Unlink, Users2,
 } from 'lucide-react'
 import { api } from '@/api/client'
 import toast from 'react-hot-toast'
@@ -29,6 +29,7 @@ import RapprochementWorkflowDrawer from '@/components/rapprochement/Rapprochemen
 import VentilationDrawer from '@/components/editor/VentilationDrawer'
 import VentilationLines from '@/components/editor/VentilationLines'
 import UrssafSplitWidget, { isUrssafOp } from '@/components/editor/UrssafSplitWidget'
+import { ParticipantsCell } from '@/components/editor/ParticipantsCell'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
@@ -670,6 +671,23 @@ export default function EditorPage() {
           />
         )
       },
+    },
+    // Participants (visible uniquement pour Repas confrères)
+    {
+      id: 'participants',
+      header: () => <Users2 size={14} className="mx-auto" title="Participants" />,
+      size: 44,
+      cell: ({ row }) => {
+        if (row.original['Sous-catégorie'] !== 'Repas confrères') return null
+        return (
+          <ParticipantsCell
+            value={row.original.participants}
+            onSave={(val) => updateOperation(row.index, 'participants', val)}
+            disabled={allYearMode}
+          />
+        )
+      },
+      enableSorting: false,
     },
     // Justificatif — interactive paperclip + reconstituer
     {

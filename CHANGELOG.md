@@ -8,6 +8,40 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-12) — Session 17
+
+- **Repas pro — sous-catégories + participants**
+  - Catégorie `repas` renommée en `Repas pro` avec 2 sous-catégories : `Repas seul` et `Repas confrères`
+  - Migration lifespan idempotente : toutes les opérations `repas` → `Repas pro` / `Repas seul` au démarrage backend
+  - `Repas seul` exempt de justificatif obligatoire (ajout dans `settings.json` > `justificatif_exemptions.sous_categories`)
+  - Champ `participants` (Optional[str]) ajouté au modèle Operation (backend + frontend)
+  - Composant `ParticipantsCell` : icône Users2 (violet si rempli), badge compteur, popover textarea avec Ctrl+Enter pour sauver
+  - Colonne participants dans EditorPage, visible uniquement pour `Sous-catégorie = "Repas confrères"`
+  - Règle ML UBER EATS → `perso` / `Repas` (84 opérations existantes recatégorisées)
+  - Sous-catégorie `Repas` créée sous `perso` pour les livraisons alimentaires
+  - `data/ml/model.json` : exact_matches `ubereats`/`uber eats`/`ubereatshelp` → `perso`, subcategories → `Repas`
+  - `data/ml/training_examples.json` : toutes les entrées `repas` → `Repas pro`
+
+- **Charges forfaitaires — Onglet Repas (forfait déductible BOI-BNC-BASE-40-60)**
+  - Nouvel onglet Repas dans `/charges-forfaitaires` avec badge pill orange (icône UtensilsCrossed)
+  - Barème URSSAF versionné `data/baremes/repas_{year}.json` : seuil repas maison (5,35 €) + plafond restaurant (20,20 €)
+  - Forfait déductible/jour = plafond − seuil = 14,85 € (toujours calculé, jamais stocké)
+  - Calcul live **côté client** (`useMemo`) — instantané à chaque frappe
+  - InfoBox référence légale BOI-BNC-BASE-40-60
+  - 3 MetricCards : seuil maison (URSSAF), plafond restaurant (URSSAF), forfait/jour (calculé, bordure violet)
+  - Tableau barème 3 colonnes (Paramètre / Valeur / Source) avec total déductible en pied
+  - Jours travaillés **partagés** avec Blanchissage (même config key, mention "partagé avec Blanchissage")
+  - Même workflow que Blanchissage : OD décembre, PDF ReportLab A4, enregistrement GED, toast brandé
+  - État 2 généré : checklist 3✓, thumbnail PDF, boutons GED/Regénérer/Envoyer au comptable
+  - OD : catégorie `Repas pro` / `Repas seul`, marker `"Charge forfaitaire repas {year}"`
+  - PDF nommé `repas_{year}1231_{montant}.pdf` dans `data/reports/`
+  - 3 endpoints API : `POST /calculer/repas`, `GET /bareme/repas`, `DELETE /supprimer/repas`
+  - 2 modèles Pydantic : `RepasRequest`, `RepasResult`
+  - `TypeForfait.REPAS` ajouté à l'enum
+  - 3 hooks React : `useBaremeRepas`, `useCalculerRepas`, `useSupprimerRepas`
+  - Composant : `RepasTab.tsx`
+  - Endpoint `/generes` enrichi pour inclure les forfaits repas
+
 ### Added (2026-04-12) — Session 15
 
 - **Charges forfaitaires — Onglet Véhicule (quote-part professionnelle)**

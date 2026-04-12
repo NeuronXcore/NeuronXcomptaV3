@@ -161,3 +161,53 @@ export function useSupprimerVehicule() {
     },
   })
 }
+
+
+// ── Repas ──
+
+export interface BaremeRepas {
+  year: number
+  seuil_repas_maison: number
+  plafond_repas_restaurant: number
+  forfait_jour: number
+  reference_legale: string
+  source: string
+}
+
+export function useBaremeRepas(year: number) {
+  return useQuery<BaremeRepas>({
+    queryKey: ['bareme-repas', year],
+    queryFn: () => api.get(`/charges-forfaitaires/bareme/repas?year=${year}`),
+  })
+}
+
+export interface RepasResult {
+  type_forfait: string
+  year: number
+  montant_deductible: number
+  cout_jour: number
+  seuil_repas_maison: number
+  plafond_repas_restaurant: number
+  jours_travailles: number
+  reference_legale: string
+}
+
+export function useCalculerRepas() {
+  return useMutation<RepasResult, Error, { year: number; jours_travailles: number }>({
+    mutationFn: (data) => api.post('/charges-forfaitaires/calculer/repas', data),
+  })
+}
+
+export function useSupprimerRepas() {
+  const qc = useQueryClient()
+  return useMutation<{ deleted: boolean }, Error, { year: number }>({
+    mutationFn: ({ year }) =>
+      api.delete(`/charges-forfaitaires/supprimer/repas?year=${year}`),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['forfaits-generes', variables.year] })
+      qc.invalidateQueries({ queryKey: ['operations'] })
+      qc.invalidateQueries({ queryKey: ['ged'] })
+      toast.success('Forfait repas supprimé')
+    },
+  })
+}

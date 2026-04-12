@@ -1943,6 +1943,37 @@ Met à jour la config persistée. Body partiel accepté. Champs véhicule inclus
 }
 ```
 
+### `POST /calculer/repas`
+Calcule le forfait repas déductible sans générer d'OD.
+
+**Body :**
+```json
+{
+  "year": 2026,
+  "jours_travailles": 176.5
+}
+```
+
+**Réponse :** `RepasResult` avec `montant_deductible`, `cout_jour`, `seuil_repas_maison`, `plafond_repas_restaurant`, `reference_legale`.
+
+### `GET /bareme/repas?year=2026`
+Retourne le barème repas URSSAF + `forfait_jour` calculé (plafond − seuil).
+
+**Réponse :**
+```json
+{
+  "year": 2026,
+  "seuil_repas_maison": 5.35,
+  "plafond_repas_restaurant": 20.20,
+  "forfait_jour": 14.85,
+  "reference_legale": "BOI-BNC-BASE-40-60",
+  "source": "URSSAF 2026"
+}
+```
+
+### `DELETE /supprimer/repas?year=2026`
+Supprime l'OD repas + PDF + entrée GED.
+
 ### `POST /calculer/vehicule`
 Calcule le ratio pro sans persister. Retourne aussi le delta avec le poste GED actuel.
 

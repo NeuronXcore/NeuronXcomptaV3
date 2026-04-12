@@ -41,6 +41,7 @@ export interface Operation {
   A_revoir?: boolean
   lettre?: boolean
   Commentaire?: string
+  participants?: string
   rapprochement_score?: number
   rapprochement_mode?: 'auto' | 'manuel' | null
   rapprochement_date?: string

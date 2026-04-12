@@ -31,7 +31,7 @@
   },
   {
     "libelle": "cliptchaume montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-01-22"
   },
@@ -49,13 +49,13 @@
   },
   {
     "libelle": "paga montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-02-02"
   },
   {
     "libelle": "tuttipizza montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-02-15"
   },
@@ -79,7 +79,7 @@
   },
   {
     "libelle": "tuttipizzacosmontauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-02-24"
   },
@@ -159,7 +159,7 @@
   },
   {
     "libelle": "pagaunal montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-03-20"
   },
@@ -249,19 +249,19 @@
   },
   {
     "libelle": "uber one",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-06-06"
   },
   {
     "libelle": "uber eats",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-06-07"
   },
   {
     "libelle": "tommysmontaubaescalquens",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-06-13"
   },
@@ -385,7 +385,7 @@
   },
   {
     "libelle": "mcdonalds montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-12-15"
   },
@@ -397,7 +397,7 @@
   },
   {
     "libelle": "picardsa 0748montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-12-21"
   },
@@ -625,7 +625,7 @@
   },
   {
     "libelle": "florina montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-04-05"
   },
@@ -714,7 +714,7 @@
   },
   {
     "libelle": "ubereatshelp",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-05-08"
   },
@@ -744,19 +744,19 @@
   },
   {
     "libelle": "cafedurond montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-05-20"
   },
   {
     "libelle": "sncdls montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-05-23"
   },
   {
     "libelle": "ubereatshelp",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-05-26"
   },
@@ -828,7 +828,7 @@
   },
   {
     "libelle": "lafemmerenardmontauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": "",
     "date": "2024-08-06"
   },
@@ -1128,7 +1128,7 @@
   },
   {
     "libelle": "ubereats",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": ""
   },
   {
@@ -1418,7 +1418,7 @@
   },
   {
     "libelle": "lw montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": ""
   },
   {
@@ -1513,7 +1513,7 @@
   },
   {
     "libelle": "gardenicecafemontauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": ""
   },
   {
@@ -1613,12 +1613,12 @@
   },
   {
     "libelle": "labelbraise2 montauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": ""
   },
   {
     "libelle": "cliniqueveterimontauban",
-    "categorie": "repas",
+    "categorie": "Repas pro",
     "sous_categorie": ""
   },
   {
@@ -1665,5 +1665,25 @@
     "libelle": "tuneldenvalira",
     "categorie": "Abonnements",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "frais de blanchissage professionnel",
+    "categorie": "Blanchissage professionnel",
+    "sous_categorie": "Forfait annuel"
+  },
+  {
+    "libelle": "virementsepaemismotifremplacant",
+    "categorie": "Remplaçant",
+    "sous_categorie": "Honoraires"
+  },
+  {
+    "libelle": "ubereats",
+    "categorie": "perso",
+    "sous_categorie": "Repas"
+  },
+  {
+    "libelle": "ubereatshelp",
+    "categorie": "perso",
+    "sous_categorie": "Repas"
   }
 ]

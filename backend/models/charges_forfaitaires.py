@@ -8,6 +8,7 @@ from pydantic import BaseModel, field_validator
 
 class TypeForfait(str, Enum):
     BLANCHISSAGE = "blanchissage"
+    REPAS = "repas"
     VEHICULE = "vehicule"
 
 
@@ -58,6 +59,22 @@ class ForfaitResult(BaseModel):
     jours_travailles: float
     cout_jour: float
     honoraires_liasse: Optional[float] = None
+
+
+class RepasRequest(BaseModel):
+    year: int
+    jours_travailles: float
+
+
+class RepasResult(BaseModel):
+    type_forfait: TypeForfait = TypeForfait.REPAS
+    year: int
+    montant_deductible: float
+    cout_jour: float
+    seuil_repas_maison: float
+    plafond_repas_restaurant: float
+    jours_travailles: float
+    reference_legale: str
 
 
 class GenerateODRequest(BaseModel):
