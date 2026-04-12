@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { AllBaremes, TauxMarginal, SeuilCritique, HistoriqueBNC, PrevisionBNC } from '@/types'
+import type { AllBaremes, TauxMarginal, SeuilCritique, HistoriqueBNC, PrevisionBNC, UrssafDeductibleResult } from '@/types'
 
 export function useBaremes(year: number) {
   return useQuery<AllBaremes>({
@@ -53,6 +53,43 @@ export function useSaveBareme() {
       api.put(`/simulation/baremes/${type}?year=${year}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['baremes'] })
+    },
+  })
+}
+
+export function useBatchCsgSplit() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ year, force = false }: { year: number; force?: boolean }) =>
+      api.post<{ year: number; updated: number; skipped: number; total_non_deductible: number }>(
+        `/simulation/batch-csg-split?year=${year}&force=${force}`
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['operations'] })
+      queryClient.invalidateQueries({ queryKey: ['category-detail'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useUrssafDeductible() {
+  return useMutation({
+    mutationFn: (body: {
+      montant_brut: number
+      bnc_estime: number
+      year: number
+      cotisations_sociales_estime?: number
+    }) => api.post<UrssafDeductibleResult>('/simulation/urssaf-deductible', body),
+  })
+}
+
+export function usePatchCsgSplit(filename: string, index: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (csg_non_deductible: number | null) =>
+      api.patch(`/operations/${filename}/${index}/csg-split`, { csg_non_deductible }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['operations', filename] })
     },
   })
 }

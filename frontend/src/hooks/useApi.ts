@@ -175,9 +175,11 @@ export interface CategoryDetail {
   total_debit: number
   total_credit: number
   nb_operations: number
+  total_csg_non_deductible?: number
+  total_deductible?: number
   subcategories: { name: string; debit: number; credit: number; count: number }[]
   monthly_evolution: { month: string; debit: number; credit: number }[]
-  operations: { date: string; libelle: string; debit: number; credit: number; sous_categorie: string }[]
+  operations: { date: string; libelle: string; debit: number; credit: number; sous_categorie: string; csg_non_deductible?: number }[]
 }
 
 export interface CompareResult {

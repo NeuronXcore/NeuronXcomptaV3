@@ -135,7 +135,7 @@ def _prepare_export_operations(operations: list, filename: str) -> dict:
 
     # Calculer les totaux
     recettes_pro = sum(l["Credit"] for l in pro)
-    charges_pro = sum(l["Debit"] for l in pro)
+    charges_pro = sum(l["Debit"] - (l.get("csg_non_deductible") or 0) for l in pro)
 
     totals = {
         "recettes_pro": recettes_pro,

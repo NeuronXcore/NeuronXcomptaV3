@@ -28,11 +28,13 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
 import VentilationDrawer from '@/components/editor/VentilationDrawer'
 import VentilationLines from '@/components/editor/VentilationLines'
+import UrssafSplitWidget, { isUrssafOp } from '@/components/editor/UrssafSplitWidget'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useDissociate } from '@/hooks/useJustificatifs'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
+import { useHistoriqueBNC } from '@/hooks/useSimulation'
 import { formatCurrency, formatFileTitle, cn, MOIS_FR, isReconstitue } from '@/lib/utils'
 import AlerteBadge from '@/components/AlerteBadge'
 import type { Operation, CategoryRaw } from '@/types'
@@ -206,6 +208,14 @@ export default function EditorPage() {
   const [previewJustifOpIndex, setPreviewJustifOpIndex] = useState<number | null>(null)
   const [pdfDrawerWidth, setPdfDrawerWidth] = useState(700)
   const pdfResizing = useRef(false)
+
+  // BNC estimé pour le widget URSSAF split
+  const { data: historiqueBNC } = useHistoriqueBNC()
+  const bncEstime = useMemo(() => {
+    if (!historiqueBNC || !selectedYear) return 0
+    const yearData = (historiqueBNC as any)?.annual?.find((y: any) => y.year === selectedYear)
+    return yearData?.bnc ?? 0
+  }, [historiqueBNC, selectedYear])
 
   // Lettrage
   const { data: lettrageStats } = useLettrageStats(selectedFile)
@@ -822,9 +832,19 @@ export default function EditorPage() {
     {
       id: 'actions',
       header: '',
-      size: 70,
+      size: 90,
       cell: ({ row }) => (
         <div className="flex items-center gap-0.5">
+          {!allYearMode && isUrssafOp(row.original) && selectedFile && (
+            <UrssafSplitWidget
+              op={row.original}
+              filename={selectedFile}
+              index={row.index}
+              year={selectedYear || new Date().getFullYear()}
+              bnc_estime={bncEstime}
+              onSplitSaved={() => {}}
+            />
+          )}
           {!allYearMode && (
             <button
               onClick={() => {
@@ -853,7 +873,7 @@ export default function EditorPage() {
       ),
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [categoryNames, subcategoriesMap, categoryColors, updateOperation, deleteRow, batchHints, selectedFile])
+  ], [categoryNames, subcategoriesMap, categoryColors, updateOperation, deleteRow, batchHints, selectedFile, bncEstime, selectedYear, allYearMode])
 
   // TanStack Table instance
   const table = useReactTable({

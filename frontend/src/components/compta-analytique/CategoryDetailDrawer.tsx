@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { useCategoryDetail } from '@/hooks/useApi'
+import { useBatchCsgSplit } from '@/hooks/useSimulation'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
+import toast from 'react-hot-toast'
 import {
-  X, Loader2, Tags, Calendar, DollarSign, FileText,
+  X, Loader2, Tags, Calendar, DollarSign, FileText, AlertTriangle, Zap,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -33,12 +35,26 @@ export default function CategoryDetailDrawer({
   quarter,
   month,
 }: Props) {
-  const { data, isLoading } = useCategoryDetail(
+  const { data, isLoading, refetch } = useCategoryDetail(
     isOpen ? category : null,
     year,
     quarter,
     month,
   )
+  const batchMutation = useBatchCsgSplit()
+
+  const isUrssafCategory = ['urssaf', 'cotisations'].includes((category || '').toLowerCase())
+
+  const handleBatchCsg = async () => {
+    if (!year) return
+    try {
+      const res = await batchMutation.mutateAsync({ year, force: true })
+      toast.success(`${res.updated} opération(s) calculée(s) — ${formatCurrency(res.total_non_deductible)} non déductible`)
+      refetch()
+    } catch {
+      toast.error('Erreur lors du calcul batch CSG/CRDS')
+    }
+  }
 
   // Escape key
   useEffect(() => {
@@ -124,6 +140,55 @@ export default function CategoryDetailDrawer({
             </div>
           ) : (
             <>
+              {/* Encadré CSG/CRDS déductibilité */}
+              {isUrssafCategory && (
+                <section className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={14} className="text-amber-400" />
+                      <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                        Déductibilité CSG/CRDS
+                      </h3>
+                    </div>
+                    <button
+                      onClick={handleBatchCsg}
+                      disabled={batchMutation.isPending}
+                      className={cn(
+                        'inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors',
+                        'bg-primary/10 text-primary hover:bg-primary/20',
+                        batchMutation.isPending && 'opacity-50 cursor-wait',
+                      )}
+                    >
+                      <Zap size={10} />
+                      {batchMutation.isPending ? 'Calcul...' : data.total_csg_non_deductible > 0 ? 'Recalculer' : 'Calculer tout'}
+                    </button>
+                  </div>
+                  {data.total_csg_non_deductible > 0 ? (
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">Cotisations brutes</span>
+                        <span className="font-mono text-text">{formatCurrency(data.total_debit)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">├── Part déductible BNC</span>
+                        <span className="font-mono text-emerald-400">{formatCurrency(data.total_deductible)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">└── CSG/CRDS non déductible</span>
+                        <span className="font-mono text-red-400">{formatCurrency(data.total_csg_non_deductible)}</span>
+                      </div>
+                      <div className="pt-1.5 border-t border-amber-500/10 text-[10px] text-text-muted">
+                        La part non déductible (CSG 2,4% + CRDS 0,5%) est exclue du calcul BNC.
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-muted">
+                      Cliquez sur « Calculer tout » pour calculer la part déductible de toutes les cotisations URSSAF de {year}.
+                    </p>
+                  )}
+                </section>
+              )}
+
               {/* Sous-catégories */}
               {data.subcategories.length > 0 && (
                 <section>
@@ -205,6 +270,11 @@ export default function CategoryDetailDrawer({
                       {op.sous_categorie && (
                         <span className="text-[9px] px-1.5 py-0.5 bg-primary/10 text-primary rounded shrink-0">
                           {op.sous_categorie}
+                        </span>
+                      )}
+                      {op.csg_non_deductible > 0 && (
+                        <span className="text-[9px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded shrink-0" title="CSG/CRDS non déductible">
+                          {formatCurrency(op.csg_non_deductible)} nd
                         </span>
                       )}
                       <span className={cn(

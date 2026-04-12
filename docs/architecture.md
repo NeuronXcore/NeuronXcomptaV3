@@ -807,6 +807,38 @@ Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
       └─ Email : sendDrawerStore.defaultSubject pour objet pré-rempli
 ```
 
+### URSSAF Déductible (CSG/CRDS)
+
+```
+Calcul automatique de la part déductible vs non déductible des cotisations URSSAF.
+
+Règle fiscale :
+  Non déductible = CSG 2,4% + CRDS 0,5% = 2,9% × assiette CSG/CRDS
+  Assiette ≤2024 : BNC + cotisations sociales obligatoires (mode "bnc_plus_cotisations")
+  Assiette ≥2025 : BNC × 0,74 (réforme décret 2024-688, mode "bnc_abattu")
+
+Backend :
+  ├─ Barèmes : data/baremes/urssaf_{year}.json → section csg_crds enrichie
+  │   (taux_non_deductible, assiette_mode, assiette_abattement)
+  ├─ fiscal_service.compute_urssaf_deductible() → calcul pur, aucun effet de bord
+  ├─ POST /api/simulation/urssaf-deductible → calcul unitaire
+  ├─ POST /api/simulation/batch-csg-split?year=X&force=bool → batch toutes ops URSSAF d'une année
+  ├─ PATCH /api/operations/{filename}/{index}/csg-split → stocke csg_non_deductible sur une op
+  └─ Analytics : charges_pro et total_debit diminués de csg_non_deductible
+     (export_service.py ligne 138, analytics_service.py ligne 380)
+
+Détection URSSAF : libellé contient "urssaf"/"dspamc"/"cotis"
+  ou catégorie "Cotisations" + sous-catégorie "URSSAF"
+
+Frontend :
+  ├─ UrssafSplitWidget.tsx (EditorPage) : badge rouge "X € nd" si déjà calculé,
+  │   bouton "CSG ⚡" sinon → popover décomposition → [Appliquer]
+  ├─ CategoryDetailDrawer.tsx (Compta Analytique) : encadré "Déductibilité CSG/CRDS"
+  │   avec bouton batch "Calculer tout / Recalculer" pour toute l'année
+  │   + badges "X € nd" sur chaque opération dans la liste
+  └─ Hooks : useUrssafDeductible, usePatchCsgSplit, useBatchCsgSplit
+```
+
 ### Prévisionnel (calendrier de trésorerie)
 
 ```

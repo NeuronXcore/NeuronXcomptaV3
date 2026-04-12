@@ -104,6 +104,64 @@ def estimate_urssaf(bnc: float, bareme: dict) -> dict:
     }
 
 
+def compute_urssaf_deductible(
+    montant_brut: float,
+    bnc_estime: float,
+    year: int,
+    cotisations_sociales_estime: Optional[float] = None,
+) -> dict:
+    """
+    Calcule la part déductible et non déductible d'une cotisation URSSAF brute.
+
+    La seule part non déductible est la CSG non déductible (2,4%) + CRDS (0,5%) = 2,9%
+    appliquée à l'assiette CSG/CRDS (dépend de l'année).
+
+    Args:
+        montant_brut: cotisation URSSAF totale payée (€)
+        bnc_estime: BNC prévisionnel de l'année (€)
+        year: année fiscale
+        cotisations_sociales_estime: total cotisations sociales obligatoires estimées
+            (URSSAF + CARMF + ODM). Si None, utilise bnc_estime × 0.25 comme fallback.
+
+    Returns:
+        dict avec: montant_brut, assiette_csg_crds, part_non_deductible,
+                   part_deductible, ratio_non_deductible, assiette_mode, year
+    """
+    bareme = load_bareme("urssaf", year)
+    csg = bareme.get("csg_crds", {
+        "taux_non_deductible": 0.029,
+        "assiette_mode": "bnc_plus_cotisations",
+        "assiette_abattement": None,
+    })
+
+    taux_nd = csg.get("taux_non_deductible", 0.029)
+    mode = csg.get("assiette_mode", "bnc_plus_cotisations")
+
+    if mode == "bnc_abattu":
+        abattement = csg.get("assiette_abattement", 0.26)
+        assiette = bnc_estime * (1.0 - abattement)
+    else:
+        cotis = cotisations_sociales_estime if cotisations_sociales_estime is not None else bnc_estime * 0.25
+        assiette = bnc_estime + cotis
+
+    non_deductible = round(assiette * taux_nd, 2)
+    non_deductible = min(non_deductible, montant_brut)
+    deductible = round(montant_brut - non_deductible, 2)
+
+    return {
+        "year": year,
+        "montant_brut": montant_brut,
+        "assiette_csg_crds": round(assiette, 2),
+        "assiette_mode": mode,
+        "taux_non_deductible": taux_nd,
+        "part_non_deductible": non_deductible,
+        "part_deductible": deductible,
+        "ratio_non_deductible": round(non_deductible / montant_brut, 4) if montant_brut else 0.0,
+        "bnc_estime_utilise": bnc_estime,
+        "cotisations_sociales_utilisees": cotisations_sociales_estime,
+    }
+
+
 # ─── Calcul CARMF ───
 
 

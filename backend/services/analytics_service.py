@@ -180,6 +180,12 @@ def get_category_detail(operations: list[dict], category: str) -> dict:
     total_debit = float(cat_df["Débit"].sum())
     total_credit = float(cat_df["Crédit"].sum())
 
+    # CSG/CRDS non déductible agrégé (pour catégories URSSAF/Cotisations)
+    total_csg_non_deductible = 0.0
+    if "csg_non_deductible" in cat_df.columns:
+        csg_col = pd.to_numeric(cat_df["csg_non_deductible"], errors="coerce").fillna(0)
+        total_csg_non_deductible = float(csg_col.sum())
+
     # Subcategories
     sub_col = "Sous-catégorie"
     if sub_col in cat_df.columns:
@@ -211,15 +217,19 @@ def get_category_detail(operations: list[dict], category: str) -> dict:
     ops_sorted = cat_df.sort_values("Date", ascending=False).head(50)
     ops_list = []
     for _, row in ops_sorted.iterrows():
-        ops_list.append({
+        op_entry: dict = {
             "date": str(row.get("Date", ""))[:10],
             "libelle": str(row.get("Libellé", "")),
             "debit": float(row.get("Débit", 0)),
             "credit": float(row.get("Crédit", 0)),
             "sous_categorie": str(row.get("Sous-catégorie", "")) if pd.notna(row.get("Sous-catégorie")) else "",
-        })
+        }
+        csg_nd = row.get("csg_non_deductible")
+        if csg_nd is not None and pd.notna(csg_nd) and float(csg_nd) > 0:
+            op_entry["csg_non_deductible"] = float(csg_nd)
+        ops_list.append(op_entry)
 
-    return {
+    result: dict = {
         "category": category,
         "total_debit": total_debit,
         "total_credit": total_credit,
@@ -228,6 +238,10 @@ def get_category_detail(operations: list[dict], category: str) -> dict:
         "monthly_evolution": monthly_evolution,
         "operations": ops_list,
     }
+    if total_csg_non_deductible > 0:
+        result["total_csg_non_deductible"] = round(total_csg_non_deductible, 2)
+        result["total_deductible"] = round(total_debit - total_csg_non_deductible, 2)
+    return result
 
 
 def detect_anomalies(operations: list[dict], threshold_factor: float = 2.0) -> list[dict]:
@@ -377,7 +391,7 @@ def get_year_overview(year: int) -> dict:
         taux_rapp = nb_rapproches / nb_debit_ops if nb_debit_ops > 0 else 0.0
 
         total_credit = sum(op.get("Crédit", 0) for op in all_ops)
-        total_debit = sum(op.get("Débit", 0) for op in all_ops)
+        total_debit = sum(op.get("Débit", 0) - (op.get("csg_non_deductible") or 0) for op in all_ops)
 
         # Export exists?
         has_export = False

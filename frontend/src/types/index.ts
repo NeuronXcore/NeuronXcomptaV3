@@ -54,6 +54,7 @@ export interface Operation {
   immobilisation_candidate?: boolean
   immobilisation_ignored?: boolean
   ventilation?: VentilationLine[]
+  csg_non_deductible?: number
 }
 
 export interface OperationFile {
@@ -1276,6 +1277,19 @@ export interface SimulationResult {
   invest_montant: number
   invest_deduction_an1: number
   invest_cout_reel_an1: number
+}
+
+export interface UrssafDeductibleResult {
+  year: number
+  montant_brut: number
+  assiette_csg_crds: number
+  assiette_mode: 'bnc_plus_cotisations' | 'bnc_abattu'
+  taux_non_deductible: number
+  part_non_deductible: number
+  part_deductible: number
+  ratio_non_deductible: number
+  bnc_estime_utilise: number
+  cotisations_sociales_utilisees: number | null
 }
 
 export interface TauxMarginal {

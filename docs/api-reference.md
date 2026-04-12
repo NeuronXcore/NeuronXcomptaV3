@@ -58,6 +58,17 @@ Vérifie si le relevé bancaire PDF original existe.
 ### `GET /{filename}/pdf`
 Sert le fichier PDF original du relevé bancaire (FileResponse).
 
+### `PATCH /{filename}/{index}/csg-split`
+Stocke (ou efface) la part CSG/CRDS non déductible sur une opération.
+
+**Body :**
+```json
+{ "csg_non_deductible": 17.67 }
+```
+Passer `null` pour effacer le split.
+
+**Réponse :** `{ "ok": true, "csg_non_deductible": 17.67 }`
+
 ---
 
 ## Categories (`/api/categories`)
@@ -1303,6 +1314,51 @@ Calcule le BNC historique depuis les fichiers d'opérations (mensuel, annuel, pr
 Projette les revenus futurs par analyse saisonnière ou moyenne simple.
 
 **Paramètres :** `horizon` (int, défaut 12), `methode` (string, défaut "saisonnier")
+
+### `POST /urssaf-deductible`
+Calcule la part déductible et non déductible d'une cotisation URSSAF brute. Aucun effet de bord.
+
+**Body :**
+```json
+{
+  "montant_brut": 5232.0,
+  "bnc_estime": 120000,
+  "year": 2025,
+  "cotisations_sociales_estime": null
+}
+```
+
+**Réponse :**
+```json
+{
+  "year": 2025,
+  "montant_brut": 5232.0,
+  "assiette_csg_crds": 88800.0,
+  "assiette_mode": "bnc_abattu",
+  "taux_non_deductible": 0.029,
+  "part_non_deductible": 2575.2,
+  "part_deductible": 2656.8,
+  "ratio_non_deductible": 0.4923,
+  "bnc_estime_utilise": 120000,
+  "cotisations_sociales_utilisees": null
+}
+```
+
+### `POST /batch-csg-split`
+Calcule et stocke le split CSG/CRDS pour toutes les opérations URSSAF d'une année en un clic.
+
+**Paramètres :** `year` (int, required), `force` (bool, défaut false — si true recalcule même les ops déjà splitées)
+
+**Réponse :**
+```json
+{
+  "year": 2025,
+  "bnc_estime": 823.45,
+  "updated": 12,
+  "skipped": 0,
+  "total_non_deductible": 212.04
+}
+```
 
 ---
 

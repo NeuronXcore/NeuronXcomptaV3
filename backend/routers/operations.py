@@ -156,6 +156,26 @@ async def rename_operation_file(filename: str, body: RenameRequest):
     return operation_service.rename_file(filename, body.new_filename)
 
 
+class CsgSplitUpdate(BaseModel):
+    csg_non_deductible: Optional[float] = None
+
+
+@router.patch("/{filename}/{index}/csg-split")
+async def update_csg_split(filename: str, index: int, body: CsgSplitUpdate):
+    """
+    Stocke (ou efface) la part CSG/CRDS non déductible calculée sur une opération.
+    """
+    ops = operation_service.load_operations(filename)
+    if index < 0 or index >= len(ops):
+        raise HTTPException(status_code=404, detail="Opération introuvable")
+    if body.csg_non_deductible is None:
+        ops[index].pop("csg_non_deductible", None)
+    else:
+        ops[index]["csg_non_deductible"] = body.csg_non_deductible
+    operation_service.save_operations(ops, filename=filename)
+    return {"ok": True, "csg_non_deductible": body.csg_non_deductible}
+
+
 @router.post("/import")
 async def import_pdf(file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
     """Importe un PDF bancaire : extraction + preview."""

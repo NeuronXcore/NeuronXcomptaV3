@@ -1,5 +1,5 @@
 {
-  "year": 2024,
+  "year": 2025,
   "pass": 46368,
   "maladie": {
     "taux_reduit": 0.0,
@@ -21,9 +21,9 @@
     "abattement_pct": 0.0,
     "taux_total": 0.097,
     "taux_non_deductible": 0.029,
-    "assiette_mode": "bnc_plus_cotisations",
-    "assiette_abattement": null,
-    "note": "CSG 6.8% déductible + CSG 2.4% + CRDS 0.5% non déductibles. Assiette = BNC + cotisations sociales obligatoires."
+    "assiette_mode": "bnc_abattu",
+    "assiette_abattement": 0.26,
+    "note": "Réforme assiette sociale 2025 (décret 2024-688). Assiette unifiée = BNC × 74%. Effective pour régularisation 2025 traitée en 2026."
   },
   "indemnites_journalieres": {
     "taux": 0.003,
