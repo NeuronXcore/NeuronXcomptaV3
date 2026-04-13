@@ -383,7 +383,7 @@ Supprimer un preset.
 ## Justificatifs (`/api/justificatifs`)
 
 ### `GET /?status=all&search=&year=2024&month=11&sort_by=date&sort_order=desc`
-Liste avec filtres.
+Liste avec filtres. **Quand `status=en_attente`**, les justificatifs déjà référencés par une opération (dans ops JSON ou sous-lignes de ventilation) sont automatiquement exclus via `get_all_referenced_justificatifs()` (cache TTL 5s).
 
 ### `GET /stats`
 Statistiques (en_attente, traites, total).
@@ -395,7 +395,7 @@ Upload multi-fichiers PDF/JPG/PNG. Form-data : champ `files` (multiple). Les ima
 Sert le PDF pour iframe.
 
 ### `GET /{filename}/suggestions`
-Suggestions d'association (score date + montant + fournisseur OCR).
+Suggestions d'association (score date + montant + fournisseur OCR). Exclut les opérations déjà liées à un autre justificatif (conserve celles liées au justificatif courant pour ré-association).
 
 ### `GET /reverse-lookup/{filename}`
 Trouve les operations liees a un justificatif donne. Retourne une liste avec `operation_file`, `operation_index`, `date`, `libelle`, `debit`, `credit`, `categorie`, `sous_categorie`, `ventilation_index`.
@@ -406,7 +406,7 @@ Associer un justificatif. Declenche auto-pointage si le setting `auto_pointage` 
 **Body :** `{ "justificatif_filename": "...", "operation_file": "...", "operation_index": 5 }`
 
 ### `POST /dissociate`
-Dissocier. Body : `{ "operation_file": "...", "operation_index": 5 }`
+Dissocier. Efface les `category_hint` et `sous_categorie_hint` du `.ocr.json` pour ne pas biaiser les futurs rapprochements. Body : `{ "operation_file": "...", "operation_index": 5 }`
 
 ### `GET /{filename}/thumbnail`
 **Nouveau endpoint cross-location.** Retourne le thumbnail PNG d'un justificatif en résolvant automatiquement `en_attente/` puis `traites/` via `get_justificatif_path()`, puis délègue à `ged_service.get_thumbnail_path()`.
@@ -770,16 +770,16 @@ Association manuelle opération ↔ justificatif avec métadonnées.
 Le champ `ventilation_index` est optionnel. Si fourni, l'association écrit le justificatif dans la sous-ligne de ventilation correspondante.
 
 ### `GET /unmatched`
-Compteurs : opérations sans justificatif / justificatifs en attente.
+Compteurs : opérations sans justificatif / justificatifs en attente. Le compteur `justificatifs_en_attente` exclut les fichiers physiquement en `en_attente/` mais déjà référencés par une opération (via `get_all_referenced_justificatifs()`).
 
 ### `GET /log?limit=20`
 Dernières associations automatiques.
 
 ### `GET /batch-hints/{filename}`
-Best scores par index pour un fichier d'opérations.
+Best scores par index pour un fichier d'opérations. Les justificatifs déjà référencés par une opération sont exclus des candidats (`get_all_referenced_justificatifs()`).
 
 ### `GET /batch-justificatif-scores`
-Best score par justificatif en attente.
+Best score par justificatif en attente. Les justificatifs déjà référencés sont exclus avant le calcul de score.
 
 ### `GET /suggestions/operation/{file}/{index}?ventilation_index=`
 Suggestions de justificatifs pour une opération. Si `ventilation_index` fourni, score avec le montant de la sous-ligne. Si op ventilée sans `ventilation_index`, retourne `{ ventilated: true, ventilation_lines: [...] }`.
@@ -813,6 +813,8 @@ Suggestions filtrées pour le `RapprochementWorkflowDrawer` (drawer unifié). Ut
 ```
 
 Le champ `score_detail` expose les 4 sous-scores (M/D/F/C) pour permettre au frontend d'afficher des `ScorePills` avec couleurs dynamiques. `categorie` peut être `null` si le critère est non-inférable.
+
+**Filtre déjà-référencés** : les justificatifs déjà associés à une opération sont automatiquement exclus des suggestions via `get_all_referenced_justificatifs()` (cache TTL 5s). Exception : le justificatif de l'opération courante reste proposé (ré-association autorisée).
 
 ---
 

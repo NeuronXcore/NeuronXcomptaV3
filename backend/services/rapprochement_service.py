@@ -555,6 +555,25 @@ def get_filtered_suggestions(
             "size_human": _human_size(file_size),
         })
 
+    # Exclure les justificatifs déjà associés à une autre opération
+    from backend.services.justificatif_service import get_all_referenced_justificatifs
+    referenced = get_all_referenced_justificatifs()
+
+    # Exception : autoriser la ré-association du justificatif déjà lié à CETTE op
+    current_justif = None
+    if ventilation_index is not None:
+        vlines = operation.get("ventilation", [])
+        if 0 <= ventilation_index < len(vlines):
+            current_justif = vlines[ventilation_index].get("justificatif") or None
+    else:
+        lien = operation.get("Lien justificatif") or ""
+        if lien:
+            current_justif = Path(lien).name
+    if current_justif:
+        referenced = referenced - {current_justif}
+
+    suggestions = [s for s in suggestions if s["filename"] not in referenced]
+
     suggestions.sort(key=lambda s: s["score"], reverse=True)
     return suggestions
 
@@ -917,8 +936,11 @@ def get_unmatched_summary() -> dict:
     """Compteurs : opérations sans justificatif / justificatifs en attente."""
     ensure_directories()
 
-    # Justificatifs en attente
-    en_attente = len(list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf")))
+    # Justificatifs en attente (exclure ceux déjà référencés par une opération)
+    from backend.services.justificatif_service import get_all_referenced_justificatifs
+    referenced = get_all_referenced_justificatifs()
+    attente_files = list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"))
+    en_attente = len([f for f in attente_files if f.name not in referenced])
 
     # Opérations sans justificatif (compter sous-lignes pour ops ventilées)
     ops_sans = 0
@@ -980,10 +1002,14 @@ def get_batch_hints(filename: str) -> dict:
     except Exception:
         return {}
 
-    # Charger les OCR de tous les justificatifs en attente
+    # Charger les OCR de tous les justificatifs en attente (exclure les déjà référencés)
+    from backend.services.justificatif_service import get_all_referenced_justificatifs
+    referenced = get_all_referenced_justificatifs()
     pending_ocr: list[tuple[str, dict]] = []
     if JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
         for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
+            if pdf_path.name in referenced:
+                continue
             ocr_data = _load_ocr_data(pdf_path.name)
             pending_ocr.append((pdf_path.name, ocr_data))
 
@@ -1058,8 +1084,13 @@ def get_batch_justificatif_scores() -> dict:
     if not all_targets:
         return {}
 
+    from backend.services.justificatif_service import get_all_referenced_justificatifs
+    referenced = get_all_referenced_justificatifs()
+
     scores: dict[str, float] = {}
     for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
+        if pdf_path.name in referenced:
+            continue
         ocr_data = _load_ocr_data(pdf_path.name)
         best = 0.0
         for _, _, op, override_m, override_c in all_targets:

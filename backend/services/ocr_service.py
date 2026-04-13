@@ -163,11 +163,14 @@ def update_extracted_data(filename: str, edits: dict) -> dict:
 
     # Hints catégorie/sous-catégorie — stockés au TOP-LEVEL du dict, pas dans
     # extracted_data, pour ne pas polluer les arrays OCR.
-    # On accepte une chaîne vide pour RESET le hint (différent de None qui ignore).
-    if "category_hint" in edits and edits["category_hint"] is not None:
-        data["category_hint"] = edits["category_hint"] or None
-    if "sous_categorie_hint" in edits and edits["sous_categorie_hint"] is not None:
-        data["sous_categorie_hint"] = edits["sous_categorie_hint"] or None
+    # None ou "" = suppression de la clé (reset hint).
+    for hint_key in ("category_hint", "sous_categorie_hint"):
+        if hint_key in edits:
+            val = edits[hint_key]
+            if val:
+                data[hint_key] = val
+            else:
+                data.pop(hint_key, None)
 
     data["manual_edit"] = True
     data["manual_edit_at"] = datetime.now().isoformat()

@@ -8,6 +8,30 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-04-13) — Session 18
+
+- **Filtre justificatifs deja referencies — 3 phases**
+
+  **Phase 1 — Base correcte `_collect_referenced_justificatifs()`**
+  - `_collect_referenced_justificatifs()` descend desormais dans les sous-lignes de ventilation (`op.ventilation[].justificatif`)
+  - Nouvelle fonction publique `get_all_referenced_justificatifs()` → `set[str]` avec cache TTL 5s
+  - `invalidate_referenced_cache()` appele dans `associate()`, `dissociate()`, `rename_justificatif()`, `apply_link_repair()`
+
+  **Phase 2 — Propagation du filtre sur 6 endpoints**
+  - `get_filtered_suggestions()` : exclut les justificatifs deja associes (exception : op courante pour re-association)
+  - `list_justificatifs(status=en_attente)` : exclut les fichiers deja referencies
+  - `suggest_operations()` (sens inverse OCR) : exclut les ops liees a un autre justificatif
+  - `get_batch_justificatif_scores()` : skip avant calcul de score
+  - `get_batch_hints()` : exclut des pending_ocr
+  - `get_unmatched_summary()` : compteur `justificatifs_en_attente` = libres uniquement
+
+  **Phase 3 — Cycle de vie hints OCR**
+  - `dissociate()` efface `category_hint` / `sous_categorie_hint` du `.ocr.json` → `score_categorie()` retourne `None` (neutre) au lieu de penaliser avec un hint perime
+  - `ocr_service.update_extracted_data()` supporte `None`/`""` = suppression de cle (`data.pop()`)
+  - Verifie : `generate_reconstitue()` appelle deja `justificatif_service.associate()` (aucun fix necessaire)
+
+  **Fichiers modifies** : `justificatif_service.py`, `rapprochement_service.py`, `ocr_service.py`, `CLAUDE.md`, `docs/architecture.md`, `docs/api-reference.md`
+
 ### Added (2026-04-12) — Session 17
 
 - **Repas pro — sous-catégories + participants**

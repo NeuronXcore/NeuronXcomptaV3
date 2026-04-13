@@ -173,6 +173,14 @@ Rapprochement manuel : RapprochementWorkflowDrawer unifié (700px)
   → Attribuer via POST /rapprochement/associate-manual (rapprochement_score + ventilation_index)
   → Auto-skip post-attribution en mode flux, raccourcis ⏎/←/→/Esc
 
+Filtre justificatifs déjà référencés (via get_all_referenced_justificatifs, cache TTL 5s) :
+  → get_filtered_suggestions() : exclut les déjà-associés (exception : op courante pour ré-association)
+  → list_justificatifs(status=en_attente) : exclut les fichiers déjà référencés
+  → suggest_operations() (sens inverse OCR) : exclut les ops liées à un autre justificatif
+  → get_batch_justificatif_scores() : skip les déjà-associés avant scoring
+  → get_batch_hints() : exclut les déjà-associés des pending_ocr
+  → get_unmatched_summary() : compteur justificatifs_en_attente = libres uniquement
+
 Bouton "Associer automatiquement" sur JustificatifsPage :
   → Bandeau CTA contextuel (visible quand ops sans justificatif)
   → Toast cliquable → filtre "Sans justif." + ouvre drawer mode flux
@@ -234,6 +242,9 @@ justificatif_service.py : service de réparation des incohérences disque ↔ op
   scan_link_issues() → dict typé (6 catégories, jamais None)
     1. _collect_referenced_justificatifs() : walk IMPORTS_OPERATIONS_DIR/operations_*.json
        → {filename: [(op_file, op_idx)]}
+       Inclut les sous-lignes de ventilation (vl.get("justificatif"))
+    1b. get_all_referenced_justificatifs() : version publique → set[str] avec cache TTL 5s
+       invalidate_referenced_cache() appelé dans associate/dissociate/rename/repair
     2. Enum traites_pdfs = {p.name for p in TRAITES.glob("*.pdf")}
     3. Enum attente_pdfs = {p.name for p in EN_ATTENTE.glob("*.pdf")}
     4. Intersections :
@@ -599,7 +610,10 @@ Hints comptables (category_hint + sous_categorie_hint) :
   → Écrits automatiquement par justificatif_service.associate() après chaque association :
     op.Catégorie → category_hint | op.Sous-catégorie → sous_categorie_hint
     Skip "", "Autres", "Ventilé"
+  → Effacés par justificatif_service.dissociate() : appel update_extracted_data avec None
+    → suppression des clés du .ocr.json (pas null) → score_categorie retourne None (neutre)
   → Appel : ocr_service.update_extracted_data(filename, {"category_hint": cat, "sous_categorie_hint": subcat})
+  → update_extracted_data supporte None/"" = suppression de la clé (data.pop)
   → Lus par rapprochement_service.score_categorie() en **override prioritaire** de la prédiction ML :
     - Stratégie 1 : hint direct match op.categorie → 1.0 / 0.6 / 0.0
     - Stratégie 2 : ML fallback si hint absent

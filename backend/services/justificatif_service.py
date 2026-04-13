@@ -9,6 +9,7 @@ import json
 import logging
 import re
 import shutil
+import time as _time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
@@ -214,6 +215,11 @@ def list_justificatifs(
         for filepath in dir_path.glob("*.pdf"):
             info = _get_justificatif_info(filepath, status_name)
             results.append(info)
+
+    # Exclure les justificatifs déjà référencés par une opération (drawer recherche libre)
+    if status == "en_attente":
+        referenced = get_all_referenced_justificatifs()
+        results = [r for r in results if r["filename"] not in referenced]
 
     # Filtre recherche
     if search:
@@ -491,6 +497,7 @@ def associate(justificatif_filename: str, operation_file: str, operation_index: 
             except Exception as e:
                 logger.warning(f"Auto-hint échoué pour {justificatif_filename}: {e}")
 
+            invalidate_referenced_cache()
             return True
         else:
             logger.error(f"Index opération invalide: {operation_index}")
@@ -536,6 +543,17 @@ def dissociate(operation_file: str, operation_index: int) -> bool:
         op["Lien justificatif"] = ""
         operation_service.save_operations(ops, filename=operation_file)
         logger.info(f"Dissociation: {justificatif_filename} ← {operation_file}[{operation_index}]")
+
+        # Effacer les category hints pour ne pas biaiser les futurs rapprochements
+        try:
+            from backend.services import ocr_service
+            ocr_service.update_extracted_data(
+                justificatif_filename,
+                {"category_hint": None, "sous_categorie_hint": None},
+            )
+        except Exception:
+            pass  # hints non critiques
+        invalidate_referenced_cache()
         return True
 
     except Exception as e:
@@ -588,7 +606,12 @@ def suggest_operations(justificatif_filename: str, max_results: int = 5) -> list
             ops = operation_service.load_operations(f["filename"])
             for idx, op in enumerate(ops):
                 # Ignorer les opérations déjà liées
-                if op.get("Justificatif"):
+                lien_op = (op.get("Lien justificatif") or "").strip()
+                if lien_op and Path(lien_op).name != justificatif_filename:
+                    # Op liée à un AUTRE justificatif → skip
+                    continue
+                if op.get("Justificatif") and not lien_op:
+                    # Marquée justifiée sans lien (ex: perso) → skip
                     continue
 
                 score = 0.0
@@ -746,6 +769,7 @@ def rename_justificatif(old_filename: str, new_filename: str) -> dict:
     _update_ged_metadata_reference(old_filename, new_filename)
 
     logger.info("Justificatif renommé: %s → %s (%s)", old_filename, new_filename, location)
+    invalidate_referenced_cache()
     return {"old": old_filename, "new": new_filename, "location": location}
 
 
@@ -942,7 +966,36 @@ def _collect_referenced_justificatifs() -> dict:
             if lien:
                 fname = Path(lien).name
                 referenced.setdefault(fname, []).append((fp.name, i))
+
+            # Sous-lignes ventilées
+            for vl in op.get("ventilation", []):
+                vl_justif = (vl.get("justificatif") or "").strip()
+                if vl_justif:
+                    referenced.setdefault(vl_justif, []).append((fp.name, i))
     return referenced
+
+
+_REF_CACHE: Optional[tuple] = None  # (timestamp, set[str])
+_REF_CACHE_TTL: float = 5.0  # secondes
+
+
+def get_all_referenced_justificatifs() -> set:
+    """Version publique avec cache TTL 5s pour éviter de re-scanner à chaque requête.
+    Retourne un set[str] de noms de fichiers justificatifs référencés.
+    Invalider via invalidate_referenced_cache() après toute mutation."""
+    global _REF_CACHE
+    now = _time.time()
+    if _REF_CACHE is not None and now - _REF_CACHE[0] < _REF_CACHE_TTL:
+        return _REF_CACHE[1]
+    result = set(_collect_referenced_justificatifs().keys())
+    _REF_CACHE = (now, result)
+    return result
+
+
+def invalidate_referenced_cache() -> None:
+    """Invalider le cache après associate / dissociate / rename / repair."""
+    global _REF_CACHE
+    _REF_CACHE = None
 
 
 def scan_link_issues() -> dict:
@@ -1181,4 +1234,5 @@ def apply_link_repair(plan: Optional[dict] = None) -> dict:
             f"(inspection manuelle requise): {names}"
         )
 
+    invalidate_referenced_cache()
     return result
