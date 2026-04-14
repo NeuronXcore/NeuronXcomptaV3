@@ -360,7 +360,8 @@ async def rename_justificatif(filename: str, body: RenameRequest):
 
 @router.delete("/{filename}")
 async def delete_justificatif(filename: str):
-    """Supprime un justificatif."""
-    if justificatif_service.delete_justificatif(filename):
-        return {"deleted": filename}
+    """Supprime un justificatif avec nettoyage complet (PDF, OCR, thumbnail, GED, liens ops)."""
+    result = justificatif_service.delete_justificatif(filename)
+    if result:
+        return result
     raise HTTPException(status_code=404, detail="Justificatif non trouvé")

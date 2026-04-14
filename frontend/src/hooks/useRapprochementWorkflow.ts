@@ -14,6 +14,7 @@ export type RapprochementWorkflowMode = 'all' | 'single'
 interface UseRapprochementWorkflowProps {
   operations: Operation[]
   initialIndex?: number
+  initialVentilationIndex?: number
   isOpen: boolean
   fallbackFilename?: string
 }
@@ -54,6 +55,7 @@ function isOpUnmatched(op: Operation | undefined): boolean {
 export function useRapprochementWorkflow({
   operations,
   initialIndex,
+  initialVentilationIndex,
   isOpen,
   fallbackFilename,
 }: UseRapprochementWorkflowProps) {
@@ -121,7 +123,9 @@ export function useRapprochementWorkflow({
     [currentOp],
   )
   const currentOpVentilated = ventilationLines.length >= 2
-  const [selectedVentilationIndex, setSelectedVentilationIndex] = useState<number | null>(null)
+  const [selectedVentilationIndex, setSelectedVentilationIndex] = useState<number | null>(
+    initialVentilationIndex ?? null,
+  )
 
   // ── Search query (debounced) ──
   const [searchQuery, setSearchQuery] = useState('')
@@ -137,11 +141,11 @@ export function useRapprochementWorkflow({
 
   // ── Reset dependent state when currentIndex changes ──
   useEffect(() => {
-    setSelectedVentilationIndex(null)
+    setSelectedVentilationIndex(initialVentilationIndex ?? null)
     setSearchQuery('')
     setDebouncedSearch('')
     setSelectedSuggestion(null)
-  }, [currentIndex])
+  }, [currentIndex, initialVentilationIndex])
 
   // ── Suggestions query ──
   const suggestionsQueryParams = useMemo(() => {

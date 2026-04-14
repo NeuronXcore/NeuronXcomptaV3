@@ -311,6 +311,13 @@ Générer un rapport avec déduplication (même filtres+format = remplacement).
 
 **Réponse :** inclut `replaced: "ancien_filename.pdf"` si déduplication.
 
+**Ventilation** : les opérations ventilées sont **éclatées en N sous-lignes** avant les filtres via `_explode_ventilations()`. Chaque sous-ligne apparaît dans le rapport avec :
+- Libellé suffixé `[V{i+1}/{N}]` (ex: `PRLVSEPAAMAZON... [V1/2]`)
+- Catégorie / sous-catégorie / montant / justificatif de la sous-ligne
+- Date / commentaire / flag Important hérités du parent
+
+La catégorie `"Ventilé"` n'apparaît jamais dans les rapports — les totaux sont correctement répartis par sous-catégorie. Appliqué aux formats **PDF et CSV** (Excel non modifié).
+
 ### `POST /{filename}/regenerate`
 Re-génère un rapport existant (même titre/description, données actualisées).
 
@@ -535,7 +542,27 @@ Ordre d'exécution : A1 delete en_attente → A2 move vers traites → B1 delete
 Frontend : exposé via la section « Intégrité des justificatifs » dans `SettingsPage > Stockage` (bouton Scanner puis bouton Réparer).
 
 ### `DELETE /{filename}`
-Supprimer un justificatif.
+Supprimer un justificatif avec **nettoyage complet** (PDF + .ocr.json + thumbnail GED + metadata GED + liens ops parentes + sous-lignes ventilées + cache `get_all_referenced_justificatifs`).
+
+**Réponse :**
+```json
+{
+  "deleted": "amazon_20260102_39.99.pdf",
+  "ops_unlinked": [
+    {"file": "operations_YYYYMMDD_xxx.json", "libelle": "PRLVSEPAAMAZON...", "index": 36}
+  ],
+  "thumbnail_deleted": true,
+  "ged_cleaned": true,
+  "ocr_cache_deleted": true
+}
+```
+
+Retourne 404 si le fichier n'existe pas. Le frontend affiche un toast détaillé (`showDeleteSuccessToast`) listant les éléments nettoyés : "lien opération nettoyé, thumbnail purgée, GED nettoyée, cache OCR purgé".
+
+Bouton Supprimer accessible depuis **3 pages** :
+- OCR Gestion OCR (colonne Actions, opacity-0 group-hover:opacity-100)
+- EditorPage (preview panel footer)
+- JustificatifsPage (preview panel footer)
 
 ---
 
@@ -636,6 +663,8 @@ Créer ou remplacer la ventilation d'une opération.
 ```
 
 **Validation :** ≥ 2 lignes, chaque montant > 0, `sum(montants)` == montant opération (tolérance 0.01€). La catégorie parente est automatiquement mise à "Ventilé".
+
+**Auto-rapprochement post-ventilation** : après chaque création/modification de ventilation, `rapprochement_service.run_auto_rapprochement()` est lancé en arrière-plan via `BackgroundTasks`. Chaque sous-ligne créée est scorée contre les justificatifs en attente (scoring v2, seuil 0.80). Évite d'avoir à cliquer "Associer automatiquement" manuellement après chaque ventilation.
 
 ### `DELETE /{filename}/{op_index}`
 Supprimer la ventilation. Remet la catégorie à "" (sera recatégorisée).

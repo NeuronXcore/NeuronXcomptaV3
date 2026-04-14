@@ -23,6 +23,7 @@ type JustifFilter = 'all' | 'sans' | 'avec' | 'facsimile'
 export interface EnrichedOperation extends Operation {
   _originalIndex: number
   _filename: string
+  _ventilationIndex?: number
 }
 
 export function useJustificatifsPage() {
@@ -155,10 +156,28 @@ export function useJustificatifsPage() {
   const operations = useMemo((): EnrichedOperation[] => {
     let ops = [...enrichedOps]
 
+    // Helper : une op ventilée a-t-elle au moins un justificatif dans ses sous-lignes ?
+    const hasVentilationJustif = (op: EnrichedOperation) => {
+      const vl = (op as Record<string, unknown>).ventilation as Array<Record<string, unknown>> | undefined
+      return vl?.some(l => !!l.justificatif) ?? false
+    }
+    const isVentilated = (op: EnrichedOperation) =>
+      ((op as Record<string, unknown>).ventilation as unknown[] | undefined)?.length ?? 0 > 0
+
     if (justifFilter === 'sans') {
-      ops = ops.filter(op => !op['Lien justificatif'] && !isOpExempt(op, exemptions))
+      ops = ops.filter(op => {
+        if (isVentilated(op)) {
+          // Ventilée : montrer si au moins une sous-ligne sans justificatif
+          const vl = (op as Record<string, unknown>).ventilation as Array<Record<string, unknown>>
+          return vl.some(l => !l.justificatif)
+        }
+        return !op['Lien justificatif'] && !isOpExempt(op, exemptions)
+      })
     } else if (justifFilter === 'avec') {
-      ops = ops.filter(op => !!op['Lien justificatif'] || isOpExempt(op, exemptions))
+      ops = ops.filter(op => {
+        if (isVentilated(op)) return hasVentilationJustif(op)
+        return !!op['Lien justificatif'] || isOpExempt(op, exemptions)
+      })
     } else if (justifFilter === 'facsimile') {
       ops = ops.filter(op => isReconstitue(op['Lien justificatif'] || ''))
     }
@@ -275,7 +294,10 @@ export function useJustificatifsPage() {
   }, [year, selectedMonth, justifFilter, search, categoryFilter, subcategoryFilter])
 
   // Helpers sélection batch
-  const opKey = useCallback((op: EnrichedOperation) => `${op._filename}:${op._originalIndex}`, [])
+  const opKey = useCallback((op: EnrichedOperation) => {
+    const base = `${op._filename}:${op._originalIndex}`
+    return op._ventilationIndex != null ? `${base}:${op._ventilationIndex}` : base
+  }, [])
 
   // Helper exposé pour vérifier si une op est exemptée (CARMF, URSSAF, Honoraires, Perso, …)
   const isOpExemptFn = useCallback(

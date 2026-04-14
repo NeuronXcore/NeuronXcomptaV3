@@ -20,6 +20,7 @@ interface RapprochementWorkflowDrawerProps {
   isOpen: boolean
   operations: Operation[]
   initialIndex?: number
+  initialVentilationIndex?: number
   fallbackFilename?: string
   onClose: () => void
   onAttribution?: () => void
@@ -43,6 +44,7 @@ export default function RapprochementWorkflowDrawer({
   isOpen,
   operations,
   initialIndex,
+  initialVentilationIndex,
   fallbackFilename,
   onClose,
   onAttribution,
@@ -50,6 +52,7 @@ export default function RapprochementWorkflowDrawer({
   const wf = useRapprochementWorkflow({
     operations,
     initialIndex,
+    initialVentilationIndex,
     isOpen,
     fallbackFilename,
   })

@@ -325,6 +325,46 @@ un supervisor externe (systemd, launchd, PM2) serait nécessaire pour relancer
 le process après un SIGTERM.
 ```
 
+### Suppression complète justificatif (3 entry points + toast design)
+
+```
+justificatif_service.delete_justificatif(filename) → Optional[dict]
+  Nettoie toute trace résiduelle et retourne un dict détaillé :
+  {
+    deleted: filename,
+    ops_unlinked: [{file, libelle, index}],       (liste des ops délinkées)
+    thumbnail_deleted: bool,                       (thumbnail PNG GED supprimé)
+    ged_cleaned: bool,                             (metadata GED purgée)
+    ocr_cache_deleted: bool,                       (.ocr.json supprimé)
+  }
+  Ordre de nettoyage :
+    1. _clean_operation_link(filename) → descend dans parentes + ventilations
+    2. _invalidate_thumbnail_for_path(filepath)
+    3. ged_service.remove_document(doc_id)
+    4. ocr_service.delete_ocr_cache_for(filepath)
+    5. filepath.unlink() (le PDF)
+    6. invalidate_referenced_cache()
+
+Endpoint DELETE /api/justificatifs/{filename} :
+  Retourne le dict tel quel (200) ou 404 si filename introuvable.
+
+Frontend — helper partagé frontend/src/lib/deleteJustificatifToast.ts :
+  - showDeleteConfirmToast(filename, operationLibelle, onConfirm)
+    → toast.custom() : Trash2 rouge + "Supprimer {filename} ?" + "Lié à : {libellé}"
+      + boutons Supprimer (rouge) / Annuler (gris), duration 8s
+  - showDeleteSuccessToast(result: DeleteJustificatifResult)
+    → toast.success() listant les nettoyages : "lien opération nettoyé,
+      thumbnail purgée, GED nettoyée, cache OCR purgé"
+
+Points d'appel UI :
+  1. OCR Gestion OCR (OcrPage HistoriqueTab) : bouton Trash2 par ligne
+     opacity-0 group-hover:opacity-100, lookupByFilename pour récupérer libellé op
+  2. EditorPage : preview panel footer, bouton à droite des Dissocier/Ouvrir
+     operations[previewJustifOpIndex]?.Libellé pour le toast
+  3. JustificatifsPage : preview panel footer, à gauche de Dissocier
+     (layout justify-between), operations.find(op => _originalIndex/_filename match)
+```
+
 ### Catégorisation IA
 
 ```
@@ -580,6 +620,25 @@ Impacts downstream :
   → Rapprochement manuel : sélecteur sous-ligne dans le drawer
   → Batch hints : clés "idx:vl_idx" pour les sous-lignes
   → Unmatched : compte les sous-lignes (pas l'op parente)
+  → Rapports (report_service) : _explode_ventilations() transforme chaque op ventilée
+    en N sous-lignes avec libellé [V{i+1}/{N}], catégorie/montant/justificatif de la
+    sous-ligne, appelé AVANT _apply_filters() pour que les sous-catégories soient
+    filtrables par l'utilisateur. Les totaux rapports (PDF/CSV) sont ainsi
+    répartis correctement par sous-catégorie (pas d'agrégat "Ventilé").
+  → Auto-rapprochement post-ventilation : PUT /api/ventilation/{file}/{idx} lance
+    run_auto_rapprochement() en arrière-plan via BackgroundTasks après création/
+    modification d'une ventilation. Les sous-lignes créées sont immédiatement
+    scorées contre les justificatifs en attente (seuil 0.80).
+
+Ventilation UI :
+  → JustificatifsPage : ligne parente + N sous-lignes indentées (L1, L2...)
+    avec trombone individuel par sous-ligne + CheckCircle2 vert sur la parente
+    si toutes les sous-lignes sont associées (allVlAssociated).
+  → EditorPage VentilationLines : trombones cliquables sur les sous-lignes
+    → onJustifClick (emerald) ouvre le preview PDF
+    → onAttributeClick (amber, sous-ligne vide) ouvre le RapprochementWorkflowDrawer
+      avec la sous-ligne pré-sélectionnée via nouveau prop initialVentilationIndex
+    → stopPropagation() pour ne pas ouvrir le VentilationDrawer du <tr> parent
 ```
 
 ### OCR automatique

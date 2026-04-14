@@ -334,8 +334,11 @@ def generate_report(request: dict) -> dict:
                 except Exception:
                     continue
 
+    # Éclater les ventilations AVANT les filtres pour que les sous-catégories soient filtrables
+    exploded = _explode_ventilations(all_ops)
+
     # Apply filters
-    filtered = _apply_filters(all_ops, filters)
+    filtered = _apply_filters(exploded, filters)
 
     if not filtered:
         raise ValueError("Aucune opération après application des filtres")
@@ -447,6 +450,49 @@ def regenerate_report(filename: str) -> dict:
 
 
 # ─── Filters ───
+
+def _explode_ventilations(operations: list[dict]) -> list[dict]:
+    """Éclate les opérations ventilées en N sous-lignes (une par sous-ligne de ventilation).
+
+    Chaque sous-ligne produite contient :
+    - Date, Commentaire, Important : hérités du parent
+    - Libellé : `<parent> [V{i+1}/{N}]`
+    - Débit/Crédit : `vl.montant` projeté sur le côté d'origine (débit OU crédit)
+    - Catégorie/Sous-catégorie : de la sous-ligne (pas du parent "Ventilé")
+    - Justificatif : bool basé sur `vl.justificatif`
+    - Lien justificatif : nom de fichier de la sous-ligne (si présent)
+
+    Les ops non ventilées sont passées inchangées. Les totaux par catégorie sont
+    ainsi correctement répartis entre les sous-catégories au lieu d'être agrégés
+    sur la catégorie parente "Ventilé".
+    """
+    out: list[dict] = []
+    for op in operations:
+        vlines = op.get("ventilation") or []
+        if not vlines:
+            out.append(op)
+            continue
+        parent_libelle = op.get("Libellé", "") or ""
+        parent_debit_positive = float(op.get("Débit", 0) or 0) > 0
+        parent_credit_positive = float(op.get("Crédit", 0) or 0) > 0
+        n = len(vlines)
+        for i, vl in enumerate(vlines):
+            montant = float(vl.get("montant", 0) or 0)
+            vl_justif = (vl.get("justificatif") or "").strip()
+            out.append({
+                "Date": op.get("Date", ""),
+                "Libellé": f"{parent_libelle} [V{i+1}/{n}]",
+                "Catégorie": vl.get("categorie", "") or "",
+                "Sous-catégorie": vl.get("sous_categorie", "") or "",
+                "Débit": montant if parent_debit_positive else 0,
+                "Crédit": montant if parent_credit_positive else 0,
+                "Justificatif": bool(vl_justif),
+                "Lien justificatif": f"traites/{vl_justif}" if vl_justif else "",
+                "Commentaire": op.get("Commentaire", "") or "",
+                "Important": op.get("Important", False),
+            })
+    return out
+
 
 def _apply_filters(operations: list[dict], filters: dict) -> list[dict]:
     result = operations

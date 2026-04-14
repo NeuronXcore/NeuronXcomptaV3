@@ -8,6 +8,42 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-14) — Session 19
+
+- **Ventilation UX bout-en-bout — Éditeur, Justificatifs, Rapports**
+
+  **Justificatifs — sous-lignes visibles**
+  - Les ops ventilées affichent la ligne parente (montant total) + N sous-lignes indentées (L1, L2…) avec chacune son propre trombone cliquable
+  - Filtres `sans`/`avec` adaptés : op "avec" = toutes sous-lignes associées, op "sans" = au moins une sous-ligne vide
+  - Ligne parente affiche un `CheckCircle2` vert quand `allVlAssociated` (toutes les sous-lignes ont un justificatif)
+  - Fichiers : `useJustificatifsPage.ts`, `JustificatifsPage.tsx`
+
+  **Éditeur — trombones cliquables sur sous-lignes**
+  - `VentilationLines.tsx` accepte `onJustifClick` (sous-ligne associée → preview PDF) et `onAttributeClick` (sous-ligne vide → drawer attribution avec sous-ligne pré-sélectionnée)
+  - Bouton paperclip emerald (associé) ou amber (à associer) avec `stopPropagation()` pour ne pas ouvrir le VentilationDrawer
+  - `RapprochementWorkflowDrawer` accepte nouveau prop `initialVentilationIndex` → pré-sélection d'une pill
+  - `useRapprochementWorkflow` : state `selectedVentilationIndex` initialisé depuis `initialVentilationIndex` + reset effect mis à jour
+  - EditorPage : state `drawerInitialVentIdx` + handler onAttributeClick
+
+  **Rapports — explosion ventilation**
+  - `_explode_ventilations()` dans `report_service.py` : chaque op ventilée éclatée en N sous-lignes avec libellé `[V{i+1}/{N}]`, catégorie/montant/justificatif de la sous-ligne
+  - Appelé avant `_apply_filters()` pour que les sous-catégories soient filtrables
+  - Fix : les rapports PDF/CSV ne montrent plus de catégorie "Ventilé" agrégée — les totaux sont correctement répartis par sous-catégorie
+  - Excel non modifié (format peu utilisé)
+
+- **Suppression complète justificatif — bouton sur 3 pages + toast design**
+  - `delete_justificatif()` retourne désormais un `dict` détaillé (`ops_unlinked`, `thumbnail_deleted`, `ged_cleaned`, `ocr_cache_deleted`) au lieu de `bool`
+  - `_clean_operation_link()` descend dans les ventilations + retourne la liste des ops délinkées
+  - Helper partagé `lib/deleteJustificatifToast.ts` : `showDeleteConfirmToast()` (confirmation avec libellé op, boutons Supprimer/Annuler 8s) + `showDeleteSuccessToast()` (succès détaillé listant les nettoyages)
+  - Bouton Supprimer (Trash2 rouge) présent sur : OCR Gestion OCR (hover), EditorPage preview footer, JustificatifsPage preview footer
+  - Hook `useDeleteJustificatif` typé `useMutation<DeleteJustificatifResult, Error, string>`
+  - Nettoyage complet : PDF + `.ocr.json` + thumbnail + GED metadata + liens ops (parentes + ventilations) + cache
+
+- **Auto-rapprochement après ventilation**
+  - `PUT /api/ventilation/{file}/{idx}` lance `run_auto_rapprochement()` en arrière-plan (`BackgroundTasks`)
+  - Chaque sous-ligne est scorée contre les justificatifs en attente (scoring v2, seuil 0.80)
+  - Plus besoin de cliquer "Associer automatiquement" après une ventilation
+
 ### Fixed (2026-04-13) — Session 18
 
 - **Filtre justificatifs deja referencies — 3 phases**

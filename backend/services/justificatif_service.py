@@ -366,46 +366,100 @@ def upload_justificatifs(files_data: list) -> list:
 
 # ─── Delete ───
 
-def delete_justificatif(filename: str) -> bool:
-    """Supprime un justificatif et nettoie le lien dans les opérations."""
+def delete_justificatif(filename: str) -> Optional[dict]:
+    """Supprime un justificatif et nettoie toute trace résiduelle :
+    PDF, .ocr.json, thumbnail GED, metadata GED, liens opérations (+ ventilations).
+    Retourne un dict détaillé ou None si le fichier n'existe pas.
+    """
     filepath = get_justificatif_path(filename)
     if not filepath:
-        return False
+        return None
 
-    # Si traité, nettoyer le lien dans les opérations
-    if "traites" in str(filepath.parent):
-        _clean_operation_link(filename)
+    # 1. Nettoyer les liens dans les opérations (parentes + ventilations)
+    ops_unlinked = _clean_operation_link(filename)
 
-    # Supprimer le cache OCR associé
+    # 2. Supprimer la thumbnail GED
+    thumbnail_deleted = False
     try:
-        from backend.services import ocr_service
-        ocr_service.delete_ocr_cache_for(filepath)
+        _invalidate_thumbnail_for_path(filepath)
+        thumbnail_deleted = True
     except Exception:
         pass
 
+    # 3. Supprimer la metadata GED
+    ged_cleaned = False
+    try:
+        from backend.services import ged_service
+        doc_id = str(filepath.relative_to(BASE_DIR))
+        ged_service.remove_document(doc_id)
+        ged_cleaned = True
+    except Exception:
+        pass
+
+    # 4. Supprimer le cache OCR associé
+    ocr_cache_deleted = False
+    try:
+        from backend.services import ocr_service
+        ocr_service.delete_ocr_cache_for(filepath)
+        ocr_cache_deleted = True
+    except Exception:
+        pass
+
+    # 5. Supprimer le PDF
     filepath.unlink()
-    logger.info(f"Justificatif supprimé: {filename}")
-    return True
+
+    # 6. Invalider le cache des justificatifs référencés
+    invalidate_referenced_cache()
+
+    logger.info(f"Justificatif supprimé (full cleanup): {filename}")
+    return {
+        "deleted": filename,
+        "ops_unlinked": ops_unlinked,
+        "thumbnail_deleted": thumbnail_deleted,
+        "ged_cleaned": ged_cleaned,
+        "ocr_cache_deleted": ocr_cache_deleted,
+    }
 
 
-def _clean_operation_link(justificatif_filename: str):
-    """Nettoie le lien justificatif dans les opérations."""
+def _clean_operation_link(justificatif_filename: str) -> list:
+    """Nettoie le lien justificatif dans les opérations (+ sous-lignes ventilées).
+    Retourne la liste des opérations délinkées [{file, libelle, index}]."""
+    unlinked: list = []
     files = operation_service.list_operation_files()
     for f in files:
         try:
             ops = operation_service.load_operations(f["filename"])
             modified = False
-            for op in ops:
+            for i, op in enumerate(ops):
+                # Lien parente
                 lien = op.get("Lien justificatif", "")
                 if lien and justificatif_filename in lien:
                     op["Justificatif"] = False
                     op["Lien justificatif"] = ""
                     modified = True
+                    unlinked.append({
+                        "file": f["filename"],
+                        "libelle": op.get("Libellé", ""),
+                        "index": i,
+                    })
+                # Sous-lignes ventilées
+                for vl in op.get("ventilation", []):
+                    vl_justif = vl.get("justificatif", "")
+                    if vl_justif and justificatif_filename in vl_justif:
+                        vl["justificatif"] = ""
+                        modified = True
+                        if not any(u["file"] == f["filename"] and u["index"] == i for u in unlinked):
+                            unlinked.append({
+                                "file": f["filename"],
+                                "libelle": op.get("Libellé", ""),
+                                "index": i,
+                            })
             if modified:
                 operation_service.save_operations(ops, filename=f["filename"])
                 logger.info(f"Lien justificatif nettoyé dans {f['filename']}")
         except Exception as e:
             logger.warning(f"Erreur nettoyage lien dans {f['filename']}: {e}")
+    return unlinked
 
 
 # ─── Path resolution ───

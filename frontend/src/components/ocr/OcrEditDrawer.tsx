@@ -278,8 +278,8 @@ export default function OcrEditDrawer({ open, item, onClose }: Props) {
       }
     }
 
-    // 2. Rename canonique si on a un nom valide ET qu'on va associer
-    if (selectedOpKey && plannedCanonicalName) {
+    // 2. Rename canonique si on a un nom valide (association OU simple édition OCR)
+    if (plannedCanonicalName) {
       try {
         const result = await renameMutation.mutateAsync({
           filename: currentFilename,
@@ -311,6 +311,8 @@ export default function OcrEditDrawer({ open, item, onClose }: Props) {
         toast.error(`Erreur association : ${(err as Error).message}`)
         return
       }
+    } else if (plannedCanonicalName && currentFilename !== item.filename) {
+      toast.success(`Renommé en ${currentFilename}`)
     } else if (hasOcrChanges || hasHintChanges) {
       toast.success('Données OCR mises à jour')
     }

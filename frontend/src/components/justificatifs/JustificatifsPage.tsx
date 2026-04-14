@@ -23,8 +23,10 @@ import {
   Check, Minus, Stamp,
 } from 'lucide-react'
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
-import { useDissociate } from '@/hooks/useJustificatifs'
-import { Unlink } from 'lucide-react'
+import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
+import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
+import { Unlink, Paperclip, Trash2 } from 'lucide-react'
+import type { VentilationLine } from '@/types'
 import type { CategoryRaw } from '@/types'
 
 type SortKey = 'date' | 'libelle' | 'debit' | 'credit' | 'categorie' | 'sous_categorie'
@@ -141,6 +143,7 @@ export default function JustificatifsPage() {
   }, [previewParam, searchParams, setSearchParams])
 
   const dissociateMutation = useDissociate()
+  const deleteJustifMutation = useDeleteJustificatif()
 
   // Auto-rapprochement
   const autoRapprochement = useRunAutoRapprochement()
@@ -569,7 +572,10 @@ export default function JustificatifsPage() {
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {operations.map((op) => {
-                    const hasJustif = !!op['Lien justificatif']
+                    const vlines = (op as Record<string, unknown>).ventilation as VentilationLine[] | undefined
+                    const isVentilated = (vlines?.length ?? 0) > 0
+                    const allVlAssociated = isVentilated && vlines!.every(vl => !!vl.justificatif)
+                    const hasJustif = !!op['Lien justificatif'] || allVlAssociated
                     const isExempt = isOpExempt(op)
                     const rowId = `op-row-${op._filename}-${op._originalIndex}`
                     const isDrawerSelected = drawerOpen && op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
@@ -585,6 +591,7 @@ export default function JustificatifsPage() {
                     const isSelected = isDrawerSelected || isPreviewSelected || isNavTarget
 
                     return (
+                      <>
                       <tr
                         key={rowId}
                         id={rowId}
@@ -724,6 +731,54 @@ export default function JustificatifsPage() {
                           )}
                         </td>
                       </tr>
+                      {/* Sous-lignes ventilées */}
+                      {((op as Record<string, unknown>).ventilation as VentilationLine[] | undefined)?.map((vl, vlIdx) => (
+                        <tr
+                          key={`${rowId}-vl-${vlIdx}`}
+                          className="border-b border-border/10 bg-surface/30 hover:bg-surface/50 transition-colors"
+                        >
+                          <td className="px-2 py-1.5" />
+                          <td className="py-1.5 px-4">
+                            <div className="flex items-center gap-1.5 pl-3">
+                              <div className="w-0.5 h-4 bg-primary/40 rounded-full" />
+                              <span className="text-[10px] text-text-muted font-medium">L{vlIdx + 1}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-1.5 text-xs text-text-muted truncate max-w-xs">
+                            {vl.libelle || op['Libellé']}
+                          </td>
+                          <td className="px-4 py-1.5 text-red-400/70 whitespace-nowrap tabular-nums text-xs">
+                            {op['Débit'] && Number(op['Débit']) > 0 ? formatCurrency(vl.montant) : ''}
+                          </td>
+                          <td className="px-4 py-1.5 text-emerald-400/70 whitespace-nowrap tabular-nums text-xs">
+                            {op['Crédit'] && Number(op['Crédit']) > 0 ? formatCurrency(vl.montant) : ''}
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <span className="text-[10px] text-text-muted">{vl.categorie || '—'}</span>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <span className="text-[10px] text-text-muted">{vl.sous_categorie || '—'}</span>
+                          </td>
+                          <td className="px-4 py-1.5 text-center">
+                            {vl.justificatif ? (
+                              <button
+                                onClick={() => {
+                                  setPreviewJustif(vl.justificatif!)
+                                  setPreviewOpFile(op._filename)
+                                  setPreviewOpIndex(op._originalIndex)
+                                }}
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-emerald-400 hover:bg-emerald-500/15 transition-colors"
+                                title={`Justificatif: ${vl.justificatif}`}
+                              >
+                                <Paperclip size={13} />
+                              </button>
+                            ) : (
+                              <span className="text-text-muted/30 text-xs">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </>
                     )
                   })}
                 </tbody>
@@ -785,7 +840,30 @@ export default function JustificatifsPage() {
                 <p className="text-center text-text-muted text-sm p-8">Aperçu PDF non disponible</p>
               </object>
             </div>
-            <div className="px-5 py-3 border-t border-border flex items-center justify-end shrink-0">
+            <div className="px-5 py-3 border-t border-border flex items-center justify-between shrink-0">
+              <button
+                onClick={() => {
+                  if (!previewJustif) return
+                  const previewOp = operations.find(
+                    op => op._originalIndex === previewOpIndex && op._filename === previewOpFile
+                  )
+                  const libelle = previewOp?.['Libellé'] ?? null
+                  showDeleteConfirmToast(previewJustif, libelle, () => {
+                    deleteJustifMutation.mutate(previewJustif!, {
+                      onSuccess: (result) => {
+                        showDeleteSuccessToast(result)
+                        setPreviewJustif(null)
+                      },
+                      onError: (err: Error) => toast.error(`Erreur : ${err.message}`),
+                    })
+                  })
+                }}
+                disabled={deleteJustifMutation.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+              >
+                <Trash2 size={14} />
+                {deleteJustifMutation.isPending ? 'Suppression...' : 'Supprimer'}
+              </button>
               <button
                 onClick={() => {
                   if (previewOpFile && previewOpIndex !== null) {

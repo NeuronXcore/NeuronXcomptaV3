@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import toast from 'react-hot-toast'
+import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import { useQueries } from '@tanstack/react-query'
@@ -10,7 +12,7 @@ import {
   useBatchUploadOcr,
 } from '@/hooks/useOcr'
 import type { BatchUploadResult } from '@/hooks/useOcr'
-import { useJustificatifs, useJustificatifStats } from '@/hooks/useJustificatifs'
+import { useJustificatifs, useJustificatifStats, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { api } from '@/api/client'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
@@ -18,7 +20,7 @@ import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
   ArrowRight, DollarSign, Calendar, User, Filter, Tag, Eye, Wand2,
-  Search, X, Pencil,
+  Search, X, Pencil, Trash2,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
 import ScanRenameDrawer from './ScanRenameDrawer'
@@ -747,6 +749,7 @@ function HistoriqueTab({
 }) {
   const { selectedYear } = useFiscalYearStore()
   const extractOcr = useExtractOcr()
+  const deleteMutation = useDeleteJustificatif()
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const [filterSupplier, setFilterSupplier] = useState('')
   const [filterAssociation, setFilterAssociation] = useState<'all' | 'pending' | 'associated'>('all')
@@ -1186,6 +1189,24 @@ function HistoriqueTab({
                           ) : (
                             <RotateCcw size={13} />
                           )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const fname = item.filename
+                            const lookups = lookupByFilename.get(fname)
+                            const opLibelle = lookups?.[0]?.libelle ?? null
+                            showDeleteConfirmToast(fname, opLibelle, () => {
+                              deleteMutation.mutate(fname, {
+                                onSuccess: (result) => showDeleteSuccessToast(result),
+                                onError: (err: Error) => toast.error(`Erreur : ${err.message}`),
+                              })
+                            })
+                          }}
+                          disabled={deleteMutation.isPending}
+                          className="p-1.5 text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Supprimer le justificatif"
+                        >
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>

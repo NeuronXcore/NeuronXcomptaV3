@@ -33,7 +33,8 @@ import { ParticipantsCell } from '@/components/editor/ParticipantsCell'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
-import { useDissociate } from '@/hooks/useJustificatifs'
+import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
+import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
 import { useHistoriqueBNC } from '@/hooks/useSimulation'
 import { formatCurrency, formatFileTitle, cn, MOIS_FR, isReconstitue } from '@/lib/utils'
@@ -226,12 +227,14 @@ export default function EditorPage() {
   // Rapprochement state
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerOpIndex, setDrawerOpIndex] = useState<number | null>(null)
+  const [drawerInitialVentIdx, setDrawerInitialVentIdx] = useState<number | null>(null)
   const [ventilationOpen, setVentilationOpen] = useState(false)
   const [ventilationOpIndex, setVentilationOpIndex] = useState<number | null>(null)
   const { data: batchHints } = useBatchHints(selectedFile)
 
   const saveMutation = useSaveOperations()
   const dissociateMutation = useDissociate()
+  const deleteJustifMutation = useDeleteJustificatif()
   const categorizeMutation = useCategorizeOperations()
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -1375,6 +1378,15 @@ export default function EditorPage() {
                               setVentilationOpen(true)
                             }
                           }}
+                          onJustifClick={(justificatif) => {
+                            setPreviewJustifFile(justificatif)
+                            setPreviewJustifOpIndex(row.index)
+                          }}
+                          onAttributeClick={(vlIdx) => {
+                            setDrawerOpIndex(row.index)
+                            setDrawerInitialVentIdx(vlIdx)
+                            setDrawerOpen(true)
+                          }}
                         />
                       )}
                     </React.Fragment>
@@ -1557,27 +1569,51 @@ export default function EditorPage() {
                 <Download size={14} />
                 Ouvrir dans Aperçu
               </button>
-              <button
-                onClick={() => {
-                  if (selectedFile && previewJustifOpIndex !== null) {
-                    dissociateMutation.mutate(
-                      { operation_file: selectedFile, operation_index: previewJustifOpIndex },
-                      {
-                        onSuccess: () => {
-                          toast.success('Justificatif dissocié')
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (selectedFile && previewJustifOpIndex !== null) {
+                      dissociateMutation.mutate(
+                        { operation_file: selectedFile, operation_index: previewJustifOpIndex },
+                        {
+                          onSuccess: () => {
+                            toast.success('Justificatif dissocié')
+                            setPreviewJustifFile(null)
+                            setPreviewJustifOpIndex(null)
+                          },
+                        }
+                      )
+                    }
+                  }}
+                  disabled={dissociateMutation.isPending}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                >
+                  <Unlink size={14} />
+                  {dissociateMutation.isPending ? 'Dissociation...' : 'Dissocier'}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!previewJustifFile) return
+                    const op = previewJustifOpIndex !== null ? operations[previewJustifOpIndex] : null
+                    const libelle = op?.['Libellé'] ?? null
+                    showDeleteConfirmToast(previewJustifFile, libelle, () => {
+                      deleteJustifMutation.mutate(previewJustifFile!, {
+                        onSuccess: (result) => {
+                          showDeleteSuccessToast(result)
                           setPreviewJustifFile(null)
                           setPreviewJustifOpIndex(null)
                         },
-                      }
-                    )
-                  }
-                }}
-                disabled={dissociateMutation.isPending}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
-              >
-                <Unlink size={14} />
-                {dissociateMutation.isPending ? 'Dissociation...' : 'Dissocier'}
-              </button>
+                        onError: (err: Error) => toast.error(`Erreur : ${err.message}`),
+                      })
+                    })
+                  }}
+                  disabled={deleteJustifMutation.isPending}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-400 border border-red-400/30 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                >
+                  <Trash2 size={14} />
+                  {deleteJustifMutation.isPending ? 'Suppression...' : 'Supprimer'}
+                </button>
+              </div>
             </div>
           </div>
         </>
@@ -1588,8 +1624,13 @@ export default function EditorPage() {
         isOpen={drawerOpen}
         operations={operations}
         initialIndex={drawerOpIndex ?? undefined}
+        initialVentilationIndex={drawerInitialVentIdx ?? undefined}
         fallbackFilename={selectedFile ?? undefined}
-        onClose={() => { setDrawerOpen(false); setDrawerOpIndex(null) }}
+        onClose={() => {
+          setDrawerOpen(false)
+          setDrawerOpIndex(null)
+          setDrawerInitialVentIdx(null)
+        }}
       />
 
       {/* Ventilation Drawer */}

@@ -3,10 +3,10 @@ from __future__ import annotations
 """Router pour la ventilation d'opérations."""
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from backend.services import ventilation_service
+from backend.services import ventilation_service, rapprochement_service
 
 router = APIRouter(prefix="/api/ventilation", tags=["ventilation"])
 
@@ -34,7 +34,12 @@ class UpdateLineRequest(BaseModel):
 
 
 @router.put("/{filename}/{op_index}")
-def set_ventilation(filename: str, op_index: int, req: SetVentilationRequest):
+def set_ventilation(
+    filename: str,
+    op_index: int,
+    req: SetVentilationRequest,
+    background_tasks: BackgroundTasks,
+):
     """Créer ou remplacer la ventilation d'une opération."""
     lines = [line.model_dump() for line in req.lines]
 
@@ -50,6 +55,8 @@ def set_ventilation(filename: str, op_index: int, req: SetVentilationRequest):
 
     try:
         op = ventilation_service.set_ventilation(filename, op_index, lines)
+        # Auto-rapprochement en arrière-plan pour les sous-lignes créées
+        background_tasks.add_task(rapprochement_service.run_auto_rapprochement)
         return op
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

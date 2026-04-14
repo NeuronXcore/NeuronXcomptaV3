@@ -7,12 +7,14 @@ interface VentilationLinesProps {
   colSpan: number
   categoryColors: Map<string, string>
   onClick: () => void
+  onJustifClick?: (justificatif: string) => void
+  onAttributeClick?: (vlIdx: number) => void
 }
 
-export default function VentilationLines({ lines, colSpan, categoryColors, onClick }: VentilationLinesProps) {
+export default function VentilationLines({ lines, colSpan, categoryColors, onClick, onJustifClick, onAttributeClick }: VentilationLinesProps) {
   return (
     <>
-      {lines.map((vl, idx) => (
+      {lines.map((vl: VentilationLine, idx: number) => (
         <tr
           key={`vl-${idx}`}
           className="border-b border-border/10 bg-surface/50 cursor-pointer hover:bg-surface-hover/50 transition-colors"
@@ -50,7 +52,31 @@ export default function VentilationLines({ lines, colSpan, categoryColors, onCli
           </td>
           <td className="py-0.5 px-2 text-center">
             {vl.justificatif ? (
-              <Paperclip size={12} className="text-success mx-auto" />
+              onJustifClick ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onJustifClick(vl.justificatif!)
+                  }}
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-full text-emerald-400 hover:bg-emerald-500/15 transition-colors"
+                  title={`Justificatif: ${vl.justificatif}`}
+                >
+                  <Paperclip size={12} />
+                </button>
+              ) : (
+                <Paperclip size={12} className="text-success mx-auto" />
+              )
+            ) : onAttributeClick ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAttributeClick(idx)
+                }}
+                className="inline-flex items-center justify-center w-6 h-6 rounded-full text-amber-400 hover:bg-amber-500/15 transition-colors"
+                title="Attribuer un justificatif à cette sous-ligne"
+              >
+                <Paperclip size={12} />
+              </button>
             ) : (
               <span className="text-text-muted/30">—</span>
             )}

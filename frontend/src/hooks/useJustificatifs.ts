@@ -51,13 +51,25 @@ export function useUploadJustificatifs() {
   })
 }
 
+export interface DeleteJustificatifResult {
+  deleted: string
+  ops_unlinked: Array<{ file: string; libelle: string; index: number }>
+  thumbnail_deleted: boolean
+  ged_cleaned: boolean
+  ocr_cache_deleted: boolean
+}
+
 export function useDeleteJustificatif() {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<DeleteJustificatifResult, Error, string>({
     mutationFn: (filename: string) => api.delete(`/justificatifs/${filename}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
       queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+      queryClient.invalidateQueries({ queryKey: ['ged'] })
+      queryClient.invalidateQueries({ queryKey: ['operations'] })
+      queryClient.invalidateQueries({ queryKey: ['rapprochement-unmatched'] })
     },
   })
 }
