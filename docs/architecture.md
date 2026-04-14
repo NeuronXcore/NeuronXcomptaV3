@@ -752,29 +752,45 @@ Sélection mois → exports router → export_service.generate_export()
 
 ```
 Page Bibliothèque (/ged) → GedPage (split layout)
-  ├─ Arbre gauche (260px) : 5 onglets
+  ├─ Arbre gauche (260px) : 6 onglets (période, année/type, catégorie, fournisseur, type, templates)
   │   → GET /api/ged/tree → { by_period, by_category, by_vendor, by_type, by_year }
-  │   → GedTreePanel : 5 icônes (Calendar, Layers, Tag, Building2, FolderTree)
+  │   → GedTreePanel : 6 icônes (Calendar, Layers, Tag, Building2, FolderTree, Wand2)
+  │   → Onglet Templates masqué si templatesCount === 0
+  │   → Onglets avec tooltips stylés au survol (fond blanc, texte noir, bordure)
   │   → deriveFiltersFromNode() convertit nodeId → GedFilters
+  │   → Arborescence REPLIÉE PAR DÉFAUT (useState(false)) — user ouvre à la demande
   │   → scan_all_sources() indexe : relevés, justificatifs, rapports, docs libres
   │   → backfill_justificatifs_metadata() enrichit les traités existants
   │   → migrate_reports_index() migre reports_index.json (one-shot)
   │
-  ├─ Barre filtres croisés (GedFilterBar)
-  │   → Dropdowns : type, catégorie (avec compteurs), fournisseur (avec compteurs)
-  │   → Recherche full-text enrichie (noms + OCR + titres rapports + fournisseur)
-  │   → Bouton reset quand filtre actif
-  │   → Init filtres via URL params (/ged?type=rapport&year=2026)
+  ├─ Barre filtres croisés (GedSearchBar) — pleine largeur au-dessus du split
+  │   → Input search + montant min/max + toggle filtres avancés
+  │   → Chips actifs colorés, compteur résultats
+  │   → Init filtres via URL params (/ged?type=rapport&year=2026, /ged?axis=templates)
   │
-  ├─ Contenu : grille cartes enrichies (GedDocumentCard) ou tableau liste
-  │   → Thumbnail PDF + badge catégorie + fournisseur + période + montant
-  │   → Badge "RECONSTITUÉ" si is_reconstitue
-  │   → Étoile favori pour rapports
-  │   → Mode comparaison (checkbox sélection 2 rapports)
+  ├─ Contenu :
+  │   ├─ Mode documents : grille cartes enrichies (GedDocumentCard) ou tableau liste
+  │   │   → Thumbnail PDF + badges overlay (statut/montant/date pour justificatifs)
+  │   │   → Étoile favori pour rapports
+  │   │   → Mode comparaison (checkbox sélection 2 rapports)
+  │   │
+  │   └─ Mode templates (activeTab === 'templates') : GedTemplatesView
+  │       → Grille de cards template (thumbnail, badge VIERGE, chips cat, méta)
+  │       → GET /api/templates/ged-summary (scan .ocr.json pour compter fac-similés)
+  │       → 2 boutons par card : Éditer (ouvre TemplateEditDrawer) + Générer (BatchGenerateDrawer)
+  │       → Filtres panneau gauche : AFFICHAGE (Tous/Vierge/Scanné) + CATÉGORIE
   │
   ├─ Drawer contextuel selon type :
-  │   → Document (GedDocumentDrawer) : preview PDF + fiscalité + postes
+  │   → Document (GedDocumentDrawer) : thumbnail cliquable + fiscalité + postes
+  │     → Remplacement de l'iframe inline par vignette + sub-drawer grand format
+  │     → GedPreviewSubDrawer slide depuis la droite à gauche du main drawer
+  │     → <object type="application/pdf"> avec toolbar native (PDF) ou <img> (image)
+  │     → Esc en mode capture ne ferme QUE le sub-drawer
   │   → Rapport (GedReportDrawer) : preview PDF + favori + re-génération + suppression
+  │   → Template (GedTemplateDetailDrawer) : aperçu + infos éditables + champs readonly
+  │     → Liste fac-similés générés cliquables → /justificatifs?file=...
+  │     → Footer : Supprimer (confirm enrichi "N fac-similés conservés") / Éditer / Générer batch
+  │     → GET /api/templates/{id}/ged-detail pour le compteur + liste
   │
   ├─ Enrichissement automatique metadata :
   │   → Rapprochement auto/manuel → enrich_metadata_on_association()
@@ -952,20 +968,36 @@ Intégrations : post-OCR, post-sandbox, post-GED upload → check_single_documen
 
 ```
 Page OCR (/ocr) → OcrPage → 4ème onglet "Templates justificatifs"
-  ├─ Créer : sélection justificatif existant → POST /api/templates/extract
+  ├─ Créer depuis justificatif : sélection justificatif existant → POST /api/templates/extract
   │   → Extraction OCR enrichie (Qwen2-VL via Ollama, fallback .ocr.json basique)
   │   → Formulaire : vendor, aliases, catégorie, table champs (checkbox, label, source, confiance)
   │   → POST /api/templates → sauvegarde dans data/templates/justificatifs_templates.json
+  ├─ Créer depuis PDF vierge : bouton "Depuis un PDF vierge" (icône FilePlus2)
+  │   → BlankTemplateUploadDrawer (420px, dropzone + vendor + aliases + cat/sous-cat)
+  │   → POST /api/templates/from-blank (multipart, pas d'OCR lancé)
+  │     → Sauvegarde PDF dans data/templates/{id}/background.pdf
+  │     → Rasterise thumbnail.png 200px (pdf2image + Pillow)
+  │     → Lit dimensions page (pdfplumber) : page_width_pt, page_height_pt
+  │     → Crée template avec is_blank_template=True, fields=[]
+  │   → Sur succès, ouvre auto TemplateEditDrawer en mode édition
+  │     → Click-to-position sur l'aperçu : ratio pageWidthPt / img.clientWidth
+  │     → Overlays rectangles amber sur les champs positionnés
+  │     → canSave relaxé : pas besoin de champs date/montant_ttc obligatoires
   ├─ Bibliothèque : grille cards templates (vendor, aliases, champs, usage_count)
-  │   → DELETE /api/templates/{id} pour suppression
+  │   → Badge overlay VIERGE amber si is_blank_template=True
+  │   → Chip catégorie · sous-catégorie si renseignées
+  │   → DELETE /api/templates/{id} pour suppression (préserve les fac-similés générés)
   └─ Générer : sélection opération (file + index) → GET /api/templates/suggest/{file}/{idx}
       → Template auto-suggéré par matching alias dans le libellé bancaire
       → Formulaire 2 colonnes : champs auto (grisés) + champs manuels
       → Calcul TVA temps réel (formules computed)
       → POST /api/templates/generate
-          → ReportLab : PDF A5 sobre (Helvetica, pas de watermark)
-          → .ocr.json compagnon ("source": "reconstitue", operation_ref)
-          → Fichiers dans data/justificatifs/en_attente/reconstitue_*
+          → ReportLab : PDF A5 sobre (Helvetica, pas de watermark) OU fac-similé overlay si coords
+          → .ocr.json compagnon ("source": "reconstitue", template_id, operation_ref)
+          → Propagation hints catégorie : si template.category existe,
+             écrit category_hint + sous_categorie_hint au top-level du .ocr.json
+             → rapprochement_service.score_categorie() lit ces hints en priorité ML
+          → Fichiers dans data/justificatifs/en_attente/vendor_YYYYMMDD_amount.XX_fs.pdf
           → Si auto_associate : justificatif_service.associate() + rapprochement metadata
 
 Intégrations (bouton ReconstituerButton) :

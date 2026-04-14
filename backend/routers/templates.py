@@ -3,7 +3,10 @@ Router API pour les templates de justificatifs.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+import json as _json
+
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from backend.models.template import (
     BatchCandidatesRequest,
@@ -41,6 +44,114 @@ async def batch_suggest(request: BatchSuggestRequest):
     return template_service.batch_suggest_templates(
         [op.model_dump() for op in request.operations]
     )
+
+
+@router.get("/ged-summary")
+async def get_ged_summary():
+    """Retourne la liste des templates enrichie pour la GED (comptage fac-similés)."""
+    return template_service.get_ged_templates_summary()
+
+
+@router.post("/from-blank")
+async def create_template_from_blank(
+    file: UploadFile = File(...),
+    vendor: str = Form(...),
+    vendor_aliases: str = Form("[]"),
+    category: str = Form(""),
+    sous_categorie: str = Form(""),
+):
+    """Crée un template depuis un PDF de fond vierge (sans OCR).
+
+    Body multipart/form-data :
+    - file : PDF obligatoire
+    - vendor : str obligatoire
+    - vendor_aliases : JSON array string (optionnel, défaut "[]")
+    - category : str (optionnel)
+    - sous_categorie : str (optionnel)
+    """
+    # Valider content-type
+    if file.content_type not in ("application/pdf", "application/octet-stream"):
+        raise HTTPException(status_code=400, detail="Seuls les PDF sont acceptés")
+
+    data = await file.read()
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="Fichier non-PDF (magic bytes invalides)")
+
+    # Parser les aliases JSON
+    try:
+        aliases_list = _json.loads(vendor_aliases) if vendor_aliases else []
+        if not isinstance(aliases_list, list):
+            aliases_list = []
+        aliases_list = [str(a).strip() for a in aliases_list if str(a).strip()]
+    except (ValueError, TypeError):
+        aliases_list = []
+
+    vendor_clean = vendor.strip()
+    if not vendor_clean:
+        raise HTTPException(status_code=400, detail="Le nom du fournisseur est obligatoire")
+
+    try:
+        tpl = template_service.create_blank_template(
+            file_bytes=data,
+            vendor=vendor_clean,
+            vendor_aliases=aliases_list,
+            category=category.strip() or None,
+            sous_categorie=sous_categorie.strip() or None,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur création template: {e}")
+
+    return tpl
+
+
+@router.get("/{template_id}/thumbnail")
+async def get_template_thumbnail(template_id: str):
+    """Retourne le thumbnail PNG d'un template blank (200px de large)."""
+    tpl = template_service.get_template(template_id)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template non trouvé")
+    if not tpl.is_blank_template:
+        raise HTTPException(status_code=404, detail="Thumbnail uniquement disponible pour blank templates")
+    thumb = template_service.get_blank_template_thumbnail_path(template_id)
+    if not thumb or not thumb.exists():
+        raise HTTPException(status_code=404, detail="Thumbnail introuvable")
+    return FileResponse(str(thumb), media_type="image/png")
+
+
+@router.get("/{template_id}/background")
+async def get_template_background(template_id: str):
+    """Retourne le PDF de fond d'un blank template (pour aperçu haute résolution)."""
+    tpl = template_service.get_template(template_id)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template non trouvé")
+    if not tpl.is_blank_template:
+        raise HTTPException(status_code=404, detail="PDF de fond uniquement disponible pour blank templates")
+    bg = template_service.get_blank_template_background_path(template_id)
+    if not bg:
+        raise HTTPException(status_code=404, detail="PDF de fond introuvable")
+    return FileResponse(str(bg), media_type="application/pdf")
+
+
+@router.get("/{template_id}/page-size")
+async def get_template_page_size(template_id: str):
+    """Retourne les dimensions de la page 0 (points PDF) pour click-to-position."""
+    tpl = template_service.get_template(template_id)
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template non trouvé")
+    return {
+        "width_pt": tpl.page_width_pt,
+        "height_pt": tpl.page_height_pt,
+        "page": 0,
+    }
+
+
+@router.get("/{template_id}/ged-detail")
+async def get_template_ged_detail(template_id: str):
+    """Retourne le détail d'un template + ses fac-similés générés pour le drawer GED."""
+    detail = template_service.get_ged_template_detail(template_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Template non trouvé")
+    return detail
 
 
 @router.get("/{template_id}")

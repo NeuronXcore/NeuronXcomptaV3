@@ -16,6 +16,8 @@ import {
 import type { TemplateField, ExtractedFields, JustificatifTemplate } from '@/types'
 import TemplateEditDrawer from '@/components/templates/TemplateEditDrawer'
 import BatchGenerateDrawer from '@/components/templates/BatchGenerateDrawer'
+import BlankTemplateUploadDrawer from '@/components/templates/BlankTemplateUploadDrawer'
+import { FilePlus2 } from 'lucide-react'
 
 interface Props {
   preFile?: string | null
@@ -471,6 +473,7 @@ function LibrarySection() {
   const [batchVendor, setBatchVendor] = useState('')
   const [searchText, setSearchText] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
+  const [blankUploadOpen, setBlankUploadOpen] = useState(false)
 
   // Catégories uniques pour le dropdown
   const categories = useMemo(() => {
@@ -509,11 +512,27 @@ function LibrarySection() {
 
   if (!templates?.length) {
     return (
-      <div className="bg-surface rounded-xl border border-border p-8 text-center">
-        <FileText size={32} className="mx-auto text-text-muted/20 mb-2" />
-        <p className="text-sm text-text-muted">Aucun template créé</p>
-        <p className="text-xs text-text-muted/60 mt-1">Analysez un justificatif existant pour en créer un</p>
-      </div>
+      <>
+        <div className="bg-surface rounded-xl border border-border p-8 text-center">
+          <FileText size={32} className="mx-auto text-text-muted/20 mb-2" />
+          <p className="text-sm text-text-muted">Aucun template créé</p>
+          <p className="text-xs text-text-muted/60 mt-1 mb-3">
+            Analysez un justificatif existant ou créez-en un depuis un PDF vierge
+          </p>
+          <button
+            onClick={() => setBlankUploadOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:border-violet-500/40 hover:bg-violet-500/5 text-text transition-colors"
+          >
+            <FilePlus2 size={13} />
+            Depuis un PDF vierge
+          </button>
+        </div>
+        <BlankTemplateUploadDrawer
+          open={blankUploadOpen}
+          onClose={() => setBlankUploadOpen(false)}
+          onCreated={(tpl) => setEditTemplateId(tpl.id)}
+        />
+      </>
     )
   }
 
@@ -574,6 +593,17 @@ function LibrarySection() {
             Réinitialiser
           </button>
         )}
+
+        <div className="ml-auto">
+          <button
+            onClick={() => setBlankUploadOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:border-violet-500/40 hover:bg-violet-500/5 text-text transition-colors"
+            title="Créer un template depuis un PDF vierge"
+          >
+            <FilePlus2 size={13} />
+            Depuis un PDF vierge
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
@@ -581,18 +611,31 @@ function LibrarySection() {
           const initials = tpl.vendor.slice(0, 2).toUpperCase()
           const colorClass = colors[i % colors.length]
           const hasSource = !!tpl.source_justificatif
+          const isBlank = !!tpl.is_blank_template
           const hasCoords = tpl.fields.some((f) => f.coordinates)
+          const thumbnailUrl = isBlank
+            ? `/api/templates/${tpl.id}/thumbnail`
+            : hasSource
+              ? `/api/justificatifs/${encodeURIComponent(tpl.source_justificatif!)}/thumbnail`
+              : null
           return (
             <div
               key={tpl.id}
-              className="bg-surface rounded-xl border border-border overflow-hidden hover:border-violet-500/40 transition-colors group cursor-pointer"
+              className="bg-surface rounded-xl border border-border overflow-hidden hover:border-violet-500/40 transition-colors group cursor-pointer relative"
               onClick={() => setEditTemplateId(tpl.id)}
             >
-              {/* Thumbnail du PDF source — endpoint qui résout auto en_attente/traites */}
-              {hasSource ? (
+              {/* Badge VIERGE overlay */}
+              {isBlank && (
+                <span className="absolute top-2 right-2 z-10 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 tracking-wide">
+                  VIERGE
+                </span>
+              )}
+
+              {/* Thumbnail du PDF */}
+              {thumbnailUrl ? (
                 <div className="h-32 bg-white overflow-hidden border-b border-border flex items-center justify-center">
                   <img
-                    src={`/api/justificatifs/${encodeURIComponent(tpl.source_justificatif!)}/thumbnail`}
+                    src={thumbnailUrl}
                     alt={tpl.vendor}
                     className="h-full w-auto object-contain"
                     onError={(e) => {
@@ -616,7 +659,10 @@ function LibrarySection() {
                     <div>
                       <p className="text-sm font-medium text-text">{tpl.vendor}</p>
                       {tpl.category && (
-                        <p className="text-[10px] text-text-muted">{tpl.category}</p>
+                        <p className="text-[10px] text-text-muted">
+                          {tpl.category}
+                          {tpl.sous_categorie && <span className="text-text-muted/60"> · {tpl.sous_categorie}</span>}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -675,6 +721,11 @@ function LibrarySection() {
           onClose={() => { setBatchTemplateId(null); setBatchVendor('') }}
         />
       )}
+      <BlankTemplateUploadDrawer
+        open={blankUploadOpen}
+        onClose={() => setBlankUploadOpen(false)}
+        onCreated={(tpl) => setEditTemplateId(tpl.id)}
+      />
     </div>
   )
 }

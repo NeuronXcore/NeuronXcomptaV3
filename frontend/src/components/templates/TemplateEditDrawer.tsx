@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
-import { X, Pencil, Trash2, Plus, Save, Crosshair } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { X, Pencil, Trash2, Plus, Save, Crosshair, MousePointerClick } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDrawerResize } from '@/hooks/useDrawerResize'
-import { useTemplate, useUpdateTemplate, useDeleteTemplate } from '@/hooks/useTemplates'
+import { useTemplate, useUpdateTemplate, useDeleteTemplate, useGedTemplateDetail } from '@/hooks/useTemplates'
 import { useCategories } from '@/hooks/useApi'
 import type { TemplateField, TemplateUpdatePayload } from '@/types'
 
@@ -28,14 +28,18 @@ function isEssentialField(f: TemplateField): boolean {
 
 export default function TemplateEditDrawer({ templateId, onClose }: Props) {
   const { data: template } = useTemplate(templateId)
+  const { data: gedDetail } = useGedTemplateDetail(templateId)
   const { data: catData } = useCategories()
   const updateTemplate = useUpdateTemplate()
   const deleteTemplate = useDeleteTemplate()
+  const facsimilesCount = gedDetail?.facsimiles_generated ?? 0
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<TemplateUpdatePayload | null>(null)
   const [aliasInput, setAliasInput] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [positioningFieldIdx, setPositioningFieldIdx] = useState<number | null>(null)
+  const imgRef = useRef<HTMLImageElement | null>(null)
   const { width: drawerWidth, handleMouseDown } = useDrawerResize({ defaultWidth: 700, minWidth: 450, maxWidth: 1100, storageKey: 'template-edit-width' })
 
   const categories = useMemo(
@@ -63,6 +67,17 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
       })
     }
   }, [template, editing, draft])
+
+  // Auto-passage en mode édition quand on ouvre un blank template sans champs
+  // (l'utilisateur doit positionner les champs manuellement)
+  const autoEditOpenedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!template) return
+    if (template.is_blank_template && template.fields.length === 0 && !editing && autoEditOpenedFor.current !== template.id) {
+      autoEditOpenedFor.current = template.id
+      setEditing(true)
+    }
+  }, [template, editing])
 
   if (!templateId) return null
 
@@ -141,13 +156,63 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
   const handleRemoveField = (idx: number) => {
     if (!draft) return
     setDraft({ ...draft, fields: draft.fields.filter((_, i) => i !== idx) })
+    if (positioningFieldIdx === idx) setPositioningFieldIdx(null)
   }
 
-  const canSave = draft
-    && draft.vendor.trim()
-    && draft.vendor_aliases.length > 0
-    && draft.fields.some((f) => f.key === 'date' && f.source === 'operation')
-    && draft.fields.some((f) => f.key === 'montant_ttc' && f.source === 'operation')
+  const togglePositioning = (idx: number) => {
+    setPositioningFieldIdx((cur) => (cur === idx ? null : idx))
+  }
+
+  const handlePreviewClick = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (!editing || positioningFieldIdx === null || !draft || !tpl) return
+    if (!tpl.page_width_pt || !tpl.page_height_pt) {
+      // Dimensions PDF inconnues — click-to-position indisponible (pour l'instant, blank templates uniquement)
+      return
+    }
+    const img = e.currentTarget
+    const rect = img.getBoundingClientRect()
+    const offsetX = e.clientX - rect.left
+    const offsetY = e.clientY - rect.top
+    const pageW = tpl.page_width_pt
+    const pageH = tpl.page_height_pt
+    // Ratio pixel -> pt PDF
+    const ratioX = pageW / rect.width
+    const ratioY = pageH / rect.height
+    const x = offsetX * ratioX
+    const y = offsetY * ratioY
+    // Largeur/hauteur par défaut selon type
+    const field = draft.fields[positioningFieldIdx]
+    const defaultW = field?.key === 'date' ? 80 : field?.key === 'montant_ttc' ? 70 : 100
+    const defaultH = 14
+    const fields = [...draft.fields]
+    fields[positioningFieldIdx] = {
+      ...fields[positioningFieldIdx],
+      coordinates: {
+        x: Math.round(x * 10) / 10,
+        y: Math.round(y * 10) / 10,
+        w: defaultW,
+        h: defaultH,
+        page: 0,
+      },
+    }
+    setDraft({ ...draft, fields })
+    setPositioningFieldIdx(null)
+  }
+
+
+  // Pour un blank template, on tolère le save sans aliases et sans champs obligatoires
+  // (l'utilisateur construit progressivement le template).
+  const canSave = !!draft
+    && !!draft.vendor.trim()
+    && (
+      tpl?.is_blank_template
+        ? true
+        : (
+          draft.vendor_aliases.length > 0
+          && draft.fields.some((f) => f.key === 'date' && f.source === 'operation')
+          && draft.fields.some((f) => f.key === 'montant_ttc' && f.source === 'operation')
+        )
+    )
 
   const displayFields = editing ? (draft?.fields || []) : (tpl?.fields || [])
   const displayVendor = editing ? (draft?.vendor || '') : (tpl?.vendor || '')
@@ -313,6 +378,7 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
                     <th className="text-left px-2 py-1.5">Type</th>
                     <th className="text-left px-2 py-1.5">Source</th>
                     {editing && <th className="text-left px-2 py-1.5">Defaut</th>}
+                    {editing && <th className="text-center px-2 py-1.5">Position</th>}
                     {!editing && <th className="text-center px-2 py-1.5 w-10">Pos.</th>}
                     {editing && <th className="w-8" />}
                   </tr>
@@ -393,6 +459,33 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
                             )}
                           </td>
                         )}
+                        {editing && (
+                          <td className="px-2 py-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => togglePositioning(idx)}
+                                className={cn(
+                                  'px-1.5 py-0.5 rounded border text-[10px] flex items-center gap-1 transition-colors',
+                                  positioningFieldIdx === idx
+                                    ? 'border-amber-500 bg-amber-500/20 text-amber-300'
+                                    : 'border-border text-text-muted hover:text-text hover:border-primary/40',
+                                )}
+                                title="Cliquer puis positionner sur l'aperçu"
+                              >
+                                <MousePointerClick size={10} />
+                                {positioningFieldIdx === idx ? 'Clic...' : 'Placer'}
+                              </button>
+                              {f.coordinates && (
+                                <span className="text-[9px] text-emerald-400 font-mono whitespace-nowrap">
+                                  {Math.round(f.coordinates.x)},{Math.round(f.coordinates.y)}
+                                  <br />
+                                  {Math.round(f.coordinates.w)}×{Math.round(f.coordinates.h)}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        )}
                         {!editing && (
                           <td className="px-2 py-1.5 text-center">
                             {f.coordinates ? (
@@ -430,16 +523,65 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
             )}
           </div>
 
-          {/* Preview PDF source */}
-          {tpl?.source_justificatif && (
+          {/* Preview PDF source (justificatif scanné) OU PDF de fond (blank template) */}
+          {(tpl?.source_justificatif || tpl?.is_blank_template) && (
             <div>
-              <p className="text-xs font-medium text-text-muted mb-2">PDF source</p>
-              <div className="relative rounded-lg border border-border overflow-hidden bg-white">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-text-muted">
+                  {tpl?.is_blank_template ? 'PDF de fond (vierge)' : 'PDF source'}
+                </p>
+                {editing && positioningFieldIdx !== null && draft?.fields[positioningFieldIdx] && (
+                  <span className="flex items-center gap-1 text-[10px] text-amber-400">
+                    <MousePointerClick size={11} className="animate-pulse" />
+                    Clic sur l'aperçu pour positionner « {draft.fields[positioningFieldIdx].key || 'champ'} »
+                  </span>
+                )}
+              </div>
+              <div
+                className={cn(
+                  'relative rounded-lg border overflow-hidden bg-white',
+                  editing && positioningFieldIdx !== null ? 'border-amber-500 ring-2 ring-amber-500/40' : 'border-border',
+                )}
+              >
                 <img
-                  src={`/api/justificatifs/${encodeURIComponent(tpl.source_justificatif)}/thumbnail`}
-                  alt={tpl.vendor}
-                  className="w-full h-auto object-contain"
+                  ref={imgRef}
+                  src={
+                    tpl?.is_blank_template
+                      ? `/api/templates/${tpl.id}/thumbnail`
+                      : `/api/justificatifs/${encodeURIComponent(tpl!.source_justificatif!)}/thumbnail`
+                  }
+                  alt={tpl?.vendor || ''}
+                  onClick={handlePreviewClick}
+                  className={cn(
+                    'w-full h-auto object-contain block',
+                    editing && positioningFieldIdx !== null && 'cursor-crosshair',
+                  )}
                 />
+                {/* Overlay rectangles des champs positionnés (blank templates uniquement — on a les dims) */}
+                {tpl?.is_blank_template && tpl?.page_width_pt && tpl?.page_height_pt && (editing ? draft?.fields : tpl?.fields)?.map((f, idx) => {
+                  if (!f.coordinates) return null
+                  const pageW = tpl.page_width_pt!
+                  const pageH = tpl.page_height_pt!
+                  const leftPct = (f.coordinates.x / pageW) * 100
+                  const topPct = (f.coordinates.y / pageH) * 100
+                  const widthPct = (f.coordinates.w / pageW) * 100
+                  const heightPct = (f.coordinates.h / pageH) * 100
+                  const color = SOURCE_COLORS[f.source]?.overlayColor || 'rgba(156,163,175,0.3)'
+                  return (
+                    <div
+                      key={idx}
+                      className="absolute pointer-events-none border border-amber-500/80"
+                      style={{
+                        left: `${leftPct}%`,
+                        top: `${topPct}%`,
+                        width: `${widthPct}%`,
+                        height: `${heightPct}%`,
+                        background: color,
+                      }}
+                      title={f.label || f.key}
+                    />
+                  )
+                })}
               </div>
               {/* Legende couleurs */}
               <div className="flex items-center gap-3 mt-2 text-[10px] text-text-muted">
@@ -453,6 +595,11 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
                   <span className="w-3 h-3 rounded bg-violet-500/30" /> Calculé
                 </span>
               </div>
+              {tpl?.is_blank_template && tpl?.page_width_pt && tpl?.page_height_pt && (
+                <p className="text-[10px] text-text-muted/70 mt-1">
+                  Page {Math.round(tpl.page_width_pt)} × {Math.round(tpl.page_height_pt)} pt
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -488,20 +635,30 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
                 <Pencil size={12} /> Modifier
               </button>
               {confirmDelete ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-muted">Confirmer ?</span>
-                  <button
-                    onClick={handleDelete}
-                    className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                  >
-                    Supprimer
-                  </button>
-                  <button
-                    onClick={() => setConfirmDelete(false)}
-                    className="px-3 py-1.5 text-xs text-text-muted hover:text-text border border-border rounded-lg transition-colors"
-                  >
-                    Non
-                  </button>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-xs text-text">Supprimer ce template ?</p>
+                    {facsimilesCount > 0 && (
+                      <p className="text-[11px] text-text-muted mt-0.5">
+                        <span className="text-emerald-400 font-medium">{facsimilesCount} fac-similé{facsimilesCount > 1 ? 's' : ''}</span> conservé{facsimilesCount > 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setConfirmDelete(false)}
+                      className="px-3 py-1.5 text-xs text-text-muted hover:text-text border border-border rounded-lg transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleteTemplate.isPending}
+                      className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                    >
+                      {deleteTemplate.isPending ? '...' : 'Supprimer'}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button

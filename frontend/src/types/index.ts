@@ -516,6 +516,9 @@ export interface JustificatifTemplate {
   created_at: string
   created_from: 'scan' | 'manual'
   usage_count: number
+  is_blank_template?: boolean
+  page_width_pt?: number | null
+  page_height_pt?: number | null
 }
 
 export interface ExtractedFields {
@@ -619,6 +622,32 @@ export interface TemplateUpdatePayload {
   sous_categorie: string
   source_justificatif?: string | null
   fields: TemplateField[]
+}
+
+export interface GedTemplateItem {
+  id: string
+  vendor: string
+  vendor_aliases: string[]
+  category?: string | null
+  sous_categorie?: string | null
+  is_blank_template: boolean
+  fields_count: number
+  thumbnail_url?: string | null
+  created_at?: string | null
+  usage_count: number
+  facsimiles_generated: number
+}
+
+export interface GedTemplateFacsimile {
+  filename: string
+  generated_at?: string | null
+  best_amount?: number | null
+  best_date?: string | null
+  operation_ref?: { file: string; index: number } | null
+}
+
+export interface GedTemplateDetail extends GedTemplateItem {
+  facsimiles: GedTemplateFacsimile[]
 }
 
 // ─── Lettrage ───

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil,
+  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil, Expand,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import GedMetadataEditor from './GedMetadataEditor'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import OcrEditDrawer from '@/components/ocr/OcrEditDrawer'
+import GedPreviewSubDrawer from './GedPreviewSubDrawer'
 import { useGedUpdateDocument, useGedDeleteDocument, useGedOpenNative } from '@/hooks/useGed'
 import { useOcrHistory } from '@/hooks/useOcr'
 import { useDeleteJustificatif } from '@/hooks/useJustificatifs'
@@ -33,6 +34,7 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [drawerWidth, setDrawerWidth] = useState(DEFAULT_WIDTH)
   const [showOcrEdit, setShowOcrEdit] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
   const isResizing = useRef(false)
 
   const updateMutation = useGedUpdateDocument()
@@ -62,6 +64,7 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
 
   useEffect(() => {
     setDeleteConfirm(false)
+    setShowPreview(false)
   }, [docId])
 
   // ── Resize logic ──
@@ -123,6 +126,7 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
   const name = localDoc?.original_name || docId?.split('/').pop() || ''
   const basename = docId?.split('/').pop() ?? ''
   const isJustificatif = localDoc?.type === 'justificatif'
+  const isImage = /\.(jpe?g|png)$/i.test(name)
 
   // Item OCR pour OcrEditDrawer (fallback synthétique si pas trouvé dans l'historique)
   const ocrItem: OCRHistoryItem | null = useMemo(() => {
@@ -226,14 +230,29 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* Preview (PDF or image) */}
+          {/* Preview thumbnail — clic pour ouvrir le sub-drawer grand format */}
           {docId && (
-            <div className="rounded-lg border border-border overflow-hidden bg-white">
-              {name.match(/\.(jpg|jpeg|png)$/i) ? (
-                <img src={previewUrl} alt={name} className="w-full h-auto max-h-[45vh] object-contain" />
-              ) : (
-                <iframe src={previewUrl} className="w-full h-[45vh]" title="Preview" />
-              )}
+            <div
+              className="relative group cursor-pointer rounded-lg border border-border bg-white hover:border-primary/50 transition-colors overflow-hidden flex items-center justify-center"
+              onClick={() => setShowPreview(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowPreview(true) } }}
+              title="Cliquer pour agrandir"
+            >
+              <img
+                src={isImage ? previewUrl : `/api/ged/documents/${encodeURIComponent(docId)}/thumbnail`}
+                alt={name}
+                className="w-auto h-auto max-w-full max-h-[45vh] object-contain block"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+              />
+              {/* Overlay "Agrandir" au hover */}
+              <div className="absolute inset-0 flex items-end justify-end p-3 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/40 to-transparent pointer-events-none">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium bg-white/95 text-black rounded-md shadow-lg">
+                  <Expand size={12} />
+                  Agrandir
+                </span>
+              </div>
             </div>
           )}
 
@@ -356,6 +375,16 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
         open={showOcrEdit}
         item={ocrItem}
         onClose={handleOcrEditClose}
+      />
+
+      {/* Sous-drawer preview grand format à gauche du main drawer */}
+      <GedPreviewSubDrawer
+        docId={showPreview ? docId : null}
+        displayName={name}
+        isImage={isImage}
+        mainDrawerOpen={open}
+        mainDrawerWidth={drawerWidth}
+        onClose={() => setShowPreview(false)}
       />
     </>
   )

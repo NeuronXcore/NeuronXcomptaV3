@@ -40,6 +40,9 @@ class JustificatifTemplate(BaseModel):
     created_at: str
     created_from: str  # "scan" ou "manual"
     usage_count: int = 0
+    is_blank_template: bool = False  # True = créé depuis un PDF de fond vierge (pas d'OCR)
+    page_width_pt: Optional[float] = None  # dimension page 0 en points PDF (pour click-to-position)
+    page_height_pt: Optional[float] = None
 
 
 class TemplateStore(BaseModel):
@@ -66,6 +69,7 @@ class TemplateCreateRequest(BaseModel):
     sous_categorie: Optional[str] = None
     source_justificatif: Optional[str] = None
     fields: list[TemplateField]
+    is_blank_template: Optional[bool] = None  # préservé si fourni (création from-blank), ignoré sinon
 
 
 class TemplateSuggestion(BaseModel):
@@ -160,3 +164,33 @@ class BatchSuggestGroup(BaseModel):
 class BatchSuggestResponse(BaseModel):
     groups: list[BatchSuggestGroup]
     unmatched: list[dict]
+
+
+# ──── GED ────
+
+
+class GedTemplateItem(BaseModel):
+    id: str
+    vendor: str
+    vendor_aliases: list[str]
+    category: Optional[str] = None
+    sous_categorie: Optional[str] = None
+    is_blank_template: bool = False
+    fields_count: int = 0
+    thumbnail_url: Optional[str] = None
+    created_at: Optional[str] = None
+    usage_count: int = 0
+    facsimiles_generated: int = 0
+
+
+class GedTemplateFacsimile(BaseModel):
+    """Un fac-similé généré à partir d'un template (lien dans le drawer de détail)."""
+    filename: str
+    generated_at: Optional[str] = None
+    best_amount: Optional[float] = None
+    best_date: Optional[str] = None
+    operation_ref: Optional[dict] = None
+
+
+class GedTemplateDetail(GedTemplateItem):
+    facsimiles: list[GedTemplateFacsimile] = []

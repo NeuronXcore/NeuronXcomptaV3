@@ -50,7 +50,7 @@ function TreeNode({
   onSelect: (nodeId: string, label: string) => void
   parentLabel: string | null
 }) {
-  const [expanded, setExpanded] = useState(depth === 0)
+  const [expanded, setExpanded] = useState(false)
   const hasChildren = node.children && node.children.length > 0
   const isSelected = selectedNode === node.id
   const Icon = (node.icon && ICON_MAP[node.icon]) || FolderOpen

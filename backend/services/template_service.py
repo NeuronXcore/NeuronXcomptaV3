@@ -28,6 +28,9 @@ from backend.models.template import (
     BatchSuggestGroup,
     BatchSuggestResponse,
     FieldCoordinates,
+    GedTemplateDetail,
+    GedTemplateFacsimile,
+    GedTemplateItem,
     GenerateRequest,
     JustificatifTemplate,
     OpsGroup,
@@ -102,17 +105,130 @@ def update_template(template_id: str, request: TemplateCreateRequest) -> Optiona
     store = load_templates()
     for i, tpl in enumerate(store.templates):
         if tpl.id == template_id:
-            updated = tpl.model_copy(update={
+            update_dict = {
                 "vendor": request.vendor,
                 "vendor_aliases": request.vendor_aliases,
                 "category": request.category,
                 "sous_categorie": request.sous_categorie,
                 "source_justificatif": request.source_justificatif,
                 "fields": request.fields,
-            })
+            }
+            # Préserver le flag is_blank_template s'il est présent dans la requête,
+            # sinon garder la valeur existante
+            if request.is_blank_template is not None:
+                update_dict["is_blank_template"] = request.is_blank_template
+            updated = tpl.model_copy(update=update_dict)
             store.templates[i] = updated
             save_templates(store)
             return updated
+    return None
+
+
+# ──── Création depuis PDF vierge ────
+
+
+def create_blank_template(
+    file_bytes: bytes,
+    vendor: str,
+    vendor_aliases: list[str],
+    category: Optional[str] = None,
+    sous_categorie: Optional[str] = None,
+) -> JustificatifTemplate:
+    """Crée un template depuis un PDF de fond vierge (sans OCR).
+
+    - Sauvegarde le PDF dans TEMPLATES_DIR/{template_id}/background.pdf
+    - Rasterise la page 0 → thumbnail.png 200px
+    - Lit les dimensions de page (points PDF) pour click-to-position ultérieur
+    - Crée le template avec fields=[] (l'utilisateur les ajoutera manuellement)
+    """
+    ensure_directories()
+    TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
+
+    short_uuid = uuid.uuid4().hex[:8]
+    template_id = f"tpl_{short_uuid}"
+    template_dir = TEMPLATES_DIR / template_id
+    template_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Sauvegarder le PDF de fond
+    bg_path = template_dir / "background.pdf"
+    with open(bg_path, "wb") as f:
+        f.write(file_bytes)
+
+    # 2. Rasteriser page 0 → thumbnail.png (200px de large, ratio préservé)
+    try:
+        from pdf2image import convert_from_path
+        from PIL import Image  # noqa: F401 (utilisé indirectement)
+        pages = convert_from_path(str(bg_path), first_page=1, last_page=1, dpi=100)
+        if pages:
+            img = pages[0]
+            img.thumbnail((200, 10_000))  # largeur 200px max, hauteur auto
+            img.save(template_dir / "thumbnail.png", format="PNG", optimize=True)
+    except Exception as e:
+        logger.warning(f"Erreur rasterisation thumbnail pour {template_id}: {e}")
+
+    # 3. Lire les dimensions de la page 0 (points PDF)
+    page_w: Optional[float] = None
+    page_h: Optional[float] = None
+    try:
+        import pdfplumber
+        with pdfplumber.open(str(bg_path)) as pdf:
+            if pdf.pages:
+                p0 = pdf.pages[0]
+                page_w = float(p0.width)
+                page_h = float(p0.height)
+    except Exception as e:
+        logger.warning(f"Erreur lecture dimensions PDF pour {template_id}: {e}")
+
+    # 4. Créer l'entrée template
+    tpl = JustificatifTemplate(
+        id=template_id,
+        vendor=vendor,
+        vendor_aliases=vendor_aliases,
+        category=category,
+        sous_categorie=sous_categorie,
+        source_justificatif=None,  # pas de justificatif source — PDF vierge
+        fields=[],  # utilisateur ajoutera manuellement via l'éditeur
+        created_at=datetime.now().isoformat(),
+        created_from="manual",
+        usage_count=0,
+        is_blank_template=True,
+        page_width_pt=page_w,
+        page_height_pt=page_h,
+    )
+
+    store = load_templates()
+    store.templates.append(tpl)
+    save_templates(store)
+    return tpl
+
+
+def get_blank_template_background_path(template_id: str) -> Optional[Path]:
+    """Retourne le chemin du PDF de fond d'un blank template, ou None."""
+    bg = TEMPLATES_DIR / template_id / "background.pdf"
+    return bg if bg.exists() else None
+
+
+def get_blank_template_thumbnail_path(template_id: str) -> Optional[Path]:
+    """Retourne le chemin du thumbnail d'un blank template, ou None.
+    Regénère si le PDF est plus récent.
+    """
+    bg = TEMPLATES_DIR / template_id / "background.pdf"
+    thumb = TEMPLATES_DIR / template_id / "thumbnail.png"
+    if not bg.exists():
+        return None
+    if thumb.exists() and thumb.stat().st_mtime >= bg.stat().st_mtime:
+        return thumb
+    # Regénérer
+    try:
+        from pdf2image import convert_from_path
+        pages = convert_from_path(str(bg), first_page=1, last_page=1, dpi=100)
+        if pages:
+            img = pages[0]
+            img.thumbnail((200, 10_000))
+            img.save(thumb, format="PNG", optimize=True)
+            return thumb
+    except Exception as e:
+        logger.warning(f"Erreur regénération thumbnail {template_id}: {e}")
     return None
 
 
@@ -624,6 +740,11 @@ def generate_reconstitue(request: GenerateRequest) -> dict:
             "index": request.operation_index,
         },
     }
+    # Propagation des hints catégorie (lus en priorité par rapprochement_service.score_categorie)
+    if tpl.category:
+        ocr_data["category_hint"] = tpl.category
+    if tpl.sous_categorie:
+        ocr_data["sous_categorie_hint"] = tpl.sous_categorie
     ocr_path = pdf_path.with_suffix(".ocr.json")
     with open(ocr_path, "w", encoding="utf-8") as f:
         json.dump(ocr_data, f, ensure_ascii=False, indent=2, default=str)
@@ -1258,4 +1379,129 @@ def get_all_ops_without_justificatif(year: int) -> OpsWithoutJustificatifRespons
         year=year,
         total=sum(g.count for g in groups),
         groups=groups,
+    )
+
+
+# ──── GED integration ────
+
+
+def _iter_ocr_json_files():
+    """Itère tous les .ocr.json dans en_attente/ + traites/."""
+    for root in (JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR):
+        if not root.exists():
+            continue
+        for p in root.glob("*.ocr.json"):
+            yield p
+
+
+def _count_facsimiles_by_template() -> dict[str, int]:
+    """Compte les fac-similés générés, groupés par template_id.
+
+    Scanne tous les .ocr.json et matche ceux avec source=="reconstitue".
+    """
+    counts: dict[str, int] = {}
+    for p in _iter_ocr_json_files():
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        if data.get("source") != "reconstitue":
+            continue
+        tid = data.get("template_id")
+        if not tid:
+            continue
+        counts[tid] = counts.get(tid, 0) + 1
+    return counts
+
+
+def get_ged_templates_summary() -> list[GedTemplateItem]:
+    """Retourne la liste des templates enrichie pour la GED (comptage fac-similés).
+
+    Le `thumbnail_url` pointe vers `/api/templates/{id}/thumbnail` pour les
+    blank templates, ou vers le thumbnail du justificatif source sinon.
+    """
+    store = load_templates()
+    counts = _count_facsimiles_by_template()
+    items: list[GedTemplateItem] = []
+    for tpl in store.templates:
+        if tpl.is_blank_template:
+            thumb = f"/api/templates/{tpl.id}/thumbnail"
+        elif tpl.source_justificatif:
+            # Utiliser l'endpoint justificatif qui résout en_attente/traites
+            thumb = f"/api/justificatifs/{tpl.source_justificatif}/thumbnail"
+        else:
+            thumb = None
+        items.append(GedTemplateItem(
+            id=tpl.id,
+            vendor=tpl.vendor,
+            vendor_aliases=tpl.vendor_aliases,
+            category=tpl.category,
+            sous_categorie=tpl.sous_categorie,
+            is_blank_template=tpl.is_blank_template,
+            fields_count=len(tpl.fields),
+            thumbnail_url=thumb,
+            created_at=tpl.created_at,
+            usage_count=tpl.usage_count,
+            facsimiles_generated=counts.get(tpl.id, 0),
+        ))
+    return items
+
+
+def get_ged_template_detail(template_id: str) -> Optional[GedTemplateDetail]:
+    """Retourne le détail d'un template + liste de ses fac-similés générés.
+
+    Les fac-similés sont triés par `generated_at` décroissant (plus récent d'abord),
+    limités à 50 éléments pour éviter les drawers infinis.
+    """
+    tpl = get_template(template_id)
+    if not tpl:
+        return None
+
+    facsimiles: list[GedTemplateFacsimile] = []
+    for p in _iter_ocr_json_files():
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        if data.get("source") != "reconstitue" or data.get("template_id") != template_id:
+            continue
+        # Le nom du PDF correspondant
+        pdf_name = p.with_suffix("").name  # strip .json, but .ocr remains
+        if pdf_name.endswith(".ocr"):
+            pdf_name = pdf_name[:-4]
+        pdf_name = pdf_name + ".pdf"
+        facsimiles.append(GedTemplateFacsimile(
+            filename=pdf_name,
+            generated_at=data.get("generated_at"),
+            best_amount=data.get("best_amount"),
+            best_date=data.get("best_date"),
+            operation_ref=data.get("operation_ref"),
+        ))
+
+    # Tri par generated_at décroissant (None en dernier)
+    facsimiles.sort(key=lambda f: f.generated_at or "", reverse=True)
+    facsimiles = facsimiles[:50]
+
+    if tpl.is_blank_template:
+        thumb = f"/api/templates/{tpl.id}/thumbnail"
+    elif tpl.source_justificatif:
+        thumb = f"/api/justificatifs/{tpl.source_justificatif}/thumbnail"
+    else:
+        thumb = None
+
+    return GedTemplateDetail(
+        id=tpl.id,
+        vendor=tpl.vendor,
+        vendor_aliases=tpl.vendor_aliases,
+        category=tpl.category,
+        sous_categorie=tpl.sous_categorie,
+        is_blank_template=tpl.is_blank_template,
+        fields_count=len(tpl.fields),
+        thumbnail_url=thumb,
+        created_at=tpl.created_at,
+        usage_count=tpl.usage_count,
+        facsimiles_generated=len(facsimiles),
+        facsimiles=facsimiles,
     )

@@ -1547,7 +1547,7 @@ Sauvegarder les paramètres.
 
 ## Templates Justificatifs (`/api/templates`)
 
-Gestion des templates de justificatifs par fournisseur. Permet de créer des templates depuis des justificatifs scannés et de générer des PDF reconstitués quand l'original est manquant.
+Gestion des templates de justificatifs par fournisseur. Un template peut être créé à partir d'un justificatif existant (OCR extraction) ou à partir d'un **PDF vierge** (pas d'OCR, placement manuel des champs via click-to-position). La génération produit des PDF fac-similés quand l'original est manquant, avec **propagation automatique des hints catégorie** dans le `.ocr.json` généré pour booster le rapprochement.
 
 ### `GET /`
 Liste tous les templates.
@@ -1594,10 +1594,18 @@ Liste tous les templates.
     ],
     "created_at": "2026-04-05T14:30:00",
     "created_from": "scan",
-    "usage_count": 3
+    "usage_count": 3,
+    "is_blank_template": false,
+    "page_width_pt": null,
+    "page_height_pt": null
   }
 ]
 ```
+
+**Champs additionnels pour les templates créés depuis un PDF vierge :**
+- `is_blank_template: bool` — True si créé via `POST /from-blank`
+- `page_width_pt: float` — largeur de la page 0 en points PDF
+- `page_height_pt: float` — hauteur de la page 0 en points PDF
 
 ### `GET /{template_id}`
 Retourne un template par ID.
@@ -1625,11 +1633,85 @@ Crée un nouveau template.
 }
 ```
 
+### `POST /from-blank`
+Crée un template depuis un **PDF vierge** (template graphique fournisseur, formulaire type). Aucun OCR n'est lancé — l'utilisateur positionnera les champs manuellement via click-to-position dans l'éditeur frontend.
+
+**Body** : `multipart/form-data`
+- `file` : PDF obligatoire (validation magic bytes `%PDF`)
+- `vendor` : str obligatoire
+- `vendor_aliases` : JSON array string (optionnel, défaut `"[]"`)
+- `category` : str (optionnel)
+- `sous_categorie` : str (optionnel)
+
+**Logique backend :**
+1. Sauvegarde le PDF dans `data/templates/{template_id}/background.pdf`
+2. Rasterise page 0 → `thumbnail.png` 200px de large (`pdf2image` + Pillow)
+3. Lit les dimensions de page via `pdfplumber` (`page_width_pt`, `page_height_pt`)
+4. Crée l'entrée template avec `is_blank_template=True`, `fields=[]`, `source_justificatif=None`
+
+**Réponse :** le template créé (même schéma que `GET /`), avec `is_blank_template: true` et les dimensions.
+
+### `GET /{template_id}/thumbnail`
+Retourne le thumbnail PNG 200px d'un blank template. Cache local (`data/templates/{id}/thumbnail.png`), régénéré si le PDF source est plus récent. 404 si `is_blank_template=false`.
+
+### `GET /{template_id}/background`
+Retourne le PDF de fond d'un blank template (FileResponse PDF complet pour aperçu haute résolution ou click-to-position). 404 si `is_blank_template=false`.
+
+### `GET /{template_id}/page-size`
+Retourne les dimensions de la page 0 en points PDF pour le click-to-position côté client.
+
+**Réponse :** `{ "width_pt": 595.28, "height_pt": 841.89, "page": 0 }`
+
+### `GET /ged-summary`
+Liste enrichie pour la GED (axe Templates). Inclut un compteur `facsimiles_generated` obtenu en scannant tous les `.ocr.json` dans `data/justificatifs/en_attente/` + `traites/` et en comptant ceux avec `source == "reconstitue"` et `template_id` correspondant.
+
+**Réponse :**
+```json
+[
+  {
+    "id": "tpl_1c760f2a",
+    "vendor": "Auchan",
+    "vendor_aliases": ["auchan", "auchandac"],
+    "category": "Véhicule",
+    "sous_categorie": "Essence",
+    "is_blank_template": false,
+    "fields_count": 3,
+    "thumbnail_url": "/api/justificatifs/justificatif_xxx.pdf/thumbnail",
+    "created_at": "2026-04-09T07:20:04",
+    "usage_count": 12,
+    "facsimiles_generated": 6
+  }
+]
+```
+
+### `GET /{template_id}/ged-detail`
+Détail d'un template + liste des 50 fac-similés les plus récents générés depuis ce template (triés par `generated_at` décroissant). Utilisé par le drawer `GedTemplateDetailDrawer`.
+
+**Réponse :** même structure que `GedTemplateItem` + champ `facsimiles: list[GedTemplateFacsimile]`.
+```json
+{
+  "id": "tpl_1c760f2a",
+  "vendor": "Auchan",
+  "facsimiles_generated": 6,
+  "facsimiles": [
+    {
+      "filename": "auchan_20241229_34.78_fs.pdf",
+      "generated_at": "2026-04-09T10:15:00",
+      "best_amount": 34.78,
+      "best_date": "2024-12-29",
+      "operation_ref": { "file": "operations_xxx.json", "index": 37 }
+    }
+  ]
+}
+```
+
 ### `PUT /{template_id}`
-Met à jour un template existant. Même body que `POST /`.
+Met à jour un template existant. Même body que `POST /`, avec champ optionnel `is_blank_template: bool` (préservé si fourni, inchangé sinon).
+
+**Propagation automatique des hints catégorie** : lors de la génération via `POST /generate`, si `template.category` est définie, le `.ocr.json` généré recevra `category_hint` + `sous_categorie_hint` au top-level. Ces hints sont lus en priorité par `rapprochement_service.score_categorie()`.
 
 ### `DELETE /{template_id}`
-Supprime un template.
+Supprime un template. **Comportement intentionnel : les fac-similés déjà générés ne sont PAS supprimés** — les PDF fac-similés, leurs `.ocr.json` (hints compris), et les associations aux opérations restent intacts. Pour un blank template, le dossier `data/templates/{id}/` (background.pdf + thumbnail.png) devient orphelin sur disque (pas de cleanup automatique — petit leak ~70-100 Ko par template supprimé).
 
 ### `POST /extract`
 Extrait les champs structurés d'un justificatif existant pour aider à créer un template. Tente Ollama/Qwen2-VL d'abord, fallback sur les données `.ocr.json` basiques.
@@ -1693,8 +1775,10 @@ Génère un PDF justificatif reconstitué depuis un template + opération. Le PD
 ```
 
 Fichiers générés dans `data/justificatifs/en_attente/` :
-- `reconstitue_YYYYMMDD_HHMMSS_vendor.pdf` — le justificatif PDF
-- `reconstitue_YYYYMMDD_HHMMSS_vendor.ocr.json` — métadonnées avec `"source": "reconstitue"` et `operation_ref`
+- `vendor_YYYYMMDD_amount.XX_fs.pdf` — le justificatif PDF (convention canonique + suffix `_fs`)
+- `vendor_YYYYMMDD_amount.XX_fs.ocr.json` — métadonnées avec `"source": "reconstitue"`, `template_id`, `operation_ref`, et **si le template a une catégorie**, `category_hint` + `sous_categorie_hint` au top-level pour booster le score rapprochement
+
+Fallback (si date/montant manquants) : ancien format `reconstitue_YYYYMMDD_HHMMSS_vendor.pdf`.
 
 ### `GET /suggest/{operation_file}/{operation_index}`
 Suggère des templates correspondant au libellé de l'opération. Les alias du template sont matchés dans le libellé bancaire (insensible à la casse, trié par longueur du match).

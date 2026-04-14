@@ -8,6 +8,69 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-14) — Session 21
+
+- **Fac-similé : création depuis un PDF vierge + propagation hints catégorie**
+  - Nouveau flag `is_blank_template: bool = False` sur `JustificatifTemplate` (+ `page_width_pt`, `page_height_pt` pour click-to-position)
+  - Nouveau service `template_service.create_blank_template(file_bytes, vendor, aliases, category, sous_categorie)` : sauvegarde le PDF dans `data/templates/{id}/background.pdf`, rasterise un thumbnail 200px via `pdf2image`, lit les dimensions de page via `pdfplumber`, crée le template avec `fields=[]` (pas d'OCR)
+  - Endpoint `POST /api/templates/from-blank` (multipart/form-data : file + vendor + vendor_aliases JSON + category + sous_categorie) + validation magic bytes `%PDF`
+  - Endpoint `GET /api/templates/{id}/thumbnail` (PNG cache, régénéré si PDF plus récent)
+  - Endpoint `GET /api/templates/{id}/background` (FileResponse PDF)
+  - Endpoint `GET /api/templates/{id}/page-size` (dimensions pt PDF pour conversion pixel → pt côté client)
+  - **Propagation automatique des hints catégorie** : `generate_reconstitue()` écrit désormais `category_hint` + `sous_categorie_hint` top-level dans le `.ocr.json` généré si `template.category` est défini → le scoring rapprochement v2 bénéficie des hints dès la génération (score catégorie 1.0 au lieu de dépendre de la prédiction ML)
+  - Frontend : nouveau drawer `BlankTemplateUploadDrawer` (420px, dropzone PDF + vendor + aliases chips + catégorie/sous-catégorie en cascade)
+  - Hook `useCreateTemplateFromBlank()` (multi-field FormData via fetch natif)
+  - Bouton « Depuis un PDF vierge » (icône `FilePlus2`) dans la barre de filtres de `TemplatesTab` + bouton dans l'état vide
+  - Badge overlay `VIERGE` amber sur les cartes de template + chip catégorie · sous-catégorie
+  - `TemplateEditDrawer` : auto-ouverture en mode édition pour blank templates sans champs, colonne `Position` avec bouton `Placer` / `Clic...`, click-to-position sur l'aperçu (conversion pixel → pt PDF via ratio `pageWidthPt / img.clientWidth`), overlays rectangles amber sur les champs positionnés, `canSave` relaxé pour blank templates
+  - Model `TemplateCreateRequest.is_blank_template` optionnel (préservé sur PUT si fourni)
+  - Helpers `get_blank_template_background_path(id)`, `get_blank_template_thumbnail_path(id)`
+
+- **GED — axe Templates (bibliothèque des templates fac-similé)**
+  - Nouvel axe `templates` dans `GedTreePanel` (icône `Wand2`, badge compteur en primary)
+  - Masqué automatiquement si aucun template existe (`templatesCount === 0`)
+  - Panneau gauche en mode templates : sous-composant `TemplatesFilterList` avec 2 sections (AFFICHAGE : Tous / Depuis PDF vierge / Depuis justificatif · CATÉGORIE : Toutes + catégories distinctes des templates)
+  - Nouveau composant `GedTemplatesView` : grille 2/3/4/5 colonnes de `TemplateCard` — thumbnail 128px, initiales fournisseur, chips catégorie/sous-cat, badge VIERGE, méta `{fields_count} champs · {facsimiles_generated} générés`, boutons Éditer + Générer
+  - Nouveau drawer `GedTemplateDetailDrawer` (600px redimensionnable 450-1100px) : 4 sections (Aperçu thumbnail · Informations éditables inline avec vendor + aliases chips + cat/sous-cat · Champs variables readonly avec positions pt · Fac-similés générés — liste des 50 derniers cliquables vers `/justificatifs?file=...&filter=tous`)
+  - Footer drawer : `Supprimer` (confirm enrichi avec compteur fac-similés conservés) · `Éditer` (ouvre `TemplateEditDrawer`) · `Générer en batch` (ouvre `BatchGenerateDrawer`)
+  - Backend : 2 nouveaux endpoints
+    - `GET /api/templates/ged-summary` → `list[GedTemplateItem]` (id, vendor, aliases, cat/sous-cat, is_blank_template, fields_count, thumbnail_url, created_at, usage_count, facsimiles_generated)
+    - `GET /api/templates/{id}/ged-detail` → `GedTemplateDetail` (GedTemplateItem + `facsimiles: list[GedTemplateFacsimile]` trié par `generated_at` desc, max 50)
+  - Helpers backend : `_iter_ocr_json_files()` scanne `en_attente/` + `traites/`, `_count_facsimiles_by_template()` agrège par `template_id` les `.ocr.json` avec `source == "reconstitue"`
+  - Hooks frontend : `useGedTemplatesSummary()` + `useGedTemplateDetail(id)` — queryKey `['templates', 'ged-summary']` invalidé par prefix match sur toute mutation `['templates']`
+  - `GedPage` : état dédié (`templatesFilter`, `templatesCategory`, `selectedTemplateDetailId`, `editTemplateId`, `batchTemplateId`), rendu conditionnel `activeTab === 'templates'` → `GedTemplatesView` sinon documents, montage des 3 drawers templates, navigation `/justificatifs?file=...` au clic sur un fac-similé
+  - URL param `?axis=templates` pour ouvrir directement la GED sur la vue templates
+
+- **Suppression template : préservation explicite des fac-similés**
+  - Comportement backend inchangé (déjà conforme) : `delete_template()` retire uniquement l'entrée JSON du template, les PDF fac-similés + leurs `.ocr.json` restent en place, les hints `category_hint`/`sous_categorie_hint` déjà propagés restent valides, les associations aux opérations restent intactes
+  - Footer de confirmation enrichi dans `GedTemplateDetailDrawer` et `TemplateEditDrawer` avec message conditionnel : « Supprimer ce template ? Les N fac-similé(s) déjà généré(s) ser[a|ont] conservé(s). » (N en emerald, sous-message masqué si N = 0)
+  - `TemplateEditDrawer` utilise `useGedTemplateDetail(templateId)` pour récupérer le compteur exact
+
+- **GedDocumentDrawer — sous-drawer preview grand format**
+  - Remplace l'iframe inline 45vh par une vignette cliquable (thumbnail PNG via `/api/ged/documents/{id}/thumbnail`)
+  - Overlay hover avec badge `Agrandir` (gradient `from-black/40`) + icône `Expand` Lucide
+  - Click / Enter / Space → ouvre `GedPreviewSubDrawer` (nouveau composant) positionné à gauche du main drawer (`right: ${mainDrawerWidth}px`)
+  - Sub-drawer : PDF grand format via `<object type="application/pdf">` (toolbar native PDF), ou `<img>` pour les images JPG/PNG
+  - `key={docId}` force le remount du plugin PDF pour éviter le cache Chrome du PDF précédent
+  - `return null` si main drawer fermé (évite fantôme décalé à `translate-x-full`)
+  - Esc en mode capture + `stopPropagation` pour ne fermer que le sub-drawer, pas le main drawer
+  - Reset auto de `showPreview` au changement de `docId`
+  - Pattern miroir de `components/ocr/PreviewSubDrawer.tsx` pour cohérence cross-module
+
+- **Tooltips stylés sur la barre de navigation GED**
+  - Chaque onglet du `GedTreePanel` (Période / Année-Type / Catégorie / Fournisseur / Type / Templates) expose désormais un tooltip riche au survol
+  - Style : fond blanc, texte noir, bordure `border-gray-300`, shadow-lg, largeur fixe 224px (`w-56`)
+  - Contenu : titre en gras + description de l'axe (ex. "Année / Type" + "Année puis type de document (relevé, justificatif, rapport…)")
+  - Délai d'apparition 150ms (`group-hover:delay-150`), `pointer-events-none` pour ne pas intercepter les clics
+  - Ancien `title=` HTML natif retiré pour éviter les doubles tooltips
+  - Toggle vue grille/liste dans le header GED : tooltips `Vue grille` / `Vue liste` (wrapper `overflow-hidden` remplacé par `rounded-l-md`/`rounded-r-md` sur les boutons pour laisser les tooltips s'échapper)
+  - Nouveau champ `description` sur le type `TABS` de `GedTreePanel`
+
+- **GedTree : arborescence repliée par défaut**
+  - `GedTree.TreeNode` : `useState(depth === 0)` → `useState(false)` — les nœuds de premier niveau (années 2026/2025/2024, catégories, fournisseurs…) ne sont plus expandés automatiquement au chargement
+  - L'utilisateur ouvre ce qu'il veut voir, zéro bruit visuel au premier affichage
+  - Comportement appliqué à tous les axes (Période, Année/Type, Catégorie, Fournisseur, Type)
+
 ### Added (2026-04-14) — Session 20
 
 - **GedSearchBar — refonte complète de la recherche GED**

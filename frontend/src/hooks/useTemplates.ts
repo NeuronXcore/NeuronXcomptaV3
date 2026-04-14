@@ -10,6 +10,8 @@ import type {
   BatchGenerateResponse,
   BatchSuggestResponse,
   OpsWithoutJustificatifResponse,
+  GedTemplateItem,
+  GedTemplateDetail,
 } from '@/types'
 
 // ─── Queries ───
@@ -37,6 +39,23 @@ export function useTemplateSuggestion(file: string | null, index: number | undef
   })
 }
 
+// ─── GED integration ───
+
+export function useGedTemplatesSummary() {
+  return useQuery<GedTemplateItem[]>({
+    queryKey: ['templates', 'ged-summary'],
+    queryFn: () => api.get('/templates/ged-summary'),
+  })
+}
+
+export function useGedTemplateDetail(id: string | null) {
+  return useQuery<GedTemplateDetail>({
+    queryKey: ['templates', 'ged-detail', id],
+    queryFn: () => api.get(`/templates/${id}/ged-detail`),
+    enabled: !!id,
+  })
+}
+
 // ─── Mutations ───
 
 export function useExtractFields() {
@@ -54,6 +73,39 @@ export function useCreateTemplate() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['templates'] })
       toast.success('Template créé')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export interface CreateTemplateFromBlankPayload {
+  file: File
+  vendor: string
+  vendor_aliases: string[]
+  category?: string
+  sous_categorie?: string
+}
+
+export function useCreateTemplateFromBlank() {
+  const qc = useQueryClient()
+  return useMutation<JustificatifTemplate, Error, CreateTemplateFromBlankPayload>({
+    mutationFn: async (payload) => {
+      const form = new FormData()
+      form.append('file', payload.file)
+      form.append('vendor', payload.vendor)
+      form.append('vendor_aliases', JSON.stringify(payload.vendor_aliases ?? []))
+      if (payload.category) form.append('category', payload.category)
+      if (payload.sous_categorie) form.append('sous_categorie', payload.sous_categorie)
+      const res = await fetch('/api/templates/from-blank', { method: 'POST', body: form })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(err.detail || `HTTP ${res.status}`)
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['templates'] })
+      toast.success('Template vierge créé')
     },
     onError: (err: Error) => toast.error(err.message),
   })
