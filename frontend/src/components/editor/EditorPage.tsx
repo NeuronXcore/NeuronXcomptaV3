@@ -18,13 +18,14 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
-  CheckCircle2, Circle, Scissors, Unlink, Users2,
+  CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban,
 } from 'lucide-react'
 import { api } from '@/api/client'
 import toast from 'react-hot-toast'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import PreviewSubDrawer from '@/components/ocr/PreviewSubDrawer'
 import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
 import VentilationDrawer from '@/components/editor/VentilationDrawer'
 import VentilationLines from '@/components/editor/VentilationLines'
@@ -208,8 +209,14 @@ export default function EditorPage() {
   const [pdfDrawerOpen, setPdfDrawerOpen] = useState(false)
   const [previewJustifFile, setPreviewJustifFile] = useState<string | null>(null)
   const [previewJustifOpIndex, setPreviewJustifOpIndex] = useState<number | null>(null)
+  const [showJustifPreviewSub, setShowJustifPreviewSub] = useState(false)
   const [pdfDrawerWidth, setPdfDrawerWidth] = useState(700)
   const pdfResizing = useRef(false)
+
+  // Reset le sub-drawer quand on change de justificatif ou qu'on ferme le main
+  useEffect(() => {
+    if (!previewJustifFile) setShowJustifPreviewSub(false)
+  }, [previewJustifFile])
 
   // BNC estimé pour le widget URSSAF split
   const { data: historiqueBNC } = useHistoriqueBNC()
@@ -701,6 +708,21 @@ export default function EditorPage() {
         const hasJustif = row.original.Justificatif || false
         const hintScore = batchHints?.[String(row.index)]
         const hasStrongHint = !hasJustif && hintScore != null && hintScore >= 0.75
+        const isPerso = (row.original['Catégorie'] || '').toLowerCase() === 'perso'
+        // Opération perso : pas de justificatif requis → cercle rouge barré (non interactif)
+        if (isPerso) {
+          return (
+            <div className="flex items-center justify-center">
+              <span
+                className="p-0.5 text-red-400/80"
+                title="Opération perso — aucun justificatif requis"
+                aria-label="Aucun justificatif requis (perso)"
+              >
+                <Ban size={14} />
+              </span>
+            </div>
+          )
+        }
         return (
           <div className="flex items-center justify-center gap-0.5 group/justif">
             <button
@@ -1548,14 +1570,26 @@ export default function EditorPage() {
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 bg-white">
+            <div className="relative flex-1 min-h-0 bg-white group/pdfpreview">
               <object
-                data={`/api/justificatifs/${previewJustifFile}/preview`}
+                data={`/api/justificatifs/${encodeURIComponent(previewJustifFile)}/preview`}
                 type="application/pdf"
                 className="w-full h-full"
               >
                 <p className="text-center text-text-muted text-sm p-8">Aperçu PDF non disponible</p>
               </object>
+              {/* Overlay cliquable transparent — couvre tout le PDF pour déclencher l'agrandissement */}
+              <button
+                onClick={() => setShowJustifPreviewSub(true)}
+                className="absolute inset-0 w-full h-full cursor-pointer bg-transparent hover:bg-black/5 transition-colors z-10"
+                title="Cliquer pour agrandir à gauche"
+                aria-label="Agrandir le justificatif"
+              />
+              {/* Badge "Agrandir" visible au hover, centré pour indiquer la zone cliquable */}
+              <span className="pointer-events-none absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium bg-white/95 text-black rounded-md shadow-lg border border-border/50 opacity-80 group-hover/pdfpreview:opacity-100 transition-opacity z-20">
+                <Expand size={12} />
+                Agrandir
+              </span>
             </div>
             <div className="px-5 py-3 border-t border-border flex items-center justify-between shrink-0">
               <button
@@ -1616,6 +1650,17 @@ export default function EditorPage() {
               </div>
             </div>
           </div>
+          {/* Sous-drawer preview grand format à gauche du main drawer */}
+          <PreviewSubDrawer
+            filename={showJustifPreviewSub ? previewJustifFile : null}
+            mainDrawerOpen={!!previewJustifFile}
+            mainDrawerWidth={600}
+            width={700}
+            onOpenNative={(name) => {
+              api.post(`/justificatifs/${name}/open-native`)
+            }}
+            onClose={() => setShowJustifPreviewSub(false)}
+          />
         </>
       )}
 

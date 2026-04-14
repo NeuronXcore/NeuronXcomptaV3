@@ -8,6 +8,47 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-14) — Session 22
+
+- **Éditeur — Sous-drawer preview PDF grand format**
+  - Dans `EditorPage`, le drawer de prévisualisation justificatif (600px à droite) garde l'`<object type="application/pdf">` qui remplit tout l'espace, plus un bouton overlay « Agrandir » (icône `Expand`) cliquable sur toute la zone PDF (`<button className="absolute inset-0">`) → ouvre un `PreviewSubDrawer` à gauche (700px) avec toolbar native PDF et PDF grand format
+  - Toute la zone PDF du drawer principal est cliquable pour déclencher l'agrandissement (overlay transparent `absolute inset-0 z-10` + badge `Agrandir` décoratif `pointer-events-none z-20` visible en permanence, plus opaque au hover)
+  - `PreviewSubDrawer` enrichi avec une prop optionnelle `onOpenNative?: (filename: string) => void` — si fournie, un bouton « Ouvrir avec Aperçu » (icône `ExternalLink`) apparaît dans le header avant le bouton X ; dans `EditorPage` le handler POST `/justificatifs/{name}/open-native`
+  - Reset automatique du sub-drawer quand `previewJustifFile` devient null (pattern identique à `GedDocumentDrawer`)
+  - Non-régression : les 2 autres consommateurs de `PreviewSubDrawer` (`ScanRenameDrawer`, `OcrEditDrawer`) ne passent pas `onOpenNative` → pas d'impact
+
+- **Édition & Justificatifs — Icône cercle rouge barré (`Ban`) pour ops perso**
+  - `EditorPage` : cellule colonne Justificatif court-circuite la logique paperclip/hint/reconstituer si `row.original['Catégorie'].toLowerCase() === 'perso'` → rendu d'un `<Ban size={14} className="text-red-400/80">` non cliquable avec tooltip « Opération perso — aucun justificatif requis » ; pas de bouton attribution ni `ReconstituerButton` pour ces lignes
+  - `JustificatifsPage` : nouvelle branche `isPerso` prioritaire sur `isExempt` dans la cellule statut — icône `Ban` rouge au lieu du `CheckCircle2` sky qui s'appliquait aux catégories exemptées (CARMF, URSSAF, Honoraires gardent le comportement inchangé). Badge texte « exempté » sous l'icône masqué pour les perso (`isExempt && !hasJustif && !isPerso`) pour éviter la redondance
+  - Tooltips différenciés : « Opération perso — aucun justificatif requis » (perso) vs « Catégorie X exemptée » (autres exempts)
+  - Vérifié : 22/22 lignes perso en Janvier 2025 affichent `Ban` dans EditorPage, 36/36 dans JustificatifsPage ; autres catégories conservent `Paperclip`/`CheckCircle2`/`Circle`
+
+- **Templates fac-similé — Champ `taux_tva` persistable + select UI**
+  - Modèle `JustificatifTemplate.taux_tva: float = 10.0` (Pydantic default appliqué sur les templates existants au chargement)
+  - `TemplateCreateRequest.taux_tva: Optional[float]` → PUT `/templates/{id}` persiste la valeur si fournie
+  - `POST /api/templates/from-blank` : nouveau paramètre `taux_tva: float = Form(10.0)` transmis à `template_service.create_blank_template()`
+  - `BlankTemplateUploadDrawer` : select après sous_categorie avec 4 options (`10 % restauration` défaut, `5,5 % alimentation`, `20 % standard`, `0 % exonéré`), state `tauxTva` reset à 10, transmis via FormData dans le hook `useCreateTemplateFromBlank`
+  - `TemplateEditDrawer` : même select en mode édition, pavé lecture seule en mode affichage (`Taux TVA N %`) ; draft initialisé avec `tpl.taux_tva ?? 10` au `handleStartEdit` et dans l'`useEffect` d'auto-ouverture des blank templates
+  - Types TypeScript mis à jour : `JustificatifTemplate.taux_tva?: number`, `TemplateUpdatePayload.taux_tva?: number`, `CreateTemplateFromBlankPayload.taux_tva?: number`
+  - Ventilation TTC/HT/TVA automatique dans `_build_field_values()` : `ttc = abs(montant_op)`, `ht = ttc / (1 + taux_tva/100)`, `tva = ttc - ht`, plus `tva_rate` injecté — via `setdefault` pour ne pas écraser les valeurs déjà posées par des champs template explicites (`manual`/`fixed`)
+
+- **Blank templates — Génération fac-similé avec background PDF + substitution de placeholders**
+  - `generate_reconstitue()` résout désormais le PDF source via `get_blank_template_background_path(tpl.id)` pour les blank templates (au lieu de retomber sur `_generate_pdf()` ReportLab sobre qui ignorait le background)
+  - `_build_field_values()` : pour les blank templates, injection automatique de `date` (depuis `operation.Date`) et `montant_ttc` (depuis débit/crédit) si aucun champ ne les déclare — permet la génération d'un fac-similé sans configurer manuellement les champs dans l'éditeur
+  - Nouvelle fonction `_extract_placeholder_positions(pdf)` : scanne le text layer du background via `pdfplumber.extract_words()`, détecte les placeholders `{KEY}` et `(KEY)` via regex `[{(][A-Z][A-Z0-9_]*[})]`, retourne leurs positions en points PDF (origine haut-gauche)
+  - Nouvelle fonction `_resolve_placeholder_value(key, field_values, tpl)` : mapping des clés courantes vers leurs valeurs formatées :
+    - `DATE`, `DATE_FR` → date opération formatée DD/MM/YYYY
+    - `MONTANT_TTC`, `TTC`, `MONTANT` → montant TTC sans symbole €
+    - `MONTANT_HT`, `HT` → montant HT calculé depuis TTC / (1 + taux/100)
+    - `MONTANT_TVA`, `TVA` → TVA calculée (TTC - HT)
+    - `TAUX_TVA`, `TVA_RATE` → valeur numérique du taux
+    - `FOURNISSEUR`, `VENDOR`, `VENDEUR` → `tpl.vendor`
+    - `REF_OPERATION` → vendor abrégé + date compactée (ex. `CLIPTCHA-250108`)
+  - Nouvelle fonction `_format_amount_plain()` : formate montant FR (`1 234,56`) **sans** symbole € — les templates ont généralement `€` en dur après le placeholder (`{MONTANT_HT} €`), le format plain évite la duplication (`7,77 € €`)
+  - Nouvelle fonction `_generate_pdf_blank_overlay(path, background_pdf, field_values, tpl)` : rasterise le background PDF à 200 DPI + pour chaque placeholder détecté dessine un rectangle blanc à la position exacte + superpose la valeur substituée (Helvetica, taille auto entre 7-10pt selon hauteur placeholder). Fallback overlay haut-droite (date + TTC) si aucun placeholder détecté
+  - Priorité dans `generate_reconstitue()` : (1) fac-similé classique si `source_justificatif` + coordonnées, (2) blank overlay si blank template avec background, (3) fallback `_generate_pdf()` ReportLab sobre
+  - Testé sur template CLIPTCHAUME (note de repas Clinique du Pont de Chaume) : 7 placeholders détectés (`{DATE_FR}×2`, `{REF_OPERATION}`, `{MONTANT_HT}×2`, `{MONTANT_TVA}`, `{MONTANT_TTC}`), substitués correctement avec le layout visuel préservé (logo ELSAN, entête, tableau, footer)
+
 ### Added (2026-04-14) — Session 21
 
 - **Fac-similé : création depuis un PDF vierge + propagation hints catégorie**

@@ -43,6 +43,7 @@ class JustificatifTemplate(BaseModel):
     is_blank_template: bool = False  # True = créé depuis un PDF de fond vierge (pas d'OCR)
     page_width_pt: Optional[float] = None  # dimension page 0 en points PDF (pour click-to-position)
     page_height_pt: Optional[float] = None
+    taux_tva: float = 10.0  # taux TVA par défaut (%) — utilisé pour ventiler TTC/HT/TVA au fac-similé
 
 
 class TemplateStore(BaseModel):
@@ -70,6 +71,7 @@ class TemplateCreateRequest(BaseModel):
     source_justificatif: Optional[str] = None
     fields: list[TemplateField]
     is_blank_template: Optional[bool] = None  # préservé si fourni (création from-blank), ignoré sinon
+    taux_tva: Optional[float] = None  # persisté si fourni via PUT /templates/{id}
 
 
 class TemplateSuggestion(BaseModel):

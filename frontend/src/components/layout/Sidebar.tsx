@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Upload, Pencil, Tags, BarChart3,
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
-  Library, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
+  Boxes, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
   Send, Receipt,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { useMLModel } from '@/hooks/useApi'
 import { useEmailHistory } from '@/hooks/useEmail'
 import { useJustificatifStats } from '@/hooks/useJustificatifs'
+import { useGedStats } from '@/hooks/useGed'
 import SidebarLogo from './SidebarLogo'
 
 const NAV_SECTIONS = [
@@ -58,7 +59,7 @@ const NAV_SECTIONS = [
   {
     label: 'Documents',
     items: [
-      { to: '/ged', label: 'Bibliothèque', icon: Library },
+      { to: '/ged', label: 'HUB', icon: Boxes },
     ],
   },
   {
@@ -118,6 +119,9 @@ export default function Sidebar() {
 
   const { data: justifStats } = useJustificatifStats()
   const pendingScansCount = justifStats?.en_attente ?? 0
+
+  const { data: gedStats } = useGedStats()
+  const gedDocsCount = gedStats?.total_documents ?? 0
 
   return (
     <aside className="w-64 h-screen bg-surface border-r border-border flex flex-col fixed left-0 top-0">
@@ -235,6 +239,11 @@ export default function Sidebar() {
                 {to === '/ocr' && pendingScansCount > 0 && (
                   <span className="ml-auto bg-orange-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                     {pendingScansCount}
+                  </span>
+                )}
+                {to === '/ged' && gedDocsCount > 0 && (
+                  <span className="ml-auto bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1.5 shadow-sm shadow-fuchsia-500/30">
+                    {gedDocsCount}
                   </span>
                 )}
               </NavLink>

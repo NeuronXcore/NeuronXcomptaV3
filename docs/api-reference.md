@@ -1597,7 +1597,8 @@ Liste tous les templates.
     "usage_count": 3,
     "is_blank_template": false,
     "page_width_pt": null,
-    "page_height_pt": null
+    "page_height_pt": null,
+    "taux_tva": 10.0
   }
 ]
 ```
@@ -1606,6 +1607,9 @@ Liste tous les templates.
 - `is_blank_template: bool` — True si créé via `POST /from-blank`
 - `page_width_pt: float` — largeur de la page 0 en points PDF
 - `page_height_pt: float` — hauteur de la page 0 en points PDF
+
+**Champ TVA (tous templates) :**
+- `taux_tva: float = 10.0` — taux TVA par défaut (%) utilisé par `generate_reconstitue()` pour ventiler TTC/HT/TVA automatiquement : `ttc = abs(op.montant)`, `ht = ttc / (1 + taux_tva/100)`, `tva = ttc - ht`. Valeurs UI recommandées : 10 (restauration), 5.5 (alimentation), 20 (standard), 0 (exonéré). Persisté via `PUT /{id}` ou passé à la création via `POST /from-blank` (form field).
 
 ### `GET /{template_id}`
 Retourne un template par ID.
@@ -1642,14 +1646,22 @@ Crée un template depuis un **PDF vierge** (template graphique fournisseur, form
 - `vendor_aliases` : JSON array string (optionnel, défaut `"[]"`)
 - `category` : str (optionnel)
 - `sous_categorie` : str (optionnel)
+- `taux_tva` : float (optionnel, défaut `10.0`) — taux TVA (%) persisté sur le template
 
 **Logique backend :**
 1. Sauvegarde le PDF dans `data/templates/{template_id}/background.pdf`
 2. Rasterise page 0 → `thumbnail.png` 200px de large (`pdf2image` + Pillow)
 3. Lit les dimensions de page via `pdfplumber` (`page_width_pt`, `page_height_pt`)
-4. Crée l'entrée template avec `is_blank_template=True`, `fields=[]`, `source_justificatif=None`
+4. Crée l'entrée template avec `is_blank_template=True`, `fields=[]`, `source_justificatif=None`, `taux_tva=<form>`
 
-**Réponse :** le template créé (même schéma que `GET /`), avec `is_blank_template: true` et les dimensions.
+**Réponse :** le template créé (même schéma que `GET /`), avec `is_blank_template: true`, les dimensions et le `taux_tva`.
+
+**Génération fac-similé pour blank template** (`POST /generate`) : `generate_reconstitue()` détecte le flag `is_blank_template` et résout automatiquement le PDF source via `get_blank_template_background_path(id)` (au lieu du `source_justificatif` qui est `None`). Deux modes :
+- **Avec placeholders textuels** (`{KEY}`, `(KEY)` dans le text layer du background) : extraction via `pdfplumber.extract_words()` + regex `[{(][A-Z][A-Z0-9_]*[})]`, substitution inline à la position exacte (rectangle blanc + valeur Helvetica 7-10pt auto-sized). Clés supportées : `DATE`/`DATE_FR`, `MONTANT_TTC`/`TTC`/`MONTANT`, `MONTANT_HT`/`HT`, `MONTANT_TVA`/`TVA`, `TAUX_TVA`/`TVA_RATE`, `FOURNISSEUR`/`VENDOR`/`VENDEUR`, `REF_OPERATION`. Montants formatés **sans** symbole € (templates ont généralement `€` en dur après le placeholder).
+- **Sans placeholders + coordonnées explicites** (champs positionnés via click-to-position) : pipeline `_generate_pdf_facsimile()` classique.
+- **Sans placeholders ni coordonnées** : fallback overlay date + TTC en haut à droite de la page 0 (conserve le layout du background).
+
+Le fac-similé généré respecte la ventilation TTC/HT/TVA calculée via `taux_tva` dans `_build_field_values()`.
 
 ### `GET /{template_id}/thumbnail`
 Retourne le thumbnail PNG 200px d'un blank template. Cache local (`data/templates/{id}/thumbnail.png`), régénéré si le PDF source est plus récent. 404 si `is_blank_template=false`.

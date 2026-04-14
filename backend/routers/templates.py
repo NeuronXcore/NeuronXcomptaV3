@@ -59,6 +59,7 @@ async def create_template_from_blank(
     vendor_aliases: str = Form("[]"),
     category: str = Form(""),
     sous_categorie: str = Form(""),
+    taux_tva: float = Form(10.0),
 ):
     """Crée un template depuis un PDF de fond vierge (sans OCR).
 
@@ -97,6 +98,7 @@ async def create_template_from_blank(
             vendor_aliases=aliases_list,
             category=category.strip() or None,
             sous_categorie=sous_categorie.strip() or None,
+            taux_tva=taux_tva,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur création template: {e}")

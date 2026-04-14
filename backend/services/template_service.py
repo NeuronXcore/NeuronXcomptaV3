@@ -117,6 +117,8 @@ def update_template(template_id: str, request: TemplateCreateRequest) -> Optiona
             # sinon garder la valeur existante
             if request.is_blank_template is not None:
                 update_dict["is_blank_template"] = request.is_blank_template
+            if request.taux_tva is not None:
+                update_dict["taux_tva"] = request.taux_tva
             updated = tpl.model_copy(update=update_dict)
             store.templates[i] = updated
             save_templates(store)
@@ -133,6 +135,7 @@ def create_blank_template(
     vendor_aliases: list[str],
     category: Optional[str] = None,
     sous_categorie: Optional[str] = None,
+    taux_tva: float = 10.0,
 ) -> JustificatifTemplate:
     """Crée un template depuis un PDF de fond vierge (sans OCR).
 
@@ -194,6 +197,7 @@ def create_blank_template(
         is_blank_template=True,
         page_width_pt=page_w,
         page_height_pt=page_h,
+        taux_tva=taux_tva,
     )
 
     store = load_templates()
@@ -715,14 +719,29 @@ def generate_reconstitue(request: GenerateRequest) -> dict:
     )
     pdf_path = JUSTIFICATIFS_EN_ATTENTE_DIR / pdf_filename
 
-    # Tenter le fac-similé si le template a un source_justificatif avec coordonnées
-    source_pdf = _find_justificatif(tpl.source_justificatif) if tpl.source_justificatif else None
+    # Résoudre le PDF de fond :
+    # - blank template → data/templates/{id}/background.pdf (uploaded par l'utilisateur)
+    # - template scanné classique → justificatif source d'origine
+    if tpl.is_blank_template:
+        source_pdf = get_blank_template_background_path(tpl.id)
+    else:
+        source_pdf = _find_justificatif(tpl.source_justificatif) if tpl.source_justificatif else None
+
     fields_with_coords = [f for f in tpl.fields if f.coordinates] if source_pdf else []
     if source_pdf and fields_with_coords:
         try:
             _generate_pdf_facsimile(pdf_path, source_pdf, field_values, fields_with_coords)
         except Exception as e:
             logger.warning(f"Fac-similé échoué, fallback ReportLab: {e}")
+            _generate_pdf(pdf_path, tpl.vendor, field_values)
+    elif source_pdf and tpl.is_blank_template:
+        # Blank template avec background mais aucun champ positionné : rasteriser le
+        # background en fond + superposer date/montant par défaut (haut à droite)
+        # plutôt que de perdre complètement le layout du PDF vierge.
+        try:
+            _generate_pdf_blank_overlay(pdf_path, source_pdf, field_values, tpl)
+        except Exception as e:
+            logger.warning(f"Overlay blank template échoué, fallback ReportLab: {e}")
             _generate_pdf(pdf_path, tpl.vendor, field_values)
     else:
         _generate_pdf(pdf_path, tpl.vendor, field_values)
@@ -790,6 +809,22 @@ def _build_field_values(
     """Construit les valeurs finales de tous les champs."""
     values: dict = {}
 
+    # Blank templates : injecter date + montant_ttc depuis l'op même si aucun champ
+    # n'est déclaré. Permet la génération d'un fac-similé (background + overlay)
+    # sans avoir à déclarer les champs manuellement dans l'éditeur.
+    if tpl.is_blank_template:
+        declared_keys = {f.key for f in tpl.fields}
+        if "date" not in declared_keys:
+            values["date"] = operation.get("Date", "")
+        if "montant_ttc" not in declared_keys and "montant" not in declared_keys:
+            debit = operation.get("Débit") or operation.get("Debit") or 0
+            credit = operation.get("Crédit") or operation.get("Credit") or 0
+            amount = debit if debit else credit
+            try:
+                values["montant_ttc"] = float(amount) if amount else 0.0
+            except (ValueError, TypeError):
+                values["montant_ttc"] = 0.0
+
     for field in tpl.fields:
         if field.source == "operation":
             if field.key == "date":
@@ -818,6 +853,23 @@ def _build_field_values(
         elif field.source == "computed":
             # Différé après les autres champs
             pass
+
+    # Ventilation TTC / HT / TVA via template.taux_tva — calculée depuis le
+    # montant TTC de l'opération (valeur absolue). Ne touche pas aux clés
+    # déjà positionnées explicitement par un champ du template (manual/fixed).
+    try:
+        ttc_raw = values.get("montant_ttc") or values.get("montant") or 0
+        ttc = abs(float(ttc_raw)) if ttc_raw else 0.0
+    except (TypeError, ValueError):
+        ttc = 0.0
+    taux = getattr(tpl, "taux_tva", 10.0) or 0.0
+    if ttc > 0:
+        ht = ttc / (1.0 + taux / 100.0) if taux > 0 else ttc
+        tva = ttc - ht
+        values.setdefault("montant_ttc", round(ttc, 2))
+        values.setdefault("montant_ht", round(ht, 2))
+        values.setdefault("tva", round(tva, 2))
+        values.setdefault("tva_rate", taux)
 
     # Calculer les champs computed
     for field in tpl.fields:
@@ -863,6 +915,212 @@ def _is_mostly_blank_image(img) -> bool:
         return stat.mean[0] > 248
     except Exception:
         return False
+
+
+_PLACEHOLDER_RE = re.compile(r"[{\(]([A-Z][A-Z0-9_]*)[}\)]")
+
+
+def _format_amount_plain(value) -> str:
+    """Formate un montant sans symbole € (les templates ont souvent € en dur
+    après le placeholder, type `{MONTANT_HT} €` → sinon doublon)."""
+    try:
+        v = float(value)
+    except (ValueError, TypeError):
+        return str(value)
+    integer_part = int(abs(v))
+    decimal_part = abs(v) - integer_part
+    int_str = f"{integer_part:,}".replace(",", " ")
+    dec_str = f"{decimal_part:.2f}"[1:]
+    sign = "-" if v < 0 else ""
+    return f"{sign}{int_str}{dec_str.replace('.', ',')}"
+
+
+def _resolve_placeholder_value(key: str, field_values: dict, tpl: "JustificatifTemplate") -> Optional[str]:
+    """Map un nom de placeholder vers sa valeur formatée.
+
+    Supporte les clés courantes d'un template de note de frais / facture :
+    DATE, DATE_FR, MONTANT_TTC, MONTANT_HT, MONTANT_TVA, FOURNISSEUR, VENDOR,
+    TAUX_TVA, REF_OPERATION. Retourne None si aucune correspondance trouvée.
+
+    Les montants sont retournés SANS symbole € car les templates placent
+    fréquemment € en dur après le placeholder (`{MONTANT_HT} €`).
+    """
+    k = key.upper()
+    if k in ("DATE", "DATE_FR"):
+        val = field_values.get("date", "")
+        return _format_date_fr(str(val)) if val else None
+    if k in ("MONTANT_TTC", "TTC", "MONTANT"):
+        val = field_values.get("montant_ttc") or field_values.get("montant")
+        return _format_amount_plain(val) if val else None
+    if k in ("MONTANT_HT", "HT"):
+        val = field_values.get("montant_ht")
+        return _format_amount_plain(val) if val else None
+    if k in ("MONTANT_TVA", "TVA"):
+        val = field_values.get("tva")
+        return _format_amount_plain(val) if val else None
+    if k in ("TAUX_TVA", "TVA_RATE"):
+        val = field_values.get("tva_rate") or getattr(tpl, "taux_tva", None)
+        return f"{val:g}" if val is not None else None
+    if k in ("FOURNISSEUR", "VENDOR", "VENDEUR"):
+        return tpl.vendor
+    if k == "REF_OPERATION":
+        # Référence simple : vendor + date abrégée
+        date_val = field_values.get("date", "") or ""
+        compact = date_val.replace("-", "") if date_val else ""
+        return f"{tpl.vendor[:8].upper()}-{compact[-6:]}" if compact else tpl.vendor[:12].upper()
+    # Placeholders non reconnus : passer — l'utilisateur peut les remplacer via
+    # des champs template + coordonnées manuelles si besoin.
+    return None
+
+
+def _extract_placeholder_positions(pdf_path: Path) -> list[dict]:
+    """Scanne le text layer du PDF et retourne les placeholders `{KEY}` / `(KEY)`
+    avec leur position (en points PDF, origine haut-gauche pdfplumber).
+
+    Retourne une liste de dicts : {page, key, x0, top, x1, bottom, text}.
+    Tolère les placeholders multi-mots : pdfplumber extrait parfois chaque
+    caractère séparément ; on reconstruit via `extract_words` (gestion
+    inter-mots déjà incluse) puis regex sur le texte agrégé de la page,
+    en retombant sur les bounding boxes correspondants.
+    """
+    results: list[dict] = []
+    try:
+        import pdfplumber
+    except ImportError:
+        return results
+
+    with pdfplumber.open(str(pdf_path)) as pdf:
+        for page_idx, page in enumerate(pdf.pages):
+            # extract_words retourne aussi le texte agrégé par segment
+            words = page.extract_words(
+                x_tolerance=1.5, y_tolerance=1.5, keep_blank_chars=False
+            )
+            for w in words:
+                text = w.get("text", "")
+                for m in _PLACEHOLDER_RE.finditer(text):
+                    key = m.group(1)
+                    results.append({
+                        "page": page_idx,
+                        "key": key,
+                        "x0": float(w["x0"]),
+                        "top": float(w["top"]),
+                        "x1": float(w["x1"]),
+                        "bottom": float(w["bottom"]),
+                        "text": text,
+                    })
+    return results
+
+
+def _generate_pdf_blank_overlay(
+    path: Path,
+    background_pdf_path: Path,
+    field_values: dict,
+    tpl: JustificatifTemplate,
+) -> None:
+    """Blank template : rasterise le PDF de fond et superpose les valeurs.
+
+    Stratégie :
+    1. Extraire les placeholders `{KEY}` / `(KEY)` du text layer du background
+    2. Rasterise le background comme image pleine page
+    3. Pour chaque placeholder détecté : rectangle blanc + valeur substituée à sa position
+    4. Si aucun placeholder n'est détecté : fallback overlay date + TTC en haut à droite
+    """
+    from pdf2image import convert_from_path
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.lib.utils import ImageReader
+    from PIL import Image as PILImage  # noqa: F401
+    import io
+
+    # 1. Détecter les placeholders (avant rasterisation — on garde le text layer)
+    placeholders = _extract_placeholder_positions(background_pdf_path)
+
+    # 2. Rasteriser le background
+    dpi = 200
+    images = convert_from_path(str(background_pdf_path), dpi=dpi)
+    if not images:
+        raise ValueError("Impossible de rasteriser le background du blank template")
+
+    first_img = images[0]
+    page_width_pt = first_img.width * 72.0 / dpi
+    page_height_pt = first_img.height * 72.0 / dpi
+
+    c = canvas.Canvas(str(path), pagesize=(page_width_pt, page_height_pt))
+
+    for page_idx, img in enumerate(images):
+        if page_idx > 0:
+            c.showPage()
+            pw = img.width * 72.0 / dpi
+            ph = img.height * 72.0 / dpi
+            c.setPageSize((pw, ph))
+        else:
+            pw = page_width_pt
+            ph = page_height_pt
+
+        # 3. Dessiner le background pleine page
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        c.drawImage(ImageReader(buf), 0, 0, width=pw, height=ph)
+
+        # 4. Substituer chaque placeholder détecté sur cette page
+        page_placeholders = [ph_ for ph_ in placeholders if ph_["page"] == page_idx]
+        substitued_any = False
+        for ph_ in page_placeholders:
+            value = _resolve_placeholder_value(ph_["key"], field_values, tpl)
+            if value is None or value == "":
+                continue
+
+            # Coordonnées pdfplumber (origine haut-gauche) → ReportLab (bas-gauche)
+            x0 = ph_["x0"]
+            y_top = ph_["top"]
+            x1 = ph_["x1"]
+            y_bottom_pdf = ph_["bottom"]
+            h = y_bottom_pdf - y_top
+            w = x1 - x0
+            y_rl = ph - y_bottom_pdf  # bas du rectangle en coord. ReportLab
+
+            # Rectangle blanc couvrant le placeholder (padding + élargissement si texte plus large)
+            font_size = max(min(h * 0.85, 10), 7)
+            c.setFont("Helvetica", font_size)
+            text_w = c.stringWidth(value, "Helvetica", font_size)
+            pad_h = 1.5
+            pad_w = 1.0
+            rect_w = max(w, text_w + pad_w * 2)
+            c.setFillColor(colors.white)
+            c.setStrokeColor(colors.white)
+            c.rect(x0 - pad_w, y_rl - pad_h, rect_w + pad_w * 2, h + pad_h * 2, fill=1, stroke=1)
+
+            # Valeur substituée
+            c.setFillColor(colors.black)
+            # Aligner sur le baseline : reposer le texte légèrement au-dessus du bottom
+            text_y = y_rl + max((h - font_size) / 2, 0)
+            c.drawString(x0, text_y, value)
+            substitued_any = True
+
+        # 5. Aucun placeholder détecté → overlay de secours (date + TTC) uniquement en page 0
+        if not substitued_any and page_idx == 0:
+            margin = 14
+            line_h = 14
+            c.setFillColor(colors.black)
+            c.setFont("Helvetica-Bold", 11)
+
+            y = ph - margin - line_h
+            date_str = _format_date_fr(str(field_values.get("date", "") or ""))
+            if date_str:
+                c.drawRightString(pw - margin, y, date_str)
+                y -= line_h
+
+            ttc = field_values.get("montant_ttc")
+            if ttc:
+                c.drawRightString(pw - margin, y, f"TTC  {_format_currency(ttc)}")
+
+    c.save()
+    logger.info(
+        f"PDF blank-overlay généré: {path.name} "
+        f"(background: {background_pdf_path.name}, template: {tpl.id}, "
+        f"placeholders: {len(placeholders)})"
+    )
 
 
 def _generate_pdf_facsimile(

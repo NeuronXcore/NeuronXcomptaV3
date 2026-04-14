@@ -63,10 +63,52 @@
       ],
       "created_at": "2026-04-09T07:20:04.438616",
       "created_from": "manual",
-      "usage_count": 12,
+      "usage_count": 34,
       "is_blank_template": false,
       "page_width_pt": null,
-      "page_height_pt": null
+      "page_height_pt": null,
+      "taux_tva": 10.0
+    },
+    {
+      "id": "tpl_a83113c8",
+      "vendor": "CLIPTCHAUME",
+      "vendor_aliases": [],
+      "category": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "source_justificatif": null,
+      "fields": [
+        {
+          "key": "date",
+          "label": "",
+          "type": "date",
+          "source": "operation",
+          "required": false,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": null,
+          "coordinates": null
+        },
+        {
+          "key": "montant_ttc",
+          "label": "",
+          "type": "currency",
+          "source": "operation",
+          "required": false,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": null,
+          "coordinates": null
+        }
+      ],
+      "created_at": "2026-04-14T18:44:36.715504",
+      "created_from": "manual",
+      "usage_count": 60,
+      "is_blank_template": true,
+      "page_width_pt": 595.2756,
+      "page_height_pt": 841.8898,
+      "taux_tva": 10.0
     }
   ]
 }

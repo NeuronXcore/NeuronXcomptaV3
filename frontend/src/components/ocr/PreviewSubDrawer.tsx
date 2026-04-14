@@ -1,4 +1,4 @@
-import { FileText, X } from 'lucide-react'
+import { ExternalLink, FileText, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   mainDrawerWidth?: number
   /** Largeur du sub-drawer en pixels. Default 600. */
   width?: number
+  /** Si fourni, affiche un bouton « Ouvrir avec Aperçu » dans le header. */
+  onOpenNative?: (filename: string) => void
   onClose: () => void
 }
 
@@ -32,6 +34,7 @@ export default function PreviewSubDrawer({
   mainDrawerOpen,
   mainDrawerWidth = 680,
   width = 600,
+  onOpenNative,
   onClose,
 }: Props) {
   if (!mainDrawerOpen) return null
@@ -63,6 +66,16 @@ export default function PreviewSubDrawer({
         >
           {filename}
         </span>
+        {onOpenNative && filename && (
+          <button
+            onClick={() => onOpenNative(filename)}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md bg-primary/20 hover:bg-primary/30 text-text transition-colors shrink-0"
+            title="Ouvrir avec Aperçu (macOS)"
+          >
+            <ExternalLink size={12} />
+            Ouvrir avec Aperçu
+          </button>
+        )}
         <button
           onClick={onClose}
           className="p-1 text-text-muted hover:text-text"

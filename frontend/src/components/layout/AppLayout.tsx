@@ -23,7 +23,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/cloture': 'Clôture',
   '/amortissements': 'Amortissements',
   '/charges-forfaitaires': 'Charges forfaitaires',
-  '/ged': 'Bibliothèque',
+  '/ged': 'HUB',
   '/tasks': 'Tâches',
   '/agent-ai': 'Agent IA',
   '/settings': 'Paramètres',

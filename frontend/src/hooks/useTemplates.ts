@@ -84,6 +84,7 @@ export interface CreateTemplateFromBlankPayload {
   vendor_aliases: string[]
   category?: string
   sous_categorie?: string
+  taux_tva?: number
 }
 
 export function useCreateTemplateFromBlank() {
@@ -96,6 +97,7 @@ export function useCreateTemplateFromBlank() {
       form.append('vendor_aliases', JSON.stringify(payload.vendor_aliases ?? []))
       if (payload.category) form.append('category', payload.category)
       if (payload.sous_categorie) form.append('sous_categorie', payload.sous_categorie)
+      if (payload.taux_tva !== undefined) form.append('taux_tva', String(payload.taux_tva))
       const res = await fetch('/api/templates/from-blank', { method: 'POST', body: form })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }))

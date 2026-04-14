@@ -64,6 +64,7 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
         category: template.category || '',
         sous_categorie: template.sous_categorie || '',
         fields: template.fields.map((f) => ({ ...f })),
+        taux_tva: template.taux_tva ?? 10,
       })
     }
   }, [template, editing, draft])
@@ -93,6 +94,7 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
       sous_categorie: tpl.sous_categorie || '',
       source_justificatif: tpl.source_justificatif || null,
       fields: tpl.fields.map((f) => ({ ...f, coordinates: f.coordinates ? { ...f.coordinates } : undefined })),
+      taux_tva: tpl.taux_tva ?? 10,
     })
     setEditing(true)
   }
@@ -219,6 +221,7 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
   const displayAliases = editing ? (draft?.vendor_aliases || []) : (tpl?.vendor_aliases || [])
   const displayCategory = editing ? (draft?.category || '') : (tpl?.category || '')
   const displaySousCategorie = editing ? (draft?.sous_categorie || '') : (tpl?.sous_categorie || '')
+  const displayTauxTva = editing ? (draft?.taux_tva ?? 10) : (tpl?.taux_tva ?? 10)
 
   return (
     <>
@@ -347,6 +350,28 @@ export default function TemplateEditDrawer({ templateId, onClose }: Props) {
                 <p className="text-[10px] text-text-muted mb-1">Sous-categorie</p>
                 <p className="text-sm text-text">{displaySousCategorie || '—'}</p>
               </div>
+            </div>
+          )}
+
+          {/* Taux TVA */}
+          {editing ? (
+            <div>
+              <p className="text-xs font-medium text-text-muted mb-1">Taux TVA</p>
+              <select
+                value={draft?.taux_tva ?? 10}
+                onChange={(e) => draft && setDraft({ ...draft, taux_tva: parseFloat(e.target.value) })}
+                className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+              >
+                <option value={10}>10 % (restauration)</option>
+                <option value={5.5}>5,5 % (alimentation)</option>
+                <option value={20}>20 % (standard)</option>
+                <option value={0}>0 % (exonéré)</option>
+              </select>
+            </div>
+          ) : (
+            <div className="bg-surface rounded-lg border border-border p-3">
+              <p className="text-[10px] text-text-muted mb-1">Taux TVA</p>
+              <p className="text-sm text-text">{displayTauxTva} %</p>
             </div>
           )}
 

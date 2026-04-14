@@ -22,6 +22,7 @@ export default function BlankTemplateUploadDrawer({ open, onClose, onCreated }: 
   const [aliasInput, setAliasInput] = useState('')
   const [category, setCategory] = useState('')
   const [sousCategorie, setSousCategorie] = useState('')
+  const [tauxTva, setTauxTva] = useState<number>(10)
 
   const categories = useMemo(
     () => catData?.categories?.map((c) => c.name) || [],
@@ -63,6 +64,7 @@ export default function BlankTemplateUploadDrawer({ open, onClose, onCreated }: 
     setAliasInput('')
     setCategory('')
     setSousCategorie('')
+    setTauxTva(10)
   }
 
   const handleClose = () => {
@@ -81,6 +83,7 @@ export default function BlankTemplateUploadDrawer({ open, onClose, onCreated }: 
         vendor_aliases: aliases,
         category: category || undefined,
         sous_categorie: sousCategorie || undefined,
+        taux_tva: tauxTva,
       },
       {
         onSuccess: (tpl) => {
@@ -236,6 +239,21 @@ export default function BlankTemplateUploadDrawer({ open, onClose, onCreated }: 
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Taux TVA */}
+          <div>
+            <label className="text-xs font-medium text-text-muted mb-1 block">Taux TVA</label>
+            <select
+              value={tauxTva}
+              onChange={(e) => setTauxTva(parseFloat(e.target.value))}
+              className="w-full px-2 py-1.5 text-xs bg-surface border border-border rounded focus:outline-none focus:border-primary text-text"
+            >
+              <option value={10}>10 % (restauration)</option>
+              <option value={5.5}>5,5 % (alimentation)</option>
+              <option value={20}>20 % (standard)</option>
+              <option value={0}>0 % (exonéré)</option>
+            </select>
           </div>
 
           {/* Info */}

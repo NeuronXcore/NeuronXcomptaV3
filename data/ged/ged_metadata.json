@@ -7969,7 +7969,7 @@
       "deductible_pct_override": null,
       "tags": [],
       "notes": "",
-      "added_at": "2026-04-13T17:11:49.476515",
+      "added_at": "2026-04-14T15:59:11.290981",
       "original_name": "quote_part_vehicule_2025.pdf",
       "ocr_file": null,
       "fournisseur": "Véhicule",
@@ -7994,7 +7994,7 @@
         },
         "format": "pdf",
         "favorite": false,
-        "generated_at": "2026-04-13T17:11:49.476515",
+        "generated_at": "2026-04-14T15:59:11.290981",
         "can_regenerate": false,
         "can_compare": false
       }
@@ -8023,8 +8023,8 @@
       "filename": "auchan_20250315_87.81.pdf",
       "renamed_from": "justificatif_20260409_065546_Sans_titre_16.pdf",
       "montant": 87.81,
-      "categorie": "Alimentation",
-      "sous_categorie": "",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
       "date_operation": "2025-03-15",
       "ventilation_index": null,
       "operation_ref": {
@@ -8937,29 +8937,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/essence_20250208_103.54.pdf": {
-      "doc_id": "data/justificatifs/en_attente/essence_20250208_103.54.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 2,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "essence_20250208_103.54.pdf",
-      "ocr_file": "data/justificatifs/en_attente/essence_20250208_103.54.ocr.json",
-      "fournisseur": "Essence",
-      "period": {
-        "year": 2025,
-        "month": 2,
-        "quarter": 1
-      },
-      "montant": 103.54,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/essence_20250308_112.21.pdf": {
       "doc_id": "data/justificatifs/en_attente/essence_20250308_112.21.pdf",
       "type": "justificatif",
@@ -9420,29 +9397,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/ford-credit_20251218_1443.55.pdf": {
-      "doc_id": "data/justificatifs/en_attente/ford-credit_20251218_1443.55.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "ford-credit_20251218_1443.55.pdf",
-      "ocr_file": "data/justificatifs/en_attente/ford-credit_20251218_1443.55.ocr.json",
-      "fournisseur": "Ford Credit",
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": 4
-      },
-      "montant": 1443.55,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/ford-credit_20260118_1443.55.pdf": {
       "doc_id": "data/justificatifs/en_attente/ford-credit_20260118_1443.55.pdf",
       "type": "justificatif",
@@ -9719,29 +9673,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/orange_20260313_9.99.pdf": {
-      "doc_id": "data/justificatifs/en_attente/orange_20260313_9.99.pdf",
-      "type": "justificatif",
-      "year": 2026,
-      "month": 3,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "orange_20260313_9.99.pdf",
-      "ocr_file": "data/justificatifs/en_attente/orange_20260313_9.99.ocr.json",
-      "fournisseur": "Orange",
-      "period": {
-        "year": 2026,
-        "month": 3,
-        "quarter": 1
-      },
-      "montant": 9.99,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/orange_20260314_46.99.pdf": {
       "doc_id": "data/justificatifs/en_attente/orange_20260314_46.99.pdf",
       "type": "justificatif",
@@ -9969,29 +9900,6 @@
         "quarter": 4
       },
       "montant": 23.51,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
-    "data/justificatifs/en_attente/udemy_20250203_230.75.pdf": {
-      "doc_id": "data/justificatifs/en_attente/udemy_20250203_230.75.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 2,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "udemy_20250203_230.75.pdf",
-      "ocr_file": "data/justificatifs/en_attente/udemy_20250203_230.75.ocr.json",
-      "fournisseur": "Udemy",
-      "period": {
-        "year": 2025,
-        "month": 2,
-        "quarter": 1
-      },
-      "montant": 230.75,
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
@@ -10501,29 +10409,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/udemy_20251202_174.75.pdf": {
-      "doc_id": "data/justificatifs/en_attente/udemy_20251202_174.75.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "udemy_20251202_174.75.pdf",
-      "ocr_file": "data/justificatifs/en_attente/udemy_20251202_174.75.ocr.json",
-      "fournisseur": "Udemy",
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": 4
-      },
-      "montant": 174.75,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/udemy_20251216_174.50.pdf": {
       "doc_id": "data/justificatifs/en_attente/udemy_20251216_174.50.pdf",
       "type": "justificatif",
@@ -10738,8 +10623,8 @@
       "added_at": "2026-04-14T11:32:59.674601",
       "original_name": "amazon_20251230_441.07.pdf",
       "ocr_file": "data/justificatifs/traites/amazon_20251230_441.07.ocr.json",
-      "categorie": "Fournitures",
-      "sous_categorie": null,
+      "categorie": "Matériel",
+      "sous_categorie": "Informatique",
       "date_operation": "2025-12-30",
       "montant": 441.07,
       "operation_ref": {
@@ -10911,6 +10796,283 @@
       "operation_ref": {
         "file": "operations_20260413_185200_4cf58a44.json",
         "index": 25,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/ford-credit_20251218_1443.55.pdf": {
+      "doc_id": "data/justificatifs/traites/ford-credit_20251218_1443.55.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "ford-credit_20251218_1443.55.pdf",
+      "ocr_file": "data/justificatifs/traites/ford-credit_20251218_1443.55.ocr.json",
+      "fournisseur": "Ford Credit",
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "montant": 1443.55,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Véhicule",
+      "sous_categorie": "Loyer",
+      "date_operation": "2025-12-18",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185203_a4edeb28.json",
+        "index": 59,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/en_attente/auchan_20241229_18.94_fs.pdf": {
+      "doc_id": "data/justificatifs/en_attente/auchan_20241229_18.94_fs.pdf",
+      "type": "justificatif",
+      "year": 2024,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T17:28:23.195591",
+      "original_name": "auchan_20241229_18.94_fs.pdf",
+      "ocr_file": "data/justificatifs/en_attente/auchan_20241229_18.94_fs.ocr.json",
+      "fournisseur": "Auchan",
+      "period": {
+        "year": 2024,
+        "month": 12,
+        "quarter": 4
+      },
+      "is_reconstitue": true,
+      "statut_justificatif": "en_attente",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence"
+    },
+    "data/justificatifs/traites/auchan_20241229_18.94_fs_2.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20241229_18.94_fs_2.pdf",
+      "type": "justificatif",
+      "year": 2024,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T17:28:23.195591",
+      "original_name": "auchan_20241229_18.94_fs_2.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20241229_18.94_fs_2.ocr.json",
+      "categorie": "Alimentation",
+      "sous_categorie": "Essence",
+      "date_operation": "2024-12-29",
+      "montant": 18.94,
+      "operation_ref": {
+        "file": "operations_20260413_185158_275b0690.json",
+        "index": 35,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2024,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251202_174.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251202_174.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "udemy_20251202_174.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251202_174.75.ocr.json",
+      "fournisseur": "Udemy",
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "montant": 174.75,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-12-02",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185203_a4edeb28.json",
+        "index": 43,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/orange_20260313_9.99.pdf": {
+      "doc_id": "data/justificatifs/traites/orange_20260313_9.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "orange_20260313_9.99.pdf",
+      "ocr_file": "data/justificatifs/traites/orange_20260313_9.99.ocr.json",
+      "fournisseur": "Orange",
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "montant": 9.99,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Telephone-Internet",
+      "sous_categorie": "",
+      "date_operation": "2025-12-11",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185203_a4edeb28.json",
+        "index": 49,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/auchan_20241229_34.78_fs_2.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20241229_34.78_fs_2.pdf",
+      "type": "justificatif",
+      "year": 2024,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T17:47:31.245044",
+      "original_name": "auchan_20241229_34.78_fs_2.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20241229_34.78_fs_2.ocr.json",
+      "categorie": "Alimentation",
+      "sous_categorie": "Essence",
+      "date_operation": "2024-12-29",
+      "montant": 34.78,
+      "operation_ref": {
+        "file": "operations_20260413_185158_275b0690.json",
+        "index": 37,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2024,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/ldlc_20251129_539.90.pdf": {
+      "doc_id": "data/justificatifs/traites/ldlc_20251129_539.90.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T18:28:41.871260",
+      "original_name": "ldlc_20251129_539.90.pdf",
+      "ocr_file": "data/justificatifs/traites/ldlc_20251129_539.90.ocr.json",
+      "categorie": "Matériel",
+      "sous_categorie": "Informatique",
+      "date_operation": "2025-11-29",
+      "montant": 539.9,
+      "operation_ref": {
+        "file": "operations_20260413_185203_a4edeb28.json",
+        "index": 7,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Ldlc",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/essence_20250208_103.54.pdf": {
+      "doc_id": "data/justificatifs/traites/essence_20250208_103.54.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 2,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "essence_20250208_103.54.pdf",
+      "ocr_file": "data/justificatifs/traites/essence_20250208_103.54.ocr.json",
+      "fournisseur": "Essence",
+      "period": {
+        "year": 2025,
+        "month": 2,
+        "quarter": 1
+      },
+      "montant": 103.54,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-02-08",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185200_51b5892b.json",
+        "index": 16,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/udemy_20250203_230.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20250203_230.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "udemy_20250203_230.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20250203_230.75.ocr.json",
+      "fournisseur": "Udemy",
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": 1
+      },
+      "montant": 230.75,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-03-04",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185204_d238601f.json",
+        "index": 53,
         "ventilation_index": null
       }
     }

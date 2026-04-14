@@ -1695,5 +1695,15 @@
     "libelle": "prlvsepaamazoneusarlsuccursale",
     "categorie": "perso",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "pagaunal montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifbnppersoben",
+    "categorie": "Revenus",
+    "sous_categorie": ""
   }
 ]

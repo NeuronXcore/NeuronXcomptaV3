@@ -519,6 +519,7 @@ export interface JustificatifTemplate {
   is_blank_template?: boolean
   page_width_pt?: number | null
   page_height_pt?: number | null
+  taux_tva?: number
 }
 
 export interface ExtractedFields {
@@ -622,6 +623,7 @@ export interface TemplateUpdatePayload {
   sous_categorie: string
   source_justificatif?: string | null
   fields: TemplateField[]
+  taux_tva?: number
 }
 
 export interface GedTemplateItem {

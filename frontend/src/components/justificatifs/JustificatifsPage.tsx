@@ -20,7 +20,7 @@ import {
   FileText, Search, ScanLine, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, ArrowUpDown, ArrowUp, ArrowDown,
   FileCheck, FileX, Percent, Hash, Zap, Loader2, X, Layers,
-  Check, Minus, Stamp,
+  Check, Minus, Stamp, Ban,
 } from 'lucide-react'
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
@@ -577,6 +577,7 @@ export default function JustificatifsPage() {
                     const allVlAssociated = isVentilated && vlines!.every(vl => !!vl.justificatif)
                     const hasJustif = !!op['Lien justificatif'] || allVlAssociated
                     const isExempt = isOpExempt(op)
+                    const isPerso = (op['Catégorie'] || '').toLowerCase() === 'perso'
                     const rowId = `op-row-${op._filename}-${op._originalIndex}`
                     const isDrawerSelected = drawerOpen && op._originalIndex === selectedOpIndex && op._filename === selectedOpFilename
                     const isPreviewSelected = previewJustif !== null && op._originalIndex === previewOpIndex && op._filename === previewOpFile
@@ -702,29 +703,35 @@ export default function JustificatifsPage() {
                             title={
                               hasJustif
                                 ? 'Justificatif attribué — cliquer pour voir'
-                                : isExempt
-                                  ? `Catégorie « ${op['Catégorie']} » exemptée — pas de justificatif requis`
-                                  : 'Cliquer pour attribuer un justificatif'
+                                : isPerso
+                                  ? 'Opération perso — aucun justificatif requis'
+                                  : isExempt
+                                    ? `Catégorie « ${op['Catégorie']} » exemptée — pas de justificatif requis`
+                                    : 'Cliquer pour attribuer un justificatif'
                             }
                             className={cn(
                               'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
                               hasJustif
                                 ? 'text-emerald-400 hover:bg-emerald-500/15'
-                                : isExempt
-                                  ? 'text-sky-400 cursor-default'
-                                  : 'text-amber-400 hover:bg-amber-500/15'
+                                : isPerso
+                                  ? 'text-red-400/80 cursor-default'
+                                  : isExempt
+                                    ? 'text-sky-400 cursor-default'
+                                    : 'text-amber-400 hover:bg-amber-500/15'
                             )}
                           >
                             {hasJustif
                               ? <CheckCircle2 size={18} />
-                              : isExempt
-                                ? <CheckCircle2 size={18} />
-                                : <Circle size={18} />}
+                              : isPerso
+                                ? <Ban size={18} />
+                                : isExempt
+                                  ? <CheckCircle2 size={18} />
+                                  : <Circle size={18} />}
                           </button>
                           {hasJustif && isReconstitue(op['Lien justificatif'] || '') && (
                             <span className="text-[10px]" title="Fac-similé reconstitué">😈</span>
                           )}
-                          {isExempt && !hasJustif && (
+                          {isExempt && !hasJustif && !isPerso && (
                             <div className="text-[9px] text-sky-400/80 mt-0.5" title="Catégorie exemptée">
                               exempté
                             </div>
