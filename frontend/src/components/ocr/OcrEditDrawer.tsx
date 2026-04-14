@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   X,
   FileText,
@@ -6,9 +6,13 @@ import {
   Save,
   ArrowRight,
   Maximize2,
+  ChevronDown,
+  Check,
+  Search as SearchIcon,
+  CalendarDays,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { cn, formatCurrency, buildConventionFilename } from '@/lib/utils'
+import { cn, formatCurrency, formatDateShort, buildConventionFilename, MOIS_FR } from '@/lib/utils'
 import { useCategories } from '@/hooks/useApi'
 import { useOperationFiles, useYearOperations } from '@/hooks/useOperations'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
@@ -58,6 +62,12 @@ export default function OcrEditDrawer({ open, item, onClose }: Props) {
   // ── Op cible ──
   const [selectedOpKey, setSelectedOpKey] = useState<string>('')
 
+  // ── Dropdown op selector (custom, plus riche que <select> natif) ──
+  const [opDropdownOpen, setOpDropdownOpen] = useState(false)
+  const [monthOnlyFilter, setMonthOnlyFilter] = useState(true)
+  const [opSearch, setOpSearch] = useState('')
+  const opDropdownRef = useRef<HTMLDivElement>(null)
+
   // ── Sub-drawer preview PDF grand format ──
   const [previewFilename, setPreviewFilename] = useState<string | null>(null)
 
@@ -77,6 +87,8 @@ export default function OcrEditDrawer({ open, item, onClose }: Props) {
     setSubCatFilter(item.sous_categorie_hint || '')
     setSelectedOpKey('')
     setPreviewFilename(null)
+    setOpDropdownOpen(false)
+    setOpSearch('')
   }, [item])
 
   // Reset preview when main drawer closes
@@ -214,29 +226,91 @@ export default function OcrEditDrawer({ open, item, onClose }: Props) {
           !catFilter ||
           op['Sous-catégorie'] === subCatFilter,
       )
-      .slice(0, 50)
   }, [yearOps, catFilter, subCatFilter])
+
+  // Mois de référence du justificatif = mois de la date OCR (best_date éditée live)
+  const justifMonth = useMemo(() => {
+    const d = effectiveDate || item?.best_date || null
+    if (!d || d.length < 7) return null
+    return d.slice(0, 7) // "YYYY-MM"
+  }, [effectiveDate, item?.best_date])
+
+  const justifMonthLabel = useMemo(() => {
+    if (!justifMonth) return ''
+    const month = parseInt(justifMonth.slice(5, 7), 10)
+    const year = justifMonth.slice(0, 4)
+    return `${MOIS_FR[month - 1] ?? ''} ${year}`.trim()
+  }, [justifMonth])
+
+  // Filtrage par mois + recherche textuelle
+  const filteredOpCandidates = useMemo(() => {
+    let list = opCandidates
+    if (monthOnlyFilter && justifMonth) {
+      list = list.filter((op) => (op['Date'] ?? '').slice(0, 7) === justifMonth)
+    }
+    if (opSearch.trim()) {
+      const q = opSearch.toLowerCase()
+      list = list.filter((op) =>
+        (op['Libellé'] ?? '').toLowerCase().includes(q) ||
+        (op['Catégorie'] ?? '').toLowerCase().includes(q),
+      )
+    }
+    return list.slice(0, 100)
+  }, [opCandidates, monthOnlyFilter, justifMonth, opSearch])
+
+  // Compteur "ce mois / total" pour l'en-tête
+  const opCountInMonth = useMemo(() => {
+    if (!justifMonth) return 0
+    return opCandidates.filter((op) => (op['Date'] ?? '').slice(0, 7) === justifMonth).length
+  }, [opCandidates, justifMonth])
+
+  // Op actuellement sélectionnée (pour afficher le trigger du dropdown)
+  const selectedOp = useMemo<EnrichedOp | null>(() => {
+    if (!selectedOpKey) return null
+    const [fname, idxStr] = selectedOpKey.split('::')
+    const idx = parseInt(idxStr, 10)
+    return opCandidates.find((op) => op._filename === fname && op._originalIndex === idx) ?? null
+  }, [selectedOpKey, opCandidates])
+
+  // Fermer le dropdown au clic extérieur
+  useEffect(() => {
+    if (!opDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (opDropdownRef.current && !opDropdownRef.current.contains(e.target as Node)) {
+        setOpDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [opDropdownOpen])
+
+  // Reset la recherche quand le dropdown ferme
+  useEffect(() => {
+    if (!opDropdownOpen) setOpSearch('')
+  }, [opDropdownOpen])
 
   const isSaving =
     updateOcrMutation.isPending ||
     renameMutation.isPending ||
     associateMutation.isPending
 
-  // Aperçu du nom canonique qu'on aura après édition
-  const plannedCanonicalName = useMemo(() => {
+  // Aperçu live du nom canonique calculé à partir des champs (même si identique au filename actuel)
+  const livePreviewCanonical = useMemo(() => {
     if (!item) return null
     const finalSupplier = supplier || item.supplier || ''
     const finalDate = effectiveDate || item.best_date
     const finalAmount = effectiveAmount ?? item.best_amount ?? null
     if (!finalDate || finalAmount == null) return null
-    const canonical = buildConventionFilename(
-      finalSupplier,
-      finalDate,
-      finalAmount,
-    )
-    if (!canonical || canonical === item.filename) return null
-    return canonical
+    return buildConventionFilename(finalSupplier, finalDate, finalAmount)
   }, [supplier, effectiveDate, effectiveAmount, item])
+
+  // Nom canonique à appliquer dans handleValidate : null si identique au filename actuel
+  // (pas besoin de rename dans ce cas)
+  const plannedCanonicalName = useMemo(() => {
+    if (!livePreviewCanonical || !item) return null
+    if (livePreviewCanonical === item.filename) return null
+    return livePreviewCanonical
+  }, [livePreviewCanonical, item])
 
   const handleValidate = async () => {
     if (!item) return
@@ -506,6 +580,38 @@ export default function OcrEditDrawer({ open, item, onClose }: Props) {
                     className="mt-0.5 bg-background border border-border rounded px-2 py-1.5 text-sm text-text w-36"
                   />
                 </div>
+
+                {/* Nom canonique live — mis à jour à chaque frappe */}
+                <div className="pt-2 border-t border-border">
+                  <label className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
+                    Nom canonique
+                  </label>
+                  {livePreviewCanonical ? (
+                    <div className="mt-0.5 flex items-center gap-1.5 min-w-0">
+                      <ArrowRight size={11} className="shrink-0 text-text-muted" />
+                      <code
+                        className={cn(
+                          'font-mono text-[11px] truncate flex-1 px-2 py-1 rounded border',
+                          livePreviewCanonical === item?.filename
+                            ? 'bg-background border-border text-text-muted'
+                            : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400',
+                        )}
+                        title={livePreviewCanonical}
+                      >
+                        {livePreviewCanonical}
+                      </code>
+                      {livePreviewCanonical === item?.filename && (
+                        <span className="text-[10px] text-text-muted shrink-0">
+                          déjà conforme
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-0.5 text-[11px] text-amber-400/80">
+                      Fournisseur, date et montant requis pour générer le nom.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -544,43 +650,198 @@ export default function OcrEditDrawer({ open, item, onClose }: Props) {
             </select>
           </div>
 
-          {/* Op selector */}
+          {/* Op selector — dropdown custom riche avec filtre mois */}
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
-              Associer à une opération ({opCandidates.length} candidate
-              {opCandidates.length > 1 ? 's' : ''})
-            </label>
-            <select
-              value={selectedOpKey}
-              onChange={(e) => setSelectedOpKey(e.target.value)}
-              className="w-full mt-0.5 bg-background border border-border rounded px-2 py-1.5 text-sm text-text"
-            >
-              <option value="">Ne pas associer maintenant</option>
-              {opCandidates.map((op) => {
-                const key = `${op._filename}::${op._originalIndex}`
-                const amount = op['Débit'] || op['Crédit'] || 0
-                return (
-                  <option key={key} value={key}>
-                    {op['Date']} ·{' '}
-                    {(op['Libellé'] || '').slice(0, 40)} ·{' '}
-                    {formatCurrency(amount)}
-                    {op['Catégorie'] ? ` · ${op['Catégorie']}` : ''}
-                  </option>
-                )
-              })}
-            </select>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <label className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
+                Associer à une opération
+              </label>
+              {justifMonth && (
+                <button
+                  type="button"
+                  onClick={() => setMonthOnlyFilter((v) => !v)}
+                  className={cn(
+                    'inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium border transition-colors',
+                    monthOnlyFilter
+                      ? 'bg-[#E6F1FB] text-[#185FA5] border-[#B5D4F4] hover:bg-[#B5D4F4]/40'
+                      : 'bg-surface text-text-muted border-border hover:text-text',
+                  )}
+                  title="Filtrer les opérations par le mois du justificatif"
+                >
+                  <CalendarDays size={10} />
+                  {monthOnlyFilter ? justifMonthLabel : 'Toute l\'année'}
+                </button>
+              )}
+            </div>
+
+            <div className="relative" ref={opDropdownRef}>
+              {/* Trigger */}
+              <button
+                type="button"
+                onClick={() => setOpDropdownOpen((v) => !v)}
+                className={cn(
+                  'w-full flex items-center justify-between gap-2 bg-background border rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                  opDropdownOpen
+                    ? 'border-primary ring-2 ring-primary/20'
+                    : 'border-border hover:border-primary/50',
+                )}
+              >
+                {selectedOp ? (
+                  <span className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-[11px] font-mono text-text-muted shrink-0">
+                      {formatDateShort(selectedOp['Date'] ?? '')}
+                    </span>
+                    <span className="text-text truncate">
+                      {selectedOp['Libellé'] ?? ''}
+                    </span>
+                    <span className="text-text font-medium shrink-0 ml-auto">
+                      {formatCurrency(selectedOp['Débit'] || selectedOp['Crédit'] || 0)}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="text-text-muted">Ne pas associer maintenant</span>
+                )}
+                <ChevronDown
+                  size={14}
+                  className={cn(
+                    'shrink-0 text-text-muted transition-transform',
+                    opDropdownOpen && 'rotate-180',
+                  )}
+                />
+              </button>
+
+              {/* Dropdown panel */}
+              {opDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-lg shadow-xl z-30 max-h-80 overflow-hidden flex flex-col">
+                  {/* Header avec recherche + compteur */}
+                  <div className="px-3 py-2 border-b border-border bg-surface/40 shrink-0">
+                    <div className="relative">
+                      <SearchIcon
+                        size={12}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+                      />
+                      <input
+                        type="text"
+                        value={opSearch}
+                        onChange={(e) => setOpSearch(e.target.value)}
+                        placeholder="Filtrer par libellé ou catégorie…"
+                        className="w-full pl-7 pr-2 py-1 text-xs bg-background border border-border rounded text-text placeholder:text-text-muted"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="mt-1.5 text-[10px] text-text-muted flex items-center justify-between">
+                      <span>
+                        {filteredOpCandidates.length} opération
+                        {filteredOpCandidates.length > 1 ? 's' : ''} non associée
+                        {filteredOpCandidates.length > 1 ? 's' : ''}
+                        {monthOnlyFilter && justifMonth && ` en ${justifMonthLabel}`}
+                      </span>
+                      <span>
+                        Total non assoc. cette année :{' '}
+                        <span className="text-text">{opCandidates.length}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* List */}
+                  <div className="flex-1 overflow-y-auto">
+                    {/* Option "Ne pas associer" toujours en tête */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedOpKey('')
+                        setOpDropdownOpen(false)
+                      }}
+                      className={cn(
+                        'w-full px-3 py-2 text-left text-xs text-text-muted hover:bg-surface-hover border-b border-border italic',
+                        !selectedOpKey && 'bg-surface-hover',
+                      )}
+                    >
+                      Ne pas associer maintenant
+                    </button>
+
+                    {filteredOpCandidates.length === 0 ? (
+                      <div className="px-3 py-6 text-center">
+                        <p className="text-xs text-text-muted">
+                          {opSearch
+                            ? `Aucune opération ne correspond à "${opSearch}".`
+                            : monthOnlyFilter && justifMonth
+                              ? `Aucune opération non associée en ${justifMonthLabel}.`
+                              : 'Aucune opération non associée disponible.'}
+                        </p>
+                        {monthOnlyFilter && justifMonth && opCountInMonth === 0 && opCandidates.length > 0 && !opSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setMonthOnlyFilter(false)}
+                            className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                          >
+                            Voir toute l'année ({opCandidates.length} ops)
+                            <ArrowRight size={11} />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      filteredOpCandidates.map((op) => {
+                        const key = `${op._filename}::${op._originalIndex}`
+                        const amount = op['Débit'] || op['Crédit'] || 0
+                        const isSelected = key === selectedOpKey
+                        const isCredit = !!op['Crédit'] && !op['Débit']
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => {
+                              setSelectedOpKey(key)
+                              setOpDropdownOpen(false)
+                            }}
+                            className={cn(
+                              'w-full px-3 py-2.5 text-left border-b border-border last:border-b-0 transition-colors',
+                              isSelected
+                                ? 'bg-primary/10 hover:bg-primary/15'
+                                : 'hover:bg-surface-hover',
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="text-[10px] font-mono text-text-muted">
+                                    {formatDateShort(op['Date'] ?? '')}
+                                  </span>
+                                  {op['Catégorie'] && (
+                                    <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary truncate max-w-[120px]">
+                                      {op['Catégorie']}
+                                      {op['Sous-catégorie'] ? ` · ${op['Sous-catégorie']}` : ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-text leading-tight truncate">
+                                  {op['Libellé'] ?? '—'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={cn(
+                                    'text-xs font-semibold tabular-nums',
+                                    isCredit ? 'text-emerald-400' : 'text-text',
+                                  )}
+                                >
+                                  {isCredit ? '+' : ''}{formatCurrency(amount)}
+                                </span>
+                                {isSelected && (
+                                  <Check size={12} className="text-primary" />
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Preview canonique */}
-          {plannedCanonicalName && (
-            <div className="flex items-center gap-2 text-xs text-text-muted bg-surface/60 rounded-md px-3 py-2 border border-border">
-              <span>Nom canonique proposé :</span>
-              <ArrowRight size={12} className="shrink-0" />
-              <code className="font-mono text-emerald-400 truncate">
-                {plannedCanonicalName}
-              </code>
-            </div>
-          )}
         </div>
 
         {/* Footer */}

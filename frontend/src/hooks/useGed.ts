@@ -33,6 +33,8 @@ export function useGedDocuments(filters: GedFilters) {
   if (filters.poste_comptable) params.set('poste_comptable', filters.poste_comptable)
   if (filters.tags?.length) params.set('tags', filters.tags.join(','))
   if (filters.search) params.set('search', filters.search)
+  if (filters.montant_min !== undefined) params.set('montant_min', String(filters.montant_min))
+  if (filters.montant_max !== undefined) params.set('montant_max', String(filters.montant_max))
   if (filters.sort_by) params.set('sort_by', filters.sort_by)
   if (filters.sort_order) params.set('sort_order', filters.sort_order)
 

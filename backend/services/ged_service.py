@@ -1298,6 +1298,8 @@ def get_documents(
     poste_comptable: Optional[str] = None,
     tags: Optional[list[str]] = None,
     search: Optional[str] = None,
+    montant_min: Optional[float] = None,
+    montant_max: Optional[float] = None,
     sort_by: str = "added_at",
     sort_order: str = "desc",
 ) -> list[dict]:
@@ -1328,6 +1330,18 @@ def get_documents(
         docs = [d for d in docs if (d.get("rapport_meta") or {}).get("favorite") == favorite]
     if poste_comptable:
         docs = [d for d in docs if d.get("poste_comptable") == poste_comptable]
+    if montant_min is not None:
+        docs = [
+            d for d in docs
+            if (d.get("montant") if d.get("montant") is not None else d.get("montant_brut")) is not None
+            and (d.get("montant") if d.get("montant") is not None else d.get("montant_brut")) >= montant_min
+        ]
+    if montant_max is not None:
+        docs = [
+            d for d in docs
+            if (d.get("montant") if d.get("montant") is not None else d.get("montant_brut")) is not None
+            and (d.get("montant") if d.get("montant") is not None else d.get("montant_brut")) <= montant_max
+        ]
     if tags:
         docs = [d for d in docs if any(t in d.get("tags", []) for t in tags)]
     if search:

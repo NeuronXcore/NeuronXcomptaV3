@@ -40,6 +40,8 @@ async def list_documents(
     poste_comptable: Optional[str] = Query(None),
     tags: Optional[str] = Query(None, description="Comma-separated tags"),
     search: Optional[str] = Query(None),
+    montant_min: Optional[float] = Query(None),
+    montant_max: Optional[float] = Query(None),
     sort_by: str = Query("added_at"),
     sort_order: str = Query("desc"),
 ):
@@ -59,6 +61,8 @@ async def list_documents(
         poste_comptable=poste_comptable,
         tags=tags_list,
         search=search,
+        montant_min=montant_min,
+        montant_max=montant_max,
         sort_by=sort_by,
         sort_order=sort_order,
     )

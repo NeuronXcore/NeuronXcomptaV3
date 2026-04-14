@@ -1,5 +1,5 @@
-import { FileText, Receipt, BarChart3, FolderOpen, Star, FileSpreadsheet, File } from 'lucide-react'
-import { cn, formatCurrency } from '@/lib/utils'
+import { FileText, Receipt, BarChart3, FolderOpen, Star, File, Link as LinkIcon, CheckCircle2 } from 'lucide-react'
+import { cn, formatCurrency, formatDateShort } from '@/lib/utils'
 import type { GedDocument } from '@/types'
 
 const MOIS_FR = [
@@ -57,6 +57,12 @@ export default function GedDocumentCard({
 
   const montant = doc.montant || doc.montant_brut
 
+  // Badges overlay pour justificatifs uniquement
+  const isJustificatif = doc.type === 'justificatif'
+  const isPending = doc.statut_justificatif === 'en_attente'
+  const isAssociated = !isPending && !!doc.operation_ref
+  const displayDate = doc.date_document || doc.date_operation
+
   return (
     <div
       className={cn(
@@ -92,8 +98,50 @@ export default function GedDocumentCard({
           <Icon size={32} />
           <span className="text-[10px]">{format}</span>
         </div>
+
+        {/* Favori : top-left pour justificatifs (libère top-right pour badge statut), top-right sinon */}
         {isFavorite && (
-          <Star size={14} className="absolute top-2 right-2 fill-warning text-warning" />
+          <Star
+            size={14}
+            className={cn(
+              'absolute fill-warning text-warning',
+              isJustificatif ? 'top-2 left-2' : 'top-2 right-2',
+            )}
+          />
+        )}
+
+        {/* Badges overlay — uniquement pour les justificatifs */}
+        {isJustificatif && (
+          <>
+            {/* Statut — top-right */}
+            {(isPending || isAssociated) && (
+              <div
+                className={cn(
+                  'absolute top-1.5 right-1.5 inline-flex items-center gap-1 h-5 px-[7px] rounded-full text-[10px] font-medium border',
+                  isPending
+                    ? 'bg-[#FAEEDA] text-[#854F0B] border-[#FAC775]'
+                    : 'bg-[#EAF3DE] text-[#3B6D11] border-[#C0DD97]',
+                )}
+              >
+                {isPending ? <LinkIcon size={10} /> : <CheckCircle2 size={10} />}
+                <span>{isPending ? 'En attente' : 'Associé'}</span>
+              </div>
+            )}
+
+            {/* Montant — bottom-left */}
+            {doc.montant != null && (
+              <div className="absolute bottom-1.5 left-1.5 h-5 px-[7px] rounded-full text-[10px] font-medium bg-black/55 text-white inline-flex items-center whitespace-nowrap">
+                {doc.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              </div>
+            )}
+
+            {/* Date — bottom-right */}
+            {displayDate && (
+              <div className="absolute bottom-1.5 right-1.5 h-5 px-[7px] rounded-full text-[10px] font-medium bg-black/55 text-white inline-flex items-center whitespace-nowrap">
+                {formatDateShort(displayDate)}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -127,11 +175,6 @@ export default function GedDocumentCard({
 
         {doc.is_reconstitue && (
           <span className="text-sm" title="Fac-similé reconstitué">😈</span>
-        )}
-        {doc.statut_justificatif === 'en_attente' && (
-          <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium">
-            EN ATTENTE
-          </span>
         )}
       </div>
     </div>

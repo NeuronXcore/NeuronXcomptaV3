@@ -8,6 +8,67 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-14) — Session 20
+
+- **GedSearchBar — refonte complète de la recherche GED**
+  - Nouveau composant `GedSearchBar` (remplace `GedFilterBar` qui a été supprimé) positionné au-dessus du split layout, pleine largeur
+  - Ligne principale : input search (debounce 250ms), séparateur, label "Montant" + 2 inputs min/max 72px (commit au blur/Enter, pas debounce), bouton `FilterIcon` toggle filtres avancés (couleur bleu `#378ADD` si un filtre avancé actif)
+  - Ligne filtres avancés (repliable, auto-ouverte si un filtre avancé est déjà actif) : Type, Catégorie, Sous-catégorie (cascade : reset auto au changement de catégorie), Fournisseur, Période (Année currentYear-2..currentYear, Mois 1-12), bouton Réinitialiser
+  - Ligne chips actifs colorés : search (gris), montant (amber `#FAEEDA`), type (purple `#EEEDFE`), catégorie (blue `#E6F1FB`), période (green `#EAF3DE`) — chaque chip avec bouton `×` pour supprimer ce filtre uniquement
+  - Compteur résultats sous le bloc : `N documents correspondent aux filtres` / `N documents dans la bibliothèque` (pluriel auto)
+  - Reset naïf `onChange({})` — `GedPage.handleFiltersChange` réinjecte `sort_by`/`sort_order` (séparation des responsabilités)
+  - Backend : query params `montant_min`/`montant_max` (float) ajoutés à `GET /api/ged/documents`, filtrage avec fallback `montant || montant_brut` pour cohérence avec `GedDocumentCard`
+  - Types : `GedFilters.montant_min?`/`montant_max?`, `useGedDocuments` sérialise avec guard `!== undefined` (laisse passer 0)
+  - Accessibility : `aria-label` sur inputs, bouton toggle avec `aria-expanded`, chips avec `aria-label` ✕
+
+- **Badges overlay sur thumbnails GED (justificatifs)**
+  - `GedDocumentCard` affiche 3 badges en position absolute sur la zone thumbnail, UNIQUEMENT pour `doc.type === 'justificatif'`
+  - **Badge statut top-right** : "En attente" (amber `#FAEEDA`/`#854F0B` + `LinkIcon`) si `statut_justificatif === 'en_attente'`, "Associé" (vert `#EAF3DE`/`#3B6D11` + `CheckCircle2`) si `operation_ref` présent et pas en attente
+  - **Badge montant bottom-left** : fond `bg-black/55`, text blanc, format FR (`70,00 €`), affiché si `doc.montant != null`
+  - **Badge date bottom-right** : même style, format `formatDateShort()` (`07/03/25`), fallback `date_document || date_operation`
+  - Étoile favori déplacée en top-left pour les justificatifs (libère top-right pour badge statut)
+  - Ancien badge pill "EN ATTENTE" supprimé (redondant avec le nouveau badge overlay)
+  - Helper partagé `formatDateShort(dateStr)` dans `lib/utils.ts` (convertit `"2025-03-07"` → `"07/03/25"`)
+  - Classes `whitespace-nowrap` sur les badges overlay pour éviter les retours à la ligne en petite résolution
+
+- **GedDocumentDrawer — Édition OCR + Suppression propre (justificatifs uniquement)**
+
+  **Édition OCR depuis la GED**
+  - Double point d'entrée sur les justificatifs mal nommés : badge ambre **« Mal nommé ? Éditer OCR »** dans le header + bouton **« Éditer données OCR »** dans la zone Actions
+  - Ouvre `OcrEditDrawer` en overlay (z-50 naturel via DOM render order) avec l'item OCR pré-rempli
+  - Résolution de l'item via `useOcrHistory(2000)` (cache TanStack partagé avec OCR > Gestion OCR) + `find(i => i.filename === basename)`
+  - Fallback synthétique si pas de `.ocr.json` existant : construit `OCRHistoryItem` minimal depuis les données GED (`doc.fournisseur`, `doc.montant`, `doc.date_document`) — édition possible même sans OCR initial
+  - À la fermeture : invalide caches GED (`ged-documents`, `ged-tree`, `ged-stats`, `ocr-history`) + ferme le drawer parent (le `doc_id` peut être obsolète après rename canonique)
+
+  **Suppression propre du justificatif**
+  - Bouton rouge **« Supprimer le justificatif »** + sous-texte explicatif dans le footer du drawer
+  - Utilise le helper partagé `showDeleteConfirmToast` + hook `useDeleteJustificatif` (pattern identique à EditorPage/OcrPage/JustificatifsPage)
+  - Nettoie : PDF + `.ocr.json` + thumbnail GED + metadata GED + liens opérations (parentes + ventilations) + cache
+  - Toast succès détaillé listant les nettoyages effectués
+  - Ferme automatiquement le drawer après succès
+  - Ancien flow `useGedDeleteDocument` (DELETE `/api/ged/documents/{docId}`, qui ne nettoyait que la metadata GED) conservé pour `document_libre` et types custom
+
+- **OcrEditDrawer — Nom canonique affiché en live**
+  - Nouveau memo `livePreviewCanonical` (toujours calculé) vs `plannedCanonicalName` (null si identique au filename)
+  - Affichage déplacé dans la zone éditeur, sous les champs Fournisseur/Date/Montant (au lieu du pied du drawer)
+  - 3 états visuels :
+    - **Nouveau nom** : code mono vert emerald (`bg-emerald-500/10 border-emerald-500/40`) — rename sera appliqué
+    - **Déjà conforme** : code mono gris (`text-text-muted`) + badge « déjà conforme » — pas de rename nécessaire
+    - **Données manquantes** : texte ambre « Fournisseur, date et montant requis pour générer le nom. »
+  - Se met à jour **à chaque frappe** dans supplier/date/montant
+  - Ancien bloc redondant en bas supprimé (consolidation dans le nouveau placement)
+
+- **OcrEditDrawer — Sélecteur d'opération refondu**
+  - `<select>` natif remplacé par un **dropdown custom riche**
+  - **Filtre par mois du justificatif** en live : `justifMonth` dérivé de `effectiveDate` (ou `item.best_date` en fallback), chip bleu `📅 Avril 2025` cliquable pour basculer "Ce mois uniquement" ↔ "Toute l'année"
+  - Trigger stylisé (ChevronDown qui pivote, `border-primary` + `ring-primary/20` quand ouvert), affiche l'op sélectionnée en vue compacte (date · libellé · montant)
+  - Panel dropdown : recherche textuelle intégrée (libellé + catégorie, debounce natif input), autoFocus, compteur `N ops non associées en MOIS / Total cette année : N`
+  - Items enrichis : date `DD/MM/YY` en mono petit + badge catégorie violet pill (`Véhicule · Parking`) + libellé tronqué + montant aligné droite en `tabular-nums` (vert emerald préfixé `+` si crédit), icône `Check` si sélectionné
+  - Click outside / Esc ferme le dropdown sans fermer le drawer parent
+  - État vide intelligent : `Aucune opération non associée en MOIS` + bouton `Voir toute l'année (N ops) →` si des ops existent hors du mois
+  - Reset dropdown state (open/search) au changement d'item
+  - Imports ajoutés : `ChevronDown`, `Check`, `Search as SearchIcon`, `CalendarDays`, `formatDateShort`, `MOIS_FR`
+
 ### Added (2026-04-14) — Session 19
 
 - **Ventilation UX bout-en-bout — Éditeur, Justificatifs, Rapports**

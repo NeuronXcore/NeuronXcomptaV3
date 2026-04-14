@@ -5,7 +5,7 @@ import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
 import GedTreePanel, { type TreeTab } from './GedTreePanel'
-import GedFilterBar from './GedFilterBar'
+import GedSearchBar from './GedSearchBar'
 import GedDocumentCard from './GedDocumentCard'
 import GedDocumentGrid from './GedDocumentGrid'
 import GedDocumentList from './GedDocumentList'
@@ -42,6 +42,26 @@ export default function GedPage() {
   const scanMutation = useGedScan()
 
   const postes = postesConfig?.postes ?? []
+
+  // Listes pour les dropdowns de GedSearchBar
+  const categoriesList = useMemo(
+    () => stats?.par_categorie?.map(c => c.categorie) ?? [],
+    [stats],
+  )
+  const fournisseursList = useMemo(
+    () => stats?.par_fournisseur?.map(f => f.fournisseur) ?? [],
+    [stats],
+  )
+  const subcatForSelected = useMemo(() => {
+    if (!filters.categorie || !documents) return []
+    const set = new Set<string>()
+    for (const d of documents) {
+      if (d.categorie === filters.categorie && d.sous_categorie) {
+        set.add(d.sous_categorie)
+      }
+    }
+    return Array.from(set).sort()
+  }, [filters.categorie, documents])
 
   // Initialize filters from URL params on mount
   useEffect(() => {
@@ -172,7 +192,20 @@ export default function GedPage() {
         }
       />
 
-      <div className="flex mt-4" style={{ height: 'calc(100vh - 200px)' }}>
+      {/* Barre de recherche globale, pleine largeur au-dessus du split */}
+      <div className="mt-4">
+        <GedSearchBar
+          filters={filters}
+          onChange={handleFiltersChange}
+          categories={categoriesList}
+          subcategories={subcatForSelected}
+          fournisseurs={fournisseursList}
+          resultCount={documents?.length ?? 0}
+          isLoading={docsLoading}
+        />
+      </div>
+
+      <div className="flex" style={{ height: 'calc(100vh - 280px)' }}>
         {/* Left: Tree panel with 4 tabs */}
         <GedTreePanel
           tree={tree}
@@ -182,14 +215,8 @@ export default function GedPage() {
           onNodeSelect={handleNodeSelect}
         />
 
-        {/* Right: Filter bar + content */}
+        {/* Right: content */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <GedFilterBar
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            stats={stats}
-          />
-
           {/* Content area */}
           <div className="flex-1 overflow-y-auto p-4">
             {docsLoading ? (

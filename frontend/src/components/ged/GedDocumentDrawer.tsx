@@ -1,13 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt,
+  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import GedMetadataEditor from './GedMetadataEditor'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
+import OcrEditDrawer from '@/components/ocr/OcrEditDrawer'
 import { useGedUpdateDocument, useGedDeleteDocument, useGedOpenNative } from '@/hooks/useGed'
-import type { GedDocument, PosteComptable } from '@/types'
+import { useOcrHistory } from '@/hooks/useOcr'
+import { useDeleteJustificatif } from '@/hooks/useJustificatifs'
+import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
+import type { GedDocument, PosteComptable, OCRHistoryItem } from '@/types'
 
 interface GedDocumentDrawerProps {
   docId: string | null
@@ -21,15 +27,19 @@ const DEFAULT_WIDTH = 700
 
 export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumentDrawerProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const open = docId != null
   const [localDoc, setLocalDoc] = useState<GedDocument | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [drawerWidth, setDrawerWidth] = useState(DEFAULT_WIDTH)
+  const [showOcrEdit, setShowOcrEdit] = useState(false)
   const isResizing = useRef(false)
 
   const updateMutation = useGedUpdateDocument()
   const deleteMutation = useGedDeleteDocument()
+  const deleteJustifMutation = useDeleteJustificatif()
   const openNativeMutation = useGedOpenNative()
+  const { data: ocrHistory } = useOcrHistory(2000)
 
   // Fetch doc data
   useEffect(() => {
@@ -111,6 +121,57 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
 
   const previewUrl = docId ? `/api/ged/documents/${encodeURIComponent(docId)}/preview` : ''
   const name = localDoc?.original_name || docId?.split('/').pop() || ''
+  const basename = docId?.split('/').pop() ?? ''
+  const isJustificatif = localDoc?.type === 'justificatif'
+
+  // Item OCR pour OcrEditDrawer (fallback synthétique si pas trouvé dans l'historique)
+  const ocrItem: OCRHistoryItem | null = useMemo(() => {
+    if (!basename || !isJustificatif) return null
+    const found = ocrHistory?.find(i => i.filename === basename)
+    if (found) return found
+    return {
+      filename: basename,
+      processed_at: '',
+      status: 'manual',
+      processing_time_ms: 0,
+      dates_found: localDoc?.date_document ? [localDoc.date_document] : [],
+      amounts_found: localDoc?.montant != null ? [localDoc.montant] : [],
+      supplier: localDoc?.fournisseur ?? '',
+      confidence: 0,
+      best_date: localDoc?.date_document ?? null,
+      best_amount: localDoc?.montant ?? null,
+      category_hint: localDoc?.categorie ?? null,
+      sous_categorie_hint: localDoc?.sous_categorie ?? null,
+    }
+  }, [basename, isJustificatif, ocrHistory, localDoc])
+
+  const handleDeleteJustificatif = () => {
+    if (!docId) return
+    const filename = docId.split('/').pop() ?? ''
+    const opLibelle = localDoc?.operation_ref
+      ? `opération #${localDoc.operation_ref.index}`
+      : null
+    showDeleteConfirmToast(filename, opLibelle, () => {
+      deleteJustifMutation.mutate(filename, {
+        onSuccess: (result) => {
+          showDeleteSuccessToast(result)
+          onClose()
+        },
+        onError: (err: Error) => toast.error(`Erreur : ${err.message}`),
+      })
+    })
+  }
+
+  const handleOcrEditClose = () => {
+    setShowOcrEdit(false)
+    // Le filename peut avoir changé suite à un rename canonique → le doc_id actuel
+    // est potentiellement obsolète. On invalide + on ferme le drawer parent.
+    queryClient.invalidateQueries({ queryKey: ['ged-documents'] })
+    queryClient.invalidateQueries({ queryKey: ['ged-tree'] })
+    queryClient.invalidateQueries({ queryKey: ['ged-stats'] })
+    queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+    onClose()
+  }
 
   return (
     <>
@@ -138,8 +199,8 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
               <FileText size={18} className="text-primary" />
             </div>
@@ -148,7 +209,17 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
               <p className="text-xs text-text-muted">{localDoc?.type || ''}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-text-muted hover:text-text transition-colors">
+          {isJustificatif && (
+            <button
+              onClick={() => setShowOcrEdit(true)}
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-medium bg-[#FAEEDA] text-[#854F0B] border border-[#FAC775] hover:bg-[#FAC775]/40 transition-colors shrink-0"
+              title="Corriger supplier / date / montant / catégorie"
+            >
+              <Pencil size={12} />
+              Mal nommé ? Éditer OCR
+            </button>
+          )}
+          <button onClick={onClose} className="p-1 text-text-muted hover:text-text transition-colors shrink-0">
             <X size={18} />
           </button>
         </div>
@@ -209,6 +280,15 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
               <Download size={14} />
               Télécharger
             </a>
+            {isJustificatif && (
+              <button
+                onClick={() => setShowOcrEdit(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-surface border border-border text-text rounded-lg text-xs hover:bg-surface-hover transition-colors"
+              >
+                <Pencil size={14} />
+                Éditer données OCR
+              </button>
+            )}
             <button
               onClick={handleSave}
               disabled={updateMutation.isPending}
@@ -219,8 +299,26 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
             </button>
           </div>
 
-          {/* Delete zone — for document_libre and custom types (not releve/justificatif/rapport) */}
-          {localDoc?.type && !['releve', 'justificatif', 'rapport'].includes(localDoc.type) && (
+          {/* Delete zone — justificatif : toast centré + nettoyage complet */}
+          {isJustificatif ? (
+            <div className="border-t border-border pt-4">
+              <button
+                onClick={handleDeleteJustificatif}
+                disabled={deleteJustifMutation.isPending}
+                className="flex items-center gap-2 text-red-400/80 hover:text-red-400 text-xs transition-colors disabled:opacity-50"
+              >
+                {deleteJustifMutation.isPending
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <Trash2 size={13} />
+                }
+                Supprimer le justificatif
+              </button>
+              <p className="text-[11px] text-text-muted mt-1">
+                Supprime le PDF, le cache OCR, la thumbnail et délie les opérations associées.
+              </p>
+            </div>
+          ) : (localDoc?.type && !['releve', 'rapport'].includes(localDoc.type)) ? (
+            /* Anciens types (document_libre + custom) — confirmation inline préservée */
             <div className="border-t border-border pt-4">
               {deleteConfirm ? (
                 <div className="flex items-center gap-3">
@@ -249,9 +347,16 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
                 </button>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
+
+      {/* OcrEditDrawer en overlay (justificatif uniquement) */}
+      <OcrEditDrawer
+        open={showOcrEdit}
+        item={ocrItem}
+        onClose={handleOcrEditClose}
+      />
     </>
   )
 }

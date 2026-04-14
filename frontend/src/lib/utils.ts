@@ -25,6 +25,16 @@ export function formatDate(dateStr: string): string {
   }
 }
 
+/**
+ * Convertit "2025-03-07" → "07/03/25" (6 chars, compact pour overlay badge).
+ * Retourne la chaîne d'origine si le format n'est pas reconnu.
+ */
+export function formatDateShort(dateStr: string): string {
+  const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return dateStr
+  return `${m[3]}/${m[2]}/${m[1].slice(2)}`
+}
+
 export const MOIS_FR = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',

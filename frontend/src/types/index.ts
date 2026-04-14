@@ -1128,6 +1128,8 @@ export interface GedFilters {
   poste_comptable?: string
   tags?: string[]
   search?: string
+  montant_min?: number
+  montant_max?: number
   sort_by?: string
   sort_order?: 'asc' | 'desc'
 }
