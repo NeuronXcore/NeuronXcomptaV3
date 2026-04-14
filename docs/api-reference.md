@@ -69,6 +69,30 @@ Passer `null` pour effacer le split.
 
 **Réponse :** `{ "ok": true, "csg_non_deductible": 17.67 }`
 
+### `PATCH /{filename}/{index}/lock`
+Verrouille ou déverrouille une opération pour protéger son association justificatif contre l'auto-rapprochement.
+
+**Body :**
+```json
+{ "locked": true }
+```
+
+**Réponse :**
+```json
+{ "locked": true, "locked_at": "2026-04-14T20:55:53" }
+```
+
+Passer `{ "locked": false }` pour déverrouiller (met `locked_at` à `null` dans la réponse).
+
+**Effets collatéraux** :
+- `run_auto_rapprochement` skippe désormais cette op silencieusement (couche 2 de protection)
+- `POST /api/rapprochement/associate-manual` et `POST /api/justificatifs/dissociate` renvoient **HTTP 423** sur cette op tant qu'elle reste verrouillée (sauf `associate-manual` avec `force=true`)
+- L'édition de catégorie/sous-catégorie/commentaire reste autorisée — seul le lien justificatif est protégé
+
+**Code HTTP** :
+- `200 OK` — lock/unlock appliqué
+- `404 Not Found` — filename introuvable ou `index` hors bornes
+
 ---
 
 ## Categories (`/api/categories`)
@@ -414,6 +438,8 @@ Associer un justificatif. Declenche auto-pointage si le setting `auto_pointage` 
 
 ### `POST /dissociate`
 Dissocier. Efface les `category_hint` et `sous_categorie_hint` du `.ocr.json` pour ne pas biaiser les futurs rapprochements. Body : `{ "operation_file": "...", "operation_index": 5 }`
+
+**Garde verrouillage** : si l'opération cible a `locked=true`, le router retourne **HTTP 423** avec le message « Opération verrouillée — déverrouillez avant de dissocier. ». Pas de bypass disponible (contrairement à `associate-manual` qui accepte `force=true`) — il faut explicitement appeler `PATCH /api/operations/{filename}/{index}/lock` avec `{locked: false}` avant de pouvoir dissocier.
 
 ### `GET /{filename}/thumbnail`
 **Nouveau endpoint cross-location.** Retourne le thumbnail PNG d'un justificatif en résolvant automatiquement `en_attente/` puis `traites/` via `get_justificatif_path()`, puis délègue à `ged_service.get_thumbnail_path()`.
@@ -794,9 +820,13 @@ Rapprochement automatique : parcourt tous les justificatifs en attente, auto-ass
 ### `POST /associate-manual`
 Association manuelle opération ↔ justificatif avec métadonnées.
 
-**Body :** `{ "justificatif_filename": "...", "operation_file": "...", "operation_index": 5, "rapprochement_score": 0.75, "ventilation_index": null }`
+**Body :** `{ "justificatif_filename": "...", "operation_file": "...", "operation_index": 5, "rapprochement_score": 0.75, "ventilation_index": null, "force": false }`
 
 Le champ `ventilation_index` est optionnel. Si fourni, l'association écrit le justificatif dans la sous-ligne de ventilation correspondante.
+
+Le champ `force` (défaut `false`) permet de bypasser la garde lock. Sans `force=true`, le router répond **HTTP 423** si l'opération cible a `locked=true`.
+
+**Side-effect** : après succès, le router set automatiquement `locked=true` + `locked_at=<ISO>` sur l'op — toute association manuelle verrouille donc l'opération contre un éventuel écrasement par `run_auto_rapprochement`.
 
 ### `GET /unmatched`
 Compteurs : opérations sans justificatif / justificatifs en attente. Le compteur `justificatifs_en_attente` exclut les fichiers physiquement en `en_attente/` mais déjà référencés par une opération (via `get_all_referenced_justificatifs()`).

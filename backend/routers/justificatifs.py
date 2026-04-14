@@ -187,6 +187,20 @@ async def associate_justificatif(request: AssociateRequest):
 @router.post("/dissociate")
 async def dissociate_justificatif(request: DissociateRequest):
     """Dissocie un justificatif d'une opération."""
+    # Garde lock : empêche la dissociation d'une op verrouillée
+    try:
+        from backend.services import operation_service as _op_svc_guard
+        _ops_guard = _op_svc_guard.load_operations(request.operation_file)
+        if 0 <= request.operation_index < len(_ops_guard) and _ops_guard[request.operation_index].get("locked"):
+            raise HTTPException(
+                status_code=423,
+                detail="Opération verrouillée — déverrouillez avant de dissocier.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # erreur de chargement → laisser le service gérer
+
     # GED V2: capture justificatif filename before dissociation clears the link
     justif_filename_for_ged = None
     try:

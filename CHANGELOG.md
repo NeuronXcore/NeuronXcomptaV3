@@ -8,6 +8,43 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-14) — Session 23
+
+- **Verrouillage des opérations validées (`locked`)**
+  - Nouveaux champs `locked: Optional[bool] = False` + `locked_at: Optional[str] = None` sur le modèle `Operation` (backend Pydantic + frontend TypeScript)
+  - **Set automatique** dans `backend/routers/rapprochement.py:associate_manual` après succès du service → toute association manuelle verrouille l'op (set `locked_at` via `datetime.now().isoformat(timespec="seconds")`)
+  - **Skip silencieux** dans `backend/services/rapprochement_service.py:run_auto_rapprochement` : `if op.get("locked"): continue` en tête de la boucle d'itération, avant les branches ventilée/non-ventilée → les ops verrouillées sont ignorées par l'auto-rapprochement quelle que soit leur structure
+  - **Gardes HTTP 423** dans les 2 routers d'association/dissociation :
+    - `backend/routers/rapprochement.py:associate_manual` → 423 si op lockée (sauf si `req.force=True`, champ ajouté sur `ManualAssociateRequest` pour bypass futur)
+    - `backend/routers/justificatifs.py:dissociate_justificatif` → 423 systématique si op lockée (pas de bypass)
+    - Message FR : « Opération verrouillée — déverrouillez avant de modifier l'association / dissocier »
+  - **Nouveau endpoint** `PATCH /api/operations/{filename}/{index}/lock` avec body `{locked: bool}` → `{locked, locked_at}`. Pattern idempotent par valeur (pas un toggle aveugle) via méthode PATCH + body Pydantic explicite
+  - **Hook** `useToggleLock` (`frontend/src/hooks/useToggleLock.ts`) : mutation `api.patch(/operations/${filename}/${index}/lock, {locked})` avec invalidation `['operations', filename]` + `['justificatifs']`
+  - **Composant** `UnlockConfirmModal` (`frontend/src/components/UnlockConfirmModal.tsx`) : modale 380px avec backdrop, icône `Lock` warning dans cercle `bg-warning/15`, titre « Déverrouiller l'association ? », message démonstratif sur le risque auto-rapprochement, boutons Annuler + Déverrouiller (warning)
+  - **Composant** `LockCell` (`frontend/src/components/LockCell.tsx`) : null si `!hasJustificatif`, click unlocked → lock immédiat + toast succès, click locked → ouvre `UnlockConfirmModal` → confirm → unlock + toast. Icônes `Lock` orange `text-warning` (`#f59e0b`) si verrouillé / `LockOpen` gris `text-text-muted/40` sinon, taille 14px
+  - **Tooltip custom** au survol des cadenas (pas `title=` natif) : ancré `right-0` (pas centré — évite débordement quand la colonne Justif. est en bord droit de l'écran), card 240px avec gradient `amber-500 → orange-500` + texte blanc si locked OU `bg-surface` neutre + texte clair sinon, pastille `ShieldCheck`/`Lock` + titre en gras + description démonstrative (« Le rapprochement automatique ne peut plus toucher à ce justificatif… ») + CTA `MousePointerClick` + « Cliquer pour déverrouiller/verrouiller », flèche positionnée `right-[7px]` sous le bouton, fade-in 150ms avec délai
+  - **Intégration JustificatifsPage** : cellule Justificatif wrapée dans `inline-flex items-center gap-1.5` après le bouton statut existant (paperclip/check/circle/ban), utilise `op._filename` + `op._originalIndex` enrichis par `useJustificatifsPage`
+  - **Intégration EditorPage** : nouvelle colonne `id: 'locked'` de 28px insérée **après** `accessorKey: 'Justificatif'`, `enableSorting: false`, `enableColumnFilter: false`, utilise `op._sourceFile ?? selectedFile` + `op._index ?? row.index` pour supporter les 2 modes (single-file + year-wide)
+  - **Agent IA préservé** : vérification exhaustive que `ml_service`, `ml_monitoring_service`, `ml.py` router et `operation_service.categorize_file()` ne touchent **jamais** à `Justificatif` ni `Lien justificatif` — seules mutations ML : `op["Catégorie"]` + `op["Sous-catégorie"]`. Les associations sont donc immunisées contre l'Agent IA
+  - **Couches de protection** (double verrou) :
+    - Couche 1 (native) : `run_auto_rapprochement` skippe déjà `Justificatif=true` + `vl.justificatif` → ops associées historiques protégées
+    - Couche 2 (nouvelle) : skip supplémentaire sur `locked=true` → protège même après dissociation (re-association auto bloquée)
+
+- **Pipeline — Étape 4 « Verrouillage des associations »**
+  - 7ᵉ étape insérée dans le stepper entre Justificatifs (3) et Lettrage (5), avec renumérotation des étapes suivantes (Lettrage:5, Vérification:6, Clôture:7)
+  - **Progression** : `op_verrouillées / op_associées × 100` calculée dans un memo `lockingStats` ajouté à `frontend/src/hooks/usePipeline.ts` juste après `categorizationStats` — **pas de nouveau endpoint backend**, réutilise `operationsQuery.data` déjà chargé pour l'étape 2
+    - Dénominateur : ops avec `Lien justificatif` non vide OU ventilation avec au moins une sous-ligne justifiée (cohérent avec le filtre « Avec justif. » de JustificatifsPage)
+    - Numérateur : parmi celles-ci, les ops avec `locked=true`
+  - **Status** : `not_started` si pas de fichier ou 0 associées, `complete` si `taux >= 1`, `in_progress` si `locked > 0`, sinon `not_started`
+  - **Metrics** : « Taux verrouillage » (% variant success/warning/danger selon ratio) + « Verrouillées » (N / total associées)
+  - **CTA** : « Voir les associations » → `/justificatifs?file=X&filter=avec` (laisse l'utilisateur verrouiller via les cadenas LockCell existants)
+  - **Pondération** : `STEP_WEIGHTS` passé de `[10, 20, 25, 25, 10, 10]` (6 étapes, somme 100) à `[10, 20, 20, 10, 20, 10, 10]` (7 étapes, somme 100) — Justif et Lettrage réduits de 5 pts chacun pour libérer 10 pts pour Verrouillage. Conséquence intentionnelle : un mois ne peut plus atteindre 100% global sans verrouiller ses associations
+  - `PipelinePage` itère dynamiquement via `steps.map` → **aucune modif du composant** (isFirst/isLast calculés automatiquement)
+
+- **PendingScansWidget — collapsed par défaut**
+  - `frontend/src/components/pipeline/PendingScansWidget.tsx:240` — `useState(true)` → `useState(false)` pour que le widget « Scans en attente d'association » soit replié à chaque ouverture du pipeline
+  - Évite le bruit visuel au premier coup d'œil (le badge compteur suffit) ; l'utilisateur déroule manuellement via le chevron si besoin
+
 ### Added (2026-04-14) — Session 22
 
 - **Éditeur — Sous-drawer preview PDF grand format**

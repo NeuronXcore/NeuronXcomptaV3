@@ -23,6 +23,7 @@ import {
 import { api } from '@/api/client'
 import toast from 'react-hot-toast'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
+import { LockCell } from '@/components/LockCell'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import PreviewSubDrawer from '@/components/ocr/PreviewSubDrawer'
@@ -776,6 +777,30 @@ export default function EditorPage() {
         )
       },
       sortingFn: (a, b) => Number(a.original.Justificatif || 0) - Number(b.original.Justificatif || 0),
+    },
+    // Locked — cadenas pour les ops dont le justificatif a été validé manuellement
+    {
+      id: 'locked',
+      header: () => null,
+      size: 28,
+      enableSorting: false,
+      enableColumnFilter: false,
+      cell: ({ row }) => {
+        const op = row.original
+        const filename = op._sourceFile ?? selectedFile ?? ''
+        const index = op._index ?? row.index
+        if (!filename) return null
+        return (
+          <div className="flex items-center justify-center">
+            <LockCell
+              filename={filename}
+              index={index}
+              locked={!!op.locked}
+              hasJustificatif={!!op.Justificatif}
+            />
+          </div>
+        )
+      },
     },
     // Important
     {

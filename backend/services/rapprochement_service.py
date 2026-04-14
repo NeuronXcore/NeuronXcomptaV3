@@ -764,6 +764,8 @@ def _run_auto_rapprochement_locked() -> dict:
 
         for op_file, ops in ops_cache.items():
             for idx, op in enumerate(ops):
+                if op.get("locked"):
+                    continue  # skip silencieusement les ops verrouillées manuellement
                 vlines = op.get("ventilation", [])
                 if vlines:
                     # Op ventilée : scorer chaque sous-ligne individuellement

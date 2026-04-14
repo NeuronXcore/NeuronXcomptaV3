@@ -219,3 +219,27 @@ async def categorize_operations(filename: str, request: CategorizeRequest):
         return operation_service.categorize_file(filename, request.mode)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Fichier non trouvé")
+
+
+class LockRequest(BaseModel):
+    locked: bool
+
+
+@router.patch("/{filename}/{index}/lock")
+async def toggle_lock(filename: str, index: int, body: LockRequest):
+    """Verrouille ou déverrouille une opération (protège l'association justificatif contre l'auto-rapprochement)."""
+    from datetime import datetime
+
+    try:
+        ops = operation_service.load_operations(filename)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Fichier non trouvé")
+
+    if not (0 <= index < len(ops)):
+        raise HTTPException(status_code=404, detail="Opération introuvable")
+
+    op = ops[index]
+    op["locked"] = body.locked
+    op["locked_at"] = datetime.now().isoformat(timespec="seconds") if body.locked else None
+    operation_service.save_operations(ops, filename=filename)
+    return {"locked": op["locked"], "locked_at": op.get("locked_at")}

@@ -40,6 +40,8 @@ export interface Operation {
   Important?: boolean
   A_revoir?: boolean
   lettre?: boolean
+  locked?: boolean
+  locked_at?: string
   Commentaire?: string
   participants?: string
   rapprochement_score?: number

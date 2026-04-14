@@ -3,8 +3,9 @@ import { useCallback, useMemo, useState } from 'react'
 import { api } from '../api/client'
 import type { PipelineStep, PipelineStepStatus } from '../types'
 
-// Pondération pour le calcul de progression globale
-const STEP_WEIGHTS = [10, 20, 25, 25, 10, 10] // total = 100
+// Pondération pour le calcul de progression globale (7 étapes)
+// Import, Catég, Justif, Verrouillage, Lettrage, Vérif, Clôture
+const STEP_WEIGHTS = [10, 20, 20, 10, 20, 10, 10] // total = 100
 
 const STORAGE_KEY_YEAR = 'pipeline_year'
 const STORAGE_KEY_MONTH = 'pipeline_month'
@@ -130,6 +131,33 @@ export function usePipeline() {
     }
   }, [operationsQuery.data])
 
+  // Calcul verrouillage des associations
+  const lockingStats = useMemo(() => {
+    if (!operationsQuery.data) return { associated: 0, locked: 0, taux: 0 }
+    const ops = operationsQuery.data as unknown as Array<{
+      'Lien justificatif'?: string
+      locked?: boolean
+      ventilation?: Array<{ justificatif?: string | null }>
+    }>
+    // Dénominateur : ops avec un vrai lien de justif (PDF attaché) OU ops ventilées avec au moins une sous-ligne justifiée
+    const associated = ops.filter(op => {
+      const lien = (op['Lien justificatif'] || '').trim()
+      if (lien) return true
+      return (op.ventilation || []).some(v => !!v.justificatif)
+    }).length
+    // Numérateur : parmi ces ops, celles verrouillées
+    const locked = ops.filter(op => {
+      const lien = (op['Lien justificatif'] || '').trim()
+      const hasVlJustif = (op.ventilation || []).some(v => !!v.justificatif)
+      return (lien || hasVlJustif) && !!op.locked
+    }).length
+    return {
+      associated,
+      locked,
+      taux: associated > 0 ? locked / associated : 0,
+    }
+  }, [operationsQuery.data])
+
   // Années disponibles (extraites des fichiers)
   const availableYears = useMemo(() => {
     if (!filesQuery.data) return [currentDate.getFullYear()]
@@ -137,7 +165,7 @@ export function usePipeline() {
     return years.sort((a, b) => b - a)
   }, [filesQuery.data])
 
-  // Construire les 6 étapes
+  // Construire les 7 étapes
   const steps: PipelineStep[] = useMemo(() => {
     // --- ÉTAPE 1 : Import ---
     const step1Status: PipelineStepStatus = currentFile ? 'complete' : 'not_started'
@@ -254,8 +282,37 @@ export function usePipeline() {
         secondaryActions: [{ label: 'Voir justificatifs', route: fileParam ? `/justificatifs?${fileParam}` : '/justificatifs' }],
       },
       {
-        id: 'lettrage',
+        id: 'verrouillage',
         number: 4,
+        title: 'Verrouillage des associations',
+        description: 'Verrouiller les justificatifs attribués pour qu\'ils soient protégés contre l\'écrasement par le rapprochement automatique. Chaque nouvelle association manuelle verrouille automatiquement — il reste à traiter les associations historiques faites avant cette feature.',
+        status: (() => {
+          if (!currentFile) return 'not_started' as PipelineStepStatus
+          if (lockingStats.associated === 0) return 'not_started' as PipelineStepStatus
+          if (lockingStats.taux >= 1) return 'complete' as PipelineStepStatus
+          if (lockingStats.locked > 0) return 'in_progress' as PipelineStepStatus
+          return 'not_started' as PipelineStepStatus
+        })(),
+        progress: Math.round(lockingStats.taux * 100),
+        metrics: [
+          {
+            label: 'Taux verrouillage',
+            value: `${Math.round(lockingStats.taux * 100)}%`,
+            variant: lockingStats.taux >= 1 ? 'success' : lockingStats.taux > 0.5 ? 'warning' : 'danger',
+          },
+          {
+            label: 'Verrouillées',
+            value: lockingStats.locked,
+            total: lockingStats.associated,
+            variant: 'default',
+          },
+        ],
+        actionLabel: 'Voir les associations',
+        actionRoute: fileParam ? `/justificatifs?${fileParam}&filter=avec` : '/justificatifs?filter=avec',
+      },
+      {
+        id: 'lettrage',
+        number: 5,
         title: 'Lettrage des opérations',
         description: 'Pointer les opérations en les associant aux justificatifs correspondants. Le rapprochement auto gère les cas évidents.',
         status: step4Status,
@@ -278,7 +335,7 @@ export function usePipeline() {
       },
       {
         id: 'verification',
-        number: 5,
+        number: 6,
         title: 'Vérification & alertes',
         description: 'Traiter les alertes du compte d\'attente : justificatifs manquants, opérations non catégorisées, montants suspects, doublons potentiels.',
         status: step5Status,
@@ -295,7 +352,7 @@ export function usePipeline() {
       },
       {
         id: 'cloture',
-        number: 6,
+        number: 7,
         title: 'Clôture & export',
         description: 'Finaliser le mois : vérifier que lettrage et justificatifs sont à 100%, puis générer l\'archive comptable ZIP.',
         status: step6Status,
@@ -312,7 +369,7 @@ export function usePipeline() {
         secondaryActions: [{ label: 'Vue clôture', route: '/cloture' }],
       },
     ]
-  }, [currentFile, categorizationStats, clotureMonth, alertesForFile])
+  }, [currentFile, categorizationStats, lockingStats, clotureMonth, alertesForFile])
 
   // Progression globale pondérée
   const globalProgress = useMemo(() => {

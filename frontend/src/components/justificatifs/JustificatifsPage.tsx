@@ -26,6 +26,7 @@ import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import { Unlink, Paperclip, Trash2 } from 'lucide-react'
+import { LockCell } from '@/components/LockCell'
 import type { VentilationLine } from '@/types'
 import type { CategoryRaw } from '@/types'
 
@@ -681,53 +682,61 @@ export default function JustificatifsPage() {
                           })()}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (hasJustif) {
-                                const lien = op['Lien justificatif'] || ''
-                                const basename = lien.split('/').pop() || ''
-                                if (basename) {
-                                  setPreviewJustif(basename)
-                                  setPreviewOpFile(op._filename)
-                                  setPreviewOpIndex(op._originalIndex)
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (hasJustif) {
+                                  const lien = op['Lien justificatif'] || ''
+                                  const basename = lien.split('/').pop() || ''
+                                  if (basename) {
+                                    setPreviewJustif(basename)
+                                    setPreviewOpFile(op._filename)
+                                    setPreviewOpIndex(op._originalIndex)
+                                  }
+                                } else if (isExempt) {
+                                  // op exemptée — pas d'action
+                                  return
+                                } else {
+                                  openDrawer(op)
                                 }
-                              } else if (isExempt) {
-                                // op exemptée — pas d'action
-                                return
-                              } else {
-                                openDrawer(op)
+                              }}
+                              disabled={isExempt && !hasJustif}
+                              title={
+                                hasJustif
+                                  ? 'Justificatif attribué — cliquer pour voir'
+                                  : isPerso
+                                    ? 'Opération perso — aucun justificatif requis'
+                                    : isExempt
+                                      ? `Catégorie « ${op['Catégorie']} » exemptée — pas de justificatif requis`
+                                      : 'Cliquer pour attribuer un justificatif'
                               }
-                            }}
-                            disabled={isExempt && !hasJustif}
-                            title={
-                              hasJustif
-                                ? 'Justificatif attribué — cliquer pour voir'
+                              className={cn(
+                                'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
+                                hasJustif
+                                  ? 'text-emerald-400 hover:bg-emerald-500/15'
+                                  : isPerso
+                                    ? 'text-red-400/80 cursor-default'
+                                    : isExempt
+                                      ? 'text-sky-400 cursor-default'
+                                      : 'text-amber-400 hover:bg-amber-500/15'
+                              )}
+                            >
+                              {hasJustif
+                                ? <CheckCircle2 size={18} />
                                 : isPerso
-                                  ? 'Opération perso — aucun justificatif requis'
+                                  ? <Ban size={18} />
                                   : isExempt
-                                    ? `Catégorie « ${op['Catégorie']} » exemptée — pas de justificatif requis`
-                                    : 'Cliquer pour attribuer un justificatif'
-                            }
-                            className={cn(
-                              'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
-                              hasJustif
-                                ? 'text-emerald-400 hover:bg-emerald-500/15'
-                                : isPerso
-                                  ? 'text-red-400/80 cursor-default'
-                                  : isExempt
-                                    ? 'text-sky-400 cursor-default'
-                                    : 'text-amber-400 hover:bg-amber-500/15'
-                            )}
-                          >
-                            {hasJustif
-                              ? <CheckCircle2 size={18} />
-                              : isPerso
-                                ? <Ban size={18} />
-                                : isExempt
-                                  ? <CheckCircle2 size={18} />
-                                  : <Circle size={18} />}
-                          </button>
+                                    ? <CheckCircle2 size={18} />
+                                    : <Circle size={18} />}
+                            </button>
+                            <LockCell
+                              filename={op._filename}
+                              index={op._originalIndex}
+                              locked={!!op.locked}
+                              hasJustificatif={!!hasJustif}
+                            />
+                          </div>
                           {hasJustif && isReconstitue(op['Lien justificatif'] || '') && (
                             <span className="text-[10px]" title="Fac-similé reconstitué">😈</span>
                           )}

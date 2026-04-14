@@ -1705,5 +1705,10 @@
     "libelle": "virementsepaemismotifbnppersoben",
     "categorie": "Revenus",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "uber one",
+    "categorie": "perso",
+    "sous_categorie": ""
   }
 ]

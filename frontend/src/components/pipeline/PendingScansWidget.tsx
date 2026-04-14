@@ -235,7 +235,9 @@ export default function PendingScansWidget({ year, month }: PendingScansWidgetPr
   }), [filtered])
 
   const totalCount = ocrScans.length + facsimiles.length
-  const [expanded, setExpanded] = useState(true)
+  // Collapsed par défaut à chaque ouverture du pipeline — évite le bruit visuel
+  // au premier coup d'œil ; l'utilisateur déroule uniquement s'il veut traiter les scans
+  const [expanded, setExpanded] = useState(false)
 
   const visibleOcr = ocrScans.slice(0, MAX_VISIBLE)
   const visibleFacsimiles = facsimiles.slice(0, MAX_VISIBLE)

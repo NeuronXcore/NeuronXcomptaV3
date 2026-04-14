@@ -28,6 +28,8 @@ class Operation(BaseModel):
     Important: bool = False
     A_revoir: bool = False
     lettre: bool = False
+    locked: Optional[bool] = False
+    locked_at: Optional[str] = None
     Commentaire: Optional[str] = None
     participants: Optional[str] = None
     rapprochement_score: Optional[float] = None

@@ -1318,5 +1318,60 @@
     "corrected_category": "Véhicule",
     "corrected_subcategory": "Essence",
     "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-14T20:48:53.815209",
+    "filename": "operations_20260413_185158_275b0690.json",
+    "operation_index": 55,
+    "libelle": "DU120125AUCHANDAC MONTAUBAN 109,73",
+    "predicted_category": "Alimentation",
+    "predicted_subcategory": "Essence",
+    "corrected_category": "Véhicule",
+    "corrected_subcategory": "Essence",
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-14T20:48:53.815209",
+    "filename": "operations_20260413_185158_275b0690.json",
+    "operation_index": 68,
+    "libelle": "DU260125AUCHANDAC MONTAUBAN 117,80",
+    "predicted_category": "Alimentation",
+    "predicted_subcategory": "Essence",
+    "corrected_category": "Véhicule",
+    "corrected_subcategory": "Essence",
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-14T20:49:08.580186",
+    "filename": "operations_20260413_185158_275b0690.json",
+    "operation_index": 45,
+    "libelle": "DU060125UBER *ONE 5,99",
+    "predicted_category": "Transport",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-14T20:49:08.580186",
+    "filename": "operations_20260413_185158_275b0690.json",
+    "operation_index": 55,
+    "libelle": "DU120125AUCHANDAC MONTAUBAN 109,73",
+    "predicted_category": "Alimentation",
+    "predicted_subcategory": "Essence",
+    "corrected_category": "Véhicule",
+    "corrected_subcategory": "Essence",
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-14T20:49:08.580186",
+    "filename": "operations_20260413_185158_275b0690.json",
+    "operation_index": 68,
+    "libelle": "DU260125AUCHANDAC MONTAUBAN 117,80",
+    "predicted_category": "Alimentation",
+    "predicted_subcategory": "Essence",
+    "corrected_category": "Véhicule",
+    "corrected_subcategory": "Essence",
+    "prediction_source": "exact_match"
   }
 ]

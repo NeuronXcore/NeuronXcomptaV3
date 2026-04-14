@@ -716,6 +716,61 @@ Fichier opérations → rapprochement router → rapprochement_service
   → Dissociation : supprime lien justificatif + champs rapprochement
 ```
 
+### Verrouillage des opérations (protection anti-écrasement)
+
+```
+Modèle Operation enrichi :
+  → locked: Optional[bool] = False
+  → locked_at: Optional[str] = None  (ISO datetime timespec=seconds)
+
+Set automatique (association manuelle) :
+  → backend/routers/rapprochement.py:associate_manual
+  → Après succès justificatif_service.associate() → charge ops, set locked=true + locked_at, save
+  → PAS dans le service pour éviter que l'auto-rapprochement locker aussi
+
+Skip silencieux (auto-rapprochement) :
+  → backend/services/rapprochement_service.py:run_auto_rapprochement (boucle ligne 767)
+  → if op.get("locked"): continue (avant les branches ventilée/non-ventilée)
+  → Protection globale sur l'op entière (pas au niveau sous-ligne)
+
+Gardes HTTP 423 (ré-association / dissociation) :
+  → backend/routers/rapprochement.py:associate_manual (en tête)
+    - Charge ops, check op["locked"] → raise 423 sauf si req.force=True
+    - Champ force: bool = False ajouté sur ManualAssociateRequest
+  → backend/routers/justificatifs.py:dissociate_justificatif (en tête)
+    - Même pattern, pas de bypass force disponible
+
+Endpoint PATCH (toggle explicite) :
+  → PATCH /api/operations/{filename}/{index}/lock
+  → Body Pydantic : { locked: bool }
+  → Response : { locked, locked_at }
+  → Idempotent par valeur (pas un toggle aveugle)
+
+Frontend :
+  → useToggleLock : api.patch + invalidation ['operations', filename] + ['justificatifs']
+  → LockCell (components/LockCell.tsx) :
+    - Null si !hasJustificatif
+    - Click unlocked → lock immédiat + toast
+    - Click locked → UnlockConfirmModal → confirm → unlock + toast
+    - Icônes : Lock orange #f59e0b (text-warning) si locked, LockOpen gris sinon
+    - Tooltip custom ancré right-0 (pas centré) pour éviter débordement
+  → UnlockConfirmModal : backdrop + card 380px warning avec message démonstratif
+
+Intégration :
+  → JustificatifsPage : inline-flex gap-1.5 wrap autour du bouton Justif
+  → EditorPage : nouvelle colonne dédiée 28px après Justificatif, supporte year-wide
+    via op._sourceFile ?? selectedFile + op._index ?? row.index
+
+Double verrou (2 couches de protection) :
+  → Couche 1 (native, préexistante) : run_auto skippe Justificatif=true (op/sous-ligne)
+  → Couche 2 (nouvelle) : skip supplémentaire sur locked=true
+  → Résultat : même après dissociation, l'auto ne peut pas ré-associer sans unlock explicite
+
+Agent IA : ne touche JAMAIS aux champs Justificatif / Lien justificatif (vérifié —
+  ml_service, ml_monitoring_service, routers/ml.py, categorize_file mutent uniquement
+  Catégorie + Sous-catégorie)
+```
+
 ### Lettrage comptable
 
 ```
@@ -1027,14 +1082,19 @@ Batch reconstitution (JustificatifsPage) :
 Page Pipeline (/) → PipelinePage
   → Grille 12 badges mois (icône + nom + %) cliquables
   → Sélecteur exercice fiscal (boutons années)
-  → Barre progression globale pondérée (10/20/25/25/10/10)
-  → Stepper 6 étapes accordion (cards expandables) :
+  → Widget « Scans en attente d'association » (collapsed par défaut, badge compteur visible dans le header)
+  → Barre progression globale pondérée (10/20/20/10/20/10/10 — 7 étapes)
+  → Stepper 7 étapes accordion (cards expandables) :
     1. Import (GET /api/operations/files)
     2. Catégorisation (GET /api/operations/{filename})
     3. Justificatifs (GET /api/cloture/{year} → taux_justificatifs)
-    4. Rapprochement (GET /api/cloture/{year} → taux_lettrage)
-    5. Vérification (GET /api/alertes/summary)
-    6. Clôture (GET /api/cloture/{year} → statut)
+    4. Verrouillage (calcul client depuis operationsQuery.data : locked / associées)
+       → Numérateur : ops avec locked=true parmi celles associées
+       → Dénominateur : ops avec 'Lien justificatif' non vide OU ventilation justifiée
+       → CTA : « Voir les associations » → /justificatifs?file=X&filter=avec
+    5. Lettrage (GET /api/cloture/{year} → taux_lettrage)
+    6. Vérification (GET /api/alertes/summary)
+    7. Clôture (GET /api/cloture/{year} → statut)
   → Persistance année/mois dans localStorage
   → Badge sidebar : % global mois courant, clic → navigate('/')
 ```

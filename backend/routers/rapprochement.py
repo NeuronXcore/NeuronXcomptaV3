@@ -1,6 +1,8 @@
 """Router pour le rapprochement opérations / justificatifs."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
@@ -87,16 +89,38 @@ class ManualAssociateRequest(BaseModel):
     operation_index: int
     rapprochement_score: Optional[float] = None
     ventilation_index: Optional[int] = None
+    force: bool = False
 
 
 @router.post("/associate-manual")
 def associate_manual(req: ManualAssociateRequest):
     """Association manuelle avec métadonnées de rapprochement."""
+    # Garde lock : empêche la modification d'une association verrouillée
+    from backend.services import operation_service as _op_svc_guard
+    _ops_guard = _op_svc_guard.load_operations(req.operation_file)
+    if 0 <= req.operation_index < len(_ops_guard) and _ops_guard[req.operation_index].get("locked"):
+        if not req.force:
+            raise HTTPException(
+                status_code=423,
+                detail="Opération verrouillée — déverrouillez avant de modifier l'association.",
+            )
+
     success = justificatif_service.associate(
         req.justificatif_filename, req.operation_file, req.operation_index
     )
     if not success:
         raise HTTPException(status_code=400, detail="Échec de l'association")
+
+    # Set lock automatiquement : toute association manuelle verrouille l'op
+    try:
+        from backend.services import operation_service as _op_svc_lock
+        _ops_lock = _op_svc_lock.load_operations(req.operation_file)
+        if 0 <= req.operation_index < len(_ops_lock):
+            _ops_lock[req.operation_index]["locked"] = True
+            _ops_lock[req.operation_index]["locked_at"] = datetime.now().isoformat(timespec="seconds")
+            _op_svc_lock.save_operations(_ops_lock, filename=req.operation_file)
+    except Exception:
+        pass  # lock non critique — l'association reste valide
 
     if req.ventilation_index is not None:
         # Pour une sous-ligne ventilée : écrire le justificatif dans la sous-ligne
