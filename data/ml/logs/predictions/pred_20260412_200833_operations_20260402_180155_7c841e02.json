@@ -1,0 +1,133 @@
+{
+  "timestamp": "2026-04-12T20:08:33.429040",
+  "filename": "operations_20260402_180155_7c841e02.json",
+  "mode": "empty_only",
+  "total_operations": 86,
+  "predicted": 15,
+  "high_confidence": 15,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "DU301024CNOM PARIS 353,00",
+      "predicted_category": "Ordre des Médecins",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU311024AMAZONPAYMENTSPAYLI2441535/ 35,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU011124AMAZONPAYMENTSPAYLI2441535/ 149,45",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU081124AMAZONPAYMENTSPAYLI2441535/ 158,60",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU101124QPFDUPUYBS MONTA2935936/ 2,10",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU141124AMAZONPAYMENTSPAYLI2441535/ 149,00",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU141124AMAZONPAYMENTSPAYLI2441535/ 298,00",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU171124AMAZONPAYMENTSPAYLI2441535/ 17,99",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU181124QPFDUPUYBS MONTA2935936/ 1,20",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU181124AMAZONPAYMENTSPAYLI2441535/ 92,71",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU211124QPFDUPUYBS MONTA2935936/ 0,70",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU231124AMAZONPAYMENTSPAYLI2441535/ 278,58",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU241124AMAZONPAYMENTSPAYLI2441535/ 69,53",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU241124AMAZONPAYMENTSPAYLI2441535/ 99,19",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU261124GARDENICECAFEMONTAUBAN 10,50",
+      "predicted_category": "repas",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

@@ -23,7 +23,7 @@
     {
       "id": "vehicule",
       "label": "Véhicule (carburant, entretien, leasing)",
-      "deductible_pct": 50.6,
+      "deductible_pct": 51.0,
       "categories_associees": [
         "Transport",
         "Véhicule"

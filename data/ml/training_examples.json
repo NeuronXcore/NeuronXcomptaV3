@@ -1685,5 +1685,15 @@
     "libelle": "ubereatshelp",
     "categorie": "perso",
     "sous_categorie": "Repas"
+  },
+  {
+    "libelle": "forfait repas professionnels 2025 boibncbase40",
+    "categorie": "Repas pro",
+    "sous_categorie": "Repas seul"
+  },
+  {
+    "libelle": "prlvsepaamazoneusarlsuccursale",
+    "categorie": "perso",
+    "sous_categorie": ""
   }
 ]

@@ -1,0 +1,453 @@
+{
+  "timestamp": "2026-04-13T21:18:31.835551",
+  "filename": "operations_20260413_185157_18aef1a3.json",
+  "mode": "all",
+  "total_operations": 61,
+  "predicted": 55,
+  "high_confidence": 55,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "VIRSEPARECU/FRMSCPANESTHESIOLO/EID 30000,00",
+      "predicted_category": "Honoraires",
+      "predicted_subcategory": "Bloc",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSEPARECU/FRMSCPANESTHESIOLO/EID 8092,00",
+      "predicted_category": "Honoraires",
+      "predicted_subcategory": "Bloc",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 600,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 1000,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 1200,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 500,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFREMPLACEMENTDR 1000,00",
+      "predicted_category": "Remplaçant",
+      "predicted_subcategory": "Honoraires",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFREMPLACEMENTDR 1000,00",
+      "predicted_category": "Remplaçant",
+      "predicted_subcategory": "Honoraires",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 100,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 500,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRCPTEACPTEEMISVR.PERMANENTPRT 2815,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 500,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFREMPLACEMENTDR 2000,00",
+      "predicted_category": "Remplaçant",
+      "predicted_subcategory": "Honoraires",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 100,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFVIREMENTDEM. 500,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 11,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 399,00",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 9,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 239,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPACARMF PRELEVMTSMENSUELS 2320,00",
+      "predicted_category": "CARMF",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 7,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 7,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 7,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 7,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 9,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 14,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 39,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 39,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 99,98",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 5,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 23,65",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 659,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 16,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 79,98",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 279,00",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 186,92",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 5,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 3,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 109,98",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONEUSARL,SUCCURSALE 3,29",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 14,58",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 15,95",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 16,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 112,49",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAURSSAFCENTREDEGESTIONPAM 3509,00",
+      "predicted_category": "URSSAF",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 59,22",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 21,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 63,06",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 25,95",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 4506,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 11,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 49,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 174,75",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "*COMMISSIONSFACTURENUMERO 111,00",
+      "predicted_category": "Frais Bancaires",
+      "predicted_subcategory": "BNP",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "*INTERETSETCOMMISSIONS 99,98",
+      "predicted_category": "Frais Bancaires",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

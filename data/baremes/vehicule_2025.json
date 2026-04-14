@@ -1,7 +1,7 @@
 {
   "annee": 2025,
-  "date_derniere_application": "2026-04-12T18:54:35.038322",
-  "ratio_pro_applique": 50.6,
+  "date_derniere_application": "2026-04-13T17:11:49.490783",
+  "ratio_pro_applique": 51.0,
   "historique": [
     {
       "date": "2026-04-12T17:57:56.899231",
@@ -53,6 +53,28 @@
       "ancien_ratio": 50.6,
       "distance": 7.9,
       "jours": 176.5,
+      "km_sup": 500.0,
+      "km_totaux": 6500.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    },
+    {
+      "date": "2026-04-13T06:07:57.664612",
+      "ratio": 51.0,
+      "ancien_ratio": 50.6,
+      "distance": 7.9,
+      "jours": 178.0,
+      "km_sup": 500.0,
+      "km_totaux": 6500.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    },
+    {
+      "date": "2026-04-13T17:11:49.490783",
+      "ratio": 51.0,
+      "ancien_ratio": 51.0,
+      "distance": 7.9,
+      "jours": 178.0,
       "km_sup": 500.0,
       "km_totaux": 6500.0,
       "pdf_filename": "quote_part_vehicule_2025.pdf",

@@ -1,0 +1,509 @@
+{
+  "timestamp": "2026-04-14T10:49:33.993405",
+  "filename": "operations_20260413_185159_38dd0f42.json",
+  "mode": "empty_only",
+  "total_operations": 73,
+  "predicted": 62,
+  "high_confidence": 62,
+  "medium_confidence": 0,
+  "low_confidence": 0,
+  "hallucination_flags": 0,
+  "predictions": [
+    {
+      "libelle": "VIRSEPARECU/FRMSCPANESTHESIOLO/EID 33000,00",
+      "predicted_category": "Honoraires",
+      "predicted_subcategory": "Bloc",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSEPARECU/FRMSCPANESTHESIOLO/EID 6769,00",
+      "predicted_category": "Honoraires",
+      "predicted_subcategory": "Bloc",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "H01260680 BNPPARIBAS 400,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Retrait CB",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "H02260680 BNPPARIBAS 100,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Retrait CB",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU290425BJOPTIQUE MONTAUBAN 18,00",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU290425LW MONTAUBAN 47,80",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU290425LEROYMERLIN MONTAUBAN 183,61",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU300425QPFDUPUYBS MONTA2935936/ 0,70",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU300425MISTRAL.AI 19PARIS 17,99",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU020525CLIPTCHAUME MONTAUBAN 13,60",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU030525ASFCAUSSADE VEDENE 1,70",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU050525CLIPTCHAUME MONTAUBAN 8,80",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU060525CURSORUSAGEMI 19,15",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU060525AMAZONPAYMENTSPAYLI2441535/ 63,10",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU080525CURSORUSAGE A 3,70",
+      "predicted_category": "CARMF",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU080525LEROYMERLIN MONTAUBAN 190,01",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU090525QPFDUPUYBS MONTA2935936/ 4,40",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU100525CURSORUSAGEMI 19,30",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU110525CURSORUSAGEMI 19,28",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU130525LEVOLTAIRE MONTAUBAN 27,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU130525BRICODEPOT MONTAUBA2363/ 69,80",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU130525BUREAUVALLEE MONTAUBAN 85,46",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU140525CLIPTCHAUME MONTAUBAN 15,20",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU140525OPENAI*CHATGPT 23,18",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU160525CLIPTCHAUME MONTAUBAN 3,30",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU160525CLIPTCHAUME MONTAUBAN 10,25",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU160525OPENAI*CHATGPT 23,02",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU170525BUREAUVALLEE MONTAUBAN 43,42",
+      "predicted_category": "Fournitures",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU180525CURSORUSAGEMI 19,60",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU190525CLIPTCHAUME MONTAUBAN 4,95",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU200525QPFDUPUYBS MONTA2935936/ 0,70",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU200525SPORT2000 MONTAUBAN 253,88",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU220525ACCOR*IBISMON 76,42",
+      "predicted_category": "Remplaçant",
+      "predicted_subcategory": "Hébergement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU230525REMARKABLE 2,99",
+      "predicted_category": "Abonnements",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU230525CLIPTCHAUME MONTAUBAN 16,10",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU240525AMAZONPAYMENTSPAYLI2441535/ 400,27",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU240525LDLCMONTAUBAN MONTAUBAN 409,90",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU260525QPFDUPUYBS MONTA2935936/ 2,10",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Parking",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU260525ASF,3PAIEMENTVEDENE 6,50",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU260525AMAZONPAYMENTSPAYLI2441535/ 189,91",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU270525LECASTELIBIS MONTAUBAN 33,00",
+      "predicted_category": "Remplaçant",
+      "predicted_subcategory": "Hébergement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU270525AMAZONPAYMENTSPAYLI2441535/ 115,19",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU280525AMAZONPAYMENTSPAYLI2441535/ 6,99",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Informatique",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "DU280525PAGA MONTAUBAN 26,91",
+      "predicted_category": "Repas pro",
+      "predicted_subcategory": "Repas seul",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/PID 500,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "Honoraires",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRCPTEACPTEEMISVR.PERMANENT 5000,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRCPTEACPTEEMIS/MOTIFTOBNPAC 300,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFREVAC/BENRVAC 1000,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRCPTEACPTEEMISVR.PERMANENTPRT 2815,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "VIRSCTINSTEMIS/MOTIFREVAC/BENRVAC 1000,00",
+      "predicted_category": "perso",
+      "predicted_subcategory": "virement",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 230,75",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAORANGESA-ORANGEECH/050525ID 103,66",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPAL(EUROPE)S.AR.L.ET 247,66",
+      "predicted_category": "Formations",
+      "predicted_subcategory": "Udemy",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPACARMF PRELEVMTSMENSUELS 2250,00",
+      "predicted_category": "CARMF",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 5,99",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAFCEBANKPLCECH/190525ID 1439,87",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": "Loyer",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAURSSAFCENTREDEGESTIONPAM 2549,00",
+      "predicted_category": "URSSAF",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 44,92",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 579,00",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 66,65",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 306,90",
+      "predicted_category": "Matériel",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "*COMMISSIONSFACTURENUMERO 10,00",
+      "predicted_category": "Frais Bancaires",
+      "predicted_subcategory": "BNP",
+      "confidence": 1.0,
+      "source": "exact_match",
+      "hallucination_risk": false
+    }
+  ]
+}

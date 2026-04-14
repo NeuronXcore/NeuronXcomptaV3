@@ -10,7 +10,7 @@
     "norauto205 montauban": "Véhicule",
     "virementsepaemismotifimpotsrevenus": "perso",
     "paga montauban": "Repas pro",
-    "tuttipizza montauban": "perso",
+    "tuttipizza montauban": "Repas pro",
     "chatgptsubscri": "Abonnements",
     "auchandac montauban": "Alimentation",
     "dappuniversity": "Formations",
@@ -140,13 +140,13 @@
     "virsctinstemismotifrevecbenrvac": "perso",
     "virsctinstemismotiffourniture": "Fournitures",
     "virementsepaemismotifimpotsbenm": "Revenus",
-    "virsctinstemismotifvirementdem": "perso",
+    "virsctinstemismotifvirementdem": "Revenus",
     "prlvsepafcebankplcech180925id": "Véhicule",
     "virsctinstemismotifacompte": "Fournitures",
     "virsctinstemismotifmassimo": "Logiciel",
     "qpfdupuybs monta2935936": "Véhicule",
     "vir sct inst": "Fournitures",
-    "vircpteacpteemismotifvirement": "perso",
+    "vircpteacpteemismotifvirement": "Revenus",
     "prlvsepafcebankplcech201025id": "Véhicule",
     "vircpteacpterecurefben origscp": "Honoraires",
     "ubereats": "perso",
@@ -162,7 +162,7 @@
     "prlvsepaorangesaech111225id": "Telephone-Internet",
     "prlvsepafcebankplcech181225id": "Véhicule",
     "paddlenetsyn": "perso",
-    "amazonpaymentspayli2441535": "Fournitures",
+    "amazonpaymentspayli2441535": "perso",
     "tisseopr tisseo": "Véhicule",
     "tisseoregieautoulouse": "Véhicule",
     "wwwperplexity": "Abonnements",
@@ -229,7 +229,7 @@
     "vircpteacpteemismotiftobnpac": "perso",
     "anthropic": "Abonnements",
     "abacusai": "Abonnements",
-    "prlvsepaamazoneusarlsuccursale": "Fournitures",
+    "prlvsepaamazoneusarlsuccursale": "perso",
     "prlvsepafcebankplcech180725id": "Véhicule",
     "cursorusage j": "Abonnements",
     "vircpteacpteemismotifpersobenm": "perso",
@@ -246,7 +246,8 @@
     "hotelibisstylmontauban": "Remplaçant",
     "prlvsepaavanssurech171225id": "Véhicule",
     "frais de blanchissage professionnel": "Blanchissage professionnel",
-    "virementsepaemismotifremplacant": "Remplaçant"
+    "virementsepaemismotifremplacant": "Remplaçant",
+    "forfait repas professionnels 2025 boibncbase40": "Repas pro"
   },
   "keywords": {
     "Remplaçant": [
@@ -341,7 +342,14 @@
     "autosetam82 montauban": "Entretien",
     "virementsepaemismotifremplacant": "Honoraires",
     "paga montauban": "Repas seul",
-    "cliptchaume montauban": "Repas seul"
+    "cliptchaume montauban": "Repas seul",
+    "forfait repas professionnels 2025 boibncbase40": "Repas seul",
+    "tuttipizza montauban": "Repas confrères",
+    "pagaunal montauban": "Repas seul",
+    "sncdls montauban": "Repas seul",
+    "mcdonalds montauban": "Repas seul",
+    "prlvsepafcebankplcech180725id": "Loyer",
+    "hotelibisstylmontauban": "Hébergement"
   },
   "stats": {
     "operations_processed": 0,
