@@ -383,8 +383,8 @@
       "date_operation": "2025-01-06",
       "montant": 128.84,
       "operation_ref": {
-        "file": "operations_20260413_185158_275b0690.json",
-        "index": 77,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 31,
         "ventilation_index": null
       },
       "period": {
@@ -414,8 +414,8 @@
       "date_operation": "2025-02-04",
       "montant": 104.97,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
-        "index": 46,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 12,
         "ventilation_index": null
       },
       "period": {
@@ -445,8 +445,8 @@
       "date_operation": "2025-05-05",
       "montant": 103.66,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 62,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 13,
         "ventilation_index": null
       },
       "period": {
@@ -476,8 +476,8 @@
       "date_operation": "2025-06-05",
       "montant": 119.24,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 73,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 10,
         "ventilation_index": null
       },
       "period": {
@@ -507,8 +507,8 @@
       "date_operation": "2025-07-04",
       "montant": 137.68,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 52,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 6,
         "ventilation_index": null
       },
       "period": {
@@ -538,8 +538,8 @@
       "date_operation": "2025-07-15",
       "montant": 97.39,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 64,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 39,
         "ventilation_index": null
       },
       "period": {
@@ -569,8 +569,8 @@
       "date_operation": "2025-08-04",
       "montant": 130.85,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 72,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 20,
         "ventilation_index": null
       },
       "period": {
@@ -600,8 +600,8 @@
       "date_operation": "2025-08-14",
       "montant": 46.99,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 78,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 44,
         "ventilation_index": null
       },
       "period": {
@@ -631,8 +631,8 @@
       "date_operation": "2025-09-04",
       "montant": 327.89,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 71,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 11,
         "ventilation_index": null
       },
       "period": {
@@ -662,8 +662,8 @@
       "date_operation": "2025-10-06",
       "montant": 326.56,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 61,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 21,
         "ventilation_index": null
       },
       "period": {
@@ -694,8 +694,8 @@
       "date_operation": "2025-10-13",
       "montant": 46.99,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 68,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 38,
         "ventilation_index": null
       },
       "period": {
@@ -725,8 +725,8 @@
       "date_operation": "2025-11-03",
       "montant": 31.28,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 84,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 10,
         "ventilation_index": null
       },
       "period": {
@@ -756,8 +756,8 @@
       "date_operation": "2025-11-14",
       "montant": 46.99,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 92,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 49,
         "ventilation_index": null
       },
       "period": {
@@ -787,8 +787,8 @@
       "date_operation": "2025-12-05",
       "montant": 29.27,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 46,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 24,
         "ventilation_index": null
       },
       "period": {
@@ -818,8 +818,8 @@
       "date_operation": "2025-12-24",
       "montant": 5.99,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 67,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 66,
         "ventilation_index": null
       },
       "period": {
@@ -1066,8 +1066,8 @@
       "date_operation": "2025-04-25",
       "montant": 19.1,
       "operation_ref": {
-        "file": "operations_20260413_185200_4cf58a44.json",
-        "index": 39,
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 55,
         "ventilation_index": null
       },
       "period": {
@@ -1098,8 +1098,8 @@
       "date_operation": "2025-05-06",
       "montant": 19.15,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 14,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 18,
         "ventilation_index": null
       },
       "period": {
@@ -1130,8 +1130,8 @@
       "date_operation": "2025-05-18",
       "montant": 19.6,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 33,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 40,
         "ventilation_index": null
       },
       "period": {
@@ -1185,8 +1185,8 @@
       "date_operation": "2025-03-06",
       "montant": 44.97,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 14,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 18,
         "ventilation_index": null
       },
       "period": {
@@ -1261,8 +1261,8 @@
       "date_operation": "2025-01-18",
       "montant": 389.95,
       "operation_ref": {
-        "file": "operations_20260413_185158_275b0690.json",
-        "index": 61,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 2,
         "ventilation_index": null
       },
       "period": {
@@ -1293,8 +1293,8 @@
       "date_operation": "2025-02-08",
       "montant": 109.95,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
-        "index": 18,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 21,
         "ventilation_index": null
       },
       "period": {
@@ -1325,8 +1325,8 @@
       "date_operation": "2025-02-15",
       "montant": 2599.99,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
-        "index": 29,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 33,
         "ventilation_index": null
       },
       "period": {
@@ -1357,8 +1357,8 @@
       "date_operation": "2025-02-15",
       "montant": 39.95,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
-        "index": 25,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 34,
         "ventilation_index": null
       },
       "period": {
@@ -1389,8 +1389,8 @@
       "date_operation": "2025-02-15",
       "montant": 69.9,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
-        "index": 26,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 35,
         "ventilation_index": null
       },
       "period": {
@@ -1421,8 +1421,8 @@
       "date_operation": "2025-06-14",
       "montant": 109.95,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 26,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 35,
         "ventilation_index": null
       },
       "period": {
@@ -1453,8 +1453,8 @@
       "date_operation": "2025-06-14",
       "montant": 154.95,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 28,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 36,
         "ventilation_index": null
       },
       "period": {
@@ -5550,13 +5550,13 @@
       "added_at": "2026-04-09T23:50:54.671537",
       "original_name": "clinique-pont-de-chaumes_20250127_191,24.pdf",
       "ocr_file": "data/justificatifs/traites/clinique-pont-de-chaumes_20250127_191,24.ocr.json",
-      "categorie": "Remplaçant",
-      "sous_categorie": "Hébergement",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
       "date_operation": "2025-01-27",
       "montant": 191.24,
       "operation_ref": {
-        "file": "operations_20260413_185158_275b0690.json",
-        "index": 71,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 19,
         "ventilation_index": null
       },
       "period": {
@@ -5589,8 +5589,8 @@
       "date_operation": "2025-01-27",
       "montant": 11.4,
       "operation_ref": {
-        "file": "operations_20260413_185158_275b0690.json",
-        "index": 70,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 15,
         "ventilation_index": null
       },
       "period": {
@@ -5623,8 +5623,8 @@
       "date_operation": "2025-03-27",
       "montant": 11.4,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 39,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 51,
         "ventilation_index": null
       },
       "period": {
@@ -5657,8 +5657,8 @@
       "date_operation": "2025-02-28",
       "montant": 190.94,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 4,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 0,
         "ventilation_index": null
       },
       "period": {
@@ -5691,8 +5691,8 @@
       "date_operation": "2025-06-08",
       "montant": 12.66,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 14,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 18,
         "ventilation_index": null
       },
       "period": {
@@ -5725,8 +5725,8 @@
       "date_operation": "2025-02-15",
       "montant": 145.0,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
-        "index": 27,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 36,
         "ventilation_index": null
       },
       "period": {
@@ -5759,8 +5759,8 @@
       "date_operation": "2025-09-05",
       "montant": 4.0,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 12,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 18,
         "ventilation_index": null
       },
       "period": {
@@ -5793,8 +5793,8 @@
       "date_operation": "2025-11-18",
       "montant": 3.2,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 56,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 68,
         "ventilation_index": null
       },
       "period": {
@@ -5922,8 +5922,8 @@
       "date_operation": "2025-07-02",
       "montant": 100.0,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 76,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 1,
         "ventilation_index": null
       },
       "period": {
@@ -5954,8 +5954,8 @@
       "date_operation": "2025-03-05",
       "montant": 38.87,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 10,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 11,
         "ventilation_index": null
       },
       "period": {
@@ -5986,8 +5986,8 @@
       "date_operation": "2025-03-27",
       "montant": 28.46,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 41,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 54,
         "ventilation_index": null
       },
       "period": {
@@ -6018,8 +6018,8 @@
       "date_operation": "2025-04-22",
       "montant": 25.34,
       "operation_ref": {
-        "file": "operations_20260413_185200_4cf58a44.json",
-        "index": 35,
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 46,
         "ventilation_index": null
       },
       "period": {
@@ -6050,8 +6050,8 @@
       "date_operation": "2025-05-10",
       "montant": 27.56,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 20,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 25,
         "ventilation_index": null
       },
       "period": {
@@ -6082,8 +6082,8 @@
       "date_operation": "2025-05-11",
       "montant": 27.8,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 22,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 27,
         "ventilation_index": null
       },
       "period": {
@@ -6114,8 +6114,8 @@
       "date_operation": "2025-05-13",
       "montant": 23.75,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 23,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 31,
         "ventilation_index": null
       },
       "period": {
@@ -6146,8 +6146,8 @@
       "date_operation": "2025-06-12",
       "montant": 26.56,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 19,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 29,
         "ventilation_index": null
       },
       "period": {
@@ -6178,8 +6178,8 @@
       "date_operation": "2025-06-25",
       "montant": 30.02,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 52,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 69,
         "ventilation_index": null
       },
       "period": {
@@ -6210,8 +6210,8 @@
       "date_operation": "2025-07-12",
       "montant": 21.73,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 9,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 25,
         "ventilation_index": null
       },
       "period": {
@@ -6242,8 +6242,8 @@
       "date_operation": "2025-07-13",
       "montant": 40.14,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 11,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 26,
         "ventilation_index": null
       },
       "period": {
@@ -6274,8 +6274,8 @@
       "date_operation": "2025-07-24",
       "montant": 60.47,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 33,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 61,
         "ventilation_index": null
       },
       "period": {
@@ -6306,8 +6306,8 @@
       "date_operation": "2025-07-26",
       "montant": 33.98,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 35,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 64,
         "ventilation_index": null
       },
       "period": {
@@ -6338,8 +6338,8 @@
       "date_operation": "2025-08-02",
       "montant": 32.67,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 14,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 12,
         "ventilation_index": null
       },
       "period": {
@@ -6370,8 +6370,8 @@
       "date_operation": "2025-08-03",
       "montant": 23.6,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 16,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 14,
         "ventilation_index": null
       },
       "period": {
@@ -6402,8 +6402,8 @@
       "date_operation": "2025-08-04",
       "montant": 20.57,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 18,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 19,
         "ventilation_index": null
       },
       "period": {
@@ -6434,8 +6434,8 @@
       "date_operation": "2025-08-05",
       "montant": 43.46,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 22,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 23,
         "ventilation_index": null
       },
       "period": {
@@ -6466,8 +6466,8 @@
       "date_operation": "2025-08-05",
       "montant": 48.09,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 23,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 24,
         "ventilation_index": null
       },
       "period": {
@@ -6498,8 +6498,8 @@
       "date_operation": "2025-08-07",
       "montant": 27.52,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 31,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 33,
         "ventilation_index": null
       },
       "period": {
@@ -6530,8 +6530,8 @@
       "date_operation": "2025-08-07",
       "montant": 27.08,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 30,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 32,
         "ventilation_index": null
       },
       "period": {
@@ -6562,8 +6562,8 @@
       "date_operation": "2025-08-08",
       "montant": 30.56,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 33,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 35,
         "ventilation_index": null
       },
       "period": {
@@ -6594,8 +6594,8 @@
       "date_operation": "2025-08-08",
       "montant": 53.05,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 34,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 36,
         "ventilation_index": null
       },
       "period": {
@@ -6626,8 +6626,8 @@
       "date_operation": "2025-07-29",
       "montant": 31.06,
       "operation_ref": {
-        "file": "operations_20260413_185205_dd562f0f.json",
-        "index": 3,
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 1,
         "ventilation_index": null
       },
       "period": {
@@ -6658,8 +6658,8 @@
       "date_operation": "2025-09-18",
       "montant": 31.49,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 35,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 53,
         "ventilation_index": null
       },
       "period": {
@@ -6690,8 +6690,8 @@
       "date_operation": "2025-10-02",
       "montant": 39.39,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 12,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 13,
         "ventilation_index": null
       },
       "period": {
@@ -6722,7 +6722,7 @@
       "date_operation": "2025-10-03",
       "montant": 39.39,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
+        "file": "operations_merged_202510_20260414_234739.json",
         "index": 14,
         "ventilation_index": null
       },
@@ -6754,8 +6754,8 @@
       "date_operation": "2025-10-06",
       "montant": 42.09,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 19,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 18,
         "ventilation_index": null
       },
       "period": {
@@ -6786,8 +6786,8 @@
       "date_operation": "2025-10-10",
       "montant": 53.96,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 24,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 32,
         "ventilation_index": null
       },
       "period": {
@@ -6818,8 +6818,8 @@
       "date_operation": "2025-10-12",
       "montant": 31.36,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 27,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 36,
         "ventilation_index": null
       },
       "period": {
@@ -6850,8 +6850,8 @@
       "date_operation": "2025-10-17",
       "montant": 25.57,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 34,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 49,
         "ventilation_index": null
       },
       "period": {
@@ -6882,8 +6882,8 @@
       "date_operation": "2025-10-18",
       "montant": 27.05,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 36,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 51,
         "ventilation_index": null
       },
       "period": {
@@ -6914,8 +6914,8 @@
       "date_operation": "2025-10-20",
       "montant": 55.7,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 39,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 56,
         "ventilation_index": null
       },
       "period": {
@@ -6946,8 +6946,8 @@
       "date_operation": "2025-10-22",
       "montant": 29.59,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 43,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 63,
         "ventilation_index": null
       },
       "period": {
@@ -6978,8 +6978,8 @@
       "date_operation": "2025-11-02",
       "montant": 32.61,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 10,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 7,
         "ventilation_index": null
       },
       "period": {
@@ -7010,7 +7010,7 @@
       "date_operation": "2025-11-06",
       "montant": 38.88,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
+        "file": "operations_merged_202511_20260414_234739.json",
         "index": 20,
         "ventilation_index": null
       },
@@ -7042,8 +7042,8 @@
       "date_operation": "2025-11-14",
       "montant": 39.16,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 41,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 48,
         "ventilation_index": null
       },
       "period": {
@@ -7074,8 +7074,8 @@
       "date_operation": "2025-11-15",
       "montant": 32.42,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 45,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 54,
         "ventilation_index": null
       },
       "period": {
@@ -7106,8 +7106,8 @@
       "date_operation": "2025-11-15",
       "montant": 52.99,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 47,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 57,
         "ventilation_index": null
       },
       "period": {
@@ -7138,8 +7138,8 @@
       "date_operation": "2025-12-07",
       "montant": 39.31,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 20,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 27,
         "ventilation_index": null
       },
       "period": {
@@ -7170,8 +7170,8 @@
       "date_operation": "2025-12-06",
       "montant": 53.63,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 18,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 26,
         "ventilation_index": null
       },
       "period": {
@@ -7202,8 +7202,8 @@
       "date_operation": "2025-12-16",
       "montant": 23.51,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 25,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 40,
         "ventilation_index": null
       },
       "period": {
@@ -7234,8 +7234,8 @@
       "date_operation": "2025-12-21",
       "montant": 30.5,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 30,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 54,
         "ventilation_index": null
       },
       "period": {
@@ -7461,8 +7461,8 @@
       "date_operation": "2025-09-17",
       "montant": 1.7,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 32,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 46,
         "ventilation_index": null
       },
       "period": {
@@ -7698,8 +7698,8 @@
       "date_operation": "2025-05-22",
       "montant": 76.42,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 38,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 50,
         "ventilation_index": null
       },
       "period": {
@@ -7730,8 +7730,8 @@
       "date_operation": "2025-05-27",
       "montant": 33.0,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 46,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 66,
         "ventilation_index": null
       },
       "period": {
@@ -7762,8 +7762,8 @@
       "date_operation": "2025-06-19",
       "montant": 63.12,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 38,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 50,
         "ventilation_index": null
       },
       "period": {
@@ -7794,8 +7794,8 @@
       "date_operation": "2025-06-23",
       "montant": 23.0,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 44,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 60,
         "ventilation_index": null
       },
       "period": {
@@ -7982,8 +7982,8 @@
       "date_operation": "2025-03-15",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 19,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 27,
         "ventilation_index": null
       }
     },
@@ -8014,8 +8014,8 @@
       "date_operation": "2025-12-12",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 51,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 35,
         "ventilation_index": null
       }
     },
@@ -8049,8 +8049,8 @@
       "date_operation": "2025-09-07",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 21,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 23,
         "ventilation_index": null
       }
     },
@@ -8084,8 +8084,8 @@
       "date_operation": "2025-09-05",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 17,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 19,
         "ventilation_index": null
       }
     },
@@ -8119,8 +8119,8 @@
       "date_operation": "2025-12-17",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 26,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 44,
         "ventilation_index": null
       }
     },
@@ -8151,8 +8151,8 @@
       "date_operation": "2025-09-12",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 78,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 35,
         "ventilation_index": null
       }
     },
@@ -8186,8 +8186,8 @@
       "date_operation": "2025-08-31",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 7,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 2,
         "ventilation_index": null
       }
     },
@@ -8211,7 +8211,7 @@
       "montant": 13.8,
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
+        "file": "operations_merged_202502_20260414_234739.json",
         "index": 5,
         "ventilation_index": null
       },
@@ -8250,8 +8250,8 @@
       "date_operation": "2025-05-24",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 42,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 58,
         "ventilation_index": null
       }
     },
@@ -8315,8 +8315,8 @@
       "date_operation": "2025-03-19",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 23,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 33,
         "ventilation_index": null
       }
     },
@@ -10128,8 +10128,8 @@
       "date_operation": "2025-10-02",
       "montant": 101.99,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 13,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 9,
         "ventilation_index": null
       },
       "period": {
@@ -10159,8 +10159,8 @@
       "date_operation": "2025-12-24",
       "montant": 399.99,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 68,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 65,
         "ventilation_index": null
       },
       "period": {
@@ -10190,8 +10190,8 @@
       "date_operation": "2025-12-30",
       "montant": 34.99,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 83,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 72,
         "ventilation_index": 0
       },
       "period": {
@@ -10221,8 +10221,8 @@
       "date_operation": "2025-12-30",
       "montant": 372.98,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 81,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 71,
         "ventilation_index": null
       },
       "period": {
@@ -10252,8 +10252,8 @@
       "date_operation": "2025-12-30",
       "montant": 409.0,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 83,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 72,
         "ventilation_index": 1
       },
       "period": {
@@ -10283,8 +10283,8 @@
       "date_operation": "2025-12-30",
       "montant": 441.07,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 82,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 70,
         "ventilation_index": null
       },
       "period": {
@@ -10385,8 +10385,8 @@
       "date_operation": "2025-01-03",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185158_275b0690.json",
-        "index": 43,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 46,
         "ventilation_index": null
       }
     },
@@ -10412,8 +10412,8 @@
       "montant": 364.0,
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 16,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 21,
         "ventilation_index": null
       },
       "period": {
@@ -10449,8 +10449,8 @@
       "date_operation": "2025-04-09",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185200_4cf58a44.json",
-        "index": 25,
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 32,
         "ventilation_index": null
       }
     },
@@ -10481,8 +10481,8 @@
       "date_operation": "2025-12-18",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 59,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 49,
         "ventilation_index": null
       }
     },
@@ -10523,13 +10523,13 @@
       "added_at": "2026-04-14T17:28:23.195591",
       "original_name": "auchan_20241229_18.94_fs_2.pdf",
       "ocr_file": "data/justificatifs/traites/auchan_20241229_18.94_fs_2.ocr.json",
-      "categorie": "Alimentation",
-      "sous_categorie": "Essence",
+      "categorie": "Véhicule",
+      "sous_categorie": "",
       "date_operation": "2024-12-29",
       "montant": 18.94,
       "operation_ref": {
-        "file": "operations_20260413_185158_275b0690.json",
-        "index": 35,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 45,
         "ventilation_index": null
       },
       "period": {
@@ -10568,8 +10568,8 @@
       "date_operation": "2025-12-02",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 43,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 17,
         "ventilation_index": null
       }
     },
@@ -10600,8 +10600,8 @@
       "date_operation": "2025-12-11",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 49,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 32,
         "ventilation_index": null
       }
     },
@@ -10618,13 +10618,13 @@
       "added_at": "2026-04-14T17:47:31.245044",
       "original_name": "auchan_20241229_34.78_fs_2.pdf",
       "ocr_file": "data/justificatifs/traites/auchan_20241229_34.78_fs_2.ocr.json",
-      "categorie": "Alimentation",
-      "sous_categorie": "Essence",
+      "categorie": "Véhicule",
+      "sous_categorie": "",
       "date_operation": "2024-12-29",
       "montant": 34.78,
       "operation_ref": {
-        "file": "operations_20260413_185158_275b0690.json",
-        "index": 37,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 51,
         "ventilation_index": null
       },
       "period": {
@@ -10654,8 +10654,8 @@
       "date_operation": "2025-11-29",
       "montant": 539.9,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 7,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 2,
         "ventilation_index": null
       },
       "period": {
@@ -10694,8 +10694,8 @@
       "date_operation": "2025-02-08",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185200_51b5892b.json",
-        "index": 16,
+        "file": "operations_merged_202502_20260414_234739.json",
+        "index": 20,
         "ventilation_index": null
       }
     },
@@ -10726,8 +10726,8 @@
       "date_operation": "2025-03-04",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185204_d238601f.json",
-        "index": 53,
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 9,
         "ventilation_index": null
       }
     },
@@ -10758,8 +10758,8 @@
       "date_operation": "2025-12-31",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 84,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 85,
         "ventilation_index": null
       }
     },
@@ -10790,8 +10790,8 @@
       "date_operation": "2025-12-16",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 55,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 42,
         "ventilation_index": null
       }
     },
@@ -10822,8 +10822,8 @@
       "date_operation": "2025-11-18",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 95,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 70,
         "ventilation_index": null
       }
     },
@@ -10854,8 +10854,8 @@
       "date_operation": "2025-04-02",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185200_4cf58a44.json",
-        "index": 60,
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 14,
         "ventilation_index": null
       }
     },
@@ -10886,8 +10886,8 @@
       "date_operation": "2025-04-07",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185200_4cf58a44.json",
-        "index": 62,
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 27,
         "ventilation_index": null
       }
     },
@@ -10918,8 +10918,8 @@
       "date_operation": "2025-05-02",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 61,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 6,
         "ventilation_index": null
       }
     },
@@ -10950,8 +10950,8 @@
       "date_operation": "2025-05-05",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185159_38dd0f42.json",
-        "index": 63,
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 14,
         "ventilation_index": null
       }
     },
@@ -10982,8 +10982,8 @@
       "date_operation": "2025-06-03",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185159_41fcd232.json",
-        "index": 72,
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 7,
         "ventilation_index": null
       }
     },
@@ -11014,8 +11014,8 @@
       "date_operation": "2025-12-23",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 66,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 60,
         "ventilation_index": null
       }
     },
@@ -11046,8 +11046,8 @@
       "date_operation": "2025-12-01",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185203_a4edeb28.json",
-        "index": 38,
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 10,
         "ventilation_index": null
       }
     },
@@ -11078,8 +11078,8 @@
       "date_operation": "2025-11-04",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185206_e7eba879.json",
-        "index": 86,
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 15,
         "ventilation_index": null
       }
     },
@@ -11110,8 +11110,8 @@
       "date_operation": "2025-10-31",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 86,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 91,
         "ventilation_index": null
       }
     },
@@ -11142,8 +11142,8 @@
       "date_operation": "2025-09-19",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185201_7bbe45dd.json",
-        "index": 88,
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 60,
         "ventilation_index": null
       }
     },
@@ -11174,8 +11174,8 @@
       "date_operation": "2025-07-01",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185158_1c979f6e.json",
-        "index": 50,
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 0,
         "ventilation_index": null
       }
     },
@@ -11206,10 +11206,2317 @@
       "date_operation": "2025-10-24",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_20260413_185205_e7ae1dab.json",
-        "index": 79,
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 70,
         "ventilation_index": null
       }
+    },
+    "data/justificatifs/en_attente/auchan_20250208_103.54_fs.pdf": {
+      "doc_id": "data/justificatifs/en_attente/auchan_20250208_103.54_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 2,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250208_103.54_fs.pdf",
+      "ocr_file": "data/justificatifs/en_attente/auchan_20250208_103.54_fs.ocr.json",
+      "fournisseur": "Auchan",
+      "period": {
+        "year": 2025,
+        "month": 2,
+        "quarter": 1
+      },
+      "is_reconstitue": true,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/en_attente/cliptchaume_20250108_8.55_fs.pdf": {
+      "doc_id": "data/justificatifs/en_attente/cliptchaume_20250108_8.55_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250108_8.55_fs.pdf",
+      "ocr_file": "data/justificatifs/en_attente/cliptchaume_20250108_8.55_fs.ocr.json",
+      "fournisseur": "Cliptchaume",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "is_reconstitue": true,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/traites/auchan_20250112_109.73_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250112_109.73_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250112_109.73_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250112_109.73_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-01-12",
+      "montant": 109.73,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 52,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250126_117.80_fs_2.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250126_117.80_fs_2.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250126_117.80_fs_2.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250126_117.80_fs_2.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-01-26",
+      "montant": 117.8,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 65,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250308_112.21_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250308_112.21_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250308_112.21_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250308_112.21_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-03-08",
+      "montant": 112.21,
+      "operation_ref": {
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 19,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": 1
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250330_111.19_fs_4.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250330_111.19_fs_4.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250330_111.19_fs_4.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250330_111.19_fs_4.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-03-30",
+      "montant": 111.19,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 1,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": 1
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250410_86.46_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250410_86.46_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250410_86.46_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250410_86.46_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-04-10",
+      "montant": 86.46,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 35,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250426_73.07_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250426_73.07_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250426_73.07_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250426_73.07_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-04-26",
+      "montant": 73.07,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 60,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250504_103.61_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250504_103.61_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250504_103.61_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250504_103.61_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-05-04",
+      "montant": 103.61,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 8,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250520_112.01_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250520_112.01_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250520_112.01_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250520_112.01_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-05-20",
+      "montant": 112.01,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 43,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250528_105.10_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250528_105.10_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250528_105.10_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250528_105.10_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-05-28",
+      "montant": 105.1,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 69,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250614_113.84_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250614_113.84_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250614_113.84_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250614_113.84_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-06-14",
+      "montant": 113.84,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 33,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250623_111.21_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250623_111.21_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250623_111.21_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250623_111.21_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-06-23",
+      "montant": 111.21,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 58,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250727_113.87_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250727_113.87_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250727_113.87_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250727_113.87_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-07-27",
+      "montant": 113.87,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 65,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250914_96.84_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250914_96.84_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250914_96.84_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250914_96.84_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-09-14",
+      "montant": 96.84,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 37,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20250927_117.56_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20250927_117.56_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20250927_117.56_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20250927_117.56_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-09-27",
+      "montant": 117.56,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 91,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20251010_110.15_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20251010_110.15_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20251010_110.15_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20251010_110.15_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-10-10",
+      "montant": 110.15,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 31,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20251025_100.48_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20251025_100.48_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20251025_100.48_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20251025_100.48_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-10-25",
+      "montant": 100.48,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 73,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20251111_116.66_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20251111_116.66_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20251111_116.66_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20251111_116.66_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-11-11",
+      "montant": 116.66,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 32,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/auchan_20251127_113.31_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan_20251127_113.31_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "auchan_20251127_113.31_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan_20251127_113.31_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2025-11-27",
+      "montant": 113.31,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 105,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Auchan",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250108_8.55_fs_2.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250108_8.55_fs_2.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250108_8.55_fs_2.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250108_8.55_fs_2.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-08",
+      "montant": 8.55,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 44,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250109_7.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250109_7.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250109_7.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250109_7.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-09",
+      "montant": 7.8,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 45,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250110_11.20_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250110_11.20_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250110_11.20_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250110_11.20_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-10",
+      "montant": 11.2,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 47,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250117_9.60_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250117_9.60_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250117_9.60_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250117_9.60_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-17",
+      "montant": 9.6,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 56,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250123_4.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250123_4.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250123_4.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250123_4.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-23",
+      "montant": 4.8,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 61,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250127_9.60_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250127_9.60_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250127_9.60_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250127_9.60_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-27",
+      "montant": 9.6,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 66,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250128_5.20_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250128_5.20_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250128_5.20_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250128_5.20_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-28",
+      "montant": 5.2,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 69,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250130_8.40_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250130_8.40_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250130_8.40_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250130_8.40_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-01-30",
+      "montant": 8.4,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 84,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250325_10.60_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250325_10.60_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250325_10.60_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250325_10.60_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-03-25",
+      "montant": 10.6,
+      "operation_ref": {
+        "file": "operations_merged_202503_20260414_234739.json",
+        "index": 41,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": 1
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250404_9.10_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250404_9.10_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250404_9.10_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250404_9.10_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-04-04",
+      "montant": 9.1,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 16,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250407_8.40_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250407_8.40_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250407_8.40_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250407_8.40_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-04-07",
+      "montant": 8.4,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 25,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250408_8.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250408_8.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250408_8.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250408_8.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-04-08",
+      "montant": 8.8,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 29,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250409_11.25_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250409_11.25_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250409_11.25_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250409_11.25_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-04-09",
+      "montant": 11.25,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 33,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250422_8.40_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250422_8.40_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250422_8.40_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250422_8.40_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-04-22",
+      "montant": 8.4,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 45,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250502_13.60_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250502_13.60_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250502_13.60_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250502_13.60_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-05-02",
+      "montant": 13.6,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 5,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250505_8.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250505_8.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250505_8.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250505_8.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-05-05",
+      "montant": 8.8,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 10,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250514_15.20_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250514_15.20_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250514_15.20_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250514_15.20_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-05-14",
+      "montant": 15.2,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 32,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250516_10.25_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250516_10.25_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250516_10.25_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250516_10.25_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-05-16",
+      "montant": 10.25,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 36,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250516_3.30_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250516_3.30_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250516_3.30_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250516_3.30_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-05-16",
+      "montant": 3.3,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 37,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250519_4.95_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250519_4.95_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250519_4.95_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250519_4.95_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-05-19",
+      "montant": 4.95,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 41,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250523_16.10_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250523_16.10_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250523_16.10_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250523_16.10_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-05-23",
+      "montant": 16.1,
+      "operation_ref": {
+        "file": "operations_merged_202505_20260414_234739.json",
+        "index": 55,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250603_12.50_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250603_12.50_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250603_12.50_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250603_12.50_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-06-03",
+      "montant": 12.5,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 6,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250611_16.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250611_16.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250611_16.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250611_16.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-06-11",
+      "montant": 16.8,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 23,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250612_11.60_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250612_11.60_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250612_11.60_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250612_11.60_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-06-12",
+      "montant": 11.6,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 27,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250627_10.55_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250627_10.55_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250627_10.55_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250627_10.55_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-06-27",
+      "montant": 10.55,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 73,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250707_21.00_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250707_21.00_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250707_21.00_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250707_21.00_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-07",
+      "montant": 21.0,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 11,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250710_24.50_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250710_24.50_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250710_24.50_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250710_24.50_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-10",
+      "montant": 24.5,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 18,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250711_1.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250711_1.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250711_1.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250711_1.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-11",
+      "montant": 1.8,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 21,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250711_8.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250711_8.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250711_8.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250711_8.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-11",
+      "montant": 8.8,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 22,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250715_7.75_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250715_7.75_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250715_7.75_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250715_7.75_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-15",
+      "montant": 7.75,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 32,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250720_25.10_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250720_25.10_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250720_25.10_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250720_25.10_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-20",
+      "montant": 25.1,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 56,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250728_6.48_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250728_6.48_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250728_6.48_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250728_6.48_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-28",
+      "montant": 6.48,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 68,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250730_6.48_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250730_6.48_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250730_6.48_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250730_6.48_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-07-30",
+      "montant": 6.48,
+      "operation_ref": {
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 4,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250902_4.10_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250902_4.10_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250902_4.10_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250902_4.10_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-09-02",
+      "montant": 4.1,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 4,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250904_15.90_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250904_15.90_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250904_15.90_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250904_15.90_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-09-04",
+      "montant": 15.9,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 8,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250912_7.00_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250912_7.00_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250912_7.00_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250912_7.00_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-09-12",
+      "montant": 7.0,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 34,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250918_15.60_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250918_15.60_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250918_15.60_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250918_15.60_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-09-18",
+      "montant": 15.6,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 52,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250922_7.30_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250922_7.30_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250922_7.30_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250922_7.30_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-09-22",
+      "montant": 7.3,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 65,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250924_6.60_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250924_6.60_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250924_6.60_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250924_6.60_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-09-24",
+      "montant": 6.6,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 79,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20250930_10.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20250930_10.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20250930_10.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20250930_10.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-09-30",
+      "montant": 10.8,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 1,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251001_16.20_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251001_16.20_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251001_16.20_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251001_16.20_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-01",
+      "montant": 16.2,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 3,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251002_7.30_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251002_7.30_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251002_7.30_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251002_7.30_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-02",
+      "montant": 7.3,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 10,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251006_3.70_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251006_3.70_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251006_3.70_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251006_3.70_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-06",
+      "montant": 3.7,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 17,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251009_6.75_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251009_6.75_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251009_6.75_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251009_6.75_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-09",
+      "montant": 6.75,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 27,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251015_6.75_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251015_6.75_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251015_6.75_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251015_6.75_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-15",
+      "montant": 6.75,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 43,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251016_4.40_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251016_4.40_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251016_4.40_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251016_4.40_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-16",
+      "montant": 4.4,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 44,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251027_7.30_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251027_7.30_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251027_7.30_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251027_7.30_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-27",
+      "montant": 7.3,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 78,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251028_5.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251028_5.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251028_5.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251028_5.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-28",
+      "montant": 5.8,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 82,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251029_14.20_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251029_14.20_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251029_14.20_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251029_14.20_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-10-29",
+      "montant": 14.2,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 1,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251110_21.25_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251110_21.25_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251110_21.25_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251110_21.25_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-11-10",
+      "montant": 21.25,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 27,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251113_13.30_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251113_13.30_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251113_13.30_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251113_13.30_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-11-13",
+      "montant": 13.3,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 40,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251124_7.75_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251124_7.75_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251124_7.75_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251124_7.75_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-11-24",
+      "montant": 7.75,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 93,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251125_8.80_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251125_8.80_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251125_8.80_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251125_8.80_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-11-25",
+      "montant": 8.8,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 97,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251205_13.15_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251205_13.15_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251205_13.15_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251205_13.15_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-12-05",
+      "montant": 13.15,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 22,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cliptchaume_20251218_7.75_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/cliptchaume_20251218_7.75_fs.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-15T00:15:30.856982",
+      "original_name": "cliptchaume_20251218_7.75_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/cliptchaume_20251218_7.75_fs.ocr.json",
+      "categorie": "Repas pro",
+      "sous_categorie": "Repas seul",
+      "date_operation": "2025-12-18",
+      "montant": 7.75,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 47,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Cliptchaume",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
     }
   }
 }

@@ -49,6 +49,9 @@ export function useJustificatifsPage() {
   // Multi-sélection pour batch fac-similé
   const [selectedOps, setSelectedOps] = useState<Set<string>>(new Set())
 
+  // Multi-sélection pour bulk-lock (indépendante de la batch fac-similé)
+  const [lockSelectedOps, setLockSelectedOps] = useState<Set<string>>(new Set())
+
   // Fichiers disponibles
   const { data: files = [] } = useOperationFiles()
 
@@ -291,6 +294,7 @@ export function useJustificatifsPage() {
   // Clear sélection quand les filtres changent
   useEffect(() => {
     setSelectedOps(new Set())
+    setLockSelectedOps(new Set())
   }, [year, selectedMonth, justifFilter, search, categoryFilter, subcategoryFilter])
 
   // Helpers sélection batch
@@ -343,6 +347,55 @@ export function useJustificatifsPage() {
     return operations.filter(op => selectedOps.has(`${op._filename}:${op._originalIndex}`))
   }, [operations, selectedOps])
 
+  // --- Bulk-lock helpers (sélection indépendante, cible les ops AVEC justificatif) ---
+  const lockableOps = useMemo(
+    () => operations.filter(op =>
+      !!op['Lien justificatif'] &&
+      !isOpExempt(op, exemptions) &&
+      op._ventilationIndex == null
+    ),
+    [operations, exemptions]
+  )
+
+  const lockKey = useCallback((op: EnrichedOperation) =>
+    `${op._filename}:${op._originalIndex}`, [])
+
+  const toggleLockSelection = useCallback((key: string) => {
+    setLockSelectedOps(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const toggleAllLockSelection = useCallback(() => {
+    setLockSelectedOps(prev => {
+      const keys = lockableOps.map(lockKey)
+      const allSelected = keys.length > 0 && keys.every(k => prev.has(k))
+      if (allSelected) return new Set()
+      return new Set(keys)
+    })
+  }, [lockableOps, lockKey])
+
+  const clearLockSelection = useCallback(() => setLockSelectedOps(new Set()), [])
+
+  const lockSelectedCount = lockSelectedOps.size
+
+  const isAllLockSelected = lockableOps.length > 0 &&
+    lockableOps.every(op => lockSelectedOps.has(lockKey(op)))
+
+  const isSomeLockSelected = !isAllLockSelected &&
+    lockableOps.some(op => lockSelectedOps.has(lockKey(op)))
+
+  // true si toutes les ops sélectionnées sont déjà verrouillées.
+  // Utilisé par la BulkLockBar pour basculer Verrouiller ↔ Déverrouiller.
+  const lockSelectedAllLocked = useMemo(() => {
+    if (lockSelectedOps.size === 0) return false
+    const selected = operations.filter(op => lockSelectedOps.has(lockKey(op)))
+    return selected.length > 0 && selected.every(op => !!op.locked)
+  }, [lockSelectedOps, operations, lockKey])
+
   return {
     year: effectiveYear, setYear, selectedMonth, setSelectedMonth,
     search, setSearch,
@@ -361,5 +414,10 @@ export function useJustificatifsPage() {
     selectedOps, opKey, toggleOp, toggleAllFiltered, clearSelection,
     selectedCount, isAllFilteredSelected, isSomeFilteredSelected,
     getSelectedOperations,
+    // Multi-sélection bulk-lock
+    lockSelectedOps, lockableOps, lockKey,
+    toggleLockSelection, toggleAllLockSelection, clearLockSelection,
+    lockSelectedCount, isAllLockSelected, isSomeLockSelected,
+    lockSelectedAllLocked,
   }
 }

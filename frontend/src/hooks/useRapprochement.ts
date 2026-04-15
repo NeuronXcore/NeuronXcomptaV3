@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import type {
   RapprochementSuggestion,
@@ -36,6 +36,12 @@ export function useBatchHints(filename: string | null) {
     queryKey: ['rapprochement-batch-hints', filename],
     queryFn: () => api.get(`/rapprochement/batch-hints/${filename}`),
     enabled: !!filename,
+    // Les hints coûtent 1-2s backend (scoring N_ops × N_pending_ocr). On les considère
+    // stables pendant 2 min pour éviter le refetch systématique au changement de mois.
+    // placeholderData conserve les anciens hints pendant qu'on fetch les nouveaux
+    // → pas de flash ni de re-render complet du TanStack Table via dep array columns.
+    staleTime: 2 * 60 * 1000,
+    placeholderData: keepPreviousData,
   })
 }
 

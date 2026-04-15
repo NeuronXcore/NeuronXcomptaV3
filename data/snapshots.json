@@ -1,0 +1,36 @@
+{
+  "snapshots": [
+    {
+      "id": "03d6299c63",
+      "name": "Janvier 2025 — Honoraires — (3 ops)",
+      "description": null,
+      "color": "#10b981",
+      "ops_refs": [
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 3
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 4
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 34
+        }
+      ],
+      "context_year": 2025,
+      "context_month": 1,
+      "context_filters": {
+        "columnFilters": [
+          {
+            "id": "Catégorie",
+            "value": "Honoraires"
+          }
+        ]
+      },
+      "created_at": "2026-04-15T00:15:25",
+      "updated_at": "2026-04-15T00:24:24"
+    }
+  ]
+}

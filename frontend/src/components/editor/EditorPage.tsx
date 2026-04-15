@@ -18,12 +18,18 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
-  CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban,
+  CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban, Camera,
 } from 'lucide-react'
 import { api } from '@/api/client'
 import toast from 'react-hot-toast'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import { LockCell } from '@/components/LockCell'
+import { useBulkLock, type BulkLockItem } from '@/hooks/useBulkLock'
+import { BulkLockBar } from '@/components/BulkLockBar'
+import { Lock as LockIcon } from 'lucide-react'
+import { SnapshotCreateModal } from '@/components/snapshots/SnapshotCreateModal'
+import { SnapshotsListDrawer } from '@/components/snapshots/SnapshotsListDrawer'
+import { SnapshotViewerDrawer } from '@/components/snapshots/SnapshotViewerDrawer'
 import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import PreviewSubDrawer from '@/components/ocr/PreviewSubDrawer'
@@ -193,6 +199,9 @@ export default function EditorPage() {
   const [globalFilter, setGlobalFilter] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
+  // Bulk-lock state (indépendant de rowSelection)
+  const [lockSelectedOps, setLockSelectedOps] = useState<Set<string>>(new Set())
+
   // Special filter from Pipeline navigation
   const [filterUncategorized, setFilterUncategorized] = useState(false)
 
@@ -244,7 +253,77 @@ export default function EditorPage() {
   const dissociateMutation = useDissociate()
   const deleteJustifMutation = useDeleteJustificatif()
   const categorizeMutation = useCategorizeOperations()
+  const bulkLockMutation = useBulkLock()
   const searchRef = useRef<HTMLInputElement>(null)
+
+  // ─── Bulk-lock helpers (indépendant de rowSelection TanStack) ───
+  const lockKeyFor = useCallback((op: Operation, rowIndex: number) => {
+    const filename = op._sourceFile ?? selectedFile ?? ''
+    const index = op._index ?? rowIndex
+    return `${filename}:${index}`
+  }, [selectedFile])
+
+  const lockableOps = useMemo(
+    () => operations.filter(op => !!op.Justificatif && (op.ventilation?.length ?? 0) === 0),
+    [operations]
+  )
+
+  const toggleLockSelection = useCallback((key: string) => {
+    setLockSelectedOps(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }, [])
+
+  const toggleAllLockSelection = useCallback(() => {
+    setLockSelectedOps(prev => {
+      const keys = lockableOps.map((op, i) => lockKeyFor(op, i))
+      const allSelected = keys.length > 0 && keys.every(k => prev.has(k))
+      if (allSelected) return new Set()
+      return new Set(keys)
+    })
+  }, [lockableOps, lockKeyFor])
+
+  const clearLockSelection = useCallback(() => setLockSelectedOps(new Set()), [])
+
+  const lockSelectedCount = lockSelectedOps.size
+  const isAllLockSelected = lockableOps.length > 0 &&
+    lockableOps.every((op, i) => lockSelectedOps.has(lockKeyFor(op, i)))
+  const isSomeLockSelected = !isAllLockSelected &&
+    lockableOps.some((op, i) => lockSelectedOps.has(lockKeyFor(op, i)))
+  const lockSelectedAllLocked = useMemo(() => {
+    if (lockSelectedOps.size === 0) return false
+    const selected = operations.filter((op, i) => lockSelectedOps.has(lockKeyFor(op, i)))
+    return selected.length > 0 && selected.every(op => !!op.locked)
+  }, [lockSelectedOps, operations, lockKeyFor])
+
+  // Reset sélection bulk-lock au changement de fichier ou de mode
+  useEffect(() => {
+    setLockSelectedOps(new Set())
+  }, [selectedFile, allYearMode])
+
+  const handleBulkLock = useCallback(async () => {
+    const targetLocked = !lockSelectedAllLocked
+    const items: BulkLockItem[] = Array.from(lockSelectedOps).map(key => {
+      const [filename, idxStr] = key.split(':')
+      return { filename, index: Number(idxStr), locked: targetLocked }
+    })
+    if (items.length === 0) return
+    const verb = targetLocked ? 'verrouillée' : 'déverrouillée'
+    try {
+      const res = await bulkLockMutation.mutateAsync(items)
+      const s = res.success_count, e = res.error_count
+      toast.success(
+        e > 0
+          ? `${s} ${verb}${s > 1 ? 's' : ''}, ${e} erreur${e > 1 ? 's' : ''}`
+          : `${s} opération${s > 1 ? 's' : ''} ${verb}${s > 1 ? 's' : ''}`
+      )
+      clearLockSelection()
+    } catch {
+      toast.error(targetLocked ? 'Échec du verrouillage en masse' : 'Échec du déverrouillage en masse')
+    }
+  }, [lockSelectedOps, lockSelectedAllLocked, bulkLockMutation, clearLockSelection])
 
   // Auto-select month/file from query param or last available for the store year
   useEffect(() => {
@@ -778,25 +857,85 @@ export default function EditorPage() {
       },
       sortingFn: (a, b) => Number(a.original.Justificatif || 0) - Number(b.original.Justificatif || 0),
     },
-    // Locked — cadenas pour les ops dont le justificatif a été validé manuellement
+    // Locked — cadenas + sélection bulk-lock (identique à JustificatifsPage)
     {
       id: 'locked',
-      header: () => null,
-      size: 28,
+      size: 44,
       enableSorting: false,
       enableColumnFilter: false,
+      header: () => {
+        if (allYearMode || lockableOps.length === 0) return null
+        return (
+          <button
+            onClick={toggleAllLockSelection}
+            title={isAllLockSelected
+              ? 'Tout désélectionner'
+              : `Sélectionner tout pour verrouillage en masse (${lockableOps.length})`}
+            className={cn(
+              'w-7 h-7 rounded-full inline-flex items-center justify-center transition-all',
+              isAllLockSelected
+                ? 'bg-warning/20 text-warning ring-2 ring-warning/60'
+                : isSomeLockSelected
+                  ? 'bg-warning/10 text-warning ring-1 ring-warning/40'
+                  : 'text-text-muted hover:text-warning hover:bg-warning/10'
+            )}
+          >
+            <LockIcon size={14} />
+          </button>
+        )
+      },
       cell: ({ row }) => {
         const op = row.original
         const filename = op._sourceFile ?? selectedFile ?? ''
         const index = op._index ?? row.index
         if (!filename) return null
+        const isLockable = !!op.Justificatif && (op.ventilation?.length ?? 0) === 0 && !allYearMode
+        const selectionActive = lockSelectedCount > 0
+        const key = `${filename}:${index}`
+        const isChecked = lockSelectedOps.has(key)
+
+        // Cas 1 : non lockable (year-wide, ventilée, sans justif) → LockCell unitaire
+        if (!isLockable) {
+          return (
+            <div className="flex items-center justify-center">
+              <LockCell
+                filename={filename}
+                index={index}
+                locked={!!op.locked}
+                hasJustificatif={!!op.Justificatif}
+              />
+            </div>
+          )
+        }
+        // Cas 2 : sélection active → checkbox 22px warning seule
+        if (selectionActive) {
+          return (
+            <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => toggleLockSelection(key)}
+                className={cn(
+                  'w-[22px] h-[22px] rounded border-2 inline-flex items-center justify-center transition-colors',
+                  isChecked ? 'bg-warning border-warning' : 'border-border hover:border-warning'
+                )}
+              >
+                {isChecked && <Check size={14} className="text-white" />}
+              </button>
+            </div>
+          )
+        }
+        // Cas 3 : repos → LockCell cliquable + checkbox 18px au hover à côté
         return (
-          <div className="flex items-center justify-center">
+          <div className="inline-flex items-center gap-1.5 justify-center" onClick={e => e.stopPropagation()}>
             <LockCell
               filename={filename}
               index={index}
               locked={!!op.locked}
               hasJustificatif={!!op.Justificatif}
+            />
+            <button
+              onClick={() => toggleLockSelection(key)}
+              className="hidden group-hover:inline-flex w-[18px] h-[18px] rounded border-2 items-center justify-center transition-colors border-border/60 hover:border-warning hover:bg-warning/10"
+              title="Sélectionner pour verrouillage en masse"
             />
           </div>
         )
@@ -973,6 +1112,54 @@ export default function EditorPage() {
 
   const selectedCount = Object.keys(rowSelection).length
 
+  // ─── Snapshots state ───
+  const [snapshotCreateOpen, setSnapshotCreateOpen] = useState(false)
+  const [snapshotsListOpen, setSnapshotsListOpen] = useState(false)
+  const [snapshotViewerId, setSnapshotViewerId] = useState<string | null>(null)
+
+  /**
+   * Construit les ops_refs pour les lignes cochées via TanStack rowSelection.
+   * Skip les sous-lignes ventilées (snapshots = ops parentes).
+   */
+  const selectedOpsRefs = useMemo(() => {
+    if (selectedCount === 0) return [] as { file: string; index: number }[]
+    return Object.keys(rowSelection)
+      .map(rowId => {
+        const row = table.getRow(rowId)
+        if (!row) return null
+        const op = row.original
+        const file = op._sourceFile ?? selectedFile ?? ''
+        // CRITIQUE : `row.index` est la position visible (post-filtre/tri) — NE PAS utiliser.
+        // - En year-wide : `op._index` est enrichi par `useYearOperations` (position dans fichier source)
+        // - En single-file : `rowId` est par défaut l'index dans `operations` array = index dans fichier source
+        const index = op._index ?? Number(rowId)
+        if (!file || Number.isNaN(index)) return null
+        return { file, index }
+      })
+      .filter(Boolean) as { file: string; index: number }[]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowSelection, operations, selectedFile])
+
+  /**
+   * Suggère un nom basé sur le contexte courant (mois, catégorie filtrée, count).
+   */
+  const suggestedSnapshotName = useMemo(() => {
+    const parts: string[] = []
+    if (allYearMode && selectedYear) parts.push(`${selectedYear} (toute l'année)`)
+    else if (selectedFile) {
+      const finfo = files?.find(f => f.filename === selectedFile)
+      if (finfo?.month && finfo?.year) {
+        parts.push(`${MOIS_FR[finfo.month - 1]} ${finfo.year}`)
+      }
+    }
+    const catFilter = columnFilters.find(f => f.id === 'Catégorie')?.value as string | undefined
+    if (catFilter && catFilter !== '__uncategorized__') parts.push(catFilter)
+    if (globalFilter.trim()) parts.push(`« ${globalFilter.trim()} »`)
+    parts.push(`(${selectedCount} ops)`)
+    return parts.join(' — ')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allYearMode, selectedYear, selectedFile, files, columnFilters, globalFilter, selectedCount])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1031,6 +1218,26 @@ export default function EditorPage() {
             >
               <Download size={15} />
             </button>
+
+            {/* Snapshots — bouton liste */}
+            <button
+              onClick={() => setSnapshotsListOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-warning/10 hover:border-warning/40 hover:text-warning transition-colors"
+              title="Mes snapshots (sélections sauvegardées)"
+            >
+              <Camera size={15} />
+            </button>
+
+            {/* Snapshot — créer depuis sélection courante (visible si rowSelection > 0) */}
+            {selectedCount > 0 && !allYearMode && (
+              <button
+                onClick={() => setSnapshotCreateOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold bg-warning/15 text-warning border border-warning/40 rounded-lg hover:bg-warning/25 transition-colors"
+                title="Créer un snapshot avec les opérations cochées"
+              >
+                <Camera size={15} /> Snapshot ({selectedCount})
+              </button>
+            )}
 
             {!allYearMode && (
               <>
@@ -1346,6 +1553,39 @@ export default function EditorPage() {
               </button>
             </div>
           )}
+          {/* Bandeau stats filtrées — visible si filtre actif (global, colonne ou uncategorized) */}
+          {(() => {
+            const filtered = table.getFilteredRowModel().rows
+            const filtersActive = !!globalFilter.trim() || columnFilters.length > 0 || filterUncategorized
+            if (!filtersActive || filtered.length === operations.length) return null
+            const totalDebit = filtered.reduce((s, r) => s + (r.original['Débit'] || 0), 0)
+            const totalCredit = filtered.reduce((s, r) => s + (r.original['Crédit'] || 0), 0)
+            const solde = totalCredit - totalDebit
+            return (
+              <div className="flex items-center justify-between px-4 py-2 bg-primary/10 border-b border-primary/30 text-xs">
+                <div className="flex items-center gap-2 text-primary">
+                  <Filter size={13} />
+                  <span className="font-semibold">
+                    {filtered.length} opération{filtered.length > 1 ? 's' : ''} filtrée{filtered.length > 1 ? 's' : ''}
+                  </span>
+                  <span className="text-text-muted">sur {operations.length} totales</span>
+                </div>
+                <div className="flex items-center gap-5 font-mono">
+                  <span className="text-text-muted">
+                    Débits : <span className="text-danger font-semibold">{formatCurrency(totalDebit)}</span>
+                  </span>
+                  <span className="text-text-muted">
+                    Crédits : <span className="text-success font-semibold">{formatCurrency(totalCredit)}</span>
+                  </span>
+                  <span className="text-text-muted">
+                    Solde : <span className={cn('font-semibold', solde >= 0 ? 'text-success' : 'text-danger')}>
+                      {formatCurrency(solde)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )
+          })()}
           {/* Table */}
           <div className="overflow-x-auto flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 340px)' }}>
             <table className="w-full text-sm">
@@ -1390,13 +1630,14 @@ export default function EditorPage() {
                       <tr
                         data-row-index={row.original._index ?? row.index}
                         className={cn(
-                          'border-b border-border/20 transition-colors editor-row',
+                          'group border-b border-border/20 transition-colors editor-row',
                           drawerOpen && drawerOpIndex === row.index
                             ? 'bg-warning/15 outline outline-2 outline-warning/40 outline-offset-[-2px] rounded'
                             : row.getIsSelected() ? 'bg-warning/10' : '',
                           row.original.Important ? 'border-l-2 border-l-warning' : '',
                           row.original.A_revoir ? 'border-l-2 border-l-danger' : '',
                           row.original.lettre ? 'opacity-60' : '',
+                          lockSelectedOps.has(`${row.original._sourceFile ?? selectedFile ?? ''}:${row.original._index ?? row.index}`) && 'bg-warning/10',
                         )}
                       >
                         {row.getVisibleCells().map(cell => {
@@ -1439,6 +1680,75 @@ export default function EditorPage() {
                     </React.Fragment>
                   )
                 })}
+                {/* Ligne TOTAL éphémère — affichée uniquement si filtre actif (jamais sauvegardée) */}
+                {(() => {
+                  const filteredRows = table.getFilteredRowModel().rows
+                  const filtersActive = !!globalFilter.trim() || columnFilters.length > 0 || filterUncategorized
+                  if (!filtersActive || filteredRows.length === 0 || filteredRows.length === operations.length) return null
+                  const totalDebit = filteredRows.reduce((s, r) => s + (r.original['Débit'] || 0), 0)
+                  const totalCredit = filteredRows.reduce((s, r) => s + (r.original['Crédit'] || 0), 0)
+                  const solde = totalCredit - totalDebit
+                  const visibleCols = table.getVisibleLeafColumns()
+                  return (
+                    <tr
+                      className="sticky bottom-0 z-20 border-y-2 border-warning bg-gradient-to-r from-warning/30 via-warning/25 to-warning/30 font-bold text-text shadow-[0_-6px_16px_-4px_rgba(245,158,11,0.5)]"
+                    >
+                      {visibleCols.map((col, colIdx) => {
+                        const id = col.id
+                        const isFirst = colIdx === 0
+                        const isLast = colIdx === visibleCols.length - 1
+                        let content: React.ReactNode = null
+                        if (id === 'Date') {
+                          content = (
+                            <span className="inline-flex items-center gap-1.5 text-sm uppercase tracking-wider text-warning">
+                              <span className="text-base">∑</span>
+                              <span>Total</span>
+                            </span>
+                          )
+                        } else if (id === 'Libellé') {
+                          content = (
+                            <span className="text-xs italic text-warning/90">
+                              {filteredRows.length} opération{filteredRows.length > 1 ? 's' : ''} filtrée{filteredRows.length > 1 ? 's' : ''}
+                            </span>
+                          )
+                        } else if (id === 'Débit') {
+                          content = totalDebit > 0
+                            ? <span className="text-danger tabular-nums text-sm">{formatCurrency(totalDebit)}</span>
+                            : <span className="text-text-muted/40">—</span>
+                        } else if (id === 'Crédit') {
+                          content = totalCredit > 0
+                            ? <span className="text-success tabular-nums text-sm">{formatCurrency(totalCredit)}</span>
+                            : <span className="text-text-muted/40">—</span>
+                        } else if (id === 'Catégorie') {
+                          content = (
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold tabular-nums whitespace-nowrap',
+                                solde >= 0
+                                  ? 'bg-success/20 text-success ring-1 ring-success/40'
+                                  : 'bg-danger/20 text-danger ring-1 ring-danger/40'
+                              )}
+                            >
+                              Solde&nbsp;:&nbsp;{formatCurrency(solde)}
+                            </span>
+                          )
+                        }
+                        return (
+                          <td
+                            key={id}
+                            className={cn(
+                              'py-3 px-2',
+                              isFirst && 'border-l-4 border-l-warning',
+                              isLast && 'border-r-4 border-r-warning'
+                            )}
+                          >
+                            {content}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })()}
               </tbody>
             </table>
           </div>
@@ -1710,6 +2020,47 @@ export default function EditorPage() {
         filename={selectedFile}
         opIndex={ventilationOpIndex}
         operation={ventilationOpIndex !== null ? operations[ventilationOpIndex] : null}
+      />
+
+      {/* Barre d'actions flottante bulk-lock (masquée en year-wide) */}
+      {!allYearMode && (
+        <BulkLockBar
+          count={lockSelectedCount}
+          loading={bulkLockMutation.isPending}
+          shifted={false}
+          allLocked={lockSelectedAllLocked}
+          onLock={handleBulkLock}
+          onClose={clearLockSelection}
+        />
+      )}
+
+      {/* Snapshots — modal création + drawers */}
+      <SnapshotCreateModal
+        open={snapshotCreateOpen}
+        onClose={() => setSnapshotCreateOpen(false)}
+        ops_refs={selectedOpsRefs}
+        suggestedName={suggestedSnapshotName}
+        context_year={selectedYear ?? null}
+        context_month={(() => {
+          const finfo = files?.find(f => f.filename === selectedFile)
+          return finfo?.month ?? null
+        })()}
+        context_filters={{
+          globalFilter: globalFilter || undefined,
+          columnFilters: columnFilters.length > 0 ? columnFilters : undefined,
+          allYearMode: allYearMode || undefined,
+        }}
+        onCreated={() => setRowSelection({})}
+      />
+      <SnapshotsListDrawer
+        open={snapshotsListOpen}
+        onClose={() => setSnapshotsListOpen(false)}
+        onView={(snap) => { setSnapshotViewerId(snap.id); setSnapshotsListOpen(false) }}
+      />
+      <SnapshotViewerDrawer
+        open={snapshotViewerId !== null}
+        snapshotId={snapshotViewerId}
+        onClose={() => setSnapshotViewerId(null)}
       />
     </div>
   )

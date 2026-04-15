@@ -769,6 +769,147 @@ Double verrou (2 couches de protection) :
 Agent IA : ne touche JAMAIS aux champs Justificatif / Lien justificatif (vérifié —
   ml_service, ml_monitoring_service, routers/ml.py, categorize_file mutent uniquement
   Catégorie + Sous-catégorie)
+
+Bulk-lock / Bulk-unlock (multi-fichiers) :
+  → Endpoint PATCH /api/operations/bulk-lock (avant la route /{filename}/{index}/lock
+    pour éviter collision FastAPI — sinon filename="bulk-lock" matcherait)
+  → Modèles : BulkLockItem(filename, index, locked), BulkLockRequest(items),
+    BulkLockResultItem(filename, index, locked, locked_at?, error?), BulkLockResponse
+  → Algorithme :
+    - sorted_items groupés par filename via itertools.groupby
+    - Pour chaque groupe : 1 seul load_operations + 1 seul save_operations
+    - Erreurs par-item (fichier introuvable, index hors bornes) remontées dans
+      results[i].error sans stopper le batch
+    - locked_at = datetime.now().isoformat(timespec="seconds") si locked=true
+
+  Frontend :
+  → useBulkLock (hooks/useBulkLock.ts) : mutation + invalidation par filename unique
+  → BulkLockBar (components/BulkLockBar.tsx) : barre flottante toggle
+    - Prop allLocked → switch icône Lock/LockOpen + couleur warning/emerald + label
+    - Prop shifted → bottom-24 si coexistence avec autre barre, sinon bottom-6
+  → Toggle intelligent : targetLocked = !lockSelectedAllLocked
+    - Toutes verrouillées → mode déverrouillage
+    - Mix ou toutes déverrouillées → mode verrouillage (homogénéise)
+
+  UX JustificatifsPage :
+  → 2ᵉ sélection indépendante lockSelectedOps dans useJustificatifsPage.ts
+    (parallèle à selectedOps utilisé pour batch fac-similé)
+  → lockableOps = ops avec Lien justificatif + !isOpExempt + ventilationIndex == null
+  → Colonne Verrou dédiée, header = bouton 🔒 cliquable (3 états visuels)
+  → Cellule : 3 modes
+    - Non lockable → null
+    - Sélection active → checkbox 22px warning seule
+    - Repos → LockCell cliquable + checkbox 18px au hover à côté (<tr> avec classe group)
+
+  UX EditorPage :
+  → État lockSelectedOps inline (pas de hook partagé, duplication minime)
+  → Colonne id: 'locked' refactorée (size 44px), header 🔒 masqué en allYearMode
+  → <tr> parent reçoit classe group + highlight bg-warning/10 si sélectionnée
+  → BulkLockBar masquée complètement en year-wide (lecture seule)
+  → selectedOpsRefs construit via Object.keys(rowSelection).map(rowId =>
+    ({file, index: op._index ?? Number(rowId)}))
+    CRITIQUE : Number(rowId) = index dans la data array d'origine (TanStack default),
+    PAS row.index qui est la position visible post-filtre/tri
+```
+
+### Snapshots (sélections nommées d'opérations réutilisables)
+
+```
+Objectif : permettre de sauvegarder des sélections ad-hoc d'opérations ("Litige Amazon",
+"À vérifier comptable", "Acompte Q4") pour y revenir plus tard, exporter, partager.
+
+Modèles (backend/models/snapshot.py) :
+  → SnapshotOpRef(file, index)
+  → Snapshot(id, name, description?, color?, ops_refs, context_year?, context_month?,
+    context_filters?, created_at, updated_at?)
+  → SnapshotCreate / SnapshotUpdate (payloads API)
+
+Service (backend/services/snapshot_service.py) :
+  → CRUD sur data/snapshots.json (structure {snapshots: [...]})
+  → _op_hash(op) = (Date, Libellé.strip(), Débit, Crédit) — miroir des scripts split/merge
+  → _build_active_hash_index() → {hash: (filename, index)} sur tous les fichiers ops actifs
+  → _try_repair_ref_via_archive(old_file, old_index, hash_idx) :
+    1. Cherche data/imports/operations/_archive/{old_file}.bak_* (plus récent)
+    2. Charge archived_ops[old_index]
+    3. Hash l'op, lookup dans hash_idx
+    4. Retourne (new_file, new_index) ou None
+  → resolve_snapshot_ops(snapshot_id) :
+    - Pour chaque ref : load fichier, extract op à l'index
+    - Si cassée → _try_repair_ref_via_archive → met à jour ops_refs + persiste
+    - Retourne liste enrichie avec _sourceFile + _index
+
+Router (backend/routers/snapshots.py) :
+  → GET /, GET /{id}, GET /{id}/operations, POST /, PATCH /{id}, DELETE /{id}
+  → POST validé : name non vide, ops_refs non vide
+
+Frontend :
+  → useSnapshots (hooks/useSnapshots.ts) : 5 hooks (list/get/operations/create/update/delete)
+  → SnapshotCreateModal : modale 440px, nom pré-rempli contextuel intelligent
+    (combine mois/année + filtre catégorie + recherche globale + count), description,
+    picker 6 couleurs, raccourci Cmd+Enter
+  → SnapshotsListDrawer : drawer 520px, cartes avec pastille couleur, hover actions
+    (Voir, Supprimer avec confirmation inline)
+  → SnapshotViewerDrawer : drawer 760px, titre éditable inline (crayon hover → input),
+    4 stats (Ops/Débits/Crédits/Solde), badge ambre si refs cassées, tableau ops avec
+    lien ExternalLink → /editor?file=X&highlight=Y
+  → SnapshotsPage (/snapshots) : PageHeader, grille responsive 1/2/3 cols de
+    SnapshotCard. Chaque carte utilise useSnapshotOperations pour stats live
+  → Sidebar : item "Snapshots" dans groupe OUTILS (icône Camera)
+
+Intégration EditorPage :
+  → 2 boutons dans le header actions :
+    1. 📷 "Mes snapshots" toujours visible → ouvre SnapshotsListDrawer
+    2. 📷 "Snapshot (N)" visible si selectedCount > 0 && !allYearMode (bg warning)
+       → ouvre SnapshotCreateModal
+  → selectedOpsRefs construit depuis rowSelection TanStack (cf. règle Number(rowId))
+  → Après création : setRowSelection({}) pour clear la sélection
+
+Self-healing (critique) :
+  → Les refs (file, index) sont fragiles face aux migrations données (split/merge/archivage)
+  → resolve_snapshot_ops tente le repair transparent via hash au moment de la lecture
+  → Les refs réparées sont persistées immédiatement → pas de recalcul au prochain accès
+  → Limitation connue : si le bug initial Number(rowId) vs row.index a produit des refs
+    erronées historiques, l'auto-repair trouve les ops aux mauvais index (pas l'intention
+    user). Recommandation : supprimer + recréer les snapshots avec ops surprenantes
+```
+
+### Performance — Cache multi-couches (backend + frontend)
+
+```
+Contexte : avec l'augmentation du nombre de fichiers d'opérations (splits + merges +
+mensuels historiques = 25-30 fichiers), le chargement de l'éditeur et le changement de
+mois étaient devenus lents (1-3s).
+
+Backend — operation_service.list_operation_files() :
+  → Remplace pd.read_json par json.load natif + Counter pour le mois/année dominant
+    (au lieu de pd.to_datetime + mode). 5× plus rapide par file.
+  → Cache mémoire _LIST_FILES_CACHE: {path: (mtime, meta)}
+  → Recalcule uniquement pour les fichiers modifiés depuis le dernier appel
+  → Cleanup auto des entrées pour fichiers supprimés
+  → Gain : 125 ms → 25 ms (cache hit)
+
+Backend — rapprochement_service.get_batch_hints() :
+  → Cache mémoire _BATCH_HINTS_CACHE: {filename: (signature, hints)}
+  → signature = (ops_mtime, frozenset((ocr_name, ocr_mtime) for ocr in pending))
+  → Invalidation automatique : dès qu'un fichier ops OU un justificatif en attente
+    est modifié / ajouté / supprimé, la signature change → cache miss
+  → Gain : 1 055-2 415 ms → 35-56 ms (cache hit)
+
+Frontend — staleTime + placeholderData :
+  → useOperationFiles : staleTime 60s (dropdown ne refetch pas à chaque navigation)
+  → useOperations(filename) : staleTime 30s (revenir à un mois déjà visité = instantané)
+  → useBatchHints(filename) : staleTime 2min + placeholderData: keepPreviousData
+    - Évite refetch excessif
+    - Évite re-render complet du TanStack Table pendant fetch : les colonnes ont
+      batchHints dans leurs deps → avec keepPreviousData on garde les anciens hints
+      le temps que les nouveaux arrivent, pas de flash visuel
+
+Scripts de maintenance données :
+  → scripts/split_multi_month_operations.py : éclate un fichier multi-mois en N
+    fichiers mensuels, rebinde refs GED/OCR, archive source
+  → scripts/merge_overlapping_monthly_files.py : fusionne fichiers qui se chevauchent
+    via hash op-identité + heuristique enrichment_score, rebinde GED/OCR, archive
+    sources, passe recover_orphan_refs_to_archived pour les refs cassées antérieures
 ```
 
 ### Lettrage comptable

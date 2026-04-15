@@ -225,6 +225,80 @@ class LockRequest(BaseModel):
     locked: bool
 
 
+class BulkLockItem(BaseModel):
+    filename: str
+    index: int
+    locked: bool
+
+
+class BulkLockRequest(BaseModel):
+    items: list[BulkLockItem]
+
+
+class BulkLockResultItem(BaseModel):
+    filename: str
+    index: int
+    locked: bool
+    locked_at: Optional[str] = None
+    error: Optional[str] = None
+
+
+class BulkLockResponse(BaseModel):
+    results: list[BulkLockResultItem]
+    success_count: int
+    error_count: int
+
+
+@router.patch("/bulk-lock", response_model=BulkLockResponse)
+async def bulk_lock(body: BulkLockRequest):
+    """Verrouille/déverrouille N opérations en masse, groupées par fichier pour minimiser les I/O."""
+    from datetime import datetime
+    from itertools import groupby
+
+    now = datetime.now().isoformat(timespec="seconds")
+    results: list[BulkLockResultItem] = []
+
+    sorted_items = sorted(body.items, key=lambda i: i.filename)
+    for filename, group in groupby(sorted_items, key=lambda i: i.filename):
+        group_items = list(group)
+        try:
+            ops = operation_service.load_operations(filename)
+        except FileNotFoundError:
+            for it in group_items:
+                results.append(BulkLockResultItem(
+                    filename=it.filename, index=it.index, locked=it.locked,
+                    locked_at=None, error="Fichier non trouvé",
+                ))
+            continue
+
+        dirty = False
+        for it in group_items:
+            if not (0 <= it.index < len(ops)):
+                results.append(BulkLockResultItem(
+                    filename=it.filename, index=it.index, locked=it.locked,
+                    locked_at=None, error="Opération introuvable",
+                ))
+                continue
+            op = ops[it.index]
+            op["locked"] = it.locked
+            op["locked_at"] = now if it.locked else None
+            dirty = True
+            results.append(BulkLockResultItem(
+                filename=it.filename, index=it.index, locked=it.locked,
+                locked_at=op["locked_at"], error=None,
+            ))
+
+        if dirty:
+            operation_service.save_operations(ops, filename=filename)
+
+    success = sum(1 for r in results if r.error is None)
+    return BulkLockResponse(
+        results=results,
+        success_count=success,
+        error_count=len(results) - success,
+    )
+
+
 @router.patch("/{filename}/{index}/lock")
 async def toggle_lock(filename: str, index: int, body: LockRequest):
     """Verrouille ou déverrouille une opération (protège l'association justificatif contre l'auto-rapprochement)."""

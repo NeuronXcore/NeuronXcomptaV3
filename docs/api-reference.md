@@ -95,6 +95,50 @@ Passer `{ "locked": false }` pour déverrouiller (met `locked_at` à `null` dans
 
 ---
 
+### `PATCH /bulk-lock`
+Verrouille/déverrouille N opérations en masse, potentiellement réparties sur plusieurs fichiers. Déclaré **avant** la route paramétrée `/{filename}/{index}/lock` pour éviter la collision FastAPI (`filename="bulk-lock"` matcherait sinon).
+
+**Body :**
+```json
+{
+  "items": [
+    { "filename": "operations_2025-01.json", "index": 3,  "locked": true },
+    { "filename": "operations_2025-01.json", "index": 7,  "locked": true },
+    { "filename": "operations_2025-02.json", "index": 12, "locked": true }
+  ]
+}
+```
+
+**Réponse :**
+```json
+{
+  "results": [
+    { "filename": "operations_2025-01.json", "index": 3,  "locked": true, "locked_at": "2026-04-15T00:12:00", "error": null },
+    { "filename": "operations_2025-01.json", "index": 7,  "locked": true, "locked_at": "2026-04-15T00:12:00", "error": null },
+    { "filename": "operations_2025-02.json", "index": 12, "locked": true, "locked_at": "2026-04-15T00:12:00", "error": null }
+  ],
+  "success_count": 3,
+  "error_count": 0
+}
+```
+
+**Algorithme** :
+- Les items sont **groupés par `filename`** via `itertools.groupby` (sort préalable)
+- Pour chaque groupe : un seul `load_operations(filename)` + un seul `save_operations(filename)` — minimise les I/O
+- Erreurs individuelles (fichier introuvable, index hors bornes) remontées dans `results[i].error` **sans stopper le batch**
+- `locked_at = datetime.now().isoformat(timespec="seconds")` si `locked=true`, `None` si `locked=false`
+
+**Cas d'usage frontend** :
+- JustificatifsPage : sélection multi-ops via header 🔒 + checkbox hover → `BulkLockBar` flottante
+- EditorPage : idem, masqué en year-wide (lecture seule)
+- Toggle intelligent : si toutes les ops sélectionnées sont déjà verrouillées → mode Déverrouiller (envoie `locked=false`), sinon → mode Verrouiller (envoie `locked=true`)
+
+**Code HTTP** :
+- `200 OK` — batch traité (lire `results[i].error` pour les échecs par-item)
+- `422 Unprocessable Entity` — body mal formé
+
+---
+
 ## Categories (`/api/categories`)
 
 ### `GET /`
@@ -2171,3 +2215,94 @@ Vérifie si la quote-part véhicule a été appliquée pour l'année. Retourne `
 
 ### `DELETE /supprimer/vehicule?year=2025`
 Supprime le PDF rapport + entrée GED + réinitialise le barème (garde l'historique pour traçabilité). Ne modifie pas le poste GED.
+
+---
+
+## Snapshots (`/api/snapshots`)
+
+Sélections nommées d'opérations réutilisables (ad-hoc folders pour suivi). Stockage dans `data/snapshots.json` avec structure `{snapshots: [...]}`. Les refs pointent sur `(file, index)` et sont **self-healing** via hash op-identité + archive lookup en cas de déplacement/archivage du fichier source.
+
+### `GET /`
+Retourne tous les snapshots, triés par `created_at` desc (plus récents en premier).
+
+**Réponse :**
+```json
+[
+  {
+    "id": "03d6299c63",
+    "name": "Janvier 2025 — Honoraires — (3 ops)",
+    "description": null,
+    "color": "#10b981",
+    "ops_refs": [
+      { "file": "operations_split_202501_20260414_233641.json", "index": 3 },
+      { "file": "operations_split_202501_20260414_233641.json", "index": 4 },
+      { "file": "operations_split_202501_20260414_233641.json", "index": 34 }
+    ],
+    "context_year": 2025,
+    "context_month": 1,
+    "context_filters": { "columnFilters": [{ "id": "Catégorie", "value": "Honoraires" }] },
+    "created_at": "2026-04-15T00:15:25",
+    "updated_at": null
+  }
+]
+```
+
+### `GET /{snapshot_id}`
+Retourne un snapshot par son ID. `404` si introuvable.
+
+### `GET /{snapshot_id}/operations`
+Charge les **opérations réelles** référencées par le snapshot (auto-repair transparent si refs cassées).
+
+**Réponse :**
+```json
+{
+  "snapshot": { /* Snapshot complet */ },
+  "operations": [
+    { "Date": "2025-01-06", "Libellé": "...", "Débit": 0, "Crédit": 3000, "Catégorie": "Honoraires", "_sourceFile": "operations_split_202501_20260414_233641.json", "_index": 3 },
+    { "Date": "2025-01-13", /* ... */ },
+    { "Date": "2025-01-28", /* ... */ }
+  ],
+  "resolved_count": 3,
+  "expected_count": 3
+}
+```
+
+**Auto-repair** : si une ref pointe vers un fichier inexistant (ex. archivé par split/merge), le service :
+1. Cherche le fichier dans `data/imports/operations/_archive/{name}.bak_*` (plus récent d'abord)
+2. Charge l'op à l'ancien `index`
+3. Hash l'op identity `(Date, Libellé.strip(), Débit, Crédit)`
+4. Cherche le même hash dans tous les fichiers actifs
+5. Si trouvé → met à jour `ops_refs` du snapshot et **persiste** le fichier `snapshots.json` (évite le coût au prochain accès)
+
+Les refs irrécupérables (hash absent des fichiers actifs) sont gardées telles quelles et comptées via `expected_count - resolved_count` pour affichage d'un badge « refs cassées ».
+
+### `POST /`
+Crée un snapshot. Body :
+```json
+{
+  "name": "Litige Amazon Q4",
+  "description": "À vérifier avec le comptable",
+  "color": "#ef4444",
+  "ops_refs": [
+    { "file": "operations_merged_202511_20260414_234739.json", "index": 12 },
+    { "file": "operations_merged_202512_20260414_234739.json", "index": 7 }
+  ],
+  "context_year": 2025,
+  "context_month": 11,
+  "context_filters": { "globalFilter": "AMAZON" }
+}
+```
+
+**Validation** :
+- `name` non vide (400 sinon)
+- `ops_refs` non vide (400 sinon)
+
+Réponse : le `Snapshot` créé (avec `id` généré, `created_at` à l'ISO courant).
+
+### `PATCH /{snapshot_id}`
+Met à jour partiellement un snapshot (champs `name`, `description`, `color`, `ops_refs` optionnels). Utilisé pour renommage inline depuis le viewer.
+
+### `DELETE /{snapshot_id}`
+Supprime un snapshot. Retourne `{"deleted": true}`.
+
+**Note** : ne touche jamais aux fichiers d'opérations ni aux justificatifs — le snapshot est un simple conteneur de refs.

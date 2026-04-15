@@ -23,6 +23,7 @@ import AmortissementsPage from '@/components/amortissements/AmortissementsPage'
 import SimulationPage from '@/components/simulation/SimulationPage'
 import PrevisionnelPage from '@/components/previsionnel/PrevisionnelPage'
 import TasksPage from '@/components/tasks/TasksPage'
+import SnapshotsPage from '@/components/snapshots/SnapshotsPage'
 import ChargesForfaitairesPage from '@/components/charges-forfaitaires/ChargesForfaitairesPage'
 import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/previsionnel" element={<PrevisionnelPage />} />
         <Route path="/ged" element={<GedPage />} />
         <Route path="/tasks" element={<TasksPage />} />
+        <Route path="/snapshots" element={<SnapshotsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>

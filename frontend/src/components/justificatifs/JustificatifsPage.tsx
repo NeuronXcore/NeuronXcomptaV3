@@ -6,6 +6,8 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
 import BatchOverviewDrawer from '@/components/templates/BatchOverviewDrawer'
 import BatchReconstituerDrawer from '@/components/justificatifs/BatchReconstituerDrawer'
+import { BulkLockBar } from '@/components/BulkLockBar'
+import { useBulkLock, type BulkLockItem } from '@/hooks/useBulkLock'
 import { useJustificatifsPage } from '@/hooks/useJustificatifsPage'
 import type { EnrichedOperation } from '@/hooks/useJustificatifsPage'
 import { useSandbox } from '@/hooks/useSandbox'
@@ -27,6 +29,7 @@ import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import { Unlink, Paperclip, Trash2 } from 'lucide-react'
 import { LockCell } from '@/components/LockCell'
+import { Lock as LockIcon } from 'lucide-react'
 import type { VentilationLine } from '@/types'
 import type { CategoryRaw } from '@/types'
 
@@ -52,6 +55,10 @@ export default function JustificatifsPage() {
     selectedOps, opKey, toggleOp, toggleAllFiltered, clearSelection,
     selectedCount, isAllFilteredSelected, isSomeFilteredSelected,
     getSelectedOperations,
+    lockSelectedOps, lockableOps, lockKey,
+    toggleLockSelection, toggleAllLockSelection, clearLockSelection,
+    lockSelectedCount, isAllLockSelected, isSomeLockSelected,
+    lockSelectedAllLocked,
   } = useJustificatifsPage()
 
   // Batch fac-similé
@@ -145,6 +152,34 @@ export default function JustificatifsPage() {
 
   const dissociateMutation = useDissociate()
   const deleteJustifMutation = useDeleteJustificatif()
+  const bulkLockMutation = useBulkLock()
+
+  const handleBulkLock = useCallback(async () => {
+    // Toggle : si toutes les ops sélectionnées sont déjà verrouillées → on déverrouille.
+    // Sinon → on verrouille (homogénéise les mix sur l'état locked).
+    const targetLocked = !lockSelectedAllLocked
+    const items: BulkLockItem[] = Array.from(lockSelectedOps).map(key => {
+      const [filename, idxStr] = key.split(':')
+      return { filename, index: Number(idxStr), locked: targetLocked }
+    })
+    if (items.length === 0) return
+    const verb = targetLocked ? 'verrouillée' : 'déverrouillée'
+    try {
+      const res = await bulkLockMutation.mutateAsync(items)
+      if (res.error_count > 0) {
+        toast.success(
+          `${res.success_count} ${verb}${res.success_count > 1 ? 's' : ''}, ${res.error_count} erreur${res.error_count > 1 ? 's' : ''}`
+        )
+      } else {
+        toast.success(
+          `${res.success_count} opération${res.success_count > 1 ? 's' : ''} ${verb}${res.success_count > 1 ? 's' : ''}`
+        )
+      }
+      clearLockSelection()
+    } catch {
+      toast.error(targetLocked ? 'Échec du verrouillage en masse' : 'Échec du déverrouillage en masse')
+    }
+  }, [lockSelectedOps, lockSelectedAllLocked, bulkLockMutation, clearLockSelection])
 
   // Auto-rapprochement
   const autoRapprochement = useRunAutoRapprochement()
@@ -569,6 +604,30 @@ export default function JustificatifsPage() {
                     <th className="px-4 py-3 text-center text-xs font-medium text-text-muted uppercase tracking-wider w-20">
                       Justif.
                     </th>
+                    <th className="px-2 py-3 text-center text-xs font-medium text-text-muted uppercase tracking-wider w-12">
+                      {lockableOps.length > 0 ? (
+                        <button
+                          onClick={toggleAllLockSelection}
+                          title={
+                            isAllLockSelected
+                              ? 'Tout désélectionner'
+                              : `Sélectionner tout pour verrouillage en masse (${lockableOps.length})`
+                          }
+                          className={cn(
+                            'w-7 h-7 rounded-full inline-flex items-center justify-center transition-all',
+                            isAllLockSelected
+                              ? 'bg-warning/20 text-warning ring-2 ring-warning/60'
+                              : isSomeLockSelected
+                                ? 'bg-warning/10 text-warning ring-1 ring-warning/40'
+                                : 'text-text-muted hover:text-warning hover:bg-warning/10'
+                          )}
+                        >
+                          <LockIcon size={14} />
+                        </button>
+                      ) : (
+                        <span>Verrou</span>
+                      )}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
@@ -614,10 +673,11 @@ export default function JustificatifsPage() {
                           }
                         }}
                         className={cn(
-                          'hover:bg-surface/50 transition-colors',
+                          'group hover:bg-surface/50 transition-colors',
                           isExempt && !hasJustif ? 'cursor-default' : 'cursor-pointer',
                           isSelected && 'bg-warning/15 outline outline-2 outline-warning/40 outline-offset-[-2px]',
-                          selectedOps.has(opKey(op)) && 'bg-primary/10'
+                          selectedOps.has(opKey(op)) && 'bg-primary/10',
+                          lockSelectedOps.has(lockKey(op)) && 'bg-warning/10',
                         )}
                       >
                         <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
@@ -682,61 +742,53 @@ export default function JustificatifsPage() {
                           })()}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (hasJustif) {
-                                  const lien = op['Lien justificatif'] || ''
-                                  const basename = lien.split('/').pop() || ''
-                                  if (basename) {
-                                    setPreviewJustif(basename)
-                                    setPreviewOpFile(op._filename)
-                                    setPreviewOpIndex(op._originalIndex)
-                                  }
-                                } else if (isExempt) {
-                                  // op exemptée — pas d'action
-                                  return
-                                } else {
-                                  openDrawer(op)
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (hasJustif) {
+                                const lien = op['Lien justificatif'] || ''
+                                const basename = lien.split('/').pop() || ''
+                                if (basename) {
+                                  setPreviewJustif(basename)
+                                  setPreviewOpFile(op._filename)
+                                  setPreviewOpIndex(op._originalIndex)
                                 }
-                              }}
-                              disabled={isExempt && !hasJustif}
-                              title={
-                                hasJustif
-                                  ? 'Justificatif attribué — cliquer pour voir'
-                                  : isPerso
-                                    ? 'Opération perso — aucun justificatif requis'
-                                    : isExempt
-                                      ? `Catégorie « ${op['Catégorie']} » exemptée — pas de justificatif requis`
-                                      : 'Cliquer pour attribuer un justificatif'
+                              } else if (isExempt) {
+                                // op exemptée — pas d'action
+                                return
+                              } else {
+                                openDrawer(op)
                               }
-                              className={cn(
-                                'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
-                                hasJustif
-                                  ? 'text-emerald-400 hover:bg-emerald-500/15'
-                                  : isPerso
-                                    ? 'text-red-400/80 cursor-default'
-                                    : isExempt
-                                      ? 'text-sky-400 cursor-default'
-                                      : 'text-amber-400 hover:bg-amber-500/15'
-                              )}
-                            >
-                              {hasJustif
-                                ? <CheckCircle2 size={18} />
+                            }}
+                            disabled={isExempt && !hasJustif}
+                            title={
+                              hasJustif
+                                ? 'Justificatif attribué — cliquer pour voir'
                                 : isPerso
-                                  ? <Ban size={18} />
+                                  ? 'Opération perso — aucun justificatif requis'
                                   : isExempt
-                                    ? <CheckCircle2 size={18} />
-                                    : <Circle size={18} />}
-                            </button>
-                            <LockCell
-                              filename={op._filename}
-                              index={op._originalIndex}
-                              locked={!!op.locked}
-                              hasJustificatif={!!hasJustif}
-                            />
-                          </div>
+                                    ? `Catégorie « ${op['Catégorie']} » exemptée — pas de justificatif requis`
+                                    : 'Cliquer pour attribuer un justificatif'
+                            }
+                            className={cn(
+                              'inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors',
+                              hasJustif
+                                ? 'text-emerald-400 hover:bg-emerald-500/15'
+                                : isPerso
+                                  ? 'text-red-400/80 cursor-default'
+                                  : isExempt
+                                    ? 'text-sky-400 cursor-default'
+                                    : 'text-amber-400 hover:bg-amber-500/15'
+                            )}
+                          >
+                            {hasJustif
+                              ? <CheckCircle2 size={18} />
+                              : isPerso
+                                ? <Ban size={18} />
+                                : isExempt
+                                  ? <CheckCircle2 size={18} />
+                                  : <Circle size={18} />}
+                          </button>
                           {hasJustif && isReconstitue(op['Lien justificatif'] || '') && (
                             <span className="text-[10px]" title="Fac-similé reconstitué">😈</span>
                           )}
@@ -745,6 +797,56 @@ export default function JustificatifsPage() {
                               exempté
                             </div>
                           )}
+                        </td>
+                        <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                          {(() => {
+                            const isLockable = !!hasJustif && !isExempt && !isPerso
+                            const selectionActive = lockSelectedCount > 0
+                            const key = lockKey(op)
+                            const isChecked = lockSelectedOps.has(key)
+
+                            if (!isLockable) {
+                              // Pas lockable : rien à afficher dans cette colonne
+                              return null
+                            }
+
+                            // Mode sélection : checkbox visible en permanence (LockCell caché)
+                            if (selectionActive) {
+                              return (
+                                <button
+                                  onClick={() => toggleLockSelection(key)}
+                                  className={cn(
+                                    'w-[22px] h-[22px] rounded border-2 inline-flex items-center justify-center transition-colors',
+                                    isChecked
+                                      ? 'bg-warning border-warning'
+                                      : 'border-border hover:border-warning'
+                                  )}
+                                >
+                                  {isChecked && <Check size={14} className="text-white" />}
+                                </button>
+                              )
+                            }
+
+                            // Mode repos : LockCell toujours cliquable. Checkbox apparaît À CÔTÉ au hover.
+                            return (
+                              <div className="inline-flex items-center gap-1.5">
+                                <LockCell
+                                  filename={op._filename}
+                                  index={op._originalIndex}
+                                  locked={!!op.locked}
+                                  hasJustificatif={!!hasJustif}
+                                />
+                                <button
+                                  onClick={() => toggleLockSelection(key)}
+                                  className={cn(
+                                    'hidden group-hover:inline-flex w-[18px] h-[18px] rounded border-2 items-center justify-center transition-colors',
+                                    'border-border/60 hover:border-warning hover:bg-warning/10'
+                                  )}
+                                  title="Sélectionner pour verrouillage en masse"
+                                />
+                              </div>
+                            )
+                          })()}
                         </td>
                       </tr>
                       {/* Sous-lignes ventilées */}
@@ -792,6 +894,7 @@ export default function JustificatifsPage() {
                               <span className="text-text-muted/30 text-xs">—</span>
                             )}
                           </td>
+                          <td className="px-2 py-1.5" />
                         </tr>
                       ))}
                     </>
@@ -832,6 +935,16 @@ export default function JustificatifsPage() {
           </button>
         </div>
       )}
+
+      {/* Barre d'actions flottante bulk-lock */}
+      <BulkLockBar
+        count={lockSelectedCount}
+        loading={bulkLockMutation.isPending}
+        shifted={selectedCount > 0}
+        allLocked={lockSelectedAllLocked}
+        onLock={handleBulkLock}
+        onClose={clearLockSelection}
+      />
 
       {/* Preview justificatif existant */}
       {previewJustif && (

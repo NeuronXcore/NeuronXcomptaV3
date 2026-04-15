@@ -102,6 +102,7 @@ CATEGORIES_FILE = DATA_DIR / "categories.json"
 SOUS_CATEGORIES_FILE = DATA_DIR / "sous_categories.json"
 SETTINGS_FILE = BASE_DIR / "settings.json"
 TASKS_FILE = DATA_DIR / "tasks.json"
+SNAPSHOTS_FILE = DATA_DIR / "snapshots.json"
 
 # Constantes d'application
 APP_NAME = "NeuronXcompta"

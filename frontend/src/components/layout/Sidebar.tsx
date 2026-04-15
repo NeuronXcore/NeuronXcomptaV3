@@ -5,7 +5,7 @@ import {
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
   Boxes, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
-  Send, Receipt,
+  Send, Receipt, Camera,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -66,6 +66,7 @@ const NAV_SECTIONS = [
     label: 'Outils',
     items: [
       { to: '/tasks', label: 'Tâches', icon: CheckSquare },
+      { to: '/snapshots', label: 'Snapshots', icon: Camera },
       { to: '/agent-ai', label: 'Agent IA', icon: Bot },
       { to: '/settings', label: 'Paramètres', icon: Settings },
     ],

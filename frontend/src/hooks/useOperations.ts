@@ -7,6 +7,7 @@ export function useOperationFiles() {
   return useQuery<OperationFile[]>({
     queryKey: ['operation-files'],
     queryFn: () => api.get('/operations/files'),
+    staleTime: 60 * 1000, // 1 min — dropdown mois ne refetch pas à chaque navigation
   })
 }
 
@@ -15,6 +16,7 @@ export function useOperations(filename: string | null) {
     queryKey: ['operations', filename],
     queryFn: () => api.get(`/operations/${filename}`),
     enabled: !!filename,
+    staleTime: 30 * 1000, // 30s — changement de mois déjà visité = instantané
   })
 }
 
@@ -55,13 +57,23 @@ export function useYearOperations(filesForYear: OperationFile[], enabled: boolea
 
   const data = useMemo(() => {
     if (!allDone) return undefined
+    // Dedup defensive : si plusieurs fichiers contiennent la même op (Date+Libellé+Débit+Crédit),
+    // on garde la première occurrence rencontrée. Évite le double-comptage des totaux/lignes
+    // en mode "Toute l'année" si jamais des fichiers se chevauchent.
+    // Aussi : enrichit avec _index (position locale dans le fichier source) pour permettre
+    // l'édition / bulk-lock par row en year-wide.
     const merged: Operation[] = []
+    const seen = new Set<string>()
     queries.forEach((q, i) => {
-      if (q.data) {
-        for (const op of q.data as Operation[]) {
-          merged.push({ ...op, _sourceFile: filesForYear[i].filename })
-        }
-      }
+      if (!q.data) return
+      const filename = filesForYear[i].filename
+      const arr = q.data as Operation[]
+      arr.forEach((op, idx) => {
+        const k = `${op.Date ?? ''}|${(op['Libellé'] ?? '').trim()}|${op['Débit'] ?? 0}|${op['Crédit'] ?? 0}`
+        if (seen.has(k)) return
+        seen.add(k)
+        merged.push({ ...op, _sourceFile: filename, _index: idx })
+      })
     })
     return merged
     // eslint-disable-next-line react-hooks/exhaustive-deps

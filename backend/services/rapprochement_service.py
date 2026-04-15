@@ -992,30 +992,58 @@ def get_auto_log(limit: int = 20) -> list:
     return entries
 
 
+_BATCH_HINTS_CACHE: dict[str, tuple[tuple, dict]] = {}
+"""Cache : filename → (signature, hints_dict).
+signature = (ops_mtime, frozenset_des_mtimes_des_pending_ocr) — invalide dès qu'un fichier bouge."""
+
+
 def get_batch_hints(filename: str) -> dict:
     """
     Pour un fichier d'opérations, retourne {index: best_score}
     pour toutes les opérations non associées.
     Utilisé par l'éditeur pour afficher les badges de suggestion.
+
+    Cachée par (mtime du fichier ops + ensemble des mtimes des pending OCR).
+    Le calcul coûte O(N_ops × N_pending_ocr × compute_score), soit 1-2s pour
+    un mois classique — le cache évite de recalculer tant que rien n'a bougé.
     """
     ensure_directories()
+    # Signature cache
+    from backend.core.config import IMPORTS_OPERATIONS_DIR
+    ops_path = IMPORTS_OPERATIONS_DIR / filename
+    try:
+        ops_mtime = ops_path.stat().st_mtime
+    except OSError:
+        return {}
+
+    # Collecter les pending OCR et leurs mtimes pour la signature
+    from backend.services.justificatif_service import get_all_referenced_justificatifs
+    referenced = get_all_referenced_justificatifs()
+    pending_paths: list = []
+    if JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
+        for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
+            if pdf_path.name in referenced:
+                continue
+            pending_paths.append(pdf_path)
+    pending_mtimes = frozenset((p.name, p.stat().st_mtime) for p in pending_paths)
+    signature = (ops_mtime, pending_mtimes)
+
+    cached = _BATCH_HINTS_CACHE.get(filename)
+    if cached and cached[0] == signature:
+        return cached[1]
+
     try:
         ops = operation_service.load_operations(filename)
     except Exception:
         return {}
 
-    # Charger les OCR de tous les justificatifs en attente (exclure les déjà référencés)
-    from backend.services.justificatif_service import get_all_referenced_justificatifs
-    referenced = get_all_referenced_justificatifs()
     pending_ocr: list[tuple[str, dict]] = []
-    if JUSTIFICATIFS_EN_ATTENTE_DIR.exists():
-        for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
-            if pdf_path.name in referenced:
-                continue
-            ocr_data = _load_ocr_data(pdf_path.name)
-            pending_ocr.append((pdf_path.name, ocr_data))
+    for pdf_path in pending_paths:
+        ocr_data = _load_ocr_data(pdf_path.name)
+        pending_ocr.append((pdf_path.name, ocr_data))
 
     if not pending_ocr:
+        _BATCH_HINTS_CACHE[filename] = (signature, {})
         return {}
 
     hints: dict[str, float] = {}
@@ -1050,6 +1078,7 @@ def get_batch_hints(filename: str) -> dict:
             if best >= 0.60:
                 hints[str(idx)] = round(best, 4)
 
+    _BATCH_HINTS_CACHE[filename] = (signature, hints)
     return hints
 
 
