@@ -155,4 +155,133 @@ def generate_auto_tasks(year: int) -> List[Task]:
     except Exception as e:
         logger.warning("Erreur scan alertes: %s", e)
 
+    # 6. Modèle ML à réentraîner — si corrections manuelles cumulées depuis
+    #    le dernier entraînement dépassent les seuils configurés dans Settings.
+    try:
+        corrections_count = _count_corrections_since_last_training()
+        days_since = _days_since_last_training()
+        corr_threshold, days_threshold = _load_ml_retrain_thresholds()
+
+        # Condition combinée : volume absolu OU (≥1 correction depuis N jours)
+        should_retrain = (
+            corrections_count >= corr_threshold
+            or (corrections_count >= 1 and days_since >= days_threshold)
+        )
+
+        if should_retrain:
+            desc_parts = [f"{corrections_count} correction(s) depuis le dernier entraînement"]
+            if days_since < 999:
+                desc_parts.append(f"{days_since}j sans entraînement")
+            description = " · ".join(desc_parts)
+
+            # Priorité haute si volume ≥ 2× le seuil (signal fort que le modèle diverge)
+            priority = TaskPriority.haute if corrections_count >= 2 * corr_threshold else TaskPriority.normale
+
+            tasks.append(
+                Task(
+                    title="Réentraîner le modèle IA",
+                    description=description,
+                    status=TaskStatus.todo,
+                    priority=priority,
+                    source=TaskSource.auto,
+                    year=year,
+                    auto_key="ml_retrain",
+                    metadata={
+                        "corrections_count": corrections_count,
+                        "days_since_training": days_since,
+                        "action_url": "/agent-ai",
+                    },
+                )
+            )
+    except Exception as e:
+        logger.warning("Erreur scan ml_retrain: %s", e)
+
     return tasks
+
+
+# ── Helpers ML retrain ───────────────────────────────────────────────────
+
+def _load_ml_retrain_thresholds() -> tuple[int, int]:
+    """Charge les seuils configurables depuis settings.json, avec fallback sur
+    les valeurs par défaut du modèle (10 corrections, 14 jours)."""
+    try:
+        import json
+        from backend.core.config import SETTINGS_FILE
+        if SETTINGS_FILE.exists():
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                s = json.load(f)
+            corr = int(s.get("ml_retrain_corrections_threshold", 10))
+            days = int(s.get("ml_retrain_days_threshold", 14))
+            return max(1, corr), max(1, days)
+    except Exception:
+        pass
+    return 10, 14
+
+
+def _count_corrections_since_last_training() -> int:
+    """Compte les corrections manuelles postérieures au dernier entraînement sklearn.
+    Lit data/ml/logs/trainings.json pour la date, puis scanne corrections/*.json.
+    Retourne 0 si indéterminable."""
+    import json
+    from backend.core.config import DATA_DIR
+
+    trainings_path = DATA_DIR / "ml" / "logs" / "trainings.json"
+    if not trainings_path.exists():
+        return 0
+    try:
+        trainings = json.loads(trainings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return 0
+    if not trainings:
+        return 0
+    last_ts = sorted((t.get("timestamp", "") for t in trainings if t.get("timestamp")))[-1:]
+    if not last_ts:
+        return 0
+    try:
+        last_dt = datetime.fromisoformat(last_ts[0])
+    except ValueError:
+        return 0
+
+    corrections_dir = DATA_DIR / "ml" / "logs" / "corrections"
+    if not corrections_dir.exists():
+        return 0
+    total = 0
+    for fp in corrections_dir.glob("corrections_*.json"):
+        try:
+            entries = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        for entry in entries:
+            ts = entry.get("timestamp", "")
+            if not ts:
+                continue
+            try:
+                if datetime.fromisoformat(ts) > last_dt:
+                    total += 1
+            except ValueError:
+                continue
+    return total
+
+
+def _days_since_last_training() -> int:
+    """Jours écoulés depuis le dernier entraînement. 999 si jamais entraîné."""
+    import json
+    from backend.core.config import DATA_DIR
+
+    trainings_path = DATA_DIR / "ml" / "logs" / "trainings.json"
+    if not trainings_path.exists():
+        return 999
+    try:
+        trainings = json.loads(trainings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return 999
+    if not trainings:
+        return 999
+    last_ts = sorted((t.get("timestamp", "") for t in trainings if t.get("timestamp")))[-1:]
+    if not last_ts:
+        return 999
+    try:
+        last_dt = datetime.fromisoformat(last_ts[0])
+    except ValueError:
+        return 999
+    return max(0, (datetime.now() - last_dt).days)

@@ -39,6 +39,9 @@ class Task(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     completed_at: Optional[str] = None
     order: int = 0
+    # Métadonnées libres (ex. ml_retrain : corrections_count, days_since_training, action_url).
+    # Optional + default None pour backward-compat avec les tâches stockées.
+    metadata: Optional[dict] = None
 
 
 class TaskCreate(BaseModel):

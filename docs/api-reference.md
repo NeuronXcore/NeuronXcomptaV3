@@ -47,8 +47,35 @@ Importe un relevé bancaire PDF. Form-data avec champ `file`.
 }
 ```
 
+### `POST /create-empty`
+Crée un fichier d'opérations vide pour un mois donné (saisie manuelle, typiquement notes de frais CB perso avant l'import du relevé bancaire). Route déclarée **avant** les routes dynamiques `/{filename}` pour éviter la collision FastAPI.
+
+**Body :** `{ "year": 2026, "month": 4 }`
+
+**Réponse :**
+```json
+{
+  "filename": "operations_manual_202604_a777d8e5.json",
+  "year": 2026,
+  "month": 4
+}
+```
+
+**Nommage** : `operations_manual_YYYYMM_<hex8>.json`. Le préfixe `manual_` trace l'origine (né hors import PDF). Le hash 8 chars via `secrets.token_hex(4)` évite les collisions si plusieurs fichiers sont créés pour le même mois.
+
+**Listing intelligent** : `operation_service._file_meta` enrichi avec un fallback regex `r"_(\d{4})(\d{2})_"` sur le filename pour dériver `year`/`month` quand le fichier est vide (pas d'ops à agréger). Le dropdown EditorPage affiche `Mois (0 ops)` immédiatement après création.
+
+**Fusion ultérieure** : quand le relevé bancaire sera importé pour le même mois, les scripts `split_multi_month_operations.py` + `merge_overlapping_monthly_files.py` gèrent la dédup par hash op-identité.
+
+**Code HTTP** :
+- `200 OK` — fichier créé
+- `400 Bad Request` — `month` hors de `[1, 12]`
+- `422 Unprocessable Entity` — body mal formé
+
 ### `POST /{filename}/categorize`
 Catégorisation automatique IA des opérations du fichier. Body : `{ "mode": "empty_only" }` (défaut, ne remplit que les vides) ou `{ "mode": "all" }` (recatégorise tout). Déclenché automatiquement par EditorPage au chargement (mode empty_only).
+
+**Respect du lock** : depuis Session 25, la boucle `categorize_file()` skippe les opérations avec `op.locked = true` **avant** le check `empty_only` — cohérent avec `run_auto_rapprochement()`. Protège les deux modes (`empty_only` + `all`) contre l'écrasement silencieux par la prédiction ML. Une op manuellement associée à un justif (auto-lockée par `associate_manual`) conserve sa catégorie / sous-catégorie même après un clic « Recatégoriser IA ».
 
 ### `GET /{filename}/has-pdf`
 Vérifie si le relevé bancaire PDF original existe.
@@ -167,10 +194,25 @@ Palette de couleurs par catégorie.
 ## ML (`/api/ml`)
 
 ### `GET /model`
-Résumé du modèle (compteurs, stats, learning curve).
+Résumé du modèle (compteurs, stats, learning curve). Depuis Session 25, `stats.operations_processed` et `stats.success_rate` sont **agrégés dynamiquement** depuis les logs de monitoring (`_load_all_prediction_logs()` + `_load_all_corrections()`) au lieu d'être lus depuis `model.json` où ils étaient initialisés à 0 et jamais incrémentés. Fallback silencieux sur `model.json` si monitoring indisponible.
+
+**Réponse :**
+```json
+{
+  "exact_matches_count": 248,
+  "keywords_count": 34,
+  "subcategories_count": 120,
+  "stats": {
+    "operations_processed": 4209,
+    "success_rate": 0.9529,
+    "last_training": "2026-04-16T10:58:02",
+    "learning_curve": { "dates": [...], "acc_train": [...], "acc_test": [...], ... }
+  }
+}
+```
 
 ### `GET /model/full`
-Modèle complet (exact_matches, keywords, subcategories, stats).
+Modèle complet (`exact_matches`, `keywords`, `subcategories`, `subcategory_patterns`, `perso_override_patterns`, `stats`). Utilisé par l'onglet Monitoring pour afficher la courbe d'apprentissage + le dashboard Règles & Patterns.
 
 ### `POST /predict`
 Prédire la catégorie d'un libellé.
@@ -191,7 +233,65 @@ Prédire la catégorie d'un libellé.
 ```
 
 ### `POST /train`
-Entraîner le modèle scikit-learn.
+Entraîne le modèle scikit-learn. Pas de body attendu — important : le client frontend (`api.post('/ml/train')`) n'envoie plus `Content-Type: application/json` depuis Session 25 (sans body → pas de header JSON, évite le 400 custom déclenché par l'asymétrie Content-Type + body vide).
+
+**Modèle** : `LinearSVC(max_iter=2000, class_weight="balanced", dual=True)` wrappé dans `CalibratedClassifierCV(cv=2)` pour exposer `predict_proba()` (utilisé par `evaluate_hallucination_risk`). `perso` filtré du training set (sur-représentation biaise le modèle). Seuil minimal ops/classe `≥3` pour garantir ≥2 ex en train après split stratifié 75/25.
+
+**Réponse (succès) :**
+```json
+{
+  "success": true,
+  "metrics": {
+    "acc_train": 0.8633,
+    "acc_test": 0.2712,
+    "f1": 0.167,
+    "precision": 0.317,
+    "recall": 0.271,
+    "n_samples": 244,
+    "n_classes": 20,
+    "labels": ["Véhicule", "Telephone-Internet", ...],
+    "confusion_matrix": [[...]]
+  }
+}
+```
+
+**Code HTTP** :
+- `200 OK` — entraînement réussi
+- `400 Bad Request` — pas assez d'exemples / classes < 2 / filtre too_few trop strict (détail dans `detail`)
+
+### `POST /import-from-operations?year={year}`
+**Nouveau Session 25.** Importe en bulk les opérations déjà catégorisées dans `data/imports/operations/*.json` comme exemples d'entraînement sklearn. Réutilise `clean_libelle()` + `add_training_examples_batch()` (dédup par `(libelle, categorie)`) + `update_rules_from_operations()` (exact_matches).
+
+**Query params :**
+- `year: Optional[int]` — si fourni, ne considère que les ops dont `Date` commence par cette année (filtre basé sur le champ `Date` plutôt que le filename, plus fiable pour les fichiers merged multi-mois). Omis = toutes années.
+
+**Comportement** :
+- Exclut les catégories `""`, `"Autres"`, `"Ventilé"`, `"perso"`, `"Perso"`
+- Explose les ventilations en sous-exemples individuels (1 exemple par sous-ligne avec `vl.categorie` + `vl.sous_categorie`)
+- Dédup finale via `add_training_examples_batch` qui scan `training_examples.json`
+
+**Réponse :**
+```json
+{
+  "success": true,
+  "files_read": 30,
+  "ops_scanned": 1879,
+  "ops_skipped": 1220,
+  "vent_sublines": 5,
+  "examples_submitted": 662,
+  "examples_added": 0,
+  "rules_updated": 5,
+  "total_training_data": 323,
+  "year_filter": 2025
+}
+```
+
+**Interprétation** :
+- `examples_added` = nouveaux exemples **après dédup** (généralement faible car `clean_libelle` collapse beaucoup de variantes)
+- `rules_updated` = nombre d'entrées `exact_matches` ajoutées/mises à jour dans `model.json`
+- `total_training_data` = taille finale de `training_examples.json`
+
+**UI** : bouton bleu `Database` dans ActionsRapides > « Importer données historiques », utilise `allYears` + `selectedYear` du store Zustand pour cohérence UX avec « Entraîner + Appliquer ».
 
 ### `GET /training-data`
 Exemples d'entraînement.

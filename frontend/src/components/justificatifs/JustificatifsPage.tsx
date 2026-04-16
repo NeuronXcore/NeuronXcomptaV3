@@ -44,6 +44,7 @@ export default function JustificatifsPage() {
     sortKey, sortOrder, toggleSort,
     justifFilter, setJustifFilter,
     categoryFilter, setCategoryFilter, subcategoryFilter, setSubcategoryFilter,
+    sourceFilter, setSourceFilter,
     selectedOpIndex, selectedOpFilename,
     drawerOpen, setDrawerOpen,
     drawerInitialIndex,
@@ -187,6 +188,25 @@ export default function JustificatifsPage() {
   // Batch reconstituer drawer
   const [batchReconstituerOpen, setBatchReconstituerOpen] = useState(false)
   const selectedOperationsForBatch = useMemo(() => getSelectedOperations(), [getSelectedOperations, selectedOps]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ligne TOTAL synthétique : visible quand au moins un filtre "narrowing" est actif.
+  // Note : `justifFilter === 'sans'` est le défaut, donc on ne l'inclut PAS comme filtre actif.
+  const filtersActive = useMemo(() =>
+    categoryFilter !== '' ||
+    subcategoryFilter !== '' ||
+    sourceFilter !== 'all' ||
+    justifFilter !== 'sans' ||
+    search.trim() !== '',
+    [categoryFilter, subcategoryFilter, sourceFilter, justifFilter, search]
+  )
+  const filteredTotals = useMemo(() => {
+    let debit = 0, credit = 0
+    for (const op of operations) {
+      debit += Number(op['Débit']) || 0
+      credit += Number(op['Crédit']) || 0
+    }
+    return { debit, credit, solde: credit - debit, count: operations.length }
+  }, [operations])
 
   // Note: le toast d'arrivée de scan est désormais global (déclenché dans
   // useSandbox() via AppLayout). Plus besoin de le dupliquer ici.
@@ -391,12 +411,29 @@ export default function JustificatifsPage() {
             )
           })()}
 
-          {/* Bouton reset filtres cat (visible uniquement si un filtre est actif) */}
-          {(categoryFilter || subcategoryFilter) && (
+          {/* Filtre Type d'opération (source : bancaire / note_de_frais) */}
+          <select
+            value={sourceFilter}
+            onChange={e => setSourceFilter(e.target.value as 'all' | 'bancaire' | 'note_de_frais')}
+            className={cn(
+              'bg-surface border rounded px-3 py-1.5 text-sm',
+              sourceFilter === 'note_de_frais'
+                ? 'border-amber-500/50 text-amber-400'
+                : 'border-border text-text'
+            )}
+            title="Type d'opération"
+          >
+            <option value="all">Tous les types</option>
+            <option value="bancaire">Opérations bancaires</option>
+            <option value="note_de_frais">Notes de frais</option>
+          </select>
+
+          {/* Bouton reset filtres cat + source (visible uniquement si un filtre est actif) */}
+          {(categoryFilter || subcategoryFilter || sourceFilter !== 'all') && (
             <button
-              onClick={() => { setCategoryFilter(''); setSubcategoryFilter('') }}
+              onClick={() => { setCategoryFilter(''); setSubcategoryFilter(''); setSourceFilter('all') }}
               className="p-1.5 text-text-muted hover:text-text transition-colors"
-              title="Effacer les filtres catégorie"
+              title="Effacer les filtres"
             >
               <X size={14} />
             </button>
@@ -708,14 +745,34 @@ export default function JustificatifsPage() {
                           {op['Crédit'] ? formatCurrency(op['Crédit']) : ''}
                         </td>
                         <td className="px-2 py-1.5 max-w-[160px]" onClick={e => e.stopPropagation()}>
-                          <select
-                            value={op['Catégorie'] ?? ''}
-                            onChange={e => handleCategoryChange(op, 'Catégorie', e.target.value)}
-                            className="w-full bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1.5 py-1 text-xs text-text-muted focus:text-text cursor-pointer focus:outline-none transition-colors"
-                          >
-                            <option value="">—</option>
-                            {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
+                          <div className="flex flex-col">
+                            {op.source === 'note_de_frais' && (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  fontSize: '10px',
+                                  fontWeight: 500,
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: '#FAEEDA',
+                                  color: '#854F0B',
+                                  marginBottom: '2px',
+                                  lineHeight: '16px',
+                                  alignSelf: 'flex-start',
+                                }}
+                              >
+                                Note de frais
+                              </span>
+                            )}
+                            <select
+                              value={op['Catégorie'] ?? ''}
+                              onChange={e => handleCategoryChange(op, 'Catégorie', e.target.value)}
+                              className="w-full bg-transparent border border-transparent hover:border-border focus:border-primary rounded px-1.5 py-1 text-xs text-text-muted focus:text-text cursor-pointer focus:outline-none transition-colors"
+                            >
+                              <option value="">—</option>
+                              {categoryNames.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
                         </td>
                         <td className="px-2 py-1.5 max-w-[160px]" onClick={e => e.stopPropagation()}>
                           {(() => {
@@ -900,6 +957,48 @@ export default function JustificatifsPage() {
                     </>
                     )
                   })}
+                  {/* Ligne TOTAL synthétique (visible quand un filtre est actif) */}
+                  {filtersActive && filteredTotals.count > 0 && (
+                    <tr className="sticky bottom-0 z-20 border-y-2 border-warning bg-gradient-to-r from-warning/30 via-warning/25 to-warning/30 font-bold text-text shadow-[0_-6px_16px_-4px_rgba(245,158,11,0.5)]">
+                      <td className="py-3 px-2 border-l-4 border-l-warning" />
+                      <td className="py-3 px-2">
+                        <span className="inline-flex items-center gap-1.5 text-sm uppercase tracking-wider text-warning">
+                          <span className="text-base">∑</span>
+                          <span>Total</span>
+                        </span>
+                      </td>
+                      <td className="py-3 px-2">
+                        <span className="text-xs italic text-warning/90">
+                          {filteredTotals.count} opération{filteredTotals.count > 1 ? 's' : ''} filtrée{filteredTotals.count > 1 ? 's' : ''}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        {filteredTotals.debit > 0
+                          ? <span className="text-danger tabular-nums text-sm">{formatCurrency(filteredTotals.debit)}</span>
+                          : <span className="text-text-muted/40">—</span>}
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        {filteredTotals.credit > 0
+                          ? <span className="text-success tabular-nums text-sm">{formatCurrency(filteredTotals.credit)}</span>
+                          : <span className="text-text-muted/40">—</span>}
+                      </td>
+                      <td className="py-3 px-2">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold tabular-nums whitespace-nowrap',
+                            filteredTotals.solde >= 0
+                              ? 'bg-success/20 text-success ring-1 ring-success/40'
+                              : 'bg-danger/20 text-danger ring-1 ring-danger/40'
+                          )}
+                        >
+                          Solde&nbsp;:&nbsp;{formatCurrency(filteredTotals.solde)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-2" />
+                      <td className="py-3 px-2" />
+                      <td className="py-3 px-2 border-r-4 border-r-warning" />
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

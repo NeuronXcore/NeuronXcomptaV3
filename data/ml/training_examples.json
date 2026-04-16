@@ -1720,5 +1720,98 @@
     "libelle": "virementsepaemismotifrevacben",
     "categorie": "perso",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "vircpteacpteemisvrpermanent",
+    "categorie": "Abonnements",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "cursorusage a",
+    "categorie": "Abonnements",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "cursorusage a",
+    "categorie": "Ordre des Médecins",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "blanchissage tenue professionnelle",
+    "categorie": "Blanchissage professionnel",
+    "sous_categorie": "Forfait annuel",
+    "date": "2026-04-16"
+  },
+  {
+    "libelle": "nettoyage blouse médicale",
+    "categorie": "Blanchissage professionnel",
+    "sous_categorie": "Forfait annuel",
+    "date": "2026-04-16"
+  },
+  {
+    "libelle": "entretien vêtements professionnels",
+    "categorie": "Blanchissage professionnel",
+    "sous_categorie": "Forfait annuel",
+    "date": "2026-04-16"
+  },
+  {
+    "libelle": "paypalnetflixluxembourg",
+    "categorie": "Loisirs",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifprovision",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virsctinstemismotifremboursement",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifbnpcptjoint",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotiftresorpublic",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "cgrcinemas perignyproxi",
+    "categorie": "Loisirs",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifbenmandre",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "auchanmontaubamontauban",
+    "categorie": "Alimentation",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifimpotsrevenus",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifcredit",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifcomptable",
+    "categorie": "Revenus",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemisrefdoandrececcoli",
+    "categorie": "Revenus",
+    "sous_categorie": ""
   }
 ]

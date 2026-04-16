@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import { cn } from '@/lib/utils'
-import { Brain, BrainCircuit, Play, Save, Loader2, CheckCircle, AlertTriangle, XCircle, Zap } from 'lucide-react'
+import { Brain, BrainCircuit, Play, Save, Loader2, CheckCircle, AlertTriangle, XCircle, Zap, Database } from 'lucide-react'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import toast from 'react-hot-toast'
-import type { PredictionResult, TrainResult, TrainAndApplyResult } from '@/types'
+import type { PredictionResult, TrainResult, TrainAndApplyResult, ImportTrainingResult } from '@/types'
 
 export default function ActionsRapides() {
   const queryClient = useQueryClient()
@@ -29,6 +29,26 @@ export default function ActionsRapides() {
       queryClient.invalidateQueries({ queryKey: ['ml-model'] })
       queryClient.invalidateQueries({ queryKey: ['ml-model-full'] })
     },
+  })
+
+  // --- Import bulk depuis opérations catégorisées ---
+  const [importResult, setImportResult] = useState<ImportTrainingResult | null>(null)
+
+  const importMutation = useMutation({
+    mutationFn: () => {
+      const qs = allYears ? '' : `?year=${selectedYear}`
+      return api.post<ImportTrainingResult>(`/ml/import-from-operations${qs}`)
+    },
+    onSuccess: (data) => {
+      setImportResult(data)
+      toast.success(
+        `${data.examples_added} nouveaux exemples importés · ${data.rules_updated} règles · total ${data.total_training_data}`,
+      )
+      queryClient.invalidateQueries({ queryKey: ['ml-model'] })
+      queryClient.invalidateQueries({ queryKey: ['ml-model-full'] })
+      queryClient.invalidateQueries({ queryKey: ['ml-training-data'] })
+    },
+    onError: (error: Error) => toast.error(`Erreur import : ${error.message}`),
   })
 
   // --- Backup ---
@@ -206,11 +226,11 @@ export default function ActionsRapides() {
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-text-muted">Accuracy (train)</span>
-                <span className="text-text font-medium">{(trainResult.metrics.accuracy_train * 100).toFixed(1)}%</span>
+                <span className="text-text font-medium">{(trainResult.metrics.acc_train * 100).toFixed(1)}%</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-muted">Accuracy (test)</span>
-                <span className="text-text font-medium">{(trainResult.metrics.accuracy_test * 100).toFixed(1)}%</span>
+                <span className="text-text font-medium">{(trainResult.metrics.acc_test * 100).toFixed(1)}%</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-muted">F1 Score</span>
@@ -222,6 +242,12 @@ export default function ActionsRapides() {
               </div>
             </div>
           </div>
+        )}
+
+        {trainResult && !trainResult.success && (
+          <p className="text-xs text-red-400 flex items-center gap-1">
+            <XCircle size={12} /> Entraînement échoué — vérifier les logs backend
+          </p>
         )}
 
         {trainMutation.isError && (
@@ -293,6 +319,54 @@ export default function ActionsRapides() {
         {trainAndApplyMutation.isError && (
           <p className="text-xs text-red-400 flex items-center gap-1">
             <XCircle size={12} /> {trainAndApplyMutation.error.message}
+          </p>
+        )}
+      </div>
+
+      {/* Import bulk : opérations catégorisées → training data */}
+      <div className="space-y-3 pt-3 border-t border-border/30">
+        <p className="text-xs font-medium text-text-muted uppercase tracking-wide">Importer données historiques</p>
+        <p className="text-[11px] text-text-muted/70">
+          Enrichit le corpus sklearn avec les opérations déjà catégorisées dans l'éditeur.
+          Dédup par (libellé nettoyé, catégorie) + mise à jour des règles exactes.
+        </p>
+
+        <button
+          onClick={() => { setImportResult(null); importMutation.mutate() }}
+          disabled={importMutation.isPending}
+          className="w-full bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-500 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {importMutation.isPending ? (
+            <><Loader2 size={14} className="animate-spin" /> Import en cours...</>
+          ) : (
+            <><Database size={14} /> Importer ops catégorisées {allYears ? '(toutes)' : selectedYear}</>
+          )}
+        </button>
+
+        {importResult && (
+          <div className="bg-background rounded-lg p-3 border border-blue-500/30 space-y-1.5 text-xs">
+            <div className="flex items-center gap-1.5 mb-1">
+              <CheckCircle size={14} className="text-blue-400" />
+              <span className="font-medium text-blue-400">
+                Import terminé{importResult.year_filter ? ` (${importResult.year_filter})` : ' (toutes années)'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-y-1 gap-x-3 text-text-muted">
+              <span>Fichiers lus</span><span className="text-text font-medium tabular-nums">{importResult.files_read}</span>
+              <span>Ops scannées</span><span className="text-text font-medium tabular-nums">{importResult.ops_scanned}</span>
+              <span>Ops ignorées</span><span className="text-text font-medium tabular-nums">{importResult.ops_skipped}</span>
+              <span>Sous-lignes ventil.</span><span className="text-text font-medium tabular-nums">{importResult.vent_sublines}</span>
+              <span>Exemples soumis</span><span className="text-text font-medium tabular-nums">{importResult.examples_submitted}</span>
+              <span>Nouveaux (dédup)</span><span className="text-emerald-400 font-semibold tabular-nums">+{importResult.examples_added}</span>
+              <span>Règles mises à jour</span><span className="text-text font-medium tabular-nums">{importResult.rules_updated}</span>
+              <span>Total corpus</span><span className="text-text font-bold tabular-nums">{importResult.total_training_data}</span>
+            </div>
+          </div>
+        )}
+
+        {importMutation.isError && (
+          <p className="text-xs text-red-400 flex items-center gap-1">
+            <XCircle size={12} /> {importMutation.error.message}
           </p>
         )}
       </div>

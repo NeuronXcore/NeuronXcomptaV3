@@ -32,13 +32,36 @@ class RuleCreate(BaseModel):
 
 @router.get("/model")
 async def get_model():
-    """Retourne le modèle à règles (model.json)."""
+    """Retourne le modèle à règles (model.json).
+
+    Le champ `stats.operations_processed` dans model.json n'étant jamais incrémenté
+    (legacy), on le dérive des logs de prédictions (source de vérité : chaque
+    `categorize_file()` appelle `ml_monitoring_service.log_prediction_batch`).
+    Même traitement pour `success_rate` = 1 - correction_rate.
+    """
+    from backend.services import ml_monitoring_service
+
     model = ml_service.load_rules_model()
+    stats = dict(model.get("stats", {}))
+
+    # Agréger les prédictions loggées pour exposer les vraies métriques
+    try:
+        pred_logs = ml_monitoring_service._load_all_prediction_logs()
+        total_preds = sum(b.predicted for b in pred_logs)
+        if total_preds > 0:
+            stats["operations_processed"] = total_preds
+            corrections = ml_monitoring_service._load_all_corrections()
+            correction_rate = len(corrections) / total_preds
+            stats["success_rate"] = max(0.0, 1.0 - correction_rate)
+    except Exception:
+        # Fallback silencieux sur model.json si monitoring indisponible
+        pass
+
     return {
         "exact_matches_count": len(model.get("exact_matches", {})),
         "keywords_count": len(model.get("keywords", {})),
         "subcategories_count": len(model.get("subcategories", {})),
-        "stats": model.get("stats", {}),
+        "stats": stats,
     }
 
 
@@ -89,6 +112,19 @@ def _log_training_result(result: dict) -> None:
         ))
     except Exception:
         pass
+
+
+@router.post("/import-from-operations")
+async def import_from_operations(year: Optional[int] = None):
+    """Importe en bulk les opérations déjà catégorisées comme training data.
+
+    Délègue à `ml_service.import_training_from_operations(year)` qui réutilise
+    `add_training_examples_batch` (dédup) + `update_rules_from_operations` (exact_matches).
+    """
+    result = ml_service.import_training_from_operations(year=year)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Échec import"))
+    return result
 
 
 @router.post("/train")

@@ -1,7 +1,12 @@
-import { useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { createElement } from 'react'
+import toast from 'react-hot-toast'
 import Sidebar from './Sidebar'
 import { useSandbox } from '@/hooks/useSandbox'
+import { useTasks } from '@/hooks/useTasks'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import MLRetrainToast from '@/components/shared/MLRetrainToast'
 
 const APP_NAME = 'NeuronXcompta'
 
@@ -31,6 +36,8 @@ const ROUTE_TITLES: Record<string, string> = {
 
 export default function AppLayout() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const selectedYear = useFiscalYearStore((s) => s.selectedYear)
 
   // Monter le SSE sandbox globalement pour que le badge pending scans (sidebar)
   // et le widget PendingScansWidget (Pipeline) s'auto-rafraîchissent quand un
@@ -42,6 +49,49 @@ export default function AppLayout() {
     const label = ROUTE_TITLES[pathname]
     document.title = label ? `${label} · ${APP_NAME}` : APP_NAME
   }, [pathname])
+
+  // ── Toast "Modèle IA à réentraîner" — 1× par session uniquement ──
+  // Lecture de la tâche auto `ml_retrain` dans les tâches courantes (scope year
+  // = année globale). Gate via sessionStorage pour éviter la répétition après
+  // navigation intra-SPA + un useRef pour éviter la double exécution de l'effect
+  // en mode Strict React.
+  const mlToastShown = useRef(false)
+  const { data: tasks } = useTasks(selectedYear)
+
+  useEffect(() => {
+    if (mlToastShown.current) return
+    if (typeof window !== 'undefined' && sessionStorage.getItem('ml-retrain-toast-shown')) return
+    if (!tasks) return
+
+    const mlTask = tasks.find((t) => t.auto_key === 'ml_retrain')
+    if (!mlTask) return
+
+    const corrections = Number(mlTask.metadata?.corrections_count ?? 0)
+    if (corrections <= 0) return
+
+    const days = Number(mlTask.metadata?.days_since_training ?? 999)
+    const actionUrl = String(mlTask.metadata?.action_url ?? '/agent-ai')
+
+    mlToastShown.current = true
+    sessionStorage.setItem('ml-retrain-toast-shown', '1')
+
+    const toastId = 'ml-retrain'
+    toast.custom(
+      (t) =>
+        createElement(MLRetrainToast, {
+          toastId: t.id,
+          visible: t.visible,
+          correctionsCount: corrections,
+          daysSince: days,
+          onClickRetrain: () => navigate(actionUrl),
+        }),
+      {
+        id: toastId,
+        duration: Infinity,
+        position: 'top-right',
+      },
+    )
+  }, [tasks, navigate])
 
   return (
     <div className="flex min-h-screen">

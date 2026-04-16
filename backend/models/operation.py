@@ -35,6 +35,7 @@ class Operation(BaseModel):
     rapprochement_score: Optional[float] = None
     rapprochement_mode: Optional[str] = None
     rapprochement_date: Optional[str] = None
+    source: Optional[str] = None  # "note_de_frais" | "blanchissage" | "amortissement" | None
     ventilation: list[VentilationLine] = []
 
     model_config = {"populate_by_name": True}

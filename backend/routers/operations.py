@@ -23,6 +23,25 @@ async def list_files():
     return operation_service.list_operation_files()
 
 
+class CreateEmptyMonthRequest(BaseModel):
+    year: int
+    month: int  # 1..12
+
+
+@router.post("/create-empty")
+async def create_empty_month(request: CreateEmptyMonthRequest):
+    """Crée un fichier d'opérations vide pour un mois donné (saisie manuelle NDF, forfaits, etc.).
+
+    Utile quand aucun relevé PDF n'a été importé pour ce mois mais que l'utilisateur veut
+    déjà logger des opérations (typiquement une note de frais CB perso).
+    """
+    try:
+        filename = operation_service.create_empty_file(request.year, request.month)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"filename": filename, "year": request.year, "month": request.month}
+
+
 @router.get("/{filename}/has-pdf")
 async def has_pdf(filename: str):
     """Vérifie si le PDF source existe pour ce fichier d'opérations."""

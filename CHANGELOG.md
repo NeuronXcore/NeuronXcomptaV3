@@ -8,7 +8,121 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
-### Added (2026-04-15) — Session 24
+### Added (2026-04-16) — Session 25
+
+- **Note de frais — badge + champ `source` + split button `+ Ligne ▾`**
+  - **Backend** : champ `source: Optional[str] = None` sur `Operation` (backend/models/operation.py) — valeurs connues `"note_de_frais" | "blanchissage" | "amortissement" | None`. Round-trip transparent car les ops sont sauvegardées en raw dict via `json.dump` (pas de `model_dump`). Aucune migration nécessaire (champ optionnel, backward-compatible).
+  - **Frontend** : type `Operation.source?: string`. Badge pill amber `#FAEEDA` / `#854F0B` (miroir du badge « Mal nommé ? Éditer OCR » du GedDocumentDrawer) affiché au-dessus de la cellule Catégorie si `op.source === 'note_de_frais'`. Read-only — pas d'édition du champ depuis l'UI. Propagé dans **3 pages** : EditorPage (cellule Catégorie), JustificatifsPage (cellule Catégorie), AlertesPage (cellule Libellé, au-dessus du texte).
+  - **Split button `+ Ligne ▾`** dans EditorPage : remplace le bouton unique `+ Ligne`. Structure = bouton principal + chevron séparé. Clic principal → `addRow()` (op bancaire classique) ; clic chevron → dropdown 2 options (« Opération bancaire » / « Note de frais (CB perso) » avec badge intégré). `addRow(source?: string)` propage le champ dans le dict créé via spread conditionnel (évite `source: undefined` qui serait dumpé en `null`). State `addMenuOpen` + `addMenuRef` + `useEffect` click-outside. Masqué en year-wide (`{!allYearMode && ...}`).
+  - **Filtre « Type d'opération »** dans 4 pages :
+    - **Éditeur** : dropdown dans le panneau Filtres (grille passée de 5 → 6 cols), via colonne cachée `id: 'source'` avec `columnVisibility: { source: false }` + `filterFn` custom sur `__CREATE_N__`/`bancaire`/`note_de_frais`. Compatible avec les autres filtres TanStack (Catégorie / Sous-catégorie / Non catégorisées).
+    - **Justificatifs** : `sourceFilter: 'all' | 'bancaire' | 'note_de_frais'` dans `useJustificatifsPage.ts`, `<select>` dans la toolbar à côté du filtre sous-catégorie, reset inclus dans le bouton X (réinit category + subcategory + source). Style amber quand actif (`border-amber-500/50 text-amber-400`). Auto-clear sélection `selectedOps` sur changement de filtre.
+    - **Rapports** : 3 pills `Tous / Opérations bancaires / Notes de frais uniquement` dans `ReportFilters.tsx`, badge amber intégré dans le 3ᵉ pill. Backend : param `source` sur `ReportFilters` Pydantic, filtrage dans `_apply_filters` (report_service) après le type débit/crédit.
+    - **Compta Analytique** : widget `RepartitionParTypeCard` après `KPIRow` avec 2 cartes (Opérations bancaires vs Note de frais) + share% « X.X% des dépenses en notes de frais ». Backend : `by_source: [{source, debit, credit, count}]` retourné par `analytics_service.get_dashboard_data()` via groupby pandas sur colonne `source` (fillna → "bancaire").
+  - **Workflow end-to-end validé** : créer une op via split button → clic « Note de frais (CB perso) » → ligne insérée top du tableau avec badge amber → save → disque contient `"source": "note_de_frais"` → reload → badge persiste → filtre Type d'opération → n'affiche que cette ligne + bandeau TOTAL filtré.
+
+- **Fichier mensuel vide à la demande (débloque saisie NDF sans relevé importé)**
+  - **Problème résolu** : pour saisir une note de frais CB perso en mars/avril 2026, il fallait que le relevé bancaire PDF soit déjà importé (sinon aucun fichier `operations_*.json` à éditer). Bouchon UX pour les NDF qui par nature ne passent pas par la banque.
+  - **Backend** : fonction `operation_service.create_empty_file(year: int, month: int) -> str` crée un fichier vide `operations_manual_YYYYMM_<hex8>.json` dans `IMPORTS_OPERATIONS_DIR`. Préfixe `manual_` pour traçabilité. Hash aléatoire 8 chars via `secrets.token_hex(4)` pour éviter les collisions. Garde `1 ≤ month ≤ 12`.
+  - **Endpoint** `POST /api/operations/create-empty` avec body `CreateEmptyMonthRequest {year, month}` → `{filename, year, month}`. Route déclarée **avant** les routes dynamiques (`/{filename}`) pour éviter la collision FastAPI.
+  - **Listing intelligent** : `operation_service._file_meta` enrichi avec un fallback regex sur le filename (`r"_(\d{4})(\d{2})_"`) pour dériver `year` + `month` quand le fichier est vide (pas d'ops pour agréger le mois dominant). Permet au dropdown d'afficher `Mars (0 ops)` immédiatement après création.
+  - **Frontend** : hook `useCreateEmptyMonth()` (useOperations.ts) → `api.post('/operations/create-empty', {year, month})` avec invalidation de `['operation-files']`.
+  - **EditorPage** : dropdown mois refondu pour exposer les **12 mois** même sans fichier. Mois avec fichier → `{MOIS_FR[m-1]} ({count} ops)`, mois sans → `{MOIS_FR[m-1]} — vide · créer` avec valeur `__CREATE_N__`. Sélection → `window.confirm("Aucun relevé pour {Mois} {Year}. Créer un fichier d'opérations vide pour ce mois ?")` → sur confirmation : `createEmptyMonth.mutateAsync({year, month})` → auto-select du nouveau filename + toast succès.
+  - **Intégration NDF** : une fois le fichier vide créé, le split button `+ Ligne ▾ → Note de frais (CB perso)` fonctionne immédiatement. Quand le relevé bancaire sera importé plus tard pour le même mois, les scripts `split_multi_month_operations.py` + `merge_overlapping_monthly_files.py` gèrent la fusion par hash op-identité.
+
+- **Ligne TOTAL synthétique sticky dans JustificatifsPage (miroir Éditeur)**
+  - Réplique le pattern `<tr>` synthétique de l'Éditeur : sticky bottom-0 z-20, bordures `border-y-2 border-warning` + gradient warning + symbole ∑, compteur d'ops filtrées, Débit rouge tabular-nums, Crédit vert, Solde dans pill colorée (`bg-success/20` emerald ou `bg-danger/20` rouge selon signe). 9 cellules alignées avec le thead (checkbox / Date / Libellé / Débit / Crédit / Catégorie / Sous-cat / Justif / Verrou).
+  - Condition d'affichage : `filtersActive = categoryFilter !== '' || subcategoryFilter !== '' || sourceFilter !== 'all' || justifFilter !== 'sans' || search.trim() !== ''`. Visible uniquement quand au moins un filtre narrowing est actif (pas en état par défaut — les MetricCards du haut suffisent). Clamp `count > 0` pour éviter la ligne vide.
+  - `filteredTotals` calculé dans un `useMemo` sur `operations` (sortie du hook, déjà filtré). Jamais sauvegardé (rendu post-`.map`, pas ajouté au state React).
+
+- **Tâche Kanban auto `ml_retrain` + Toast cerveau animé (MLRetrainToast)**
+  - **6e détection auto** dans `task_service.generate_auto_tasks(year)` : compte les corrections manuelles postérieures au dernier entraînement via helpers `_count_corrections_since_last_training()` (scan `data/ml/logs/corrections/corrections_*.json` filtré par timestamp > last training) + `_days_since_last_training()` (diff `datetime.now() - last_ts`).
+  - **Seuils configurables dans Settings** : `ml_retrain_corrections_threshold: int = 10` + `ml_retrain_days_threshold: int = 14` sur `AppSettings` (Pydantic + TS). Helper `_load_ml_retrain_thresholds()` lit settings.json avec fallback sur les défauts.
+  - **Condition de déclenchement** : `corrections_count >= corrections_threshold` OR `(corrections_count >= 1 AND days_since_training >= days_threshold)`. Priorité `haute` si `corrections_count >= 2 × threshold`, sinon `normale`.
+  - **Champ `metadata: Optional[dict]`** ajouté au modèle `Task` (backend Pydantic + frontend TS) — contient `corrections_count`, `days_since_training`, `action_url: "/agent-ai"`. Optionnel et backward-compat (absent sur les tâches existantes).
+  - **Composant `MLRetrainToast.tsx`** (frontend/src/components/shared/) : card 360px, accent gauche violet `#7F77DD`, icône cerveau SVG entourée de 2 anneaux pulsants décalés (0s / 0.7s) via `@keyframes ml-pulse-ring`. 2 pills : corrections (violet `#EEEDFE`/`#534AB7`) + jours (amber `#FAEEDA`/`#854F0B`). 2 boutons : primary violet `Entraîner maintenant` (navigate → `/agent-ai`) + ghost `Plus tard`. Bouton X persistant. Animations `animate-enter`/`animate-leave` cohérent avec SandboxArrivalToast.
+  - **Keyframes CSS** (index.css) : `ml-pulse-ring` (scale 0.88→1.18 + opacity 0.7→0), `ml-toast-progress` (width 100%→0%), `ml-neuron-blink` (3 étapes scale+opacity).
+  - **Déclenchement AppLayout** : useEffect + `useTasks(selectedYear)` + gate sessionStorage `'ml-retrain-toast-shown'` → affiche le toast **1× par session** en `top-right` avec `duration: Infinity` (persiste jusqu'au clic). `useRef mlToastShown` en complément pour éviter la double exécution en mode Strict React. Vérification stricte : skippé si `metadata.corrections_count <= 0`.
+  - **UI Settings** : 2 inputs number dans GeneralTab (min=1 max=500 pour corrections, min=1 max=365 pour days) avec icône Brain, description explicative, séparateur top-border.
+
+- **ML — Bulk-import training depuis opérations catégorisées (`/ml/import-from-operations`)**
+  - **Service** : `ml_service.import_training_from_operations(year: Optional[int])` scanne `data/imports/operations/*.json` (filtrage année via le champ `Date` plutôt que le filename pour gérer les fichiers merged multi-mois), applique `clean_libelle` + filtre les catégories exclues (`""`, `"Autres"`, `"Ventilé"`, `"perso"`, `"Perso"`), explose les ventilations en sous-exemples individuels, puis délègue à `add_training_examples_batch` (dédup par `(libelle, categorie)`) + `update_rules_from_operations` (exact_matches). Retourne `{files_read, ops_scanned, ops_skipped, vent_sublines, examples_submitted, examples_added, rules_updated, total_training_data, year_filter}`.
+  - **Endpoint** `POST /api/ml/import-from-operations?year=...` (year optionnel, omis = toutes années).
+  - **UI ActionsRapides.tsx** : section « Importer données historiques » entre Entraîner+Appliquer et Sauvegarder, bouton bleu `Database` avec mutation + toast + block résultat 8 métriques (fichiers lus, ops scannées, ops ignorées, sous-lignes ventil., exemples soumis, nouveaux dédup +N, règles maj, total corpus). Réutilise `allYears` + `selectedYear` pour cohérence UX avec Entraîner+Appliquer.
+  - **Hook** `useCreateEmptyMonth` → invalide `['ml-model']` + `['ml-model-full']` + `['ml-training-data']`.
+
+- **ML — Feedback UI erreur entraînement**
+  - `ActionsRapides.tsx` : nouveau bloc `{trainResult && !trainResult.success && (...)}` affichant `<XCircle /> Entraînement échoué — vérifier les logs backend` sous le bouton principal, à côté du feedback existant `{trainMutation.isError && ...}` (cas network error).
+
+### Changed (2026-04-16) — Session 25
+
+- **ML — Migration `LogisticRegression` → `LinearSVC` (CalibratedClassifierCV wrapper)**
+  - `train_sklearn_model()` : remplace `LogisticRegression(max_iter=1000, class_weight="balanced")` par `CalibratedClassifierCV(LinearSVC(max_iter=2000, class_weight="balanced", dual=True), cv=2)`. LinearSVC est plus performant sur les corpus courts TF-IDF à faible signal (libellés bancaires 3-5 mots, ~20 classes, 250-500 exemples).
+  - `CalibratedClassifierCV` enveloppe le SVM pour exposer `.predict_proba()` (requis par `evaluate_hallucination_risk()` qui calcule la confidence via `probas[idx]`). Sans wrapper, LinearSVC n'a pas nativement cette méthode.
+  - `cv=2` : seuil minimal ops/classe relevé de `<2` → `<3` (filtrage en amont) pour garantir qu'après `train_test_split(test_size=0.25, stratify=y)` chaque classe ait ≥2 exemples en train. Les 4 classes à 2 exemples (CARMF, Poste, Alimentation, Ordre des Médecins) sont écartées du fit sklearn mais restent fonctionnelles via `exact_matches` rules-based (priorité sur sklearn dans le pipeline de prédiction).
+  - `unique_classes` capturé **après** les 2 filtres (perso + too_few) pour que `n_classes`/`labels`/`confusion_matrix` reflètent fidèlement ce qui a été appris.
+  - Backup pré-migration créé via `create_backup()` (`model_backup_20260416_102421_manuel`). Anciens pkls purgés avant le re-fit.
+
+- **ML — `avg_confidence` + `confidence_distribution` restreints aux prédictions sklearn**
+  - `ml_monitoring_service.get_monitoring_stats()` : calcule désormais `avg_confidence` et `confidence_distribution` **uniquement** sur `sklearn_preds = [p for p in all_preds if p.source == "sklearn"]`. Les prédictions rules-based (`keywords`/`exact_match`) ont leur confidence **hard-codée à 1.0** dans `categorize_file()` — les inclure créait un artefact trompeur affichant ~100% confiance alors que le modèle sklearn réel est à ~7%.
+  - `hallucination_count` + `unknown_count` calculés aussi sur `sklearn_preds` uniquement (cohérent).
+  - Impact mesuré : `avg_confidence` passé de 1.0 (artefact) à 0.069 réel. Distribution passe de `4203/0/6` à `0/0/6` (toutes les prédictions sklearn tombent en basse confiance — signal fiable pour décider d'enrichir le corpus ou pas).
+
+- **ML — Router `/ml/model` enrichit `stats` depuis les logs réels**
+  - `backend/routers/ml.py:get_model()` : agrège `ml_monitoring_service._load_all_prediction_logs()` + `_load_all_corrections()` pour exposer les VRAIES métriques `operations_processed` et `success_rate = 1 - correction_rate`. Le champ `stats.operations_processed` dans `model.json` était initialisé à 0 dans `_empty_model()` et **jamais incrémenté** → jauge dashboard `Ops traitées` restait à 0 perpétuellement.
+  - Résultat : la jauge affiche désormais 4209 ops traitées + 95.3% success_rate (vs 0 / 0% avant). Fallback silencieux sur `model.json` si monitoring indisponible (try/except).
+
+- **ML — `categorize_file()` respecte maintenant `op.locked`**
+  - Ajout d'un `if op.get("locked"): continue` en tête de boucle **avant** le check `empty_only`. Cohérent avec `run_auto_rapprochement()` qui applique la même garde depuis plus longtemps. Protège mode `empty_only` ET mode `all` contre l'écrasement silencieux par la prédiction ML.
+  - Bug avant : bouton « Recatégoriser IA » (mode=all) dans l'Éditeur balayait la Catégorie + Sous-catégorie de TOUTES les ops, y compris celles manuellement associées à un justificatif (qui sont auto-lockées par `associate_manual`). Le lock protégeait contre l'auto-rapprochement mais pas contre la recatégorisation ML. Fix aligne les 2 chemins.
+  - Test validé sur fichier réel : `modified: 85, total: 86` → exactement 1 op (lockée en `TEST_LOCKED_CAT`) épargnée ; avant le fix les 86 auraient été écrasées.
+
+- **ML — Post-override pro → perso dans `predict_category()`**
+  - Nouvelle clé `perso_override_patterns: list[str]` dans `model.json` (ex. `["eats", "ubereats", "levoltaire", "benrvac", "motifrevac", "succursale"]`). Si la prédiction initiale (rules + keywords) tombe dans une classe pro ambiguë (`Matériel`, `Fournitures`, `Repas pro`, `Transport`, `Alimentation`) OU est `None`, et que le libellé clean contient un des patterns → force override en `perso`.
+  - Résout les ambiguïtés marque-scope : « UBEREATS » prédit initialement `Transport` via le keyword `uber`, l'override le rebascule en `perso` car le libellé contient `eats`. De même « LEVOLTAIRE » (restaurant perso récurrent) → perso même sans keyword.
+  - Garde défensive : override s'applique **jamais** sur une prédiction non-ambiguë (Remplaçant, URSSAF, CARMF, Honoraires, etc.) pour éviter les faux positifs.
+
+- **Métriques modèle ML — +34 keywords + 6 patterns perso → accuracy règles 27% → 90.1%**
+  - Analyse des corpus par catégorie a identifié les tokens discriminants non-locaux et non-génériques : `openai/chatgpt/mistral` → Abonnements, `carmf` → CARMF, `urssaf` → URSSAF, `orange/sfr/bouygues/free` → Telephone-Internet, `netflix/spotify/disney` → Loisirs, `total/station/essence/carburant/peage/qpf` → Véhicule, `auchandac` → Véhicule (protège contre les variantes futures hors Montauban), etc. 34 keywords ajoutés dans 14 catégories.
+  - Benchmark sur corpus complet (1188 ops catégorisées) : **90.1% correctes via règles+keywords+override** (vs baseline sklearn ~27%). 0 fallback sklearn car les règles couvrent 100% des libellés connus. Les 9.9% d'erreurs restantes sont des cas où un keyword trop large (ex. `amazonpayments` dans Fournitures) capture un libellé perso — à raffiner par extension des `perso_override_patterns` ou réduction des keywords.
+
+- **Frontend — `api.post`/`api.patch` : Content-Type conditionnel au body**
+  - `frontend/src/api/client.ts:3-15` : la fonction `request()` ne force plus `Content-Type: application/json` quand `options?.body` est `undefined` ou `null`. Avant : un POST sans body envoyait le header → FastAPI/Starlette interprétait comme JSON malformé (ou certains proxies rejetaient avec 400). Maintenant : si pas de body, pas de Content-Type → le backend traite la requête comme un POST sans body attendu (comportement standard pour `POST /api/ml/train` qui n'attend pas de body).
+  - Bug reproduit : `POST /api/ml/train` depuis le frontend → 400 (Content-Type JSON + body vide), depuis curl → 200 (pas de Content-Type). Fix aligne les 2 chemins.
+  - Non-régression : `api.post('/ml/predict', {libelle: "..."})` continue d'envoyer `Content-Type: application/json` correctement (body est présent).
+
+- **Frontend — Type `TrainResult` aligné avec le backend (`acc_train` au lieu de `accuracy_train`)**
+  - `frontend/src/types/index.ts` : champs `accuracy_train` / `accuracy_test` renommés en `acc_train` / `acc_test` pour refléter ce que le backend renvoie réellement. Bug latent : `ActionsRapides.tsx` lisait `trainResult.metrics.accuracy_train` → `undefined` → `(undefined * 100).toFixed(1) = NaN%`. Masqué par le bug 400 (l'UI n'atteignait jamais le rendu), révélé après le fix.
+  - Ajout aussi de `n_samples?`, `n_classes?`, `labels?` sur l'interface pour cohérence avec le dict retourné.
+
+- **Frontend — Fix 400 sur `POST /api/ml/train` + feedback erreur**
+  - Cascade de fixes (voir `Changed` ci-dessus) : Content-Type conditionnel + `class_weight='balanced'` + filtre perso + feedback UI. Le bouton « Lancer l'entraînement » fonctionne à nouveau, affiche un badge vert avec les 4 métriques (acc_train, acc_test, f1, précision) ou un badge rouge en cas d'échec.
+
+- **DevX — `start.sh` : flags uvicorn pour éviter les reloads bloqués**
+  - Ajout `--timeout-graceful-shutdown 2` : force le kill du worker après 2 secondes même si des connexions SSE (`/api/sandbox/events`), le thread watchdog Observer ou la tâche `_previsionnel_background_loop` n'ont pas terminé proprement. Sans ce flag, le reload restait bloqué indéfiniment sur `Waiting for connections to close` → utilisateur forcé au Ctrl+C + relance manuelle.
+  - Ajout `--reload-exclude 'data/*' 'frontend/*' '*.pkl' '*.log' 'backups/*' '__pycache__/*'` : évite les reloads parasites déclenchés quand le backend lui-même écrit dans `data/` (ex. `save_rules_model`, `log_prediction_batch`). Seuls les changements sur `backend/**/*.py` déclenchent désormais un reload.
+
+### Fixed (2026-04-16) — Session 25
+
+- **`get_batch_justificatif_scores` — propagation `override_sous_categorie`**
+  - `backend/services/rapprochement_service.py:1094-1139` : la boucle de scoring des justificatifs en attente (pour la galerie) itérait sur les sous-lignes de ventilation mais ne passait **pas** `override_sous_categorie` à `compute_score()`, contrairement à sa fonction sœur `get_batch_hints()` (ligne 1064) qui le faisait correctement. Asymétrie silencieuse : sur les ops ventilées, le score catégorie pouvait retomber de 1.0 (cat match + sub match) à 0.6 (cat match + sub mismatch), faisant potentiellement basculer des matches sous le seuil 0.60 dans la galerie alors qu'ils étaient au-dessus dans le drawer.
+  - Fix : tuple `all_targets` étendu de 5 → 6 éléments (ajout de `override_sous_categorie`), boucle de scoring réécrite pour propager le paramètre à `compute_score()`. Le paramètre existait déjà dans la signature (ligne 312). Aucun changement public de `compute_score()` ni `get_batch_hints()`. Test sur corpus réel : 58 entrées retournées, scores stables entre 2 exécutions consécutives, top matches (cursor, udemy, ford-credit, boulanger, ldlc, amazon) conformes aux attentes.
+
+- **Frontend — Suppression du drawer legacy `JustificatifDrawer.tsx`**
+  - `frontend/src/components/justificatifs/JustificatifDrawer.tsx` supprimé (~500 LOC legacy). Audit grep a confirmé **zéro import** dans `frontend/src`. Le drawer actif est `RapprochementWorkflowDrawer` (700px unifié avec 2 modes, intégration complète avec `useRapprochementWorkflow`). Les 3 bugs résiduels du fichier legacy (handleDissociate cassé avec `operation_file=""` et `operation_index=0`, `score_detail` affiché comme `[object Object]`, pas de gestion HTTP 423) n'affectaient personne car le code n'était pas exécuté. Suppression directe plutôt que patch — évite qu'un futur refactor réutilise le composant buggé par erreur.
+
+### Security / Data integrity (2026-04-16) — Session 25
+
+- **Nouveau champ `source` ne rompt pas le round-trip JSON**
+  - Le champ `source: Optional[str]` ajouté sur `Operation` est persisté via `json.dump(operations, f)` (raw dict, pas `model_dump`) — toute valeur présente dans le dict est conservée sans validation Pydantic stricte. Les ops sans `source` (toutes les ops historiques) restent intouchées. Les ops avec `source: "note_de_frais"` round-trip proprement (save → load → save) sans perte.
+  - Vérification explicite : créer une NDF dans l'Éditeur, save, reload la page → le badge persiste, `source` visible dans le JSON sur disque.
+
+- **`categorize_file` respecte `locked` — aucune perte silencieuse de catégorie manuelle**
+  - Avant Session 25, un clic sur « Recatégoriser IA » (mode=all) dans l'Éditeur écrasait la Catégorie + Sous-catégorie de **toutes** les ops, y compris celles manuellement associées à un justificatif. Le lock posé par `associate_manual` protégeait contre `run_auto_rapprochement` mais pas contre `categorize_file`. Impact sur la session courante : aucun — le bug est corrigé avant que ce chemin n'ait été déclenché massivement en production.
+
+---
+
+
 
 - **Bulk-lock + bulk-unlock des associations (JustificatifsPage + EditorPage)**
   - **Backend** : endpoint `PATCH /api/operations/bulk-lock` (`backend/routers/operations.py`) avec 4 modèles Pydantic (`BulkLockItem`, `BulkLockRequest`, `BulkLockResultItem`, `BulkLockResponse`). Groupe les items par `filename` via `itertools.groupby` → un seul `load_operations` + `save_operations` par fichier. Erreurs par-item (fichier introuvable / index hors bornes) remontées dans `results[i].error` sans stopper le batch. Route déclarée **avant** `PATCH /{filename}/{index}/lock` pour éviter la collision FastAPI (`filename="bulk-lock"` matcherait sinon la route paramétrée).

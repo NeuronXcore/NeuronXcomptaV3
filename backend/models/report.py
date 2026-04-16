@@ -13,6 +13,7 @@ class ReportFilters(BaseModel):
     quarter: Optional[int] = None
     month: Optional[int] = None
     type: Optional[str] = None          # "debit" | "credit" | "all"
+    source: Optional[str] = None        # "note_de_frais" | "bancaire" | None (= tous)
     important_only: bool = False
     min_amount: Optional[float] = None
     max_amount: Optional[float] = None

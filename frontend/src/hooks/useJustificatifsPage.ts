@@ -41,6 +41,7 @@ export function useJustificatifsPage() {
   // tout en gardant le même filtre "Remplaçant / Hébergement" par exemple)
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('')
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'bancaire' | 'note_de_frais'>('all')
   const [selectedOpIndex, setSelectedOpIndex] = useState<number | null>(null)
   const [selectedOpFilename, setSelectedOpFilename] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -200,6 +201,13 @@ export function useJustificatifsPage() {
       ops = ops.filter(op => (op['Sous-catégorie'] ?? '') === subcategoryFilter)
     }
 
+    // Filtre source (Type d'opération : bancaire / note_de_frais)
+    if (sourceFilter === 'note_de_frais') {
+      ops = ops.filter(op => op.source === 'note_de_frais')
+    } else if (sourceFilter === 'bancaire') {
+      ops = ops.filter(op => !op.source)
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase()
       ops = ops.filter(op =>
@@ -223,7 +231,7 @@ export function useJustificatifsPage() {
     })
 
     return ops
-  }, [enrichedOps, justifFilter, exemptions, categoryFilter, subcategoryFilter, search, sortKey, sortOrder])
+  }, [enrichedOps, justifFilter, exemptions, categoryFilter, subcategoryFilter, sourceFilter, search, sortKey, sortOrder])
 
   // Stats (exempt ops count as "avec")
   const stats = useMemo(() => {
@@ -295,7 +303,7 @@ export function useJustificatifsPage() {
   useEffect(() => {
     setSelectedOps(new Set())
     setLockSelectedOps(new Set())
-  }, [year, selectedMonth, justifFilter, search, categoryFilter, subcategoryFilter])
+  }, [year, selectedMonth, justifFilter, search, categoryFilter, subcategoryFilter, sourceFilter])
 
   // Helpers sélection batch
   const opKey = useCallback((op: EnrichedOperation) => {
@@ -402,6 +410,7 @@ export function useJustificatifsPage() {
     sortKey, sortOrder, toggleSort,
     justifFilter, setJustifFilter,
     categoryFilter, setCategoryFilter, subcategoryFilter, setSubcategoryFilter,
+    sourceFilter, setSourceFilter,
     selectedOpIndex, selectedOpFilename,
     drawerOpen, setDrawerOpen,
     drawerInitialIndex, setDrawerInitialIndex,

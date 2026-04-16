@@ -74,6 +74,15 @@ def _compute_file_meta(f: "Path") -> dict:
         meta["month"] = month_counts.most_common(1)[0][0]
     if year_counts:
         meta["year"] = year_counts.most_common(1)[0][0]
+    # Fallback : dériver year/month depuis le filename si aucune op datée (fichier vide ou manuel)
+    if "year" not in meta or "month" not in meta:
+        import re
+        m = re.search(r"_(\d{4})(\d{2})_", f.name)
+        if m:
+            y, mo = int(m.group(1)), int(m.group(2))
+            if 2000 <= y <= 2100 and 1 <= mo <= 12:
+                meta.setdefault("year", y)
+                meta.setdefault("month", mo)
     return meta
 
 
@@ -244,6 +253,30 @@ def save_operations(
         with open(pdf_filepath, "wb") as f:
             f.write(pdf_bytes)
 
+    return filename
+
+
+def create_empty_file(year: int, month: int) -> str:
+    """Crée un fichier d'opérations vide pour un mois donné (saisie manuelle, ex. notes de frais).
+
+    Nommage `operations_manual_YYYYMM_<hash8>.json` — le préfixe `manual_` trace l'origine
+    (né hors import PDF) ; les scripts de merge existants (merge_overlapping_monthly_files.py)
+    dédupliquent ensuite par hash op-identité si un relevé est importé pour le même mois plus tard.
+    """
+    import secrets
+    ensure_directories()
+    if not (1 <= month <= 12):
+        raise ValueError(f"month must be 1..12, got {month}")
+    short_hash = secrets.token_hex(4)  # 8 hex chars
+    filename = f"operations_manual_{year:04d}{month:02d}_{short_hash}.json"
+    filepath = IMPORTS_OPERATIONS_DIR / filename
+    if filepath.exists():
+        # Collision improbable mais géré : regénérer le hash
+        short_hash = secrets.token_hex(4)
+        filename = f"operations_manual_{year:04d}{month:02d}_{short_hash}.json"
+        filepath = IMPORTS_OPERATIONS_DIR / filename
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump([], f, ensure_ascii=False, indent=2)
     return filename
 
 
@@ -550,6 +583,13 @@ def categorize_file(filename: str, mode: str = "empty_only") -> dict:
     for op in operations:
         libelle = op.get("Libellé", "")
         current_cat = op.get("Catégorie", "")
+
+        # Skip global des ops verrouillées — une association manuelle auto-locke l'op
+        # (cf. associate_manual). Cohérent avec run_auto_rapprochement() qui applique
+        # la même garde. Protège aussi bien mode=empty_only que mode=all contre
+        # l'écrasement silencieux par la prédiction ML.
+        if op.get("locked"):
+            continue
 
         if mode == "empty_only" and current_cat and current_cat != "Autres":
             continue

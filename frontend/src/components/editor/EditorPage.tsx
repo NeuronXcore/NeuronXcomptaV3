@@ -15,7 +15,7 @@ import {
 } from '@tanstack/react-table'
 import {
   Save, Bot, Plus, Trash2, Filter, Loader2, Check, Search,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
   CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban, Camera,
@@ -38,7 +38,7 @@ import VentilationDrawer from '@/components/editor/VentilationDrawer'
 import VentilationLines from '@/components/editor/VentilationLines'
 import UrssafSplitWidget, { isUrssafOp } from '@/components/editor/UrssafSplitWidget'
 import { ParticipantsCell } from '@/components/editor/ParticipantsCell'
-import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf } from '@/hooks/useOperations'
+import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf, useCreateEmptyMonth } from '@/hooks/useOperations'
 import { useCategories } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
@@ -198,6 +198,7 @@ export default function EditorPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({ source: false })
 
   // Bulk-lock state (indépendant de rowSelection)
   const [lockSelectedOps, setLockSelectedOps] = useState<Set<string>>(new Set())
@@ -254,7 +255,22 @@ export default function EditorPage() {
   const deleteJustifMutation = useDeleteJustificatif()
   const categorizeMutation = useCategorizeOperations()
   const bulkLockMutation = useBulkLock()
+  const createEmptyMonth = useCreateEmptyMonth()
   const searchRef = useRef<HTMLInputElement>(null)
+
+  // Split button "+ Ligne ▾" — dropdown menu (Opération bancaire / Note de frais)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const addMenuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!addMenuOpen) return
+    const onClickOutside = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [addMenuOpen])
 
   // ─── Bulk-lock helpers (indépendant de rowSelection TanStack) ───
   const lockKeyFor = useCallback((op: Operation, rowIndex: number) => {
@@ -493,7 +509,7 @@ export default function EditorPage() {
   }, [undoStack])
 
   // Add row
-  const addRow = useCallback(() => {
+  const addRow = useCallback((source?: string) => {
     setUndoStack(stack => [...stack.slice(-20), operations])
     const newOp: Operation = {
       Date: new Date().toISOString().slice(0, 10),
@@ -506,6 +522,7 @@ export default function EditorPage() {
       Important: false,
       A_revoir: false,
       Commentaire: '',
+      ...(source ? { source } : {}),
     }
     setOperations(prev => [newOp, ...prev])
     setHasChanges(true)
@@ -599,6 +616,22 @@ export default function EditorPage() {
 
   // TanStack Table columns
   const columns = useMemo<ColumnDef<Operation, unknown>[]>(() => [
+    // Hidden column for source filter (Type d'opération)
+    {
+      id: 'source',
+      accessorFn: (row) => row.source ?? '',
+      enableSorting: false,
+      enableHiding: true,
+      filterFn: (row, columnId, filterValue) => {
+        const val = (row.getValue<string>(columnId) || '').trim()
+        if (filterValue === 'note_de_frais') return val === 'note_de_frais'
+        if (filterValue === 'bancaire') return val === ''
+        return true
+      },
+      header: () => null,
+      cell: () => null,
+      size: 0,
+    },
     // Selection checkbox
     {
       id: 'select',
@@ -705,13 +738,32 @@ export default function EditorPage() {
       cell: ({ row }) => {
         const cat = row.original['Catégorie'] || ''
         const color = categoryColors.get(cat)
+        const isNoteDeFrais = row.original.source === 'note_de_frais'
         return (
-          <div className="relative">
+          <div className="relative flex flex-col">
             {color && (
               <div
                 className="absolute left-0 top-0 bottom-0 w-1 rounded-full"
                 style={{ backgroundColor: color }}
               />
+            )}
+            {isNoteDeFrais && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '10px',
+                  fontWeight: 500,
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: '#FAEEDA',
+                  color: '#854F0B',
+                  marginBottom: '2px',
+                  lineHeight: '16px',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                Note de frais
+              </span>
             )}
             <EditableCell
               type="select"
@@ -1091,12 +1143,14 @@ export default function EditorPage() {
       columnFilters,
       globalFilter,
       rowSelection,
+      columnVisibility,
       pagination: { pageIndex, pageSize },
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: (updater) => {
       const next = typeof updater === 'function' ? updater({ pageIndex, pageSize }) : updater
       setPageIndex(next.pageIndex)
@@ -1327,25 +1381,45 @@ export default function EditorPage() {
           ))}
         </select>
 
-        {/* Month selector */}
+        {/* Month selector — 12 mois exposés, mois sans fichier déclenchent la création */}
         <select
           value={allYearMode ? '__ALL__' : (selectedFile ?? '')}
-          onChange={e => {
+          onChange={async e => {
             const val = e.target.value
             if (val === '__ALL__') {
               setAllYearMode(true)
               setSelectedFile(null)
               setSelectedMonth(null)
               setRowSelection({})
-            } else {
-              setAllYearMode(false)
-              const fname = val || null
-              setSelectedFile(fname)
-              setRowSelection({})
-              if (fname && files) {
-                const match = files.find(f => f.filename === fname)
-                if (match) setSelectedMonth(match.month ?? null)
+              return
+            }
+            if (val.startsWith('__CREATE_') && selectedYear) {
+              const m = Number(val.slice('__CREATE_'.length, -2)) // e.g. "__CREATE_4__" -> 4
+              if (!m || m < 1 || m > 12) return
+              const confirmMsg = `Aucun relevé pour ${MOIS_FR[m - 1]} ${selectedYear}. Créer un fichier d'opérations vide pour ce mois ?`
+              if (!window.confirm(confirmMsg)) {
+                // Revert le select à sa valeur précédente en forçant un re-render via state
+                return
               }
+              try {
+                const res = await createEmptyMonth.mutateAsync({ year: selectedYear, month: m })
+                toast.success(`Fichier vide créé pour ${MOIS_FR[m - 1]} ${selectedYear}`)
+                setAllYearMode(false)
+                setSelectedFile(res.filename)
+                setSelectedMonth(m)
+                setRowSelection({})
+              } catch (err) {
+                toast.error(`Échec de la création : ${(err as Error).message}`)
+              }
+              return
+            }
+            setAllYearMode(false)
+            const fname = val || null
+            setSelectedFile(fname)
+            setRowSelection({})
+            if (fname && files) {
+              const match = files.find(f => f.filename === fname)
+              if (match) setSelectedMonth(match.month ?? null)
             }
           }}
           disabled={!selectedYear}
@@ -1355,11 +1429,21 @@ export default function EditorPage() {
           {monthsForYear.length > 1 && (
             <option value="__ALL__">Toute l'année ({totalYearOps} ops)</option>
           )}
-          {monthsForYear.map(f => (
-            <option key={f.filename} value={f.filename}>
-              {MOIS_FR[(f.month ?? 1) - 1]} ({f.count} ops)
-            </option>
-          ))}
+          {selectedYear && Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+            const existing = monthsForYear.find(f => f.month === m)
+            if (existing) {
+              return (
+                <option key={`file-${existing.filename}`} value={existing.filename}>
+                  {MOIS_FR[m - 1]} ({existing.count} ops)
+                </option>
+              )
+            }
+            return (
+              <option key={`create-${m}`} value={`__CREATE_${m}__`}>
+                {MOIS_FR[m - 1]} — vide · créer
+              </option>
+            )
+          })}
         </select>
 
         {/* PDF original */}
@@ -1411,15 +1495,65 @@ export default function EditorPage() {
           Filtres
         </button>
 
-        {/* Add row */}
+        {/* Add row — split button (Opération bancaire / Note de frais) */}
         {!allYearMode && (
-          <button
-            onClick={addRow}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors"
-          >
-            <Plus size={15} />
-            Ligne
-          </button>
+          <div ref={addMenuRef} className="relative inline-flex">
+            <button
+              onClick={() => addRow()}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm bg-surface border border-border rounded-l-lg hover:bg-surface-hover transition-colors"
+            >
+              <Plus size={15} />
+              Ligne
+            </button>
+            <button
+              onClick={() => setAddMenuOpen(v => !v)}
+              className={cn(
+                'flex items-center px-2 py-2 text-sm bg-surface border border-l-0 border-border rounded-r-lg hover:bg-surface-hover transition-colors',
+                addMenuOpen && 'bg-surface-hover'
+              )}
+              aria-label="Autres types de ligne"
+              aria-haspopup="menu"
+              aria-expanded={addMenuOpen}
+            >
+              <ChevronDown size={14} />
+            </button>
+            {addMenuOpen && (
+              <div
+                role="menu"
+                className="absolute top-full right-0 mt-1 w-56 bg-surface border border-border rounded-lg shadow-lg z-20 py-1"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { addRow(); setAddMenuOpen(false) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text hover:bg-surface-hover text-left"
+                >
+                  <Plus size={14} />
+                  Opération bancaire
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { addRow('note_de_frais'); setAddMenuOpen(false) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text hover:bg-surface-hover text-left"
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: '#FAEEDA',
+                      color: '#854F0B',
+                      lineHeight: '16px',
+                    }}
+                  >
+                    Note de frais
+                  </span>
+                  <span>CB perso</span>
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Batch delete */}
@@ -1436,7 +1570,7 @@ export default function EditorPage() {
 
       {/* Filters panel */}
       {showFilters && (
-        <div className="bg-surface rounded-xl border border-border p-4 mb-3 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-surface rounded-xl border border-border p-4 mb-3 grid grid-cols-1 md:grid-cols-6 gap-4">
           <div>
             <label className="text-xs text-text-muted mb-1.5 block font-medium">Catégorie</label>
             <select
@@ -1476,6 +1610,21 @@ export default function EditorPage() {
             })()}
           </div>
           <div>
+            <label className="text-xs text-text-muted mb-1.5 block font-medium">Type d'opération</label>
+            <select
+              value={(table.getColumn('source')?.getFilterValue() as string) ?? ''}
+              onChange={e => {
+                const val = e.target.value
+                table.getColumn('source')?.setFilterValue(val || undefined)
+              }}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text"
+            >
+              <option value="">Tous les types</option>
+              <option value="bancaire">Opérations bancaires</option>
+              <option value="note_de_frais">Notes de frais</option>
+            </select>
+          </div>
+          <div>
             <label className="text-xs text-text-muted mb-1.5 block font-medium">Afficher</label>
             <select
               value={pageSize}
@@ -1487,7 +1636,7 @@ export default function EditorPage() {
               ))}
             </select>
           </div>
-          <div className="md:col-span-2 col-start-4">
+          <div className="md:col-span-2 md:col-start-5">
             <label className="text-xs text-text-muted mb-1.5 block font-medium">Statistiques</label>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-background rounded-lg p-2 flex justify-between">

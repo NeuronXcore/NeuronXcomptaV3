@@ -145,6 +145,32 @@ export default function AlertesPage() {
       accessorKey: 'Libellé',
       header: 'Libellé',
       size: 300,
+      cell: ({ row }) => {
+        const isNoteDeFrais = row.original.source === 'note_de_frais'
+        return (
+          <div className="flex flex-col">
+            {isNoteDeFrais && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '10px',
+                  fontWeight: 500,
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: '#FAEEDA',
+                  color: '#854F0B',
+                  marginBottom: '2px',
+                  lineHeight: '16px',
+                  alignSelf: 'flex-start',
+                }}
+              >
+                Note de frais
+              </span>
+            )}
+            <span>{row.original['Libellé']}</span>
+          </div>
+        )
+      },
     },
     {
       accessorKey: 'Débit',

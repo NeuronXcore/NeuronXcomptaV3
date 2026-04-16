@@ -14,14 +14,16 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 | **Pipeline** | **Pipeline comptable interactif** : **stepper 7 étapes** (Import → Catég → Justif → **Verrouillage** → Lettrage → Vérification → Clôture), progression globale pondérée `[10, 20, 20, 10, 20, 10, 10]`, sélecteur mois/année, **widget « Scans en attente d'association »** (filtré par year+month, sections OCR récents / Fac-similés, lien « Traiter » vers Justificatifs, **collapsed par défaut** à chaque ouverture), **badge orange sidebar** sur `/ocr` (compteur pending scans), **titre d'onglet navigateur** synchronisé avec la route courante (utile en multi-tabs) |
 | **Verrouillage associations** | Champ `locked` sur chaque opération, posé **automatiquement** à toute association manuelle (via `associate-manual`). Auto-rapprochement skippe les ops lockées silencieusement. Gardes HTTP 423 sur re-association / dissociation. Composant `LockCell` (cadenas orange `text-warning` si locked / gris `LockOpen` sinon) avec tooltip riche démonstratif ancré à droite. Intégration JustificatifsPage (cellule Justif) + EditorPage (colonne dédiée 44px). Modale `UnlockConfirmModal` de confirmation pour déverrouiller. Endpoint `PATCH /api/operations/{filename}/{index}/lock`. **Bulk-lock / bulk-unlock** : sélection multi-ops via header 🔒 + checkbox hover, `BulkLockBar` flottante avec toggle intelligent Verrouiller (orange) ↔ Déverrouiller (vert) selon l'état des ops sélectionnées, endpoint `PATCH /api/operations/bulk-lock` (multi-fichiers, erreurs par-item). Disponible sur JustificatifsPage + EditorPage (masquée en year-wide lecture seule) |
 | **Snapshots** | Sélections nommées d'opérations réutilisables (ad-hoc folders pour suivi : "Litige Amazon", "À vérifier comptable", "Acompte Q4"). Stockage `data/snapshots.json` avec refs `(file, index)` **self-healing** via hash op-identité + archive lookup (survit aux split/merge/archive de fichiers ops). Page dédiée `/snapshots` (sidebar OUTILS, icône Camera) avec grille de cartes (pastille couleur, stats live Ops/Débits/Solde, badge ambre si refs cassées). Création depuis EditorPage via bouton « Snapshot (N) » en orange quand `rowSelection > 0` → modal avec nom pré-rempli contextuel, description, 6 couleurs. Drawer viewer 760px avec titre renommable inline + tableau ops + lien `ExternalLink` → éditeur |
-| **Éditeur — Bandeau stats filtrées + ligne TOTAL sticky** | Quand un filtre est actif (recherche globale, filtre colonne, non-catégorisées), affichage en haut d'un **bandeau violet** avec `{N} op(s) filtrée(s) sur {total}` + Débits/Crédits/Solde recalculés depuis `table.getFilteredRowModel()`. Et en bas du `<tbody>` une **ligne TOTAL éphémère** encadrée orange (sticky bottom-0, bordures `border-y-2 border-warning`, gradient warning, symbole ∑, Solde dans pill colorée vert/rouge). Jamais sauvegardée (safe au PUT). Pratique pour vérifier rapidement le total d'un mois/catégorie/fournisseur |
+| **Éditeur — Bandeau stats filtrées + ligne TOTAL sticky** | Quand un filtre est actif (recherche globale, filtre colonne, non-catégorisées), affichage en haut d'un **bandeau violet** avec `{N} op(s) filtrée(s) sur {total}` + Débits/Crédits/Solde recalculés depuis `table.getFilteredRowModel()`. Et en bas du `<tbody>` une **ligne TOTAL éphémère** encadrée orange (sticky bottom-0, bordures `border-y-2 border-warning`, gradient warning, symbole ∑, Solde dans pill colorée vert/rouge). Jamais sauvegardée (safe au PUT). Pratique pour vérifier rapidement le total d'un mois/catégorie/fournisseur. **Ligne TOTAL répliquée aussi dans JustificatifsPage** (miroir exact, visible quand au moins un filtre narrowing est actif) |
+| **Note de frais** | Champ `source: Optional[str]` sur `Operation` (valeurs connues `"note_de_frais" \| "blanchissage" \| "amortissement" \| None`). Badge pill **amber** `#FAEEDA/#854F0B` affiché au-dessus du select Catégorie si `source === 'note_de_frais'` dans **EditorPage**, **JustificatifsPage** et **AlertesPage**. Split button `+ Ligne ▾` dans EditorPage : bouton principal = op bancaire, chevron = dropdown avec `Note de frais (CB perso)`. **Filtre Type d'opération** dans 4 pages (Éditeur Filtres panel, Justificatifs toolbar, Rapports 3 pills, Compta Analytique widget `Répartition par type` avec share%). Endpoint analytics étendu avec `by_source: [{source, debit, credit, count}]`. Round-trip JSON transparent (pas de migration nécessaire) |
+| **Fichier mensuel vide à la demande** | Dropdown mois de l'Éditeur expose les **12 mois** même sans fichier (mois sans fichier affichés en `{Mois} — vide · créer`). Sélection → confirmation → `POST /api/operations/create-empty {year, month}` → création immédiate de `operations_manual_YYYYMM_<hex8>.json` → auto-select + toast. Débloque la saisie de notes de frais CB perso quand le relevé bancaire n'est pas encore importé. Fusion ultérieure assurée par les scripts `split/merge_*.py` existants via hash op-identité |
 | **Importation** | Upload de relevés bancaires PDF, extraction automatique des opérations (dates YYYY-MM-DD, filtrage soldes/totaux) |
 | **Éditeur** | Édition inline (EditableCell avec commit onBlur), catégorisation IA (vides/tout), **vue année complète** (lecture seule), **filtres catégorie + sous-catégorie**, colonnes : Justificatif (**icône `Ban` rouge barré pour ops perso — aucun justificatif requis**), Important, À revoir, Pointée, **ventilation** (bouton Scissors, sous-lignes indentées avec **trombones cliquables par sous-ligne** : vert = preview PDF / ambre = attribution drawer avec sous-ligne pré-sélectionnée via `initialVentilationIndex`), **drawer preview justificatif avec sous-drawer grand format** (toute la zone PDF cliquable → `PreviewSubDrawer` slide à gauche 700px avec bouton « Ouvrir avec Aperçu ») |
 | **Catégories** | Gestion des catégories/sous-catégories avec couleurs personnalisées |
 | **Rapports** | Generation PDF/CSV/Excel avec logo, colonnes Justificatif et Commentaire, 3 templates, checkboxes modernes categories, batch 12 mois, export ZIP comptable, **déduplication avec archivage** (ancien rapport archivé dans `reports/archives/`), **ventilation éclatée en N sous-lignes** avec libellé `[V1/N]` (plus de catégorie 'Ventilé' agrégée, totaux correctement répartis par sous-catégorie). Bibliotheque migree vers GED V2 |
 | **Compta Analytique** | Filtres globaux (année/trimestre/mois), drill-down catégorie, **comparatif périodes avec séparation recettes/dépenses**, tendances (agrégé/catégorie/empilé), anomalies, requêtes personnalisées, **encadré déductibilité CSG/CRDS** dans le drawer URSSAF avec bouton batch « Calculer tout » |
 | **Justificatifs** | **Vue opérations-centrée** avec **`RapprochementWorkflowDrawer` unifié** (700px, 2 modes « Toutes sans justificatif » / « Opération ciblée », progress bar, tabs, ventilation pills, raccourcis ⏎/←/→/Esc, ScorePills 4 critères, thumbnails lazy-loaded via IntersectionObserver, recherche libre exclusive). **Auto-rapprochement** avec scoring v2 (4 critères + pondération dynamique), preview justificatif avec dissociation, 4 KPIs couverture, sandbox SSE. **Catégories/sous-catégories éditables inline** (dropdowns, sauvegarde auto, mode « Toute l'année » supporté). **Filtres catégorie/sous-catégorie persistants** au changement de mois (mêmes états React conservés). **Batch reconstitution fac-similé** (multi-sélection → barre flottante → drawer choix template par groupe → génération batch). **Exemptions** CARMF/URSSAF/Honoraires (CheckCircle2 bleu ciel, tooltip) + **icône `Ban` rouge barré dédiée pour ops perso** (priorité sur la branche exempté, tooltip « aucun justificatif requis »). **Navigation bidirectionnelle** Justificatif ↔ Opération avec row surlignée persistante via `isNavTarget`. **Vue ventilée** : ligne parente + sous-lignes indentées L1/L2 avec trombone individuel par sous-ligne, `CheckCircle2` vert sur la parente si `allVlAssociated`. **Suppression complète** avec toast détaillé listant les nettoyages (PDF + thumbnail + GED metadata + liens ops parentes et ventilées + cache). |
-| **Agent IA** | Modèle ML (rules + sklearn), courbe d'apprentissage, backups, **auto-alimentation ML** depuis corrections manuelles (dédupliqué, effet immédiat sur les règles exactes) |
+| **Agent IA** | Modèle ML hybride : **rules-based** (`exact_matches` + `keywords` substring scoring + `perso_override_patterns`) prioritaire sur **sklearn** (`LinearSVC` wrappé dans `CalibratedClassifierCV(cv=2)` pour `predict_proba`, `class_weight='balanced'`, `perso` filtré du training). Benchmark corpus réel : **accuracy 90.1%** via règles+keywords+override (vs ~27% sklearn seul). Dashboard ML + onglet Monitoring (4 sections : Performance / Fiabilité / Progression / Diagnostic), courbe d'apprentissage, backups. **Auto-alimentation ML** depuis corrections manuelles (dédup `(libelle, categorie)`, effet immédiat sur `exact_matches`). **Bulk-import** `/ml/import-from-operations?year=...` (UI bouton bleu Database dans ActionsRapides). **Tâche auto `ml_retrain`** (6e détection `task_service`) + **Toast cerveau animé** au montage 1×/session si corrections accumulées dépassent les seuils Settings (`ml_retrain_corrections_threshold=10`, `ml_retrain_days_threshold=14`, configurables dans GeneralTab). `categorize_file()` respecte `op.locked` (plus d'écrasement silencieux par « Recatégoriser IA »). Métriques `avg_confidence` + `Ops traitées` agrégées depuis les vrais logs de prédiction (plus d'artefacts 0 ou 100%) |
 | **Export Comptable V3** | Grille calendrier 4×3 avec badges toggle PDF+CSV + checkbox Compte d'attente, génération ZIP (PDF+CSV+relevés+justificatifs+compte_attente en dossiers), exports enregistrés dans la GED, historique trié par mois (jan→déc) avec expander contenu ZIP, sélection multi-export, envoi au comptable |
 | **Compte d'Attente** | Export PDF/CSV des opérations en attente par mois ou année, **filtres catégorie + sous-catégorie** (liste complète du référentiel, reset auto, compteur), bouton export dropdown (4 options), enregistrement automatique dans la GED, cas 0 ops = fichier preuve |
 | **Email Comptable** | Drawer universel d'envoi au comptable via SMTP Gmail : sélection documents multi-type triés par période, filtres, **expanders intelligents**, **pré-sélection intelligente**, **jauge taille temps réel**, **template HTML brandé** (logo lockup, filets violets, arborescence ZIP, signature, footer copyright), **toggle HTML/Texte** dans le drawer, ZIP unique en PJ, historique des envois |
@@ -75,7 +77,21 @@ Application full-stack de gestion comptable avec catégorisation automatique par
 - Node.js 18+
 - Poppler (pour pdf2image) : `brew install poppler`
 
-### Backend
+### Lancement rapide (recommandé) — `./start.sh`
+
+```bash
+./start.sh
+```
+
+Lance en parallèle le backend (port 8000) et le frontend (port 5173) avec les flags uvicorn optimisés :
+- `--timeout-graceful-shutdown 2` — force le kill du worker après 2s sur un reload (évite le blocage « Waiting for connections to close » dû aux SSE `/api/sandbox/events` + thread watchdog + tâche `_previsionnel_background_loop`)
+- `--reload-exclude 'data/*' 'frontend/*' '*.pkl' '*.log' 'backups/*' '__pycache__/*'` — ignore les reloads parasites déclenchés quand le backend écrit dans `data/` (ex. `save_rules_model`, `log_prediction_batch`)
+
+`Ctrl+C` kille les deux processus. Backend Swagger sur **http://localhost:8000/docs**, frontend sur **http://localhost:5173**.
+
+### Lancement manuel (2 terminaux séparés)
+
+#### Backend
 
 ```bash
 # Créer un environnement virtuel (recommandé)
@@ -85,13 +101,18 @@ source venv/bin/activate
 # Installer les dépendances
 pip install -r backend/requirements.txt
 
-# Lancer le serveur
-python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+# Lancer le serveur (mêmes flags que start.sh)
+python3 -m uvicorn backend.main:app \
+  --host 0.0.0.0 --port 8000 \
+  --reload \
+  --timeout-graceful-shutdown 2 \
+  --reload-exclude 'data/*' --reload-exclude 'frontend/*' \
+  --reload-exclude '*.pkl' --reload-exclude '*.log'
 ```
 
 Le backend tourne sur **http://localhost:8000**. Documentation Swagger sur `/docs`.
 
-### Frontend
+#### Frontend
 
 ```bash
 cd frontend

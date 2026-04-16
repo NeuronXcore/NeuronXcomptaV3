@@ -53,6 +53,7 @@ export interface Operation {
   alerte_note?: string
   _index?: number
   _sourceFile?: string
+  source?: string // "note_de_frais" | "blanchissage" | "amortissement"
   immobilisation_id?: string
   immobilisation_candidate?: boolean
   immobilisation_ignored?: boolean
@@ -89,6 +90,14 @@ export interface DashboardData {
   category_summary: CategorySummary[]
   recent_operations: Operation[]
   monthly_evolution: MonthlyEvolution[]
+  by_source?: SourceBreakdown[]
+}
+
+export interface SourceBreakdown {
+  source: string  // "bancaire" | "note_de_frais"
+  debit: number
+  credit: number
+  count: number
 }
 
 export interface CategorySummary {
@@ -155,15 +164,31 @@ export interface PredictionResult {
   best_prediction: string | null
 }
 
+export interface ImportTrainingResult {
+  success: boolean
+  files_read: number
+  ops_scanned: number
+  ops_skipped: number
+  vent_sublines: number
+  examples_submitted: number
+  examples_added: number
+  rules_updated: number
+  total_training_data: number
+  year_filter: number | null
+}
+
 export interface TrainResult {
   success: boolean
   metrics: {
-    accuracy_train: number
-    accuracy_test: number
+    acc_train: number
+    acc_test: number
     f1: number
     precision: number
     recall: number
     confusion_matrix: number[][]
+    n_samples?: number
+    n_classes?: number
+    labels?: string[]
   }
 }
 
@@ -299,6 +324,9 @@ export interface AppSettings {
   email_smtp_app_password?: string | null
   email_comptable_destinataires?: string[]
   email_default_nom?: string | null
+  // ML retrain — seuils déclenchement tâche auto "Réentraîner le modèle IA"
+  ml_retrain_corrections_threshold?: number
+  ml_retrain_days_threshold?: number
 }
 
 // === Email / Envoi Comptable ===
@@ -899,6 +927,7 @@ export interface ReportFiltersV2 {
   quarter?: number
   month?: number
   type?: 'debit' | 'credit' | 'all'
+  source?: 'note_de_frais' | 'bancaire' | 'all'
   important_only?: boolean
   min_amount?: number
   max_amount?: number
@@ -1418,6 +1447,12 @@ export interface Task {
   created_at: string
   completed_at?: string
   order: number
+  metadata?: {
+    corrections_count?: number
+    days_since_training?: number
+    action_url?: string
+    [key: string]: unknown
+  }
 }
 
 export interface TaskCreate {

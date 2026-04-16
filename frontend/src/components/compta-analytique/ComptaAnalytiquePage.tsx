@@ -18,7 +18,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
   BarChart, Bar,
 } from 'recharts'
-import type { TrendRecord, CategorySummary } from '@/types'
+import type { TrendRecord, CategorySummary, SourceBreakdown } from '@/types'
 
 const COLORS = [
   '#811971', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
@@ -78,7 +78,7 @@ export default function ComptaAnalytiquePage() {
   if (dashError) return <p className="text-danger p-8">Erreur: {dashError.message}</p>
   if (!dashboard) return null
 
-  const { total_debit, total_credit, solde, nb_operations, category_summary } = dashboard
+  const { total_debit, total_credit, solde, nb_operations, category_summary, by_source } = dashboard
 
   return (
     <div>
@@ -192,6 +192,11 @@ export default function ComptaAnalytiquePage() {
           nbCategories={category_summary.length}
         />
 
+        {/* Répartition par type d'opération (bancaire vs note de frais) */}
+        {by_source && by_source.length > 0 && (
+          <RepartitionParTypeCard sources={by_source} />
+        )}
+
         {/* Ventilation */}
         <VentilationSection
           categorySummary={category_summary}
@@ -249,6 +254,60 @@ function KPIRow({ totalDebit, totalCredit, solde, nbOperations, nbCategories }: 
       <MetricCard title="Solde" value={formatCurrency(solde)} icon={<Wallet size={20} />} trend={solde >= 0 ? 'up' : 'down'} />
       <MetricCard title="Opérations" value={nbOperations.toString()} icon={<Hash size={20} />} />
       <MetricCard title="Catégories" value={nbCategories.toString()} icon={<Tags size={20} />} />
+    </div>
+  )
+}
+
+// ──────────── Répartition par type d'opération (bancaire / note de frais) ────────────
+
+function RepartitionParTypeCard({ sources }: { sources: SourceBreakdown[] }) {
+  const bancaire = sources.find(s => s.source === 'bancaire')
+  const ndf = sources.find(s => s.source === 'note_de_frais')
+  const totalDebit = (bancaire?.debit ?? 0) + (ndf?.debit ?? 0)
+  const ndfShare = totalDebit > 0 ? ((ndf?.debit ?? 0) / totalDebit) * 100 : 0
+
+  return (
+    <div className="bg-surface rounded-xl border border-border p-4 mt-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-text">Répartition par type d'opération</h3>
+        {ndf && ndf.count > 0 && (
+          <span className="text-xs text-text-muted">{ndfShare.toFixed(1)}% des dépenses en notes de frais</span>
+        )}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-background rounded-lg p-3 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-text-muted mb-0.5">Opérations bancaires</div>
+            <div className="text-lg font-semibold text-text tabular-nums">{formatCurrency(bancaire?.debit ?? 0)}</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{bancaire?.count ?? 0} ops · {formatCurrency(bancaire?.credit ?? 0)} crédités</div>
+          </div>
+          <Wallet size={28} className="text-text-muted/40" />
+        </div>
+        <div className="bg-background rounded-lg p-3 flex items-center justify-between border border-amber-500/20">
+          <div>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '10px',
+                  fontWeight: 500,
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  background: '#FAEEDA',
+                  color: '#854F0B',
+                  lineHeight: '16px',
+                }}
+              >
+                Note de frais
+              </span>
+              <span className="text-xs text-text-muted">CB perso</span>
+            </div>
+            <div className="text-lg font-semibold text-text tabular-nums">{formatCurrency(ndf?.debit ?? 0)}</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{ndf?.count ?? 0} op{(ndf?.count ?? 0) > 1 ? 's' : ''}</div>
+          </div>
+          <Wallet size={28} className="text-amber-500/40" />
+        </div>
+      </div>
     </div>
   )
 }

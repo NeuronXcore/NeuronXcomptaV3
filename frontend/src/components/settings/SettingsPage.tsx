@@ -243,6 +243,49 @@ function GeneralTab() {
             <span className="text-sm font-mono text-text w-12 text-right">{settings.num_operations}</span>
           </div>
         </div>
+
+        {/* ML retrain thresholds — alerte "Réentraîner le modèle IA" (tâche auto + toast) */}
+        <div className="pt-4 border-t border-border/50">
+          <div className="flex items-center gap-3 mb-3">
+            <Brain size={18} className="text-primary" />
+            <div>
+              <p className="text-sm font-medium text-text">Réentraînement ML — seuils</p>
+              <p className="text-xs text-text-muted">
+                Déclenche la tâche auto &quot;Réentraîner le modèle IA&quot; (+ toast au montage) selon :
+                <br />
+                <span className="text-text-muted/80">
+                  corrections ≥ seuil <em>ou</em> (corrections ≥ 1 <em>et</em> jours ≥ seuil)
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 ml-8">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-text-muted">Corrections min.</span>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                step={1}
+                value={settings.ml_retrain_corrections_threshold ?? 10}
+                onChange={e => update('ml_retrain_corrections_threshold', Math.max(1, Number(e.target.value) || 10))}
+                className="bg-background border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-text-muted">Jours sans entraînement min.</span>
+              <input
+                type="number"
+                min={1}
+                max={365}
+                step={1}
+                value={settings.ml_retrain_days_threshold ?? 14}
+                onChange={e => update('ml_retrain_days_threshold', Math.max(1, Number(e.target.value) || 14))}
+                className="bg-background border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
       <div className="flex justify-end">

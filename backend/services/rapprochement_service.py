@@ -1092,8 +1092,11 @@ def get_batch_justificatif_scores() -> dict:
         return {}
 
     # Charger toutes les opérations non associées (+ sous-lignes ventilées)
-    # Tuples: (filename, idx, op, override_montant_or_None, override_categorie_or_None)
-    all_targets: list[tuple[str, int, dict, Optional[float], Optional[str]]] = []
+    # Tuples: (filename, idx, op, override_montant_or_None, override_categorie_or_None,
+    #         override_sous_categorie_or_None). La propagation de la sous-catégorie
+    #         aligne ce scoring avec get_batch_hints() pour éviter les divergences
+    #         score_categorie sur les ops ventilées (cat match + sub mismatch = 0.6).
+    all_targets: list[tuple[str, int, dict, Optional[float], Optional[str], Optional[str]]] = []
     for f in operation_service.list_operation_files():
         try:
             ops = operation_service.load_operations(f["filename"])
@@ -1106,9 +1109,10 @@ def get_batch_justificatif_scores() -> dict:
                                 f["filename"], idx, op,
                                 vl.get("montant", 0),
                                 vl.get("categorie", ""),
+                                vl.get("sous_categorie", ""),
                             ))
                 elif not op.get("Justificatif"):
-                    all_targets.append((f["filename"], idx, op, None, None))
+                    all_targets.append((f["filename"], idx, op, None, None, None))
         except Exception:
             continue
 
@@ -1124,12 +1128,13 @@ def get_batch_justificatif_scores() -> dict:
             continue
         ocr_data = _load_ocr_data(pdf_path.name)
         best = 0.0
-        for _, _, op, override_m, override_c in all_targets:
+        for _, _, op, override_m, override_c, override_sc in all_targets:
             result = compute_score(
                 ocr_data,
                 op,
                 override_montant=override_m,
                 override_categorie=override_c,
+                override_sous_categorie=override_sc,
             )
             if result["total"] > best:
                 best = result["total"]

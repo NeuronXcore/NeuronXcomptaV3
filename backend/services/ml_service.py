@@ -101,34 +101,58 @@ def save_rules_model(model: dict) -> None:
 
 
 def predict_category(libelle: str, model: Optional[dict] = None) -> Optional[str]:
-    """Prédit la catégorie via le modèle à règles."""
+    """Prédit la catégorie via le modèle à règles.
+
+    Pipeline :
+      1. exact_matches (libellé clean → catégorie)
+      2. keywords (substring matching scoré)
+      3. post_override_to_perso : si prédiction dans une classe pro ambiguë
+         (Matériel, Fournitures, Repas pro, Transport) ET libellé contient un
+         pattern `perso_override_patterns` → remap en `perso`. Utile pour les
+         marques multi-usage (amazon, paypal, uber eats) identifiées comme
+         personnelles par des signaux spécifiques.
+    """
     if model is None:
         model = load_rules_model()
 
     libelle_clean = libelle.strip().lower()
 
     # Correspondance exacte
+    predicted: Optional[str] = None
     if libelle_clean in model.get("exact_matches", {}):
-        return model["exact_matches"][libelle_clean]
+        predicted = model["exact_matches"][libelle_clean]
+    else:
+        # Scoring par mots-clés (exact match + substring match)
+        keywords = extract_keywords(libelle_clean)
+        scores: dict[str, float] = defaultdict(float)
+        for word in keywords:
+            for category, word_list in model.get("keywords", {}).items():
+                # Exact match
+                if word in word_list:
+                    scores[category] += 1.0 / max(len(word_list), 1)
+                else:
+                    # Substring match : le mot contient un keyword
+                    # (ex: "motifremplacementdr" contient "rempla")
+                    for kw in word_list:
+                        if kw in word:
+                            scores[category] += 0.8 / max(len(word_list), 1)
+                            break
+        if scores:
+            predicted = max(scores.items(), key=lambda x: x[1])[0]
 
-    # Scoring par mots-clés (exact match + substring match)
-    keywords = extract_keywords(libelle_clean)
-    scores: dict[str, float] = defaultdict(float)
-    for word in keywords:
-        for category, word_list in model.get("keywords", {}).items():
-            # Exact match
-            if word in word_list:
-                scores[category] += 1.0 / max(len(word_list), 1)
-            else:
-                # Substring match : le mot contient un keyword (ex: "motifremplacementdr" contient "rempla")
-                for kw in word_list:
-                    if kw in word:
-                        scores[category] += 0.8 / max(len(word_list), 1)
-                        break
+    # Post-override pro → perso : résout les ambiguïtés marque-scope
+    # (ex. "UBEREATS" prédit Transport via keyword "uber" mais c'est perso)
+    # et force perso sur les patterns forts même sans prédiction initiale
+    # (levoltaire, benrvac, etc.). N'override JAMAIS une prédiction non-ambiguë
+    # (Remplaçant, URSSAF, CARMF, etc.) pour éviter les faux positifs.
+    PRO_AMBIGUOUS = {"Matériel", "Fournitures", "Repas pro", "Transport", "Alimentation"}
+    if predicted is None or predicted in PRO_AMBIGUOUS:
+        perso_patterns = model.get("perso_override_patterns", [])
+        for pat in perso_patterns:
+            if pat and pat.lower() in libelle_clean:
+                return "perso"
 
-    if scores:
-        return max(scores.items(), key=lambda x: x[1])[0]
-    return None
+    return predicted
 
 
 def predict_subcategory(libelle: str, model: Optional[dict] = None) -> Optional[str]:
@@ -200,7 +224,8 @@ def train_sklearn_model() -> dict:
         dict avec les métriques d'entraînement.
     """
     from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.linear_model import LogisticRegression
+    from sklearn.svm import LinearSVC
+    from sklearn.calibration import CalibratedClassifierCV
     from sklearn.model_selection import train_test_split
     from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix
 
@@ -208,14 +233,36 @@ def train_sklearn_model() -> dict:
     if not X:
         return {"error": "Aucune donnée d'entraînement"}
 
-    unique_classes = set(y)
-    if len(unique_classes) < 2:
-        return {"error": f"Il faut au moins 2 catégories. Trouvée: {list(unique_classes)[0]}"}
+    # Exclure "perso" du training sklearn — gérée par règle exacte en amont,
+    # sa sur-représentation (≈25%) pollue le modèle probabiliste et biaise
+    # les prédictions toutes catégories confondues vers "perso".
+    filtered = [(x, label) for x, label in zip(X, y) if (label or "").lower() != "perso"]
+    if filtered:
+        X = [p[0] for p in filtered]
+        y = [p[1] for p in filtered]
+
+    if len(set(y)) < 2:
+        uniq = list(set(y))
+        return {"error": f"Il faut au moins 2 catégories. Trouvée: {uniq[0] if uniq else 'aucune'}"}
 
     class_counts = Counter(y)
-    too_few = [cat for cat, count in class_counts.items() if count < 2]
+    # Seuil ≥3 : après split stratifié 75/25, chaque classe doit avoir ≥2
+    # exemples en train pour que `CalibratedClassifierCV(cv=2)` puisse faire son
+    # fold stratifié sans erreur. Filtre ici (écarte du fit seulement) les classes
+    # trop peu représentées ; elles restent dans les rules exact_matches.
+    too_few = [cat for cat, count in class_counts.items() if count < 3]
     if too_few:
-        return {"error": f"Catégories avec moins de 2 exemples: {', '.join(too_few)}"}
+        filtered_pairs = [(x, label) for x, label in zip(X, y) if label not in too_few]
+        if filtered_pairs:
+            X = [p[0] for p in filtered_pairs]
+            y = [p[1] for p in filtered_pairs]
+        logger.info("train_sklearn: classes écartées (<3 exemples): %s", ", ".join(too_few))
+
+    # unique_classes capturé APRÈS les filtres (perso + too_few) pour que
+    # n_classes/labels/confusion_matrix reflètent réellement ce qui a été appris.
+    unique_classes = set(y)
+    if len(unique_classes) < 2:
+        return {"error": f"Après filtre <3 ex, moins de 2 catégories : {list(unique_classes)}"}
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, random_state=42, stratify=y
@@ -224,7 +271,14 @@ def train_sklearn_model() -> dict:
     X_train_vect = vectorizer.fit_transform(X_train)
     X_test_vect = vectorizer.transform(X_test)
 
-    clf = LogisticRegression(max_iter=1000)
+    # LinearSVC (SVM linéaire) + class_weight='balanced' : plus performant sur
+    # les corpus courts TF-IDF à faible signal (libellés bancaires 3-5 mots, ~20
+    # classes, ~300-500 exemples) que LogisticRegression.
+    # CalibratedClassifierCV enveloppe LinearSVC pour exposer predict_proba,
+    # utilisé par evaluate_hallucination_risk() pour le score de confiance.
+    # cv=2 : stratified ; seuil ≥3 garantit ≥2 exemples en train par classe.
+    base = LinearSVC(max_iter=2000, class_weight="balanced", dual=True)
+    clf = CalibratedClassifierCV(base, cv=2)
     clf.fit(X_train_vect, y_train)
 
     # Sauvegarder
@@ -345,6 +399,128 @@ def add_training_examples_batch(examples: list[dict]) -> int:
         json.dump(existing, f, ensure_ascii=False, indent=2)
     logger.info("ML auto-learn: %d nouveaux exemples ajoutés (total: %d)", len(new_examples), len(existing))
     return len(new_examples)
+
+
+def import_training_from_operations(year: Optional[int] = None) -> dict:
+    """Importe en bulk les opérations déjà catégorisées comme exemples d'entraînement.
+
+    Scanne data/imports/operations/*.json, filtre par année si fournie (basée sur
+    le champ Date de chaque op, pas sur le filename), nettoie les libellés via
+    clean_libelle(), explose les ventilations en sous-lignes, puis délègue à
+    add_training_examples_batch() (dédup par (libelle, categorie)) et
+    update_rules_from_operations() (exact_matches).
+
+    Args:
+        year: si fourni, ne considère que les ops dont Date commence par cette année.
+
+    Returns:
+        {success, files_read, ops_scanned, ops_skipped, vent_sublines, examples_submitted,
+         examples_added, rules_updated, total_training_data, year_filter}
+    """
+    from backend.core.config import IMPORTS_OPERATIONS_DIR
+
+    EXCLUDED_CATS = {"", "Autres", "Ventilé", "perso", "Perso"}
+
+    if not IMPORTS_OPERATIONS_DIR.exists():
+        return {
+            "success": False,
+            "error": "Dossier imports/operations introuvable",
+            "files_read": 0, "ops_scanned": 0, "ops_skipped": 0, "vent_sublines": 0,
+            "examples_submitted": 0, "examples_added": 0, "rules_updated": 0,
+            "total_training_data": 0, "year_filter": year,
+        }
+
+    files = sorted(IMPORTS_OPERATIONS_DIR.glob("*.json"))
+    examples: list[dict] = []
+    files_read = 0
+    ops_scanned = 0
+    ops_skipped = 0
+    vent_sublines = 0
+
+    for fp in files:
+        try:
+            with open(fp, "r", encoding="utf-8") as f:
+                ops = json.load(f)
+        except Exception as e:
+            logger.warning("import_training: skip %s: %s", fp.name, e)
+            continue
+        if not isinstance(ops, list):
+            continue
+        files_read += 1
+
+        for op in ops:
+            ops_scanned += 1
+            lib_raw = (op.get("Libellé") or "").strip()
+            cat = (op.get("Catégorie") or "").strip()
+            sub = (op.get("Sous-catégorie") or "").strip()
+            date = (op.get("Date") or "")
+
+            # Filtre année : sur le champ Date (plus fiable que le filename)
+            if year is not None:
+                if not date.startswith(f"{year:04d}"):
+                    ops_skipped += 1
+                    continue
+
+            if not lib_raw:
+                ops_skipped += 1
+                continue
+
+            lib_clean = clean_libelle(lib_raw)
+            if not lib_clean:
+                ops_skipped += 1
+                continue
+
+            # Ventilation : exploser chaque sous-ligne valide comme 1 exemple
+            if cat == "Ventilé":
+                vlines = op.get("ventilation") or []
+                found_any = False
+                for vl in vlines:
+                    vl_cat = (vl.get("categorie") or "").strip()
+                    vl_sub = (vl.get("sous_categorie") or "").strip()
+                    if vl_cat and vl_cat not in EXCLUDED_CATS:
+                        examples.append({
+                            "libelle": lib_clean,
+                            "categorie": vl_cat,
+                            "sous_categorie": vl_sub,
+                        })
+                        vent_sublines += 1
+                        found_any = True
+                if not found_any:
+                    ops_skipped += 1
+                continue
+
+            if cat in EXCLUDED_CATS:
+                ops_skipped += 1
+                continue
+
+            examples.append({
+                "libelle": lib_clean,
+                "categorie": cat,
+                "sous_categorie": sub,
+            })
+
+    examples_submitted = len(examples)
+    examples_added = add_training_examples_batch(examples) if examples else 0
+    rules_updated = update_rules_from_operations(examples) if examples else 0
+    total = len(get_training_examples())
+
+    logger.info(
+        "import_training year=%s: scanned=%d submitted=%d added=%d rules_updated=%d total=%d",
+        year, ops_scanned, examples_submitted, examples_added, rules_updated, total,
+    )
+
+    return {
+        "success": True,
+        "files_read": files_read,
+        "ops_scanned": ops_scanned,
+        "ops_skipped": ops_skipped,
+        "vent_sublines": vent_sublines,
+        "examples_submitted": examples_submitted,
+        "examples_added": examples_added,
+        "rules_updated": rules_updated,
+        "total_training_data": total,
+        "year_filter": year,
+    }
 
 
 def update_rules_from_operations(examples: list[dict]) -> int:

@@ -82,6 +82,20 @@ export function useYearOperations(filesForYear: OperationFile[], enabled: boolea
   return { data, isLoading }
 }
 
+/**
+ * Crée un fichier d'opérations vide pour (year, month) — utilisé pour saisir des NDF
+ * ou autres opérations manuelles avant l'import du relevé bancaire PDF correspondant.
+ */
+export function useCreateEmptyMonth() {
+  const queryClient = useQueryClient()
+  return useMutation<{ filename: string; year: number; month: number }, Error, { year: number; month: number }>({
+    mutationFn: ({ year, month }) => api.post('/operations/create-empty', { year, month }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['operation-files'] })
+    },
+  })
+}
+
 export function useCategorizeOperations() {
   const queryClient = useQueryClient()
   return useMutation({

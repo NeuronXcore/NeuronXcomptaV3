@@ -109,6 +109,7 @@ def get_dashboard_data(all_operations: list[dict]) -> dict:
             "total_debit": 0, "total_credit": 0, "solde": 0,
             "nb_operations": 0, "category_summary": [],
             "recent_operations": [], "monthly_evolution": [],
+            "by_source": [],
         }
 
     df["Crédit"] = pd.to_numeric(df.get("Crédit", 0), errors="coerce").fillna(0)
@@ -143,6 +144,26 @@ def get_dashboard_data(all_operations: list[dict]) -> dict:
     else:
         monthly_list = []
 
+    # Répartition par type d'opération (source: bancaire vs note_de_frais)
+    by_source: list[dict] = []
+    if "source" in df.columns:
+        # Normalise None/NaN/vide en "bancaire" (op classique sans source)
+        df["__src__"] = df["source"].fillna("").replace("", "bancaire")
+    else:
+        df["__src__"] = "bancaire"
+    grouped = df.groupby("__src__").agg(
+        debit=("Débit", "sum"),
+        credit=("Crédit", "sum"),
+        count=("__src__", "size"),
+    ).reset_index()
+    for _, row in grouped.iterrows():
+        by_source.append({
+            "source": str(row["__src__"]),
+            "debit": float(row["debit"]),
+            "credit": float(row["credit"]),
+            "count": int(row["count"]),
+        })
+
     return {
         "total_debit": total_debit,
         "total_credit": total_credit,
@@ -151,6 +172,7 @@ def get_dashboard_data(all_operations: list[dict]) -> dict:
         "category_summary": cat_summary,
         "recent_operations": recent_list,
         "monthly_evolution": monthly_list,
+        "by_source": by_source,
     }
 
 

@@ -523,6 +523,12 @@ def _apply_filters(operations: list[dict], filters: dict) -> list[dict]:
     elif op_type == "credit":
         result = [op for op in result if op.get("Crédit", 0) > 0]
 
+    source_filter = filters.get("source")
+    if source_filter == "note_de_frais":
+        result = [op for op in result if op.get("source") == "note_de_frais"]
+    elif source_filter == "bancaire":
+        result = [op for op in result if not op.get("source")]
+
     if filters.get("important_only"):
         result = [op for op in result if op.get("Important")]
 

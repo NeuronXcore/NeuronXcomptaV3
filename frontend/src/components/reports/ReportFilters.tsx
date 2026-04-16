@@ -364,6 +364,46 @@ export default function ReportFilters({
           </div>
         </div>
 
+        {/* Source (type d'opération) */}
+        <div>
+          <label className="text-[10px] text-text-muted block mb-1">Type d'opération</label>
+          <div className="flex gap-1.5">
+            {(['all', 'bancaire', 'note_de_frais'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => updateFilter('source', s === 'all' ? undefined : s)}
+                className={cn(
+                  'flex-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors flex items-center justify-center gap-1',
+                  (filters.source || 'all') === s
+                    ? 'bg-primary text-white'
+                    : 'bg-background text-text-muted hover:text-text'
+                )}
+              >
+                {s === 'all' && 'Tous'}
+                {s === 'bancaire' && 'Opérations bancaires'}
+                {s === 'note_de_frais' && (
+                  <>
+                    <span
+                      style={{
+                        fontSize: '9px',
+                        fontWeight: 500,
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                        background: '#FAEEDA',
+                        color: '#854F0B',
+                        lineHeight: '14px',
+                      }}
+                    >
+                      Note de frais
+                    </span>
+                    <span>uniquement</span>
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Format */}
         <div>
           <label className="text-[10px] text-text-muted block mb-1">Format de sortie</label>

@@ -251,27 +251,33 @@ def get_monitoring_stats(year: Optional[int] = None) -> MLMonitoringStats:
     # Coverage
     coverage_rate = _compute_coverage_rate(year)
 
-    # Confidence stats from predictions
+    # Confidence stats from predictions.
+    # IMPORTANT : les prédictions rules-based (`keywords` / `exact_match`) ont
+    # leur confidence hard-codée à 1.0 par categorize_file (ce n'est pas une vraie
+    # probabilité). Les inclure dans avg_confidence + distribution fait apparaître
+    # une confiance ~100% qui masque la vraie incertitude du sklearn.
+    # → On restreint au sous-ensemble sklearn pour avoir une métrique lisible.
     all_preds = []
     for batch in pred_logs:
         all_preds.extend(batch.predictions)
 
     total_preds = len(all_preds)
+    sklearn_preds = [p for p in all_preds if p.source == "sklearn"]
     avg_confidence = 0.0
     high = medium = low = 0
     hallucination_count = 0
     unknown_count = 0
 
-    if total_preds > 0:
-        confs = [p.confidence for p in all_preds]
+    if sklearn_preds:
+        confs = [p.confidence for p in sklearn_preds]
         avg_confidence = sum(confs) / len(confs)
         high = sum(1 for c in confs if c >= 0.8)
         medium = sum(1 for c in confs if 0.5 <= c < 0.8)
         low = sum(1 for c in confs if c < 0.5)
-        hallucination_count = sum(1 for p in all_preds if p.hallucination_risk)
-        unknown_count = sum(
-            1 for p in all_preds if p.source == "sklearn" and p.confidence < 0.3
-        )
+        hallucination_count = sum(1 for p in sklearn_preds if p.hallucination_risk)
+        unknown_count = sum(1 for p in sklearn_preds if p.confidence < 0.3)
+    # Si aucune prédiction sklearn (100% rules-based), on reste à 0 pour tout
+    # (évite un faux signal positif sur une métrique non applicable).
 
     # Correction rate
     correction_rate = len(corrections) / total_preds if total_preds > 0 else 0.0

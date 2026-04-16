@@ -31,6 +31,11 @@ class AppSettings(BaseModel):
     email_smtp_app_password: Optional[str] = None
     email_comptable_destinataires: list[str] = []
     email_default_nom: Optional[str] = None
+    # ML retrain — seuils de déclenchement de la tâche auto "Réentraîner le modèle IA".
+    # Condition combinée : corrections_count >= corrections_threshold
+    #                OR (corrections_count >= 1 AND days_since_training >= days_threshold)
+    ml_retrain_corrections_threshold: int = 10
+    ml_retrain_days_threshold: int = 14
 
 
 class DiskSpaceInfo(BaseModel):

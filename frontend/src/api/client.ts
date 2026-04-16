@@ -1,9 +1,16 @@
 const BASE_URL = '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  // Ne déclarer Content-Type: application/json QUE si un body est réellement présent.
+  // Sans ce garde, POST/PATCH sans body envoient un header incohérent (Content-Type JSON
+  // sans payload) qui peut déclencher un 400 côté FastAPI/proxy Vite.
+  const baseHeaders: Record<string, string> = {}
+  if (options?.body !== undefined && options?.body !== null) {
+    baseHeaders['Content-Type'] = 'application/json'
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
     ...options,
+    headers: { ...baseHeaders, ...options?.headers },
   })
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }))
