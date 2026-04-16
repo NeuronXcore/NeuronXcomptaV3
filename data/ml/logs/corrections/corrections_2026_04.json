@@ -2176,5 +2176,60 @@
     "corrected_category": "Véhicule",
     "corrected_subcategory": "Essence",
     "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-16T19:02:51.398797",
+    "filename": "operations_merged_202512_20260414_234739.json",
+    "operation_index": 32,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 3,49",
+    "predicted_category": "Matériel",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-16T19:51:40.810794",
+    "filename": "operations_20260413_185157_18aef1a3.json",
+    "operation_index": 16,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 11,99",
+    "predicted_category": "Matériel",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-16T19:51:40.810794",
+    "filename": "operations_20260413_185157_18aef1a3.json",
+    "operation_index": 36,
+    "libelle": "PRLVSEPAAMAZONPAYMENTSEUROPES C A 79,98",
+    "predicted_category": "Matériel",
+    "predicted_subcategory": "Informatique",
+    "corrected_category": "Ventilé",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-16T19:53:55.330699",
+    "filename": "operations_merged_202512_20260414_234739.json",
+    "operation_index": 9,
+    "libelle": "DU011225PAGA MONTAUBAN 12,60",
+    "predicted_category": "Repas pro",
+    "predicted_subcategory": "Repas seul",
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-16T19:53:55.330699",
+    "filename": "operations_merged_202512_20260414_234739.json",
+    "operation_index": 32,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 3,49",
+    "predicted_category": "Matériel",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
   }
 ]

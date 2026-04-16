@@ -1,0 +1,30 @@
+[
+  {
+    "timestamp": "2025-01-01T12:00:00",
+    "examples_count": 300,
+    "accuracy": 0.5,
+    "rules_count": 100,
+    "keywords_count": 50
+  },
+  {
+    "timestamp": "2026-04-16T10:57:55.938206",
+    "examples_count": 236,
+    "accuracy": 0.2711864406779661,
+    "rules_count": 248,
+    "keywords_count": 1
+  },
+  {
+    "timestamp": "2026-04-16T10:57:59.109992",
+    "examples_count": 236,
+    "accuracy": 0.2711864406779661,
+    "rules_count": 248,
+    "keywords_count": 1
+  },
+  {
+    "timestamp": "2026-04-16T10:58:02.598771",
+    "examples_count": 236,
+    "accuracy": 0.2711864406779661,
+    "rules_count": 248,
+    "keywords_count": 1
+  }
+]

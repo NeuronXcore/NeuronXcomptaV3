@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-16T12:55:38.739533",
+  "filename": "operations_manual_202603_7b199f8d.json",
+  "mode": "empty_only",
+  "total_operations": 1,
+  "predicted": 1,
+  "high_confidence": 0,
+  "medium_confidence": 0,
+  "low_confidence": 1,
+  "hallucination_flags": 1,
+  "predictions": [
+    {
+      "libelle": "",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": null,
+      "confidence": 0.24623194609155438,
+      "source": "sklearn",
+      "hallucination_risk": true
+    }
+  ]
+}
