@@ -696,6 +696,8 @@ def get_suggestions_for_justificatif(
                         "operation_montant": vl.get("montant", 0),
                         "score": score_result,
                         "ventilation_index": vl_idx,
+                        "op_locked": bool(op.get("locked", False)),
+                        "op_locked_at": op.get("locked_at"),
                     })
             else:
                 if op.get("Justificatif"):
@@ -711,6 +713,8 @@ def get_suggestions_for_justificatif(
                     "operation_date": op.get("Date", "")[:10],
                     "operation_montant": _get_operation_montant(op),
                     "score": score_result,
+                    "op_locked": bool(op.get("locked", False)),
+                    "op_locked_at": op.get("locked_at"),
                 })
 
     suggestions.sort(key=lambda s: s["score"]["total"], reverse=True)

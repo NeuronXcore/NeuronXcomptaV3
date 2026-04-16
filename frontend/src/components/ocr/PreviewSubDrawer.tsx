@@ -13,6 +13,10 @@ interface Props {
   /** Si fourni, affiche un bouton « Ouvrir avec Aperçu » dans le header. */
   onOpenNative?: (filename: string) => void
   onClose: () => void
+  /** Override le z-index par défaut (40). Utile quand le drawer parent est à
+   *  z-60/70 (ex. JustifToOpDrawer) — passer un z-index intermédiaire qui
+   *  reste sous le drawer parent mais au-dessus de son backdrop. */
+  zIndex?: number
 }
 
 /**
@@ -36,6 +40,7 @@ export default function PreviewSubDrawer({
   width = 600,
   onOpenNative,
   onClose,
+  zIndex,
 }: Props) {
   if (!mainDrawerOpen) return null
 
@@ -48,13 +53,14 @@ export default function PreviewSubDrawer({
     <div
       className={cn(
         'fixed top-0 h-full bg-background border-l border-r border-border shadow-2xl',
-        'z-40 transition-transform duration-300 flex flex-col',
+        'transition-transform duration-300 flex flex-col',
         isOpen ? 'translate-x-0' : 'translate-x-full',
       )}
       style={{
         right: `${mainDrawerWidth}px`,
         width: `${width}px`,
         maxWidth: `calc(95vw - ${mainDrawerWidth}px)`,
+        zIndex: zIndex ?? 40,
       }}
     >
       {/* Header compact */}

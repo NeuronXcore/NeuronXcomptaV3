@@ -713,6 +713,8 @@ export interface ScoreDetail {
   montant: number
   date: number
   fournisseur: number
+  // null = critère non inférable (ML sans prédiction confiante) — poids redistribué côté backend
+  categorie?: number | null
 }
 
 export interface MatchScore {
@@ -729,6 +731,10 @@ export interface RapprochementSuggestion {
   operation_date: string
   operation_montant: number
   score: MatchScore
+  ventilation_index?: number | null
+  // Champs ajoutés pour JustifToOpDrawer (badge locked + bouton Déverrouiller inline)
+  op_locked?: boolean
+  op_locked_at?: string | null
 }
 
 export interface JustificatifScoreDetail {
@@ -1062,6 +1068,9 @@ export interface GedDocument {
   is_reconstitue?: boolean
   statut_justificatif?: 'traite' | 'en_attente' | null
   operation_ref?: { file: string; index: number; ventilation_index?: number } | null
+  // Enrichi dynamiquement côté backend pour les justificatifs associés (lu depuis l'op liée)
+  op_locked?: boolean
+  op_locked_at?: string | null
   rapport_meta?: RapportMeta | null
   source_module?: string | null
 }

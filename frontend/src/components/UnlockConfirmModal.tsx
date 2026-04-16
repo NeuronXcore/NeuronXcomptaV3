@@ -5,14 +5,17 @@ interface Props {
   onConfirm: () => void
   onCancel: () => void
   loading?: boolean
+  /** Override le z-index par défaut (60). Utile quand ouvert depuis un drawer qui est lui-même à z-50+. */
+  zIndex?: number
 }
 
-export function UnlockConfirmModal({ open, onConfirm, onCancel, loading }: Props) {
+export function UnlockConfirmModal({ open, onConfirm, onCancel, loading, zIndex }: Props) {
   if (!open) return null
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 flex items-center justify-center bg-black/50"
+      style={{ zIndex: zIndex ?? 60 }}
       onClick={onCancel}
     >
       <div

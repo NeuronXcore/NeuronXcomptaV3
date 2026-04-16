@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Upload, Settings2, RefreshCw, Grid3X3, List, GitCompare, Send } from 'lucide-react'
+import { Upload, Settings2, RefreshCw, Grid3X3, List, GitCompare, Send, ArrowUp, ArrowDown } from 'lucide-react'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
@@ -176,6 +176,37 @@ export default function GedPage() {
               <GitCompare size={16} />
               Comparer
             </button>
+            {/* Sort selector — visible dans les 2 vues, recommande vue grille (la liste a en plus ses headers triables) */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={filters.sort_by || 'added_at'}
+                onChange={e => setFilters(prev => ({ ...prev, sort_by: e.target.value }))}
+                className="bg-surface border border-border rounded-lg px-2.5 py-2 text-xs text-text focus:outline-none focus:border-primary cursor-pointer"
+                title="Critère de tri"
+              >
+                <option value="added_at">Date ajout</option>
+                <option value="date_document">Date document</option>
+                <option value="original_name">Nom</option>
+                <option value="type">Type</option>
+                <option value="categorie">Catégorie</option>
+                <option value="fournisseur">Fournisseur</option>
+                <option value="montant">Montant</option>
+                <option value="statut_justificatif">Statut</option>
+              </select>
+              <button
+                onClick={() =>
+                  setFilters(prev => ({
+                    ...prev,
+                    sort_order: prev.sort_order === 'desc' ? 'asc' : 'desc',
+                  }))
+                }
+                className="p-2 bg-surface border border-border rounded-lg text-text-muted hover:text-text hover:border-primary/40 transition-colors"
+                title={filters.sort_order === 'desc' ? 'Ordre décroissant — cliquer pour inverser' : 'Ordre croissant — cliquer pour inverser'}
+              >
+                {filters.sort_order === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+              </button>
+            </div>
+
             {/* View mode — overflow visible pour laisser sortir les tooltips */}
             <div className="flex border border-border rounded-lg">
               <button
@@ -293,6 +324,9 @@ export default function GedPage() {
                 documents={documents}
                 postes={postes}
                 onSelect={setSelectedDocId}
+                sortBy={filters.sort_by}
+                sortOrder={filters.sort_order}
+                onSortChange={(sb, so) => setFilters(prev => ({ ...prev, sort_by: sb, sort_order: so }))}
               />
             )}
           </div>

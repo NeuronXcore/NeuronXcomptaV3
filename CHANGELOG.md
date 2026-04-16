@@ -8,6 +8,57 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-16) — Session 26
+
+- **`ManualAssociationDrawer` — outil d'association manuelle 2-colonnes (op → justif)**
+  - Nouveau drawer 1100px dédié aux cas où le `RapprochementWorkflowDrawer` scoré échoue (OCR défaillant ou batch multi-ops). Vue 2-colonnes parallèles **ops | justificatifs** avec panneau preview PDF à gauche coulissant (320px, animation `transition-all duration-250`).
+  - **Endpoint** : `GET /rapprochement/{filename}/{index}/suggestions` (format justificatif-centric déjà existant) pour le mode normal ; `GET /justificatifs/?status=en_attente` pour le mode élargi (bypass du pré-filtre ±1 mois backend quand OCR date fausse).
+  - **Filtres libres frontend** : date `jj/mm/aaaa` + tolérance ±N jours (défaut 7), montant + tolérance ±N € (défaut 50). Appliqués en `useMemo` après le fetch — les suggestions sans OCR sont conservées (`!best_date → keep`). Toggle « Élargir » masque les filtres et désactive le scoring.
+  - **Hook** `useManualAssociation` : modes `targeted` (depuis multi-sélection) / `all` (depuis bouton header), sanitize silencieux des crédits (`montant > 0`), auto-sélection première op, `goToNextOp()` retourne booléen → le composant ferme via `onClose()` en fin de liste. Réutilise `useManualAssociate()` (invalidations déjà branchées).
+  - **Row justificatif** : `PdfThumbnail` 32×38px cliquable (toggle preview, règle CLAUDE.md : jamais `<object>` en liste), pill bleu sky date + pill ambre montant avec icônes `CalendarDays`/`Euro`, fallback « n/a » gris italique si OCR absent, `ScorePills` (M/D/F/C + total, masqués en mode élargi), first-row highlight emerald si score ≥ 0.80.
+  - **2 points d'entrée** : **JustificatifsPage** (bouton 🔗 header « Association manuelle » toujours visible + bouton « Associer justificatifs (N) » dans la barre flottante batch quand sélection active) et **EditorPage** (icône Link2 header + bouton « Associer justif. (N) » à côté de Snapshot quand `rowSelection > 0`, désactivé en year-wide).
+  - **Raccourcis clavier** : ↓↑ navigation liste ops, → skip op courante, Enter associe première suggestion, Esc ferme. Désactivés si focus dans `<input>`.
+
+- **`JustifToOpDrawer` — association sens inverse (justif → op)**
+  - Nouveau drawer 1000px ouvert depuis `GedDocumentDrawer` via bouton « Associer à une opération » (visible si `doc.type === 'justificatif' && doc.statut_justificatif === 'en_attente'`). Symétrique de `ManualAssociationDrawer` pour le sens inverse.
+  - **Sous-drawer preview PDF grand format** à gauche : `PreviewSubDrawer` avec `width=700`, `zIndex=65` (entre backdrop z-60 et drawer z-70) — le thumbnail cliquable ouvre le PDF en plein écran à gauche au lieu d'un panneau 320px inline. Pattern cohérent avec `OcrEditDrawer` / `ScanRenameDrawer`.
+  - **Backend** : `rapprochement_service.get_suggestions_for_justificatif()` étendu pour exposer `op_locked: bool` + `op_locked_at: str|null` dans chaque suggestion (validé utilisateur — alternative préférée à un fetch lazy côté client). Permet d'afficher badge `Lock` warning + bouton « Déverrouiller » sur la row avant l'association.
+  - **Édition inline OCR** sous la row justif sélectionnée : 3 inputs (date ISO, montant, fournisseur) + bouton « Appliquer & relancer » → `PATCH /ocr/{filename}/extracted-data` (endpoint existant) → invalidation `['rapprochement-just-suggestions', filename]` → rescoring live visible. Valeurs initiales hydratées depuis `selectedJustif.ocr_date/ocr_amount/ocr_supplier`, `canSaveOcr` = au moins un champ diff vs initial.
+  - **Déverrouillage inline par row** : bouton `LockOpen` amber sur chaque op candidate lockée → `UnlockConfirmModal` (prop `zIndex=80` ajoutée) → `useToggleLock` → invalidation des suggestions → bouton « Associer » redevient cliquable sans sortir du drawer.
+  - **Self-heal backend** : `ged_service.get_documents()` enrichit dynamiquement `op_locked`/`op_locked_at` pour chaque justificatif `operation_ref`-associé (groupe par fichier pour limiter les loads). Si l'op à `ref.index` ne pointe pas vers le justif (refs désynchronisés après merge/split), le helper `_op_points_to()` scanne le fichier pour retrouver l'op réelle (check `Lien justificatif` parent + ventilation) et corrige l'index dans la réponse.
+  - **Navigation** : bouton « Voir » (ExternalLink) sur chaque row → redirect `/justificatifs?file=X&highlight=Y&filter=sans` + `onClose()`. Bouton « Associer » → mutation puis `goToNextJustif()` auto (si dernière → `onClose()`).
+  - **Raccourcis** : ↓↑ naviguer panneau gauche, → skip, Enter associe 1ère suggestion si score ≥0.80 et non locked, Esc ferme.
+
+- **`GedDocumentDrawer` — zone actions justificatif enrichie (dissocier + déverrouiller)**
+  - Ajout de 2 nouveaux boutons dans la zone danger à côté de « Supprimer » (visibles conditionnellement) :
+    - **« Dissocier de l'opération »** (amber, `Unlink`) — visible si `operation_ref` présent, désactivé si `op_locked` avec tooltip explicatif « déverrouillez d'abord ». Appelle `useDissociate` + invalide `ged-documents`/`ged-stats`/`ged-tree` au succès. Gère le 423 backend avec toast dédié.
+    - **« Déverrouiller l'opération »** (warning, `LockOpen`) — visible si `op_locked === true`. Ouvre `UnlockConfirmModal` (zIndex 80) → `useToggleLock({ locked: false })` → invalide `ged-documents` pour rafraîchir le flag.
+  - Layout 2 lignes : ligne 1 avec Dissocier + Déverrouiller (flexwrap), ligne 2 avec Supprimer (inchangé). Permet de gérer tout le lifecycle d'un justif associé directement depuis la GED sans détour par l'éditeur.
+  - **Prop `zIndex` ajoutée** à `UnlockConfirmModal` (`z-[60]` hardcodé remplacé par `style={{ zIndex: zIndex ?? 60 }}`) pour permettre l'empilement sur un drawer parent lui-même en z-50+ (ex. GedDocumentDrawer).
+
+- **GedDocumentCard / List — badges enrichis + tri colonnes**
+  - **Vue grille** (`GedDocumentCard.tsx`) : badge « Associé » bascule de vert à **orange** `#FFE6D0`/`#C2410C`/`#F59E0B` (conforme demande utilisateur). Nouveau badge **« Verrouillé »** (`Lock` icon, warning) empilé sous « Associé » top-right si `doc.op_locked === true`. Info-panel bas refondu : ligne 1 = pill montant ambre (`Euro`) + pill date sky (`CalendarDays`), ligne 2 = pill catégorie primary (`Tag`) + pill fournisseur lilas `bg-purple-500/15` (`Building2`). Badges homogènes avec `ManualAssociationDrawer` / `JustifToOpDrawer`.
+  - **Vue liste** (`GedDocumentList.tsx`) refondue : **7 colonnes** Nom / Type / Date / Catégorie / Fournisseur / Montant / Statut. Poste comptable repositionné en sous-ligne du nom. Colonne Statut avec pills multi (En attente beige, Associé orange, Verrou warning, empilables). Composant interne `SortableHeader` : headers cliquables avec icône `ArrowUpDown` grise au repos, `ArrowUp`/`ArrowDown` primary color quand active. Clic même colonne → toggle asc/desc ; clic autre → switch + reset desc.
+  - **Header GedPage** : nouveau sélecteur `<select>` de tri avec 8 options (Date ajout / Date document / Nom / Type / Catégorie / Fournisseur / Montant / Statut) + bouton toggle asc/desc (`ArrowUp`/`ArrowDown`) placé avant le toggle grille/liste. Sync bidirectionnel avec les headers triables via `filters.sort_by` / `filters.sort_order`.
+  - **Backend** `ged_service.py` : `get_documents()` tri refait pour **None safety** (sépare docs avec valeur et None → None en fin asc ET desc). Support des paths pointés (`period.year`). Fallbacks montant consolidé `montant || montant_brut` et date `date_document || date_operation || period.year`. Helper `_extract_value` + `try/except` coerce string sur types hétérogènes.
+
+### Fixed (2026-04-16) — Session 26
+
+- **Lock cellule Éditeur impossible sur certaines ops (décembre 2025 PRLVSEPAFCEBANK 1443,55 + autres)**
+  - **Cause racine** : les champs internes frontend `_sourceFile` / `_index` (ajoutés par `useYearOperations` en mode year-wide pour supporter l'édition cross-file) avaient été **persistés dans les fichiers JSON** lors d'un save antérieur. Après les scripts `split_multi_month_operations.py` / `merge_overlapping_monthly_files.py` passés sur ces fichiers, les `_sourceFile` pointaient vers des fichiers sources **disparus** (ex. `operations_20260413_185158_275b0690.json`). Chaque clic Lock PATCH-ait vers ce fichier fantôme → **HTTP 404 silencieux**, l'op réelle dans `operations_merged_202512_*.json` n'était jamais modifiée.
+  - **3 fixes** :
+    - `EditorPage.tsx` (cellule lock) — utilise désormais `Number(row.id)` (index dans data array source, insensible au tri/filtre/pagination) au lieu de `row.index` (position visible post-filtre/tri). En mode single-file, on **ignore explicitement** `op._sourceFile` et `op._index` (on prend toujours `selectedFile`) — seul le mode year-wide les consulte.
+    - `handleSave` — nettoie `_sourceFile` et `_index` de chaque op via spread destructuring avant envoi au backend — garantit que les fichiers ne se polluent plus.
+    - Script one-shot : **572 champs `_sourceFile`/`_index` purgés dans 13 fichiers** existants (`operations_merged_*` + `operations_split_*`).
+  - **Test end-to-end** : lock via UI → toast succès → fichier JSON contient `"locked": true, "locked_at": "2026-04-16T19:04:51"` + aucun champ résiduel.
+
+- **`/api/ged/tree` 500 → arbre GED vide dans la sidebar**
+  - **Cause** : `ged_service.py:928` faisait `period.get("month", 1) - 1` alors que `period.get("month")` retournait `None` (pas `1`) quand la clé existe avec valeur `null` dans `ged_metadata.json` — défaut Python. Puis `None - 1` → `TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'`.
+  - **Fix** : `month_val = period.get("month") or 1` explicite avant le calcul du trimestre. L'arbre se repeuple correctement (5 années visibles : 2026 / 2025 / 2024 / 2022 / Non daté).
+
+- **`api.post` / `api.patch` : `Content-Type` conditionnel au body**
+  - `frontend/src/api/client.ts` — le header `Content-Type: application/json` n'est plus envoyé quand `options?.body` est `undefined`/`null`. Avant, POST sans body → header envoyé → FastAPI/Starlette interprétait comme JSON malformé → 400 custom. Cas typique : `POST /api/ml/train`.
+
 ### Added (2026-04-16) — Session 25
 
 - **Note de frais — badge + champ `source` + split button `+ Ligne ▾`**

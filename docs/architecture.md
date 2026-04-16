@@ -173,6 +173,23 @@ Rapprochement manuel : RapprochementWorkflowDrawer unifié (700px)
   → Attribuer via POST /rapprochement/associate-manual (rapprochement_score + ventilation_index)
   → Auto-skip post-attribution en mode flux, raccourcis ⏎/←/→/Esc
 
+Association manuelle 2-colonnes (Session 26) : ManualAssociationDrawer (1100px)
+  → Outil complémentaire quand le scoring mono-op échoue (OCR défaillant ou batch multi-ops)
+  → Layout : preview PDF à gauche animé (320px) | panneau ops (340px) | panneau justifs (flex-1)
+  → Filtres libres date ±j + montant ±€ (useMemo sur suggestions, null OCR → keep)
+  → Toggle "Élargir" : bascule sur GET /justificatifs/?status=en_attente (bypass pré-filtre ±1 mois)
+  → 2 points d'entrée : JustificatifsPage (header + batch) + EditorPage (header + sélection)
+  → Hook useManualAssociation : modes targeted/all, sanitize crédits, goToNextOp booléen
+
+Association sens inverse (Session 26) : JustifToOpDrawer (1000px)
+  → Ouvert depuis GedDocumentDrawer pour justifs en_attente
+  → Endpoint GET /rapprochement/suggestions/justificatif/{filename} (étendu avec op_locked + op_locked_at)
+  → PreviewSubDrawer grand format (700px, zIndex 65) à gauche du drawer parent
+  → Édition inline OCR (date/montant/supplier) → PATCH /ocr/.../extracted-data → rescoring live
+  → Badge Lock + bouton Déverrouiller par row (useToggleLock inline sans sortir du drawer)
+  → Self-heal operation_ref désynchronisés (scan file sur Lien justificatif)
+  → Navigation bouton "Voir" → /justificatifs?file=X&highlight=Y + onClose()
+
 Filtre justificatifs déjà référencés (via get_all_referenced_justificatifs, cache TTL 5s) :
   → get_filtered_suggestions() : exclut les déjà-associés (exception : op courante pour ré-association)
   → list_justificatifs(status=en_attente) : exclut les fichiers déjà référencés

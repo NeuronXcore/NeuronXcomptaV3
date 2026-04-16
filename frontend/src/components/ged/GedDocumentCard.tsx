@@ -1,4 +1,7 @@
-import { FileText, Receipt, BarChart3, FolderOpen, Star, File, Link as LinkIcon, CheckCircle2 } from 'lucide-react'
+import {
+  FileText, Receipt, BarChart3, FolderOpen, Star, File,
+  Link as LinkIcon, CheckCircle2, Lock, Building2, Tag, CalendarDays, Euro,
+} from 'lucide-react'
 import { cn, formatCurrency, formatDateShort } from '@/lib/utils'
 import type { GedDocument } from '@/types'
 
@@ -61,6 +64,7 @@ export default function GedDocumentCard({
   const isJustificatif = doc.type === 'justificatif'
   const isPending = doc.statut_justificatif === 'en_attente'
   const isAssociated = !isPending && !!doc.operation_ref
+  const isLocked = !!doc.op_locked
   const displayDate = doc.date_document || doc.date_operation
 
   return (
@@ -113,20 +117,33 @@ export default function GedDocumentCard({
         {/* Badges overlay — uniquement pour les justificatifs */}
         {isJustificatif && (
           <>
-            {/* Statut — top-right */}
-            {(isPending || isAssociated) && (
-              <div
-                className={cn(
-                  'absolute top-1.5 right-1.5 inline-flex items-center gap-1 h-5 px-[7px] rounded-full text-[10px] font-medium border',
-                  isPending
-                    ? 'bg-[#FAEEDA] text-[#854F0B] border-[#FAC775]'
-                    : 'bg-[#EAF3DE] text-[#3B6D11] border-[#C0DD97]',
-                )}
-              >
-                {isPending ? <LinkIcon size={10} /> : <CheckCircle2 size={10} />}
-                <span>{isPending ? 'En attente' : 'Associé'}</span>
-              </div>
-            )}
+            {/* Statut + Lock — top-right empilés */}
+            <div className="absolute top-1.5 right-1.5 flex flex-col items-end gap-1">
+              {(isPending || isAssociated) && (
+                <div
+                  className={cn(
+                    'inline-flex items-center gap-1 h-5 px-[7px] rounded-full text-[10px] font-medium border',
+                    // En attente : beige | Associé : orange (cohérent avec la demande utilisateur)
+                    isPending
+                      ? 'bg-[#FAEEDA] text-[#854F0B] border-[#FAC775]'
+                      : 'bg-[#FFE6D0] text-[#C2410C] border-[#F59E0B]',
+                  )}
+                  title={isPending ? 'Justificatif en attente d\'association' : 'Justificatif associé à une opération'}
+                >
+                  {isPending ? <LinkIcon size={10} /> : <CheckCircle2 size={10} />}
+                  <span>{isPending ? 'En attente' : 'Associé'}</span>
+                </div>
+              )}
+              {isLocked && (
+                <div
+                  className="inline-flex items-center gap-1 h-5 px-[7px] rounded-full text-[10px] font-medium bg-warning/90 text-white border border-warning shadow"
+                  title={`Opération verrouillée${doc.op_locked_at ? ` — ${doc.op_locked_at}` : ''}`}
+                >
+                  <Lock size={10} />
+                  <span>Verrouillé</span>
+                </div>
+              )}
+            </div>
 
             {/* Montant — bottom-left */}
             {doc.montant != null && (
@@ -146,7 +163,7 @@ export default function GedDocumentCard({
       </div>
 
       {/* Info */}
-      <div className="p-2.5 space-y-1">
+      <div className="p-2.5 space-y-1.5">
         <p className="text-xs font-medium text-text truncate" title={title}>{title}</p>
 
         <div className="flex items-center gap-1 text-[10px] text-text-muted">
@@ -155,22 +172,74 @@ export default function GedDocumentCard({
           {format && <span className="uppercase">· {format}</span>}
         </div>
 
-        {doc.categorie && (
-          <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary truncate max-w-full">
-            {doc.categorie}
-          </span>
-        )}
+        {/* Badges colorés ligne 1 : montant + date */}
+        {(montant != null && montant !== 0) || displayDate ? (
+          <div className="flex items-center gap-1 flex-wrap tabular-nums">
+            {montant != null && montant !== 0 && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium"
+                title="Montant"
+              >
+                <Euro size={9} />
+                {formatCurrency(Math.abs(montant)).replace(/\u00a0€/, '')} €
+              </span>
+            )}
+            {displayDate && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 font-medium"
+                title="Date du document"
+              >
+                <CalendarDays size={9} />
+                {formatDateShort(displayDate)}
+              </span>
+            )}
+            {!displayDate && periodLabel && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 font-medium">
+                <CalendarDays size={9} />
+                {periodLabel}
+              </span>
+            )}
+          </div>
+        ) : periodLabel ? (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 font-medium">
+              <CalendarDays size={9} />
+              {periodLabel}
+            </span>
+          </div>
+        ) : null}
 
-        {doc.fournisseur && (
-          <p className="text-[10px] text-text-muted truncate">{doc.fournisseur}</p>
-        )}
-
-        {periodLabel && (
-          <p className="text-[10px] text-text-muted">{periodLabel}</p>
-        )}
-
-        {montant != null && montant !== 0 && (
-          <p className="text-[10px] font-medium text-text">{formatCurrency(Math.abs(montant))}</p>
+        {/* Badges colorés ligne 2 : catégorie + fournisseur + lock (si associé) */}
+        {(doc.categorie || doc.fournisseur || isLocked) && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {doc.categorie && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium max-w-[120px] truncate"
+                title={`Catégorie : ${doc.categorie}${doc.sous_categorie ? ` · ${doc.sous_categorie}` : ''}`}
+              >
+                <Tag size={9} className="shrink-0" />
+                <span className="truncate">{doc.categorie}</span>
+              </span>
+            )}
+            {doc.fournisseur && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 font-medium max-w-[120px] truncate"
+                title={`Fournisseur : ${doc.fournisseur}`}
+              >
+                <Building2 size={9} className="shrink-0" />
+                <span className="truncate">{doc.fournisseur}</span>
+              </span>
+            )}
+            {isLocked && !isJustificatif && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning font-medium"
+                title="Opération verrouillée"
+              >
+                <Lock size={9} />
+                Verrouillé
+              </span>
+            )}
+          </div>
         )}
 
         {doc.is_reconstitue && (

@@ -1,10 +1,70 @@
-import { formatCurrency } from '@/lib/utils'
+import { Link as LinkIcon, CheckCircle2, Lock, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { cn, formatCurrency, formatDateShort } from '@/lib/utils'
 import type { GedDocument, PosteComptable } from '@/types'
 
 interface GedDocumentListProps {
   documents: GedDocument[]
   postes: PosteComptable[]
   onSelect: (docId: string) => void
+  /** Clé de tri courante (ex. "original_name", "date_document", "montant", "categorie", …). */
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
+  /** Callback quand l'utilisateur clique un header : toggle asc/desc si même clé, sinon change clé et reset en desc. */
+  onSortChange?: (sortBy: string, sortOrder: 'asc' | 'desc') => void
+}
+
+interface SortableHeaderProps {
+  children: React.ReactNode
+  columnKey: string
+  currentKey?: string
+  currentOrder?: 'asc' | 'desc'
+  onSortChange?: (sortBy: string, sortOrder: 'asc' | 'desc') => void
+  align?: 'left' | 'right'
+  className?: string
+}
+
+function SortableHeader({
+  children,
+  columnKey,
+  currentKey,
+  currentOrder,
+  onSortChange,
+  align = 'left',
+  className,
+}: SortableHeaderProps) {
+  const active = currentKey === columnKey
+  const Icon = !active ? ArrowUpDown : currentOrder === 'desc' ? ArrowDown : ArrowUp
+  const handleClick = () => {
+    if (!onSortChange) return
+    if (active) {
+      onSortChange(columnKey, currentOrder === 'desc' ? 'asc' : 'desc')
+    } else {
+      onSortChange(columnKey, 'desc')
+    }
+  }
+  return (
+    <th
+      className={cn(
+        'px-3 py-2 font-medium select-none',
+        align === 'right' ? 'text-right' : 'text-left',
+        className,
+      )}
+    >
+      <button
+        onClick={handleClick}
+        disabled={!onSortChange}
+        className={cn(
+          'inline-flex items-center gap-1 transition-colors',
+          align === 'right' && 'ml-auto',
+          active ? 'text-primary' : 'text-text-muted hover:text-text',
+          !onSortChange && 'cursor-default',
+        )}
+      >
+        {children}
+        <Icon size={11} className={cn(!active && 'opacity-40')} />
+      </button>
+    </th>
+  )
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -21,29 +81,54 @@ const TYPE_COLORS: Record<string, string> = {
   document_libre: 'bg-purple-500/15 text-purple-400',
 }
 
-export default function GedDocumentList({ documents, postes, onSelect }: GedDocumentListProps) {
+export default function GedDocumentList({
+  documents,
+  postes,
+  onSelect,
+  sortBy,
+  sortOrder,
+  onSortChange,
+}: GedDocumentListProps) {
   const postesMap = Object.fromEntries(postes.map(p => [p.id, p]))
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-surface border-b border-border text-text-muted text-xs">
-            <th className="text-left px-3 py-2 font-medium">Nom</th>
-            <th className="text-left px-3 py-2 font-medium w-24">Type</th>
-            <th className="text-left px-3 py-2 font-medium w-28">Date</th>
-            <th className="text-left px-3 py-2 font-medium w-36">Poste</th>
-            <th className="text-right px-3 py-2 font-medium w-24">Montant</th>
-            <th className="text-right px-3 py-2 font-medium w-28">Déductible</th>
-            <th className="text-left px-3 py-2 font-medium w-32">Tags</th>
+          <tr className="bg-surface border-b border-border text-xs">
+            <SortableHeader columnKey="original_name" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange}>
+              Nom
+            </SortableHeader>
+            <SortableHeader columnKey="type" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange} className="w-24">
+              Type
+            </SortableHeader>
+            <SortableHeader columnKey="date_document" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange} className="w-28">
+              Date
+            </SortableHeader>
+            <SortableHeader columnKey="categorie" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange} className="w-32">
+              Catégorie
+            </SortableHeader>
+            <SortableHeader columnKey="fournisseur" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange} className="w-32">
+              Fournisseur
+            </SortableHeader>
+            <SortableHeader columnKey="montant" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange} align="right" className="w-24">
+              Montant
+            </SortableHeader>
+            <SortableHeader columnKey="statut_justificatif" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange} className="w-28">
+              Statut
+            </SortableHeader>
           </tr>
         </thead>
         <tbody>
           {documents.map(doc => {
             const name = doc.original_name || doc.doc_id.split('/').pop() || ''
             const poste = doc.poste_comptable ? postesMap[doc.poste_comptable] : null
-            const effectivePct = doc.deductible_pct_override ?? (poste?.deductible_pct ?? 0)
-            const deductible = doc.montant_brut ? doc.montant_brut * effectivePct / 100 : null
+            const montant = doc.montant ?? doc.montant_brut
+            const isJustificatif = doc.type === 'justificatif'
+            const isPending = doc.statut_justificatif === 'en_attente'
+            const isAssociated = !isPending && !!doc.operation_ref
+            const isLocked = !!doc.op_locked
+            const displayDate = doc.date_document || doc.date_operation || doc.added_at
 
             return (
               <tr
@@ -53,39 +138,84 @@ export default function GedDocumentList({ documents, postes, onSelect }: GedDocu
               >
                 <td className="px-3 py-2">
                   <p className="text-text truncate max-w-[250px]" title={name}>{name}</p>
+                  {poste && (
+                    <p
+                      className="text-[10px] text-text-muted truncate max-w-[250px]"
+                      title={poste.label}
+                    >
+                      Poste : {poste.label}
+                    </p>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${TYPE_COLORS[doc.type] || ''}`}>
                     {TYPE_LABELS[doc.type] || doc.type}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-text-muted text-xs">
-                  {doc.added_at ? new Date(doc.added_at).toLocaleDateString('fr-FR') : '-'}
+                <td className="px-3 py-2 text-text-muted text-xs tabular-nums">
+                  {displayDate ? formatDateShort(displayDate) : '-'}
                 </td>
                 <td className="px-3 py-2">
-                  {poste ? (
-                    <span className="text-xs text-text-muted truncate block max-w-[120px]" title={poste.label}>
-                      {poste.label}
+                  {doc.categorie ? (
+                    <span
+                      className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary truncate max-w-[120px]"
+                      title={`${doc.categorie}${doc.sous_categorie ? ` · ${doc.sous_categorie}` : ''}`}
+                    >
+                      {doc.categorie}
                     </span>
                   ) : (
-                    <span className="text-xs text-text-muted">-</span>
+                    <span className="text-xs text-text-muted/60">-</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right text-xs">
-                  {doc.montant_brut != null ? formatCurrency(doc.montant_brut) : '-'}
+                <td className="px-3 py-2">
+                  {doc.fournisseur ? (
+                    <span
+                      className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 truncate max-w-[120px]"
+                      title={doc.fournisseur}
+                    >
+                      {doc.fournisseur}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-text-muted/60">-</span>
+                  )}
                 </td>
-                <td className="px-3 py-2 text-right text-xs text-text-muted">
-                  {deductible != null ? `${formatCurrency(deductible)} (${effectivePct}%)` : '-'}
+                <td className="px-3 py-2 text-right text-xs tabular-nums">
+                  {montant != null ? formatCurrency(Math.abs(montant)) : '-'}
                 </td>
                 <td className="px-3 py-2">
-                  <div className="flex gap-1 flex-wrap">
-                    {doc.tags.slice(0, 2).map(tag => (
-                      <span key={tag} className="text-[9px] bg-primary/10 text-primary px-1 py-0.5 rounded">
-                        {tag}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {isJustificatif && isPending && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-[#FAEEDA] text-[#854F0B] border-[#FAC775]"
+                        title="Justificatif en attente d'association"
+                      >
+                        <LinkIcon size={9} />
+                        En attente
                       </span>
-                    ))}
-                    {doc.tags.length > 2 && (
-                      <span className="text-[9px] text-text-muted">+{doc.tags.length - 2}</span>
+                    )}
+                    {isJustificatif && isAssociated && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border bg-[#FFE6D0] text-[#C2410C] border-[#F59E0B]"
+                        title="Justificatif associé à une opération"
+                      >
+                        <CheckCircle2 size={9} />
+                        Associé
+                      </span>
+                    )}
+                    {isLocked && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                          'bg-warning/15 text-warning border border-warning/30',
+                        )}
+                        title={`Opération verrouillée${doc.op_locked_at ? ` — ${doc.op_locked_at}` : ''}`}
+                      >
+                        <Lock size={9} />
+                        Verrou
+                      </span>
+                    )}
+                    {!isJustificatif && !isLocked && (
+                      <span className="text-xs text-text-muted/60">-</span>
                     )}
                   </div>
                 </td>

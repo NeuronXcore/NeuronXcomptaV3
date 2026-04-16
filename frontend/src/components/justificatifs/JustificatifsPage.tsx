@@ -6,6 +6,7 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
 import BatchOverviewDrawer from '@/components/templates/BatchOverviewDrawer'
 import BatchReconstituerDrawer from '@/components/justificatifs/BatchReconstituerDrawer'
+import ManualAssociationDrawer, { type TargetedOp } from '@/components/justificatifs/ManualAssociationDrawer'
 import { BulkLockBar } from '@/components/BulkLockBar'
 import { useBulkLock, type BulkLockItem } from '@/hooks/useBulkLock'
 import { useJustificatifsPage } from '@/hooks/useJustificatifsPage'
@@ -27,7 +28,7 @@ import {
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
-import { Unlink, Paperclip, Trash2 } from 'lucide-react'
+import { Unlink, Paperclip, Trash2, Link2 } from 'lucide-react'
 import { LockCell } from '@/components/LockCell'
 import { Lock as LockIcon } from 'lucide-react'
 import type { VentilationLine } from '@/types'
@@ -189,6 +190,24 @@ export default function JustificatifsPage() {
   const [batchReconstituerOpen, setBatchReconstituerOpen] = useState(false)
   const selectedOperationsForBatch = useMemo(() => getSelectedOperations(), [getSelectedOperations, selectedOps]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Manual association drawer (outil d'association 2-colonnes ops|justificatifs)
+  const [manualAssocDrawerOpen, setManualAssocDrawerOpen] = useState(false)
+  const manualAssocTargetedOps = useMemo<TargetedOp[]>(() => {
+    if (selectedCount === 0) return []
+    return getSelectedOperations()
+      .filter(op => (op['Débit'] ?? 0) > 0) // garde-fou : ignore les crédits
+      .map(op => ({
+        filename: op._filename,
+        index: op._originalIndex,
+        libelle: op['Libellé'] ?? '',
+        montant: op['Débit'] ?? 0,
+        date: op.Date ?? '',
+        categorie: op['Catégorie'],
+        sousCategorie: op['Sous-catégorie'],
+      }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCount, selectedOps, getSelectedOperations])
+
   // Ligne TOTAL synthétique : visible quand au moins un filtre "narrowing" est actif.
   // Note : `justifFilter === 'sans'` est le défaut, donc on ne l'inclut PAS comme filtre actif.
   const filtersActive = useMemo(() =>
@@ -262,6 +281,14 @@ export default function JustificatifsPage() {
             >
               <Layers size={14} />
               Batch fac-simile
+            </button>
+            <button
+              onClick={() => setManualAssocDrawerOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border-secondary text-text-muted hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors"
+              title="Ouvrir l'outil d'association manuelle 2-colonnes"
+            >
+              <Link2 size={14} />
+              Association manuelle
             </button>
             <button
               onClick={() => navigate('/ocr')}
@@ -1026,6 +1053,16 @@ export default function JustificatifsPage() {
             Reconstituer ({selectedCount})
           </button>
           <button
+            onClick={() => setManualAssocDrawerOpen(true)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+              'bg-primary text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02]',
+            )}
+          >
+            <Link2 size={16} />
+            Associer justificatifs ({selectedCount})
+          </button>
+          <button
             onClick={clearSelection}
             className="p-1.5 text-text-muted hover:text-text transition-colors"
             title="Annuler la sélection"
@@ -1134,6 +1171,18 @@ export default function JustificatifsPage() {
         onClose={() => setBatchReconstituerOpen(false)}
         operations={selectedOperationsForBatch}
         onDone={clearSelection}
+      />
+
+      {/* Association manuelle drawer (outil 2-colonnes ops|justificatifs) */}
+      <ManualAssociationDrawer
+        open={manualAssocDrawerOpen}
+        onClose={() => {
+          setManualAssocDrawerOpen(false)
+          clearSelection()
+        }}
+        year={year}
+        month={selectedMonth}
+        targetedOps={manualAssocTargetedOps}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil, Expand,
+  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil, Expand, Link2, LockOpen, Unlink,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -9,10 +9,13 @@ import { cn } from '@/lib/utils'
 import GedMetadataEditor from './GedMetadataEditor'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import OcrEditDrawer from '@/components/ocr/OcrEditDrawer'
+import JustifToOpDrawer from '@/components/justificatifs/JustifToOpDrawer'
 import GedPreviewSubDrawer from './GedPreviewSubDrawer'
 import { useGedUpdateDocument, useGedDeleteDocument, useGedOpenNative } from '@/hooks/useGed'
 import { useOcrHistory } from '@/hooks/useOcr'
-import { useDeleteJustificatif } from '@/hooks/useJustificatifs'
+import { useDeleteJustificatif, useDissociate } from '@/hooks/useJustificatifs'
+import { useToggleLock } from '@/hooks/useToggleLock'
+import { UnlockConfirmModal } from '@/components/UnlockConfirmModal'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import type { GedDocument, PosteComptable, OCRHistoryItem } from '@/types'
 
@@ -35,11 +38,16 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
   const [drawerWidth, setDrawerWidth] = useState(DEFAULT_WIDTH)
   const [showOcrEdit, setShowOcrEdit] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [justifToOpOpen, setJustifToOpOpen] = useState(false)
   const isResizing = useRef(false)
 
   const updateMutation = useGedUpdateDocument()
   const deleteMutation = useGedDeleteDocument()
   const deleteJustifMutation = useDeleteJustificatif()
+  const dissociateMutation = useDissociate()
+  const toggleLockMutation = useToggleLock()
+  // Modale confirmation de déverrouillage (mêmes gardes que LockCell)
+  const [unlockConfirmOpen, setUnlockConfirmOpen] = useState(false)
   const openNativeMutation = useGedOpenNative()
   const { data: ocrHistory } = useOcrHistory(2000)
 
@@ -164,6 +172,50 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
         onError: (err: Error) => toast.error(`Erreur : ${err.message}`),
       })
     })
+  }
+
+  const handleDissociate = () => {
+    const ref = localDoc?.operation_ref
+    if (!ref) return
+    dissociateMutation.mutate(
+      { operation_file: ref.file, operation_index: ref.index },
+      {
+        onSuccess: () => {
+          toast.success('Justificatif dissocié de l\'opération')
+          queryClient.invalidateQueries({ queryKey: ['ged-documents'] })
+          queryClient.invalidateQueries({ queryKey: ['ged-stats'] })
+          queryClient.invalidateQueries({ queryKey: ['ged-tree'] })
+          onClose()
+        },
+        onError: (err: unknown) => {
+          const status = (err as { response?: { status?: number } })?.response?.status
+          if (status === 423) {
+            toast.error('Opération verrouillée — déverrouillez d\'abord')
+          } else {
+            toast.error('Erreur lors de la dissociation')
+          }
+        },
+      }
+    )
+  }
+
+  const handleUnlockConfirm = () => {
+    const ref = localDoc?.operation_ref
+    if (!ref) { setUnlockConfirmOpen(false); return }
+    toggleLockMutation.mutate(
+      { filename: ref.file, index: ref.index, locked: false },
+      {
+        onSuccess: () => {
+          toast.success('Opération déverrouillée')
+          setUnlockConfirmOpen(false)
+          queryClient.invalidateQueries({ queryKey: ['ged-documents'] })
+        },
+        onError: () => {
+          toast.error('Erreur lors du déverrouillage')
+          setUnlockConfirmOpen(false)
+        },
+      }
+    )
   }
 
   const handleOcrEditClose = () => {
@@ -308,6 +360,16 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
                 Éditer données OCR
               </button>
             )}
+            {isJustificatif && localDoc?.statut_justificatif === 'en_attente' && basename && (
+              <button
+                onClick={() => setJustifToOpOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/40 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors"
+                title="Rechercher l'opération bancaire correspondante"
+              >
+                <Link2 size={14} />
+                Associer à une opération
+              </button>
+            )}
             <button
               onClick={handleSave}
               disabled={updateMutation.isPending}
@@ -318,23 +380,64 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
             </button>
           </div>
 
-          {/* Delete zone — justificatif : toast centré + nettoyage complet */}
+          {/* Actions justificatif : dissocier / déverrouiller / supprimer */}
           {isJustificatif ? (
-            <div className="border-t border-border pt-4">
-              <button
-                onClick={handleDeleteJustificatif}
-                disabled={deleteJustifMutation.isPending}
-                className="flex items-center gap-2 text-red-400/80 hover:text-red-400 text-xs transition-colors disabled:opacity-50"
-              >
-                {deleteJustifMutation.isPending
-                  ? <Loader2 size={13} className="animate-spin" />
-                  : <Trash2 size={13} />
-                }
-                Supprimer le justificatif
-              </button>
-              <p className="text-[11px] text-text-muted mt-1">
-                Supprime le PDF, le cache OCR, la thumbnail et délie les opérations associées.
-              </p>
+            <div className="border-t border-border pt-4 space-y-3">
+              {/* Ligne 1 : Dissocier + Déverrouiller (visibles uniquement si op liée / verrouillée) */}
+              {(localDoc?.operation_ref || localDoc?.op_locked) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {localDoc?.operation_ref && (
+                    <button
+                      onClick={handleDissociate}
+                      disabled={dissociateMutation.isPending || !!localDoc?.op_locked}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={
+                        localDoc?.op_locked
+                          ? 'Opération verrouillée — déverrouillez d\'abord pour dissocier'
+                          : 'Dissocier ce justificatif de son opération'
+                      }
+                    >
+                      {dissociateMutation.isPending
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <Unlink size={12} />
+                      }
+                      Dissocier de l'opération
+                    </button>
+                  )}
+                  {localDoc?.op_locked && (
+                    <button
+                      onClick={() => setUnlockConfirmOpen(true)}
+                      disabled={toggleLockMutation.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-warning/15 text-warning border border-warning/40 hover:bg-warning/25 transition-colors disabled:opacity-40"
+                      title="Déverrouiller l'opération pour pouvoir la modifier"
+                    >
+                      {toggleLockMutation.isPending
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <LockOpen size={12} />
+                      }
+                      Déverrouiller l'opération
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Ligne 2 : Supprimer (toujours disponible) */}
+              <div>
+                <button
+                  onClick={handleDeleteJustificatif}
+                  disabled={deleteJustifMutation.isPending}
+                  className="flex items-center gap-2 text-red-400/80 hover:text-red-400 text-xs transition-colors disabled:opacity-50"
+                >
+                  {deleteJustifMutation.isPending
+                    ? <Loader2 size={13} className="animate-spin" />
+                    : <Trash2 size={13} />
+                  }
+                  Supprimer le justificatif
+                </button>
+                <p className="text-[11px] text-text-muted mt-1">
+                  Supprime le PDF, le cache OCR, la thumbnail et délie les opérations associées.
+                </p>
+              </div>
             </div>
           ) : (localDoc?.type && !['releve', 'rapport'].includes(localDoc.type)) ? (
             /* Anciens types (document_libre + custom) — confirmation inline préservée */
@@ -385,6 +488,28 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
         mainDrawerOpen={open}
         mainDrawerWidth={drawerWidth}
         onClose={() => setShowPreview(false)}
+      />
+
+      {/* Drawer association justificatif → opération (z-60/z-70 au-dessus du main z-40/z-50) */}
+      <JustifToOpDrawer
+        open={justifToOpOpen}
+        onClose={() => {
+          setJustifToOpOpen(false)
+          // Rafraîchir le doc affiché et les vues GED (le statut peut être passé à 'traite')
+          queryClient.invalidateQueries({ queryKey: ['ged-documents'] })
+          queryClient.invalidateQueries({ queryKey: ['ged-stats'] })
+          queryClient.invalidateQueries({ queryKey: ['ged-tree'] })
+        }}
+        initialFilename={basename || undefined}
+      />
+
+      {/* Modale confirmation de déverrouillage — z-index supérieur au drawer (z-50) */}
+      <UnlockConfirmModal
+        open={unlockConfirmOpen}
+        onConfirm={handleUnlockConfirm}
+        onCancel={() => setUnlockConfirmOpen(false)}
+        loading={toggleLockMutation.isPending}
+        zIndex={80}
       />
     </>
   )

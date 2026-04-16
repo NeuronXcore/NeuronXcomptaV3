@@ -18,7 +18,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
-  CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban, Camera,
+  CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban, Camera, Link2,
 } from 'lucide-react'
 import { api } from '@/api/client'
 import toast from 'react-hot-toast'
@@ -34,6 +34,7 @@ import PageHeader from '@/components/shared/PageHeader'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import PreviewSubDrawer from '@/components/ocr/PreviewSubDrawer'
 import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
+import ManualAssociationDrawer, { type TargetedOp } from '@/components/justificatifs/ManualAssociationDrawer'
 import VentilationDrawer from '@/components/editor/VentilationDrawer'
 import VentilationLines from '@/components/editor/VentilationLines'
 import UrssafSplitWidget, { isUrssafOp } from '@/components/editor/UrssafSplitWidget'
@@ -554,8 +555,21 @@ export default function EditorPage() {
   // Save
   const handleSave = useCallback(() => {
     if (!selectedFile) return
+    // Nettoyage défensif : les champs `_sourceFile` / `_index` sont des artefacts
+    // frontend (enrichis par useYearOperations en mode year-wide). Ils ne doivent
+    // JAMAIS être persistés dans le fichier d'opérations — sinon un clic lock
+    // ultérieur utilise un `_sourceFile` potentiellement obsolète (fichier disparu
+    // après un merge) et PATCH → 404 silencieux.
+    const cleanedOps = operations.map(op => {
+      if ('_sourceFile' in op || '_index' in op) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { _sourceFile, _index, ...rest } = op as Operation & { _sourceFile?: string; _index?: number }
+        return rest as Operation
+      }
+      return op
+    })
     saveMutation.mutate(
-      { filename: selectedFile, operations },
+      { filename: selectedFile, operations: cleanedOps },
       {
         onSuccess: (result: any) => {
           setHasChanges(false)
@@ -938,8 +952,19 @@ export default function EditorPage() {
       },
       cell: ({ row }) => {
         const op = row.original
-        const filename = op._sourceFile ?? selectedFile ?? ''
-        const index = op._index ?? row.index
+        // CRITIQUE en mode single-file : on IGNORE `op._sourceFile` même s'il existe —
+        // c'est un artefact du mode year-wide qui a parfois été persisté dans les fichiers
+        // d'opérations (ex. après un merge de fichiers qui a écrit les champs internes).
+        // Le `_sourceFile` peut pointer vers un fichier qui n'existe plus → PATCH 404.
+        // En single-file le fichier courant est TOUJOURS `selectedFile`.
+        const filename = allYearMode ? (op._sourceFile ?? selectedFile ?? '') : (selectedFile ?? '')
+        // CRITIQUE : `row.index` est la position VISIBLE post-filtre/tri/pagination.
+        // Pour cibler la bonne op dans le fichier source (PATCH backend), on utilise
+        // `row.id` qui vaut par défaut l'index dans la data array source (operations).
+        // Sans ça, cliquer lock après un tri envoie le mauvais index au backend
+        // → verrouille une autre op (ou renvoie une op non-lockable) silencieusement.
+        // `_index` n'est valable qu'en year-wide (enrichi par useYearOperations).
+        const index = allYearMode ? (op._index ?? Number(row.id)) : Number(row.id)
         if (!filename) return null
         const isLockable = !!op.Justificatif && (op.ventilation?.length ?? 0) === 0 && !allYearMode
         const selectionActive = lockSelectedCount > 0
@@ -1171,6 +1196,50 @@ export default function EditorPage() {
   const [snapshotsListOpen, setSnapshotsListOpen] = useState(false)
   const [snapshotViewerId, setSnapshotViewerId] = useState<string | null>(null)
 
+  // ─── Manual association drawer (2-colonnes ops | justificatifs) ───
+  const [manualAssocDrawerOpen, setManualAssocDrawerOpen] = useState(false)
+
+  /**
+   * Construit la liste `TargetedOp` depuis `rowSelection` pour le drawer.
+   * Filtre silencieux les crédits (recettes n'ayant pas besoin de justif).
+   * Désactivé en year-wide : lecture seule + refs multi-files ambiguës.
+   */
+  const manualAssocTargetedOps = useMemo<TargetedOp[]>(() => {
+    if (selectedCount === 0 || allYearMode || !selectedFile) return []
+    const out: TargetedOp[] = []
+    for (const rowId of Object.keys(rowSelection)) {
+      const row = table.getRow(rowId)
+      if (!row) continue
+      const op = row.original
+      const index = op._index ?? Number(rowId)
+      if (Number.isNaN(index)) continue
+      const debit = op['Débit'] ?? 0
+      if (debit <= 0) continue
+      out.push({
+        filename: selectedFile,
+        index,
+        libelle: op['Libellé'] ?? '',
+        montant: debit,
+        date: op.Date ?? '',
+        categorie: op['Catégorie'],
+        sousCategorie: op['Sous-catégorie'],
+      })
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowSelection, selectedCount, allYearMode, selectedFile])
+
+  /**
+   * Mois dérivé pour le drawer — soit le mois du fichier sélectionné (single-file),
+   * soit null en year-wide pour ouvrir en scope année.
+   */
+  const manualAssocMonth = useMemo<number | null>(() => {
+    if (allYearMode) return null
+    if (!selectedFile) return null
+    const finfo = files?.find(f => f.filename === selectedFile)
+    return finfo?.month ?? null
+  }, [allYearMode, selectedFile, files])
+
   /**
    * Construit les ops_refs pour les lignes cochées via TanStack rowSelection.
    * Skip les sous-lignes ventilées (snapshots = ops parentes).
@@ -1290,6 +1359,27 @@ export default function EditorPage() {
                 title="Créer un snapshot avec les opérations cochées"
               >
                 <Camera size={15} /> Snapshot ({selectedCount})
+              </button>
+            )}
+
+            {/* Association manuelle — standalone header */}
+            <button
+              onClick={() => setManualAssocDrawerOpen(true)}
+              disabled={allYearMode}
+              className="flex items-center gap-1.5 px-2.5 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={allYearMode ? "Indisponible en mode Toute l'année" : 'Association manuelle des justificatifs'}
+            >
+              <Link2 size={15} />
+            </button>
+
+            {/* Association manuelle — depuis sélection (N ops) */}
+            {selectedCount > 0 && !allYearMode && (
+              <button
+                onClick={() => setManualAssocDrawerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold bg-primary/15 text-primary border border-primary/40 rounded-lg hover:bg-primary/25 transition-colors"
+                title="Associer des justificatifs aux opérations cochées"
+              >
+                <Link2 size={15} /> Associer justif. ({selectedCount})
               </button>
             )}
 
@@ -2210,6 +2300,18 @@ export default function EditorPage() {
         open={snapshotViewerId !== null}
         snapshotId={snapshotViewerId}
         onClose={() => setSnapshotViewerId(null)}
+      />
+
+      {/* Association manuelle drawer (outil 2-colonnes ops|justificatifs) */}
+      <ManualAssociationDrawer
+        open={manualAssocDrawerOpen}
+        onClose={() => {
+          setManualAssocDrawerOpen(false)
+          setRowSelection({})
+        }}
+        year={selectedYear ?? new Date().getFullYear()}
+        month={manualAssocMonth}
+        targetedOps={manualAssocTargetedOps}
       />
     </div>
   )

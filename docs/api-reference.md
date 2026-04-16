@@ -988,7 +988,31 @@ Best score par justificatif en attente. Les justificatifs déjà référencés s
 Suggestions de justificatifs pour une opération. Si `ventilation_index` fourni, score avec le montant de la sous-ligne. Si op ventilée sans `ventilation_index`, retourne `{ ventilated: true, ventilation_lines: [...] }`.
 
 ### `GET /suggestions/justificatif/{filename}`
-Suggestions d'opérations pour un justificatif. Inclut les sous-lignes ventilées.
+Suggestions d'opérations pour un justificatif. Inclut les sous-lignes ventilées. Utilisé par `useJustificatifSuggestions` et par le nouveau **`JustifToOpDrawer`** (sens inverse justif → op, ouvert depuis `GedDocumentDrawer`).
+
+**Réponse :** liste d'objets avec la structure suivante :
+```json
+[
+  {
+    "justificatif_filename": "fournisseur_20250109_amount.pdf",
+    "operation_file": "operations_merged_202501_xxx.json",
+    "operation_index": 42,
+    "operation_libelle": "LIBELLE OPERATION",
+    "operation_date": "2025-01-09",
+    "operation_montant": 19.99,
+    "score": {
+      "total": 0.85,
+      "detail": { "montant": 1.0, "date": 0.95, "fournisseur": 0.8, "categorie": 0.6 },
+      "confidence_level": "fort"
+    },
+    "ventilation_index": null,
+    "op_locked": false,
+    "op_locked_at": null
+  }
+]
+```
+
+**Session 26** : les champs `op_locked: bool` + `op_locked_at: str|null` sont désormais exposés dans chaque suggestion (lit `op.get("locked")` + `op.get("locked_at")` lors du scoring). Permet au `JustifToOpDrawer` d'afficher un badge `Lock` warning + bouton « Déverrouiller » directement sur la row — sans fetch lazy côté client. Compatible avec `ManualAssociationDrawer` (types optionnels, pas de breaking change pour les consommateurs existants).
 
 ### `GET /{filename}/{index}/suggestions`
 Suggestions filtrées pour le `RapprochementWorkflowDrawer` (drawer unifié). Utilise `rename_service.compute_canonical_name()` indirectement via `compute_score()` pour le scoring v2.
@@ -1236,8 +1260,18 @@ Arborescence complete. Scanne les sources (releves, justificatifs, rapports, doc
 }
 ```
 
-### `GET /documents?type=&year=&month=&quarter=&categorie=&sous_categorie=&fournisseur=&format_type=&favorite=&poste_comptable=&tags=&search=&sort_by=added_at&sort_order=desc`
+### `GET /documents?type=&year=&month=&quarter=&categorie=&sous_categorie=&fournisseur=&format_type=&favorite=&poste_comptable=&tags=&search=&montant_min=&montant_max=&sort_by=added_at&sort_order=desc`
 Liste filtree des documents indexes. Filtres croises : tous combinables. Tags separes par virgule. Recherche full-text inclut noms, OCR, titres/descriptions rapports, fournisseur.
+
+**Session 26 — enrichissement dynamique lock + self-heal** : pour chaque document `type=justificatif` avec `operation_ref` non-null, la réponse ajoute à la volée :
+- `op_locked: bool` — reflète `operations[ref.index].locked` du fichier source
+- `op_locked_at: str|null` — timestamp ISO
+
+Groupe les refs par fichier et charge chaque fichier une seule fois via `operation_service.load_operations` (cache mtime interne). **Self-heal** : si l'op à `ref.index` ne pointe pas vers le justif via `Lien justificatif` (désynchronisation après un merge/split antérieur), un helper `_op_points_to()` scanne le fichier pour retrouver l'op qui pointe réellement vers le justif (check main + ventilation sous-lignes) et **corrige l'index dans la réponse** — les métadonnées disque restent inchangées (pour un futur job de réconciliation). Non-bloquant : wrappé dans `try/except` silencieux.
+
+**Session 26 — tri refait pour None safety** : le tri sépare les docs avec valeur et les docs sans valeur en 2 listes, les trie individuellement, puis concatène les None **en fin** (pour `asc` ET `desc`, évite les None en tête de liste avec `sort_order=asc`). Support des paths pointés (`period.year`). Fallbacks : `sort_by=montant` tombe sur `montant_brut` si absent ; `sort_by=date_document` tombe sur `date_operation` puis `period.year`. Filet `try/except` qui coerce tout en string si types hétérogènes. Utilisé par le nouveau sélecteur de tri header + les headers cliquables de la vue liste (`SortableHeader` avec icônes `ArrowUp`/`ArrowDown`/`ArrowUpDown`).
+
+**Params montant** : `montant_min` / `montant_max` filtrent sur `montant || montant_brut` (consolidation identique à l'affichage des cartes).
 
 ### `POST /upload`
 Upload document libre. Form-data : `file` + `metadata_json` (JSON string avec type, year, month, poste_comptable, tags, notes). Images (JPG/PNG) converties en PDF.

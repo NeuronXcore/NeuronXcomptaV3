@@ -925,7 +925,10 @@ def _build_period_tree(docs: dict) -> list[dict]:
         period = d.get("period")
         if period and period.get("year"):
             y = period["year"]
-            q = period.get("quarter") or ((period.get("month", 1) - 1) // 3 + 1)
+            # Garde-fou : period.get("month") peut être None (clé présente mais valeur null
+            # dans ged_metadata.json) → fallback explicite avant le calcul de trimestre.
+            month_val = period.get("month") or 1
+            q = period.get("quarter") or ((month_val - 1) // 3 + 1)
             m = period.get("month") or 0
             by_year.setdefault(y, {}).setdefault(q, {})
             by_year[y][q][m] = by_year[y][q].get(m, 0) + 1
@@ -1355,7 +1358,121 @@ def get_documents(
                 or q in (d.get("fournisseur") or "").lower()]
 
     reverse = sort_order == "desc"
-    docs.sort(key=lambda d: d.get(sort_by) or "", reverse=reverse)
+
+    def _extract_value(d: dict):
+        # Support des paths pointés (ex. "period.year") pour les champs imbriqués
+        if "." in sort_by:
+            parts = sort_by.split(".")
+            v = d
+            for p in parts:
+                if isinstance(v, dict):
+                    v = v.get(p)
+                else:
+                    v = None
+                    break
+        else:
+            v = d.get(sort_by)
+
+        # Fallback : montant consolidé (montant || montant_brut) quand sort_by == "montant"
+        if sort_by == "montant" and v is None:
+            v = d.get("montant_brut")
+        # Fallback : date document consolidée
+        if sort_by == "date_document" and v is None:
+            v = d.get("date_operation") or (d.get("period") or {}).get("year")
+        return v
+
+    # Séparer les docs avec valeur et les None — les None restent toujours en fin (asc + desc)
+    docs_with_val: list[tuple] = []
+    docs_without_val: list[dict] = []
+    for d in docs:
+        v = _extract_value(d)
+        if v is None:
+            docs_without_val.append(d)
+            continue
+        if isinstance(v, bool):
+            v = int(v)
+        if isinstance(v, (int, float)):
+            docs_with_val.append((v, d))
+        else:
+            docs_with_val.append((str(v).lower(), d))
+
+    try:
+        docs_with_val.sort(key=lambda t: t[0], reverse=reverse)
+    except TypeError:
+        # Filet de sécurité : coercer tout en string si types hétérogènes
+        docs_with_val.sort(key=lambda t: str(t[0]), reverse=reverse)
+
+    docs = [t[1] for t in docs_with_val] + docs_without_val
+
+    # Enrichissement dynamique : op_locked + op_locked_at pour les justificatifs associés.
+    # Grouper par fichier d'opérations pour charger chaque fichier une seule fois (cache interne op_service).
+    try:
+        from backend.services import operation_service as _op_svc
+        ops_by_file: dict[str, list] = {}
+        for d in docs:
+            if d.get("type") != "justificatif":
+                continue
+            ref = d.get("operation_ref")
+            if not ref or not ref.get("file"):
+                continue
+            ops_by_file.setdefault(ref["file"], [])
+        for fname in list(ops_by_file.keys()):
+            try:
+                ops_by_file[fname] = _op_svc.load_operations(fname)
+            except Exception:
+                ops_by_file[fname] = []
+
+        def _op_points_to(op: dict, basename: str, vl_idx) -> bool:
+            """L'op cible (ou sa sous-ligne ventilation) pointe-t-elle vers `basename` ?"""
+            if vl_idx is not None:
+                vls = op.get("ventilation") or []
+                if 0 <= vl_idx < len(vls):
+                    lien = (vls[vl_idx].get("justificatif") or "").split("/")[-1]
+                    return lien == basename
+                return False
+            lien = (op.get("Lien justificatif") or "").split("/")[-1]
+            return lien == basename
+
+        for d in docs:
+            if d.get("type") != "justificatif":
+                continue
+            ref = d.get("operation_ref")
+            if not ref:
+                continue
+            ops = ops_by_file.get(ref.get("file"), [])
+            idx = ref.get("index")
+            vl_idx = ref.get("ventilation_index")
+            basename = (d.get("doc_id") or "").split("/")[-1]
+
+            target_op = None
+            if idx is not None and 0 <= idx < len(ops):
+                candidate = ops[idx]
+                if _op_points_to(candidate, basename, vl_idx):
+                    target_op = candidate
+            # Self-heal : si l'index stocké est désynchronisé (merge/split passé),
+            # scanner le fichier pour retrouver l'op qui pointe réellement vers ce justif.
+            if target_op is None and basename:
+                for i, op in enumerate(ops):
+                    if _op_points_to(op, basename, vl_idx):
+                        target_op = op
+                        # Mettre à jour le ref à la volée (la réponse frontend aura le bon index,
+                        # le métadonnées disque reste pour un futur job de réconciliation).
+                        d["operation_ref"] = {
+                            **ref,
+                            "index": i,
+                        }
+                        break
+
+            if target_op is None:
+                continue
+
+            # En cas d'op ventilée : le lock s'applique à l'op parente, pas à la sous-ligne
+            d["op_locked"] = bool(target_op.get("locked", False))
+            d["op_locked_at"] = target_op.get("locked_at")
+    except Exception:
+        # Non-bloquant : pas de lock enrichment si échec
+        pass
+
     return docs
 
 
