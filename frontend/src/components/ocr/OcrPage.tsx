@@ -15,12 +15,12 @@ import type { BatchUploadResult } from '@/hooks/useOcr'
 import { useJustificatifs, useJustificatifStats, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { api } from '@/api/client'
-import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
+import { formatCurrency, cn, MOIS_FR, isLegacyPseudoCanonical } from '@/lib/utils'
 import {
   ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
   ArrowRight, DollarSign, Calendar, User, Filter, Tag, Eye, Wand2,
-  Search, X, Pencil, Trash2,
+  Search, X, Pencil, Trash2, AlertTriangle,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
 import ScanRenameDrawer from './ScanRenameDrawer'
@@ -1120,16 +1120,29 @@ function HistoriqueTab({
                     )}
                   >
                     <td className="px-4 py-3">
-                      <FilenameEditor
-                        filename={item.filename}
-                        ocrData={{
-                          supplier: item.supplier,
-                          best_date: item.best_date,
-                          best_amount: item.best_amount,
-                        }}
-                        originalFilename={item.original_filename}
-                        compact
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <FilenameEditor
+                          filename={item.filename}
+                          ocrData={{
+                            supplier: item.supplier,
+                            best_date: item.best_date,
+                            best_amount: item.best_amount,
+                          }}
+                          originalFilename={item.original_filename}
+                          compact
+                        />
+                        {isLegacyPseudoCanonical(item.filename) && (
+                          <button
+                            type="button"
+                            onClick={() => setEditItem(item)}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors shrink-0"
+                            title="Nom pseudo-canonique (suffix timestamp sandbox) — cliquer pour corriger via l'éditeur OCR"
+                          >
+                            <AlertTriangle size={10} />
+                            Pseudo-canonique
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-1 py-3 text-center w-8">
                       <PdfPreviewHover filename={item.filename} />

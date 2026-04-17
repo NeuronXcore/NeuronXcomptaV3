@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Pencil, Wand2, Sparkles, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useRenameJustificatif } from '@/hooks/useJustificatifs'
+import { useRenameJustificatif, isRenameCollision } from '@/hooks/useJustificatifs'
 import toast from 'react-hot-toast'
 
 interface FilenameEditorProps {
@@ -63,6 +63,62 @@ export default function FilenameEditor({
     }
   }, [editing])
 
+  const runRename = useCallback(
+    (newFilename: string) => {
+      renameMutation.mutate(
+        { filename, newFilename },
+        {
+          onSuccess: (data) => {
+            if (data.status === 'deduplicated') {
+              toast.success(`Doublon supprim\u00e9 : ${data.new}`)
+            } else {
+              toast.success(`Renomm\u00e9 : ${data.new}`)
+            }
+            setEditing(false)
+            onRenamed?.(data.new)
+          },
+          onError: (err) => {
+            // Rollback du state local à l'ancien filename
+            setEditValue(filename.replace(/\.pdf$/i, ''))
+            if (isRenameCollision(err)) {
+              const { message, suggestion } = err.detail
+              toast.custom(
+                (t) => (
+                  <div className="bg-surface border border-danger/40 rounded-lg p-3 shadow-lg max-w-md">
+                    <div className="text-sm text-text mb-2">{message}</div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toast.dismiss(t.id)
+                          runRename(suggestion)
+                        }}
+                        className="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary/90"
+                      >
+                        Utiliser {suggestion}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toast.dismiss(t.id)}
+                        className="px-2 py-1 text-xs text-text-muted hover:text-text"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ),
+                { duration: 10000 },
+              )
+            } else {
+              toast.error(err.message || 'Erreur lors du renommage')
+            }
+          },
+        },
+      )
+    },
+    [filename, renameMutation, onRenamed],
+  )
+
   const handleSave = useCallback(() => {
     const trimmed = editValue.trim()
     if (!trimmed) {
@@ -74,20 +130,8 @@ export default function FilenameEditor({
       setEditing(false)
       return
     }
-    renameMutation.mutate(
-      { filename, newFilename },
-      {
-        onSuccess: (data) => {
-          toast.success(`Renomm\u00e9 : ${data.new}`)
-          setEditing(false)
-          onRenamed?.(data.new)
-        },
-        onError: (err) => {
-          toast.error(err.message || 'Erreur lors du renommage')
-        },
-      },
-    )
-  }, [editValue, filename, renameMutation, onRenamed])
+    runRename(newFilename)
+  }, [editValue, filename, runRename])
 
   const handleCancel = useCallback(() => {
     setEditing(false)

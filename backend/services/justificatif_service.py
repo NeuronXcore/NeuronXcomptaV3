@@ -771,27 +771,78 @@ def rename_justificatif(old_filename: str, new_filename: str) -> dict:
     Retourne {"old": old_filename, "new": final_filename, "location": "en_attente"|"traites"}
     Raise HTTPException 404 si fichier introuvable, 409 si new_filename existe déjà.
     """
-    # 1. Localiser le PDF
-    en_attente = JUSTIFICATIFS_EN_ATTENTE_DIR / old_filename
-    traites = JUSTIFICATIFS_TRAITES_DIR / old_filename
-
-    if en_attente.exists():
-        pdf_path = en_attente
-        location = "en_attente"
-    elif traites.exists():
-        pdf_path = traites
-        location = "traites"
-    else:
+    # 1. Idempotence : rename vers soi-même = no-op
+    src_path = get_justificatif_path(old_filename)
+    if src_path is None:
         raise HTTPException(404, f"Justificatif {old_filename} introuvable")
+    location = "en_attente" if src_path.parent == JUSTIFICATIFS_EN_ATTENTE_DIR else "traites"
 
-    target_dir = pdf_path.parent
-
-    # 2. Vérifier collision
     if new_filename == old_filename:
         return {"old": old_filename, "new": old_filename, "location": location}
 
-    if (target_dir / new_filename).exists():
-        raise HTTPException(409, f"Le fichier {new_filename} existe déjà")
+    pdf_path = src_path
+    target_dir = pdf_path.parent
+
+    # 2. Collision cross-location (en_attente OU traites)
+    existing_target = get_justificatif_path(new_filename)
+    if existing_target is not None and existing_target != src_path:
+        try:
+            same_hash = _md5_file(src_path) == _md5_file(existing_target)
+        except Exception:
+            same_hash = False
+
+        existing_location = (
+            "en_attente"
+            if existing_target.parent == JUSTIFICATIFS_EN_ATTENTE_DIR
+            else "traites"
+        )
+
+        if same_hash:
+            # Cas A : doublon strict → supprime la source + son .ocr.json + thumbnail
+            try:
+                _invalidate_thumbnail_for_path(src_path)
+                old_ocr = src_path.with_name(Path(old_filename).with_suffix(".ocr.json").name)
+                if old_ocr.exists():
+                    old_ocr.unlink()
+                src_path.unlink()
+            except Exception as e:
+                logger.warning("Erreur suppression doublon %s: %s", old_filename, e)
+            invalidate_referenced_cache()
+            logger.info(
+                "Rename dédupliqué (même hash) : %s supprimé, %s conservé",
+                old_filename, new_filename,
+            )
+            return {
+                "old": old_filename,
+                "new": new_filename,
+                "location": existing_location,
+                "status": "deduplicated",
+            }
+
+        # Cas B : hash différent → 409 avec structure typée
+        # Suggestion cross-location : incrémente tant que le nom existe dans l'un des 2 dossiers
+        try:
+            stem = Path(new_filename).stem
+            ext = Path(new_filename).suffix or ".pdf"
+            suggestion = new_filename
+            counter = 2
+            while get_justificatif_path(suggestion) is not None:
+                suggestion = f"{stem}_{counter}{ext}"
+                counter += 1
+                if counter > 99:
+                    break
+        except Exception:
+            suggestion = new_filename
+
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "rename_collision",
+                "message": f"Un fichier '{new_filename}' existe déjà avec un contenu différent.",
+                "existing_location": existing_location,
+                "suggestion": suggestion,
+            },
+        )
 
     # 3. Renommer PDF (invalider la thumbnail AVANT pour capturer l'ancien doc_id)
     new_pdf_path = target_dir / new_filename

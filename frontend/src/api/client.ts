@@ -1,5 +1,25 @@
 const BASE_URL = '/api'
 
+export class ApiError extends Error {
+  status: number
+  detail: unknown
+  constructor(message: string, status: number, detail: unknown) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+  }
+}
+
+function extractMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') return detail
+  if (detail && typeof detail === 'object' && 'message' in detail) {
+    const m = (detail as { message?: unknown }).message
+    if (typeof m === 'string') return m
+  }
+  return fallback
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   // Ne déclarer Content-Type: application/json QUE si un body est réellement présent.
   // Sans ce garde, POST/PATCH sans body envoient un header incohérent (Content-Type JSON
@@ -14,7 +34,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(error.detail || `HTTP ${res.status}`)
+    throw new ApiError(
+      extractMessage(error.detail, `HTTP ${res.status}`),
+      res.status,
+      error.detail,
+    )
   }
   return res.json()
 }

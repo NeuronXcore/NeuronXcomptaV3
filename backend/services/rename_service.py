@@ -28,11 +28,22 @@ logger = logging.getLogger(__name__)
 
 # Regex du nom canonique : fournisseur_YYYYMMDD_montant.XX[_suffix].pdf
 # Le montant utilise un point comme séparateur décimal (convention internationale).
-# Le suffix optionnel couvre :
+# Le suffix optionnel couvre UNIQUEMENT :
 #   - `_fs` pour les fac-similés reconstitués (ex: `auchan_20250315_87.81_fs.pdf`)
-#   - `_a`, `_b` pour la ventilation multi-justificatifs (ex: `boulanger_20251130_2789.00_a.pdf`)
-#   - `_2`, `_3`, … pour la déduplication
+#   - `_a`, `_b`, `_ab` pour la ventilation multi-justificatifs (1-3 lettres)
+#   - `_2`, `_3`, … `_99` pour la déduplication (1-2 chiffres)
+# Les suffixes longs (timestamps `_20260417`, `_104502`, …) sont REJETÉS pour que
+# les fichiers pseudo-canoniques ajoutés par le sandbox dédup-suffix soient
+# proposés au rename et pas silencieusement classés `already_canonical`.
+CANONICAL_SUFFIX = r"(?:_(?:[a-z]{1,3}|\d{1,2}))*"
 CANONICAL_RE = re.compile(
+    rf"^[a-z0-9][a-z0-9\-]*_\d{{8}}_\d+\.\d{{2}}{CANONICAL_SUFFIX}\.pdf$"
+)
+
+# Legacy : ancienne regex qui acceptait n'importe quel suffix `_[a-z0-9]+`
+# (y compris `_20260417`, `_104502`). Utilisée pour détecter les fichiers
+# pseudo-canoniques qui passaient avec l'ancienne règle mais pas la nouvelle.
+LEGACY_CANONICAL_RE = re.compile(
     r"^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}(_[a-z0-9]+)*\.pdf$"
 )
 
@@ -68,7 +79,7 @@ FILENAME_PATTERNS = [
         r"(?P<date>\d{8})_"
         r"(?P<amount_int>\d+)"
         r"(?:[.,](?P<amount_dec>\d{1,2}))?"
-        r"(?P<suffix>_[a-z0-9]+)?\.pdf$",
+        r"(?P<suffix>_(?:[a-z]{1,3}|\d{1,2}))?\.pdf$",
         re.IGNORECASE,
     ),
     # supplier-YYYYMMDD_amount (tiret au lieu d'underscore entre supplier et date)
@@ -95,6 +106,33 @@ FILENAME_PATTERNS = [
 def is_canonical(name: str) -> bool:
     """True si le nom respecte déjà la convention fournisseur_YYYYMMDD_montant.XX[_suffix].pdf."""
     return bool(CANONICAL_RE.match(name))
+
+
+def is_legacy_pseudo_canonical(name: str) -> bool:
+    """True si le nom matche l'ancienne regex permissive mais pas la nouvelle.
+
+    Typiquement : `amazon_20250128_89.99_20260417_104502.pdf` — un fichier
+    que l'ancien scan classait `already_canonical` (et n'était donc jamais
+    proposé au rename) mais qui doit maintenant être nettoyé.
+    """
+    if is_canonical(name):
+        return False
+    return bool(LEGACY_CANONICAL_RE.match(name))
+
+
+def find_legacy_pseudo_canonical(directories: list[Path]) -> list[str]:
+    """Retourne la liste des fichiers pseudo-canoniques dans les dossiers fournis.
+
+    Lecture seule. Zéro effet de bord.
+    """
+    found: list[str] = []
+    for directory in directories:
+        if not directory.exists():
+            continue
+        for pdf in sorted(directory.glob("*.pdf")):
+            if is_legacy_pseudo_canonical(pdf.name):
+                found.append(pdf.name)
+    return found
 
 
 def is_facsimile(name: str) -> bool:

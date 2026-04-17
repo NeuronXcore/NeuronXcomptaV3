@@ -781,8 +781,18 @@ def get_extraction_history(limit: int = 20) -> list:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 ed = data.get("extracted_data", {})
+                # Source authoritative du filename = le PDF sibling sur disque,
+                # pas le champ JSON `filename` qui peut être stale (ex. fichier
+                # renommé mais JSON non re-synchronisé). Évite les 404 en aval
+                # quand l'utilisateur clique sur un nom obsolète.
+                pdf_filename = cache_file.name[:-len(".ocr.json")] + ".pdf"
+                pdf_path = cache_file.with_name(pdf_filename)
+                if not pdf_path.exists():
+                    # Fallback legacy : on garde l'ancien comportement si le PDF
+                    # sibling a un nom vraiment différent (rare).
+                    pdf_filename = data.get("filename") or pdf_filename
                 results.append({
-                    "filename": data.get("filename", cache_file.stem),
+                    "filename": pdf_filename,
                     "processed_at": data.get("processed_at", ""),
                     "status": data.get("status", "unknown"),
                     "processing_time_ms": data.get("processing_time_ms", 0),

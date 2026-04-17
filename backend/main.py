@@ -150,6 +150,28 @@ async def lifespan(app: FastAPI):
             )
     except Exception as e:
         logging.getLogger(__name__).warning(f"Justificatifs link repair error: {e}")
+    # Log-only : justificatifs pseudo-canoniques (ancienne regex permissive)
+    # Ces fichiers étaient silencieusement classés `already_canonical` avant le
+    # durcissement de CANONICAL_RE. Aucun rename automatique — le prochain passage
+    # dans ScanRenameDrawer les proposera à l'utilisateur.
+    try:
+        from backend.services import rename_service
+        from backend.core.config import (
+            JUSTIFICATIFS_EN_ATTENTE_DIR,
+            JUSTIFICATIFS_TRAITES_DIR,
+        )
+        legacy_pseudo = rename_service.find_legacy_pseudo_canonical(
+            [JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR]
+        )
+        if legacy_pseudo:
+            logging.getLogger(__name__).info(
+                f"Justificatifs pseudo-canoniques détectés ({len(legacy_pseudo)}) — "
+                f"proposés au rename via ScanRenameDrawer. Exemples : "
+                f"{', '.join(legacy_pseudo[:3])}"
+                f"{'…' if len(legacy_pseudo) > 3 else ''}"
+            )
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Scan pseudo-canonique error: {e}")
     # Migration one-shot : repas → Repas pro + Repas seul
     try:
         _migrate_repas_to_repas_pro()

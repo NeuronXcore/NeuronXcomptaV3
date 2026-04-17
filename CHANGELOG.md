@@ -8,6 +8,20 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-04-17) — Session 28 · Bug rename justificatif
+
+- **Regex canonique trop permissive** — `rename_service.CANONICAL_RE` acceptait n'importe quel suffix `_[a-z0-9]+`, y compris les timestamps de dédup ajoutés par `sandbox_service._move_to_en_attente()` (`_20260417_104502`, `_104502`). Conséquence : les fichiers pseudo-canoniques type `amazon_20250128_89.99_20260417_104502.pdf` tombaient silencieusement dans le bucket `already_canonical` du scan et n'étaient jamais proposés au rename. Fix : nouvelle constante `CANONICAL_SUFFIX = r"(?:_(?:[a-z]{1,3}|\d{1,2}))*"` qui restreint aux formes légitimes (`_fs`, `_a..aaa`, `_2..99`). Suffix du parser `FILENAME_PATTERNS[0]` aligné sur la même restriction.
+- **Collision silencieuse au rename (`rename_justificatif`)** — le service ne faisait qu'un check `(target_dir / new_filename).exists()` dans le dossier courant sans détecter les collisions cross-location (en_attente ↔ traites) ni discriminer doublon strict vs hash différent.
+  - Résolution source + cible via `get_justificatif_path()` (cross-location).
+  - Si cible existe + même MD5 → dédup automatique (supprime source + .ocr.json + thumbnail), retourne `status: "deduplicated"`.
+  - Si cible existe + hash différent → `HTTPException(409)` avec detail structuré `{error: "rename_collision", message, existing_location, suggestion}`. Suggestion incrémentale cross-location `_2`, `_3`, …
+  - Idempotence `old == new` préservée.
+- **Frontend ne remontait pas l'erreur 409** — `api/client.ts`: nouvelle classe `ApiError extends Error` qui préserve `status` + `detail` structuré (avant, `new Error(detail)` coerçait `[object Object]` et noyait la structure). `useJustificatifs.ts`: type `RenameCollisionDetail` + type guard `isRenameCollision`. `FilenameEditor.tsx`: toast custom avec bouton « Utiliser {suggestion} » qui relance la mutation avec le nom suggéré, rollback du state local à l'ancien filename sur erreur, toast distinct « Doublon supprimé » sur `status: "deduplicated"`.
+- **Historique OCR affichait des filenames obsolètes** (cause directe du « impossible à renommer sur la ligne ») — `get_extraction_history()` trustait le champ `filename` dans le `.ocr.json` qui pouvait être désyncé d'un rename historique (4 mismatches détectés en prod dont `amazon_20250128_49.86.ocr.json` qui portait `filename: amazon_20250128_89.99_20260417_104502.pdf`). Fix : dérivation du filename depuis le PDF sibling sur disque (autoritaire). Fallback legacy conservé si le PDF sibling est absent. Passe one-shot exécutée sur les 4 JSON de prod (mismatches francs + case `.PDF` → `.pdf`).
+- **Migration lifespan log-only** — `rename_service.find_legacy_pseudo_canonical()` + bloc dans `lifespan()` de `main.py` qui log au boot les fichiers désormais non-canoniques avec la nouvelle regex (sans rename auto) pour audit.
+- **Badge « Pseudo-canonique » ambre** dans OCR > Gestion OCR — `lib/utils.ts` expose `isCanonicalFilename()` + `isLegacyPseudoCanonical()` (miroirs stricts des regex backend). `OcrPage.tsx` : badge `<AlertTriangle /> Pseudo-canonique` cliquable à côté de `FilenameEditor` → ouvre `OcrEditDrawer`.
+- **Tests unitaires** — `tests/test_rename_service.py` (6 tests : rejets timestamp/8-digit/6-digit/3-digit, acceptation `_fs`/`_a`/`_2`, détection pseudo-canonique) + `tests/test_justificatif_service.py` (4 tests avec fixture `tmp_path` + monkeypatch : idempotence, dedup same-hash, 409 different-hash, 404 source absente). **10/10 passent**.
+
 ### Added (2026-04-17) — Session 27
 
 - **Sandbox — rejeu SSE + flux 2 toasts (scanning → processed)**

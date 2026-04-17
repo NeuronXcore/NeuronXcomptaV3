@@ -106,3 +106,23 @@ export function buildConventionFilename(
   const amountStr = Math.abs(amount).toFixed(2)
   return `${cleanSupplier}_${dateCompact}_${amountStr}.pdf`
 }
+
+// Miroir de `backend/services/rename_service.CANONICAL_RE`
+// Suffixes autorisés : _fs, _a..aaa, _2..99
+const CANONICAL_RE = /^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}(?:_(?:[a-z]{1,3}|\d{1,2}))*\.pdf$/
+// Miroir de `backend/services/rename_service.LEGACY_CANONICAL_RE` — ancienne
+// regex permissive (accepte n'importe quel `_[a-z0-9]+`, y compris les
+// timestamps du sandbox)
+const LEGACY_CANONICAL_RE = /^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}(_[a-z0-9]+)*\.pdf$/
+
+export function isCanonicalFilename(name: string): boolean {
+  return CANONICAL_RE.test(name)
+}
+
+/** True si le nom matche l'ancienne regex permissive mais plus la nouvelle.
+ * Indique un fichier dont le filename contient un suffix timestamp sandbox
+ * (`_20260417_104502`) et doit être proposé au rename. */
+export function isLegacyPseudoCanonical(name: string): boolean {
+  if (CANONICAL_RE.test(name)) return false
+  return LEGACY_CANONICAL_RE.test(name)
+}

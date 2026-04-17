@@ -130,10 +130,27 @@ export function useJustificatifOperationSuggestions(justificatifFilename: string
   })
 }
 
+export interface RenameCollisionDetail {
+  error: 'rename_collision'
+  message: string
+  existing_location: 'en_attente' | 'traites'
+  suggestion: string
+}
+
+export function isRenameCollision(err: unknown): err is Error & { detail: RenameCollisionDetail } {
+  if (!err || typeof err !== 'object') return false
+  const detail = (err as { detail?: unknown }).detail
+  return (
+    !!detail &&
+    typeof detail === 'object' &&
+    (detail as { error?: unknown }).error === 'rename_collision'
+  )
+}
+
 export function useRenameJustificatif() {
   const queryClient = useQueryClient()
   return useMutation<
-    { old: string; new: string; location: string },
+    { old: string; new: string; location: string; status?: string },
     Error,
     { filename: string; newFilename: string }
   >({

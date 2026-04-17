@@ -602,10 +602,31 @@ Renommer un justificatif. Met a jour PDF + .ocr.json + associations operations +
 { "new_filename": "fournisseur_20250315_50.00.pdf" }
 ```
 
-**Reponse :**
+**Reponse 200 :**
 ```json
 { "old": "justificatif_20250315_143022_edf.pdf", "new": "fournisseur_20250315_50.00.pdf", "location": "en_attente" }
 ```
+
+**Reponse 200 — dédup silencieuse (cible existe cross-location avec MÊME MD5) :**
+```json
+{ "old": "amazon_20250128_89.99_20260417_104502.pdf", "new": "amazon_20250128_89.99.pdf", "location": "traites", "status": "deduplicated" }
+```
+Source (+ `.ocr.json` + thumbnail) supprimée ; la cible existante est conservée.
+
+**Reponse 409 — collision avec hash différent :**
+```json
+{
+  "detail": {
+    "error": "rename_collision",
+    "message": "Un fichier 'udemy_20251201_274.75.pdf' existe déjà avec un contenu différent.",
+    "existing_location": "en_attente",
+    "suggestion": "udemy_20251201_274.75_2.pdf"
+  }
+}
+```
+Le frontend (`FilenameEditor`) parse `detail` via `isRenameCollision()` et propose un bouton « Utiliser {suggestion} » qui relance la mutation. La source et la cible restent intactes (zéro side-effect sur le 409).
+
+La résolution est cross-location (en_attente ↔ traites) via `get_justificatif_path()`. Idempotent si `old == new`. Source absente → 404.
 
 ### `POST /scan-rename?apply=&apply_ocr=&scope=both`
 Scanner + renommer en lot selon la convention `fournisseur_YYYYMMDD_montant.XX.pdf` via la stratégie filename-first (cf. `rename_service.compute_canonical_name()`).

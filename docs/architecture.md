@@ -212,11 +212,19 @@ Bouton "Associer automatiquement" sur JustificatifsPage :
 
 ```
 rename_service.py : module pur qui porte la logique filename-first
-  CANONICAL_RE = ^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}(_[a-z0-9]+)*\.pdf$
+  CANONICAL_SUFFIX = (?:_(?:[a-z]{1,3}|\d{1,2}))*   # Session 28 — durcie
+  CANONICAL_RE     = ^[a-z0-9][a-z0-9\-]*_\d{8}_\d+\.\d{2}{CANONICAL_SUFFIX}\.pdf$
+  LEGACY_CANONICAL_RE = ancienne regex permissive (suffix _[a-z0-9]+) — retenue
+                        UNIQUEMENT pour la détection des pseudo-canoniques
   FACSIMILE_RE = _fs(_\d+)?\.pdf$
   GENERIC_FILENAME_PREFIXES = {facture, justificatif, document, scan, receipt, invoice, reconstitue}
 
-  is_canonical(name) : matche CANONICAL_RE
+  is_canonical(name) : matche CANONICAL_RE (nouvelle, stricte)
+  is_legacy_pseudo_canonical(name) : matche l'ancienne regex mais pas la nouvelle
+                                      → typiquement fichiers avec suffix timestamp
+                                      sandbox (`_20260417_104502`), proposés au rename
+  find_legacy_pseudo_canonical(dirs) : scan lecture seule, retourne liste des basenames
+                                       (appelé au boot depuis lifespan pour log audit)
   is_facsimile(name) : FACSIMILE_RE OR startsWith("reconstitue_") (legacy)
   normalize_filename_quirks(name) : .pdf.pdf, NNpdf.pdf, name (1).pdf
   try_parse_filename(name) → (supplier, YYYYMMDD, amount, suffix) | None
