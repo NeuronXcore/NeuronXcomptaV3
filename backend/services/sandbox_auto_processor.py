@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Optional
 
 from backend.core.config import SETTINGS_FILE
+from backend.core.shutdown import shutdown_event
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +46,23 @@ def _load_auto_settings() -> tuple[bool, int]:
 
 
 async def auto_processor_loop(stop_event: Optional[asyncio.Event] = None) -> None:
-    """Tourne jusqu'à cancellation. Scanne les arrivals toutes les 10s."""
+    """Tourne jusqu'à cancellation. Scanne les arrivals toutes les 10s.
+
+    Sleep interrompable via shutdown_event — sortie sub-seconde au shutdown
+    uvicorn au lieu d'attendre la fin du sleep(10).
+    """
     logger.info("Sandbox auto-processor: loop démarrée (off par défaut, off/on via settings)")
-    while True:
+    while not shutdown_event.is_set():
         try:
             if stop_event is not None and stop_event.is_set():
                 break
-            await asyncio.sleep(_POLL_INTERVAL_SEC)
+
+            # Sleep interrompable — sort immédiatement si shutdown_event set
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=_POLL_INTERVAL_SEC)
+                break  # event set → sortir de la boucle
+            except asyncio.TimeoutError:
+                pass  # tick normal — poursuivre
 
             auto_mode, delay = _load_auto_settings()
             if not auto_mode:
@@ -97,5 +108,9 @@ async def auto_processor_loop(stop_event: Optional[asyncio.Event] = None) -> Non
             raise
         except Exception as e:
             logger.error("Sandbox auto-processor: erreur inattendue: %s", e)
-            # Ne pas crash la loop — attendre avant de ré-essayer
-            await asyncio.sleep(_POLL_INTERVAL_SEC)
+            # Ne pas crash la loop — attendre avant de ré-essayer, en restant coopératif
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=_POLL_INTERVAL_SEC)
+                break  # event set → sortir
+            except asyncio.TimeoutError:
+                pass  # tick normal

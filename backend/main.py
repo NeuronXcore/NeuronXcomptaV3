@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
+from backend.core.shutdown import shutdown_event
 from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots
 from backend.services.sandbox_service import (
     scan_existing_sandbox_arrivals,
@@ -41,10 +42,21 @@ logging.getLogger().setLevel(logging.INFO)
 
 # Background task — previsionnel scan periodique
 async def _previsionnel_background_loop():
-    """Refresh echeances + scan matching toutes les heures."""
+    """Refresh echeances + scan matching toutes les heures.
+
+    Sleep interrompable via shutdown_event — sortie sub-seconde au shutdown
+    uvicorn au lieu d'attendre la fin du sleep(3600).
+    """
     import datetime
-    await asyncio.sleep(30)  # attendre 30s apres demarrage
-    while True:
+
+    # Sleep de démarrage — sortable si shutdown avant les 30s
+    try:
+        await asyncio.wait_for(shutdown_event.wait(), timeout=30)
+        return  # event set pendant l'attente → shutdown, on sort
+    except asyncio.TimeoutError:
+        pass  # 30s écoulées, on démarre normalement
+
+    while not shutdown_event.is_set():
         try:
             from backend.services import previsionnel_service
             year = datetime.date.today().year
@@ -53,8 +65,16 @@ async def _previsionnel_background_loop():
             previsionnel_service.scan_matching()
             previsionnel_service.scan_all_prelevements(year)
         except Exception as e:
-            logging.getLogger(__name__).warning(f"Previsionnel background scan error: {e}")
-        await asyncio.sleep(3600)  # 1 heure
+            logging.getLogger(__name__).warning(
+                f"Previsionnel background scan error: {e}"
+            )
+
+        # Sleep interrompable — sort immédiatement si shutdown_event set
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=3600)
+            break  # event set → sortir de la boucle
+        except asyncio.TimeoutError:
+            pass  # tick normal — itération suivante
 
 _prev_task = None
 _sandbox_auto_task = None
@@ -204,11 +224,35 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logging.getLogger(__name__).warning("sandbox_auto_processor: %s", e)
     yield
-    stop_sandbox_watchdog()
-    if _prev_task:
-        _prev_task.cancel()
-    if _sandbox_auto_task:
-        _sandbox_auto_task.cancel()
+
+    # === SHUTDOWN ===
+    log = logging.getLogger(__name__)
+
+    # 1. Signal coopératif — débloque les boucles qui checkent shutdown_event
+    shutdown_event.set()
+
+    # 2. Stop watchdog (thread) avec join borné à 1s — voir stop_sandbox_watchdog
+    try:
+        stop_sandbox_watchdog()
+    except Exception as e:
+        log.warning("stop_sandbox_watchdog error: %s", e)
+
+    # 3. Cancel + await tasks asyncio avec timeout global de 1.5s
+    tasks = [t for t in (_prev_task, _sandbox_auto_task) if t is not None]
+    for t in tasks:
+        t.cancel()
+    if tasks:
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=1.5,
+            )
+        except asyncio.TimeoutError:
+            log.warning(
+                "Shutdown: %d background task(s) non terminée(s) en 1.5s — "
+                "uvicorn les killera",
+                sum(1 for t in tasks if not t.done()),
+            )
 
 
 # Créer l'app FastAPI

@@ -678,9 +678,17 @@ def stop_sandbox_watchdog() -> None:
     """Arrête le watchdog."""
     global _observer, _watchdog_thread_started
 
-    if _observer is not None:
+    if _observer is None:
+        return
+    try:
         _observer.stop()
-        _observer.join(timeout=5)
+        _observer.join(timeout=1.0)  # était 5 — trop long vs --timeout-graceful-shutdown 2
+        if _observer.is_alive():
+            logger.warning(
+                "Sandbox watchdog observer still alive after 1s join — "
+                "daemon thread will be reaped at process exit"
+            )
+    finally:
         _observer = None
         _watchdog_thread_started = False
         logger.info("Sandbox watchdog arrêté")

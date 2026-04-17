@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+from backend.core.shutdown import shutdown_event
 from backend.services.sandbox_service import (
     delete_sandbox_file,
     get_recent_events,
@@ -44,14 +45,18 @@ class SandboxRenameRequest(BaseModel):
 
 
 async def _sse_generator():
-    """Générateur SSE avec keepalive ping toutes les 30s."""
+    """Générateur SSE avec keepalive ping toutes les 2s.
+
+    Sort proprement sur shutdown_event.set() — évite les connexions SSE
+    traînantes qui bloquent le graceful shutdown uvicorn.
+    """
     yield f"data: {json.dumps({'status': 'connected', 'timestamp': ''})}\n\n"
     for ev in get_recent_events():
         yield f"data: {json.dumps({**ev, 'replayed': True})}\n\n"
     try:
-        while True:
+        while not shutdown_event.is_set():
             try:
-                event = await asyncio.wait_for(sandbox_event_queue.get(), timeout=30.0)
+                event = await asyncio.wait_for(sandbox_event_queue.get(), timeout=2.0)
                 yield f"data: {json.dumps(event)}\n\n"
             except asyncio.TimeoutError:
                 yield ": ping\n\n"
