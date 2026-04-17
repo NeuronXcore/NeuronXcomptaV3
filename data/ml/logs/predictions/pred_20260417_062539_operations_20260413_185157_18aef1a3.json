@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-04-17T06:25:39.998904",
+  "filename": "operations_20260413_185157_18aef1a3.json",
+  "mode": "empty_only",
+  "total_operations": 61,
+  "predicted": 5,
+  "high_confidence": 4,
+  "medium_confidence": 0,
+  "low_confidence": 1,
+  "hallucination_flags": 1,
+  "predictions": [
+    {
+      "libelle": "PRLVSEPAORANGESA-ORANGEECH/050126ID 29,55",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAORANGESAECH/090126ID 9,99",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAORANGESAECH/160126ID 46,99",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAFCEBANKPLCECH/190126ID 1443,55",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": null,
+      "confidence": 0.24623194609155438,
+      "source": "sklearn",
+      "hallucination_risk": true
+    },
+    {
+      "libelle": "PRLVSEPAORANGESAECH/260126ID 5,99",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    }
+  ]
+}

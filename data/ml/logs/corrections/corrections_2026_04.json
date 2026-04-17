@@ -2231,5 +2231,27 @@
     "corrected_category": "perso",
     "corrected_subcategory": null,
     "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-17T12:00:09.207019",
+    "filename": "operations_merged_202512_20260414_234739.json",
+    "operation_index": 9,
+    "libelle": "DU011225PAGA MONTAUBAN 12,60",
+    "predicted_category": "Repas pro",
+    "predicted_subcategory": "Repas seul",
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
+  },
+  {
+    "timestamp": "2026-04-17T12:00:09.207019",
+    "filename": "operations_merged_202512_20260414_234739.json",
+    "operation_index": 32,
+    "libelle": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 3,49",
+    "predicted_category": "Matériel",
+    "predicted_subcategory": null,
+    "corrected_category": "perso",
+    "corrected_subcategory": null,
+    "prediction_source": "exact_match"
   }
 ]

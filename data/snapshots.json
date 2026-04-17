@@ -31,6 +31,136 @@
       },
       "created_at": "2026-04-15T00:15:25",
       "updated_at": "2026-04-15T00:24:24"
+    },
+    {
+      "id": "10b4f234cf",
+      "name": "Janvier 2025 — Amazon",
+      "description": "amazon janvier 2025",
+      "color": "#f59e0b",
+      "ops_refs": [
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 2
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 36
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 41
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 46
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 50
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 54
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 57
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 60
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 63
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 64
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 70
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 85
+        }
+      ],
+      "context_year": 2025,
+      "context_month": 1,
+      "context_filters": {
+        "globalFilter": "ama"
+      },
+      "created_at": "2026-04-16T21:12:06",
+      "updated_at": null
+    },
+    {
+      "id": "e4b94bc499",
+      "name": "Décembre 2025 — « ama zon» — (13 ops)",
+      "description": "amazon dec 2025",
+      "color": "#f59e0b",
+      "ops_refs": [
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 15
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 16
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 17
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 42
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 53
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 59
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 60
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 66
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 71
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 72
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 73
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 84
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 85
+        }
+      ],
+      "context_year": 2025,
+      "context_month": 12,
+      "context_filters": {
+        "globalFilter": "ama"
+      },
+      "created_at": "2026-04-16T21:15:45",
+      "updated_at": null
     }
   ]
 }

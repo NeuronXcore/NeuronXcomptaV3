@@ -1467,194 +1467,6 @@
       "statut_justificatif": "traite",
       "ventilation_index": null
     },
-    "data/reports/Export_Comptable_2025_Janvier.pdf": {
-      "doc_id": "data/reports/Export_Comptable_2025_Janvier.pdf",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Janvier.pdf",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-09T23:38:02.592751",
-      "original_name": "Export_Comptable_2025_Janvier.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Janvier 2025",
-        "description": "86 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-09T23:38:02.592751",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/Export_Comptable_2025_Janvier.csv": {
-      "doc_id": "data/reports/Export_Comptable_2025_Janvier.csv",
-      "type": "rapport",
-      "filename": "Export_Comptable_2025_Janvier.csv",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__all__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-09T23:38:02.604105",
-      "original_name": "Export_Comptable_2025_Janvier.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Export Comptable — Janvier 2025",
-        "description": "86 opérations",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "export_comptable",
-          "categories": [
-            "__all__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-09T23:38:02.604105",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_janvier.pdf": {
-      "doc_id": "data/reports/compte_attente_janvier.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_janvier.pdf",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-09T23:38:02.748282",
-      "original_name": "compte_attente_janvier.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Janvier 2025",
-        "description": "35 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-09T23:38:02.748282",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
-    "data/reports/compte_attente_janvier.csv": {
-      "doc_id": "data/reports/compte_attente_janvier.csv",
-      "type": "rapport",
-      "filename": "compte_attente_janvier.csv",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-09T23:38:02.829370",
-      "original_name": "compte_attente_janvier.csv",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Janvier 2025",
-        "description": "35 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 1,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "csv",
-        "favorite": false,
-        "generated_at": "2026-04-09T23:38:02.829370",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
     "data/reports/Export_Comptable_2025_Février.pdf": {
       "doc_id": "data/reports/Export_Comptable_2025_Février.pdf",
       "type": "rapport",
@@ -8263,29 +8075,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/amazon_20250924_19.99_2.pdf": {
-      "doc_id": "data/justificatifs/en_attente/amazon_20250924_19.99_2.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "amazon_20250924_19.99_2.pdf",
-      "ocr_file": "data/justificatifs/en_attente/amazon_20250924_19.99_2.ocr.json",
-      "fournisseur": "Amazon",
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": 3
-      },
-      "montant": 19.992,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/amazon_20250924_23.99.pdf": {
       "doc_id": "data/justificatifs/en_attente/amazon_20250924_23.99.pdf",
       "type": "justificatif",
@@ -8765,29 +8554,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/essence_20250112_109.73.pdf": {
-      "doc_id": "data/justificatifs/en_attente/essence_20250112_109.73.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "essence_20250112_109.73.pdf",
-      "ocr_file": "data/justificatifs/en_attente/essence_20250112_109.73.ocr.json",
-      "fournisseur": "Essence",
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": 1
-      },
-      "montant": 109.73,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/essence_20250308_112.21.pdf": {
       "doc_id": "data/justificatifs/en_attente/essence_20250308_112.21.pdf",
       "type": "justificatif",
@@ -9041,29 +8807,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/ford-revision_20250116_399.00.pdf": {
-      "doc_id": "data/justificatifs/en_attente/ford-revision_20250116_399.00.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "ford-revision_20250116_399.00.pdf",
-      "ocr_file": null,
-      "fournisseur": "Ford Revision",
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": 1
-      },
-      "montant": 399.0,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/openai_20250216_24.00.pdf": {
       "doc_id": "data/justificatifs/en_attente/openai_20250216_24.00.pdf",
       "type": "justificatif",
@@ -9291,29 +9034,6 @@
         "quarter": 1
       },
       "montant": 3.9,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
-    "data/justificatifs/en_attente/paypal_20260409_479.00.pdf": {
-      "doc_id": "data/justificatifs/en_attente/paypal_20260409_479.00.pdf",
-      "type": "justificatif",
-      "year": 2026,
-      "month": 4,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "paypal_20260409_479.00.pdf",
-      "ocr_file": "data/justificatifs/en_attente/paypal_20260409_479.00.ocr.json",
-      "fournisseur": "Paypal",
-      "period": {
-        "year": 2026,
-        "month": 4,
-        "quarter": 2
-      },
-      "montant": 479.0,
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
@@ -14003,6 +13723,892 @@
         "file": "operations_20260413_185157_18aef1a3.json",
         "index": 58,
         "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/amazon_20250101_8.45.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250101_8.45.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T05:27:44.517505",
+      "original_name": "amazon_20250101_8.45.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250101_8.45.ocr.json",
+      "fournisseur": "Amazon",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 8.45,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20250101_99.00.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250101_99.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T05:27:44.517505",
+      "original_name": "amazon_20250101_99.00.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250101_99.00.ocr.json",
+      "fournisseur": "Amazon",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 99.0,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20250103_16.99.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250103_16.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T05:27:44.517505",
+      "original_name": "amazon_20250103_16.99.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250103_16.99.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": null,
+      "date_operation": "2025-01-03",
+      "montant": 16.99,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 41,
+        "ventilation_index": 0
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20250103_17.09.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250103_17.09.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T05:27:44.517505",
+      "original_name": "amazon_20250103_17.09.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250103_17.09.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": null,
+      "date_operation": "2025-01-03",
+      "montant": 17.09,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 41,
+        "ventilation_index": 1
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20250122_65.98.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250122_65.98.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T06:14:49.964714",
+      "original_name": "amazon_20250122_65.98.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250122_65.98.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "Informatique",
+      "date_operation": "2025-01-22",
+      "montant": 65.98,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 60,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "date_document": "2025-01-22"
+    },
+    "data/justificatifs/traites/amazon_20250103_16.99_2.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250103_16.99_2.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T05:27:44.517505",
+      "original_name": "amazon_20250103_16.99_2.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250103_16.99_2.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "",
+      "date_operation": "2025-01-03",
+      "montant": 16.99,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 41,
+        "ventilation_index": 2
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "ventilation_index": 2
+    },
+    "data/justificatifs/traites/amazon_20250924_19.99_2.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250924_19.99_2.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "amazon_20250924_19.99_2.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250924_19.99_2.ocr.json",
+      "fournisseur": "Amazon",
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "montant": 19.99,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Fournitures",
+      "sous_categorie": "",
+      "date_operation": "2025-09-24",
+      "ventilation_index": 1,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 77,
+        "ventilation_index": 1
+      }
+    },
+    "data/justificatifs/traites/amazon_20250112_39.99.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250112_39.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:19:58.067102",
+      "original_name": "amazon_20250112_39.99.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250112_39.99.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "Informatique",
+      "date_operation": "2025-01-12",
+      "montant": 39.99,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 50,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20250116_139.99.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250116_139.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:19:58.067102",
+      "original_name": "amazon_20250116_139.99.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250116_139.99.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "Informatique",
+      "date_operation": "2025-01-16",
+      "montant": 139.99,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 54,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20250118_14.99.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250118_14.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:19:58.067102",
+      "original_name": "amazon_20250118_14.99.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250118_14.99.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "Informatique",
+      "date_operation": "2025-01-18",
+      "montant": 14.99,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 57,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20250124_19.58.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250124_19.58.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:19:58.067102",
+      "original_name": "amazon_20250124_19.58.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250124_19.58.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "",
+      "date_operation": "2025-01-24",
+      "montant": 19.58,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 63,
+        "ventilation_index": 0
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "ventilation_index": 0
+    },
+    "data/justificatifs/traites/amazon_20250124_6.78.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250124_6.78.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:19:58.067102",
+      "original_name": "amazon_20250124_6.78.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250124_6.78.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "",
+      "date_operation": "2025-01-24",
+      "montant": 6.78,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 63,
+        "ventilation_index": 1
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "ventilation_index": 1
+    },
+    "data/justificatifs/traites/amazon_20250124_9.80.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250124_9.80.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:19:58.067102",
+      "original_name": "amazon_20250124_9.80.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250124_9.80.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": "",
+      "date_operation": "2025-01-24",
+      "montant": 9.8,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 63,
+        "ventilation_index": 2
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "ventilation_index": 2
+    },
+    "data/justificatifs/traites/amazon_20250124_19.99.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250124_19.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:19:58.067102",
+      "original_name": "amazon_20250124_19.99.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250124_19.99.ocr.json",
+      "fournisseur": "Amazon",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 19.99,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Fournitures",
+      "sous_categorie": "",
+      "date_operation": "2025-01-24",
+      "ventilation_index": 3,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 63,
+        "ventilation_index": 3
+      }
+    },
+    "data/justificatifs/traites/amazon_20250128_62.99.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250128_62.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:51:30.421841",
+      "original_name": "amazon_20250128_62.99.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250128_62.99.ocr.json",
+      "statut_justificatif": "traite",
+      "categorie": "Matériel",
+      "sous_categorie": "Informatique",
+      "fournisseur": "Amazon",
+      "date_operation": "2025-01-28",
+      "montant": 62.99,
+      "ventilation_index": 0,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 70,
+        "ventilation_index": 0
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      }
+    },
+    "data/justificatifs/traites/amazon_20250128_89.99.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250128_89.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T10:51:30.421841",
+      "original_name": "amazon_20250128_89.99.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250128_89.99.ocr.json",
+      "statut_justificatif": "traite",
+      "categorie": "Matériel",
+      "sous_categorie": "Informatique",
+      "fournisseur": "Amazon",
+      "date_operation": "2025-01-28",
+      "montant": 89.99,
+      "ventilation_index": 2,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 70,
+        "ventilation_index": 2
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      }
+    },
+    "data/reports/rapport_vehicule_2025_20260417_114004.pdf": {
+      "doc_id": "data/reports/rapport_vehicule_2025_20260417_114004.pdf",
+      "type": "rapport",
+      "filename": "rapport_vehicule_2025_20260417_114004.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Véhicule",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T11:40:04.758908",
+      "original_name": "rapport_vehicule_2025_20260417_114004.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Véhicule — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Véhicule"
+          ],
+          "subcategories": [
+            "Loyer"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": "debit",
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-17T11:40:04.758908",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/justificatifs/traites/amazon_20250128_49.86.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250128_49.86.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T11:40:07.382829",
+      "original_name": "amazon_20250128_49.86.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250128_49.86.ocr.json",
+      "categorie": "Matériel",
+      "sous_categorie": "Informatique",
+      "date_operation": "2025-01-28",
+      "montant": 49.86,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 70,
+        "ventilation_index": 1
+      },
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "fournisseur": "Amazon",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/ibis_20251124_212.74.pdf": {
+      "doc_id": "data/justificatifs/traites/ibis_20251124_212.74.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T11:40:07.382829",
+      "original_name": "ibis_20251124_212.74.pdf",
+      "ocr_file": "data/justificatifs/traites/ibis_20251124_212.74.ocr.json",
+      "categorie": "Remplaçant",
+      "sous_categorie": "Hébergement",
+      "date_operation": "2025-11-24",
+      "montant": 212.74,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 94,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Ibis",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/en_attente/essence_20250112_109.73.pdf": {
+      "doc_id": "data/justificatifs/en_attente/essence_20250112_109.73.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "essence_20250112_109.73.pdf",
+      "ocr_file": "data/justificatifs/en_attente/essence_20250112_109.73.ocr.json",
+      "fournisseur": "Essence",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 109.73,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente",
+      "categorie": null,
+      "sous_categorie": null,
+      "date_operation": null,
+      "ventilation_index": null,
+      "operation_ref": null
+    },
+    "data/justificatifs/traites/ford-revision_20250116_399.00.pdf": {
+      "doc_id": "data/justificatifs/traites/ford-revision_20250116_399.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "ford-revision_20250116_399.00.pdf",
+      "ocr_file": null,
+      "fournisseur": "",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 399.0,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Véhicule",
+      "sous_categorie": "Entretien",
+      "date_operation": "2025-01-16",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 55,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/paypal_20260409_479.00.pdf": {
+      "doc_id": "data/justificatifs/traites/paypal_20260409_479.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "paypal_20260409_479.00.pdf",
+      "ocr_file": "data/justificatifs/traites/paypal_20260409_479.00.ocr.json",
+      "fournisseur": "Paypal ",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 479.0,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Matériel",
+      "sous_categorie": "",
+      "date_operation": "2025-01-07",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 77,
+        "ventilation_index": null
+      }
+    },
+    "data/reports/Export_Comptable_2025_Janvier.pdf": {
+      "doc_id": "data/reports/Export_Comptable_2025_Janvier.pdf",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Janvier.pdf",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T12:25:00.760068",
+      "original_name": "Export_Comptable_2025_Janvier.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Janvier 2025",
+        "description": "86 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-17T12:25:00.760068",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/Export_Comptable_2025_Janvier.csv": {
+      "doc_id": "data/reports/Export_Comptable_2025_Janvier.csv",
+      "type": "rapport",
+      "filename": "Export_Comptable_2025_Janvier.csv",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__all__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T12:25:00.773960",
+      "original_name": "Export_Comptable_2025_Janvier.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Export Comptable — Janvier 2025",
+        "description": "86 opérations",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "export_comptable",
+          "categories": [
+            "__all__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-17T12:25:00.773960",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_janvier.pdf": {
+      "doc_id": "data/reports/compte_attente_janvier.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_janvier.pdf",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T12:25:00.882382",
+      "original_name": "compte_attente_janvier.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Janvier 2025",
+        "description": "31 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-17T12:25:00.882382",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_janvier.csv": {
+      "doc_id": "data/reports/compte_attente_janvier.csv",
+      "type": "rapport",
+      "filename": "compte_attente_janvier.csv",
+      "year": 2025,
+      "month": 1,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T12:25:00.898198",
+      "original_name": "compte_attente_janvier.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Janvier 2025",
+        "description": "31 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 1,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-17T12:25:00.898198",
+        "can_regenerate": true,
+        "can_compare": true
       }
     }
   }
