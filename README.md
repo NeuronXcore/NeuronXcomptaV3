@@ -91,6 +91,19 @@ Lance en parallèle le backend (port 8000) et le frontend (port 5173) avec les f
 
 `Ctrl+C` kille les deux processus. Backend Swagger sur **http://localhost:8000/docs**, frontend sur **http://localhost:5173**.
 
+#### Filet de sécurité ports (zombies uvicorn)
+
+Un worker uvicorn peut parfois survivre à `--timeout-graceful-shutdown 2` (handler SSE, watchdog ou boucle asyncio bloqué) et garder le LISTEN sur `:8000` sans répondre. `start.sh` gère ce cas automatiquement :
+
+- **Pre-kill au boot** — `start.sh` libère les ports 8000 et 5173 avant de démarrer (silencieux si rien à tuer).
+- **Trap `EXIT/INT/TERM`** — la fonction `cleanup()` libère les ports à toute sortie du script (Ctrl+C, `kill`, exit normal) via `lsof -ti` + `pkill -9 -f "uvicorn backend.main"` + `pkill -9 -f "vite"`.
+
+Reset manuel si besoin (ex. une session précédente kill -9'ée à la volée) :
+
+```bash
+./kill-ports.sh
+```
+
 ### Lancement manuel (2 terminaux séparés)
 
 #### Backend

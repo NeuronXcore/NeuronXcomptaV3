@@ -752,6 +752,13 @@ Hints comptables (category_hint + sous_categorie_hint) :
 
 **Config preview Claude ports alternatifs** — `.claude/launch.json` : backend sur `8100`, frontend sur `5273` avec env `VITE_API_URL=http://127.0.0.1:8000`. `frontend/vite.config.ts` proxy target configurable via `process.env.VITE_API_URL` (défaut `http://127.0.0.1:8000`). Permet de faire tourner `preview_start` sans conflit avec le `./start.sh` local sur `5173/8000`. Cohabitation transparente.
 
+**Filet de sécurité ports (`kill-ports.sh` + trap `start.sh`)** — workaround pour les workers uvicorn zombies qui survivent à `--timeout-graceful-shutdown 2` (handlers SSE/watchdog/asyncio non-coopératifs → le worker garde le LISTEN sur `:8000` sans répondre, relance ultérieure échoue sur `EADDRINUSE`).
+
+- `kill-ports.sh` (racine repo, exécutable) : `lsof -ti tcp:8000 | xargs kill -9` + idem 5173 + filet `pkill -9 -f "uvicorn backend.main"` et `pkill -9 -f "vite"` pour tuer les résidus qui n'écoutent plus. À lancer manuellement quand on détecte un zombie (`lsof -i :8000` qui montre un LISTEN sans réponse).
+- `start.sh` ajoute : (a) un **pre-kill** des deux ports juste après le shebang (silencieux si rien à tuer — garantit qu'une relance à froid ne plante jamais sur `EADDRINUSE`), (b) une fonction `cleanup()` avec `trap cleanup EXIT INT TERM` qui libère les ports à toute sortie (Ctrl+C, `kill`, exit normal). Le nouveau trap remplace l'ancien `trap "kill $BACKEND_PID $FRONTEND_PID" INT TERM` — strictement plus robuste puisqu'il attrape aussi les workers enfants spawnés par uvicorn `--reload` (qui sont précisément les zombies visés).
+
+Ne règle pas la cause racine (handlers non-coopératifs côté backend). Le fix profond — cleanup coopératif des générateurs SSE + arrêt gracieux du `watchdog.Observer` + annulation de `_previsionnel_background_loop` dans le `lifespan` shutdown — viendra dans une session dédiée.
+
 ### Réorganisation des onglets `/ocr` (Session 30)
 
 Le composant `HistoriqueTab` (legacy « Gestion OCR ») est splitté en 2 onglets distincts via le composant générique `OcrListTab` paramétré par prop `statusFilter: 'en_attente' | 'traites'`. Le filtrage se fait côté interne via `lookupByFilename.get(filename)` (reverse-lookup des opérations liées) — `length === 0` = `en_attente`, `> 0` = `traites`.

@@ -22,6 +22,7 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 - **Config preview Claude sur ports alternatifs** — `.claude/launch.json` backend sur `8100`, frontend sur `5273` avec env `VITE_API_URL=http://127.0.0.1:8000`. `frontend/vite.config.ts` proxy target configurable via `process.env.VITE_API_URL` (défaut `http://127.0.0.1:8000`). Permet de faire tourner `preview_start` sans conflit avec le `start.sh` local sur `5173/8000`.
 - **`PdfThumbnail` étendu** avec prop `sandboxFilename` → `/api/sandbox/{name}/thumbnail` (cache PNG séparé `data/sandbox_thumbs/` hors GED).
 - **`LEGACY_TAB_ALIASES` + `VALID_TABS`** validation stricte des URL params `/ocr?tab=` — tout param non reconnu fallback sur règle métier (sandbox si > 0, sinon upload).
+- **DevX — filet de sécurité ports** : nouveau script `kill-ports.sh` à la racine (lsof + pkill pour 8000 et 5173) à lancer manuellement quand un worker uvicorn zombie squatte le port. `start.sh` gagne un pre-kill automatique au boot + un trap EXIT/INT/TERM qui libère les ports dans tous les cas de sortie. Résout les `EADDRINUSE` après un reload mal terminé (handler natif bloqué au-delà des 2s de `--timeout-graceful-shutdown`).
 
 ### Changed (2026-04-17) — Session 30 · Réorganisation des onglets `/ocr`
 

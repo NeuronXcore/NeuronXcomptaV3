@@ -1,6 +1,22 @@
 #!/bin/bash
 # Start NeuronXcompta — backend (FastAPI) + frontend (Vite)
 
+# Pre-kill : libère les ports si une session précédente a mal fini
+lsof -ti tcp:8000 2>/dev/null | xargs kill -9 2>/dev/null || true
+lsof -ti tcp:5173 2>/dev/null | xargs kill -9 2>/dev/null || true
+
+# Trap cleanup : libère les ports à toute sortie (Ctrl+C, kill, exit)
+cleanup() {
+  echo ""
+  echo "🧹 Cleanup — libération des ports..."
+  lsof -ti tcp:8000 2>/dev/null | xargs kill -9 2>/dev/null || true
+  lsof -ti tcp:5173 2>/dev/null | xargs kill -9 2>/dev/null || true
+  pkill -9 -f "uvicorn backend.main" 2>/dev/null || true
+  pkill -9 -f "vite" 2>/dev/null || true
+  exit 0
+}
+trap cleanup EXIT INT TERM
+
 cd "$(dirname "$0")"
 
 # Backend
@@ -36,9 +52,6 @@ cd frontend
 npm run dev &
 FRONTEND_PID=$!
 cd ..
-
-# Trap Ctrl+C to kill both
-trap "echo 'Stopping...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM
 
 echo "Backend PID=$BACKEND_PID | Frontend PID=$FRONTEND_PID"
 echo "Press Ctrl+C to stop both."
