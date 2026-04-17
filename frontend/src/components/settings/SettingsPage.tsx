@@ -15,7 +15,7 @@ import {
   FolderOpen, Database, Paperclip, Brain, ScrollText,
   Archive, Clock, Info, Monitor, Pencil, Trash2, X, ChevronDown,
   Mail, CheckCircle2, Send, FileCheck, ShieldCheck, AlertTriangle, RefreshCw,
-  Power,
+  Power, Inbox,
 } from 'lucide-react'
 import EmailChipsInput from '@/components/common/EmailChipsInput'
 import { useTestEmailConnection } from '@/hooks/useEmail'
@@ -284,6 +284,55 @@ function GeneralTab() {
                 className="bg-background border border-border rounded-md px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
               />
             </label>
+          </div>
+        </div>
+
+        {/* Sandbox — mode de traitement */}
+        <div className="pt-4 border-t border-border/50">
+          <div className="flex items-center gap-3 mb-3">
+            <Inbox size={18} className="text-primary" />
+            <div>
+              <p className="text-sm font-medium text-text">Sandbox — Mode de traitement</p>
+              <p className="text-xs text-text-muted">
+                Les fichiers <em>canoniques</em> (<code>fournisseur_YYYYMMDD_montant.XX.pdf</code>) sont toujours traités immédiatement.
+                Les <em>non-canoniques</em> attendent dans la boîte d'arrivée (/ocr → Sandbox).
+              </p>
+            </div>
+          </div>
+          <div className="ml-8 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-text">OCR automatique après délai</p>
+                <p className="text-xs text-text-muted">
+                  Déclenche l'OCR automatiquement pour les fichiers arrivés depuis plus de N secondes.
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={settings.sandbox_auto_mode ?? false}
+                onChange={v => update('sandbox_auto_mode', v)}
+              />
+            </div>
+            {settings.sandbox_auto_mode && (
+              <div>
+                <p className="text-sm text-text mb-2">Délai avant OCR auto</p>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min={15}
+                    max={300}
+                    step={15}
+                    value={settings.sandbox_auto_delay_seconds ?? 30}
+                    onChange={e => update('sandbox_auto_delay_seconds', Number(e.target.value))}
+                    className="flex-1 accent-amber-500"
+                  />
+                  <span className="text-sm font-mono text-amber-400 w-16 text-right tabular-nums">
+                    {(settings.sandbox_auto_delay_seconds ?? 30) < 60
+                      ? `${settings.sandbox_auto_delay_seconds ?? 30}s`
+                      : `${Math.round((settings.sandbox_auto_delay_seconds ?? 30) / 60)}min`}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

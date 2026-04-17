@@ -175,3 +175,34 @@ tr.editor-row:focus-within {
   0%, 80%, 100% { transform: scale(1); opacity: 0.4; }
   40%           { transform: scale(1.5); opacity: 1; }
 }
+
+/* ── SandboxScanningToast : balayage scanner + dots + ring ── */
+@keyframes scan-sweep {
+  0%   { top: 6%;  opacity: 0;   }
+  10%  { opacity: 1; }
+  50%  { top: 94%; opacity: 1; }
+  60%  { top: 94%; opacity: 0; }
+  61%  { top: 6%;  opacity: 0; }
+  70%  { opacity: 1; }
+  100% { top: 6%;  opacity: 1; }
+}
+.animate-scan-sweep {
+  top: 6%;
+  animation: scan-sweep 2s ease-in-out infinite;
+}
+
+@keyframes scan-ring {
+  0%, 100% { transform: scale(1);    opacity: 0.85; }
+  50%      { transform: scale(1.18); opacity: 0;   }
+}
+.animate-scan-ring {
+  animation: scan-ring 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes scan-dot {
+  0%, 40%, 100% { opacity: 0.25; transform: scale(0.8); }
+  20%           { opacity: 1;    transform: scale(1.15); }
+}
+.animate-scan-dot {
+  animation: scan-dot 1.4s ease-in-out infinite;
+}

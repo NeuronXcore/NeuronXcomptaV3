@@ -17,20 +17,29 @@ import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { api } from '@/api/client'
 import { formatCurrency, cn, MOIS_FR, isLegacyPseudoCanonical } from '@/lib/utils'
 import {
-  ScanLine, FileSearch, Clock, CheckCircle, AlertCircle,
+  ScanLine, FileSearch, Clock, CheckCircle, CheckCircle2, AlertCircle,
   Loader2, Zap, Database, Upload, RotateCcw, FileText,
   ArrowRight, DollarSign, Calendar, User, Filter, Tag, Eye, Wand2,
-  Search, X, Pencil, Trash2, AlertTriangle,
+  Search, X, Pencil, Trash2, AlertTriangle, Inbox,
 } from 'lucide-react'
 import TemplatesTab from './TemplatesTab'
 import ScanRenameDrawer from './ScanRenameDrawer'
 import OcrEditDrawer from './OcrEditDrawer'
+import SandboxTab from './SandboxTab'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import FilenameEditor from '@/components/justificatifs/FilenameEditor'
 import { useReverseLookup } from '@/hooks/useJustificatifs'
 import type { OCRResult, OCRHistoryItem, ReverseLookupResult } from '@/types'
 
-type Tab = 'upload' | 'test' | 'historique' | 'templates'
+type Tab = 'upload' | 'test' | 'sandbox' | 'en-attente' | 'traites' | 'templates'
+
+// Alias legacy : `?tab=historique` (avant Session 30) → `en-attente` (split en 2).
+// Nécessaire pour rattraper les events SSE déjà dans le ring buffer backend
+// (fenêtre 180s) au moment du déploiement.
+const LEGACY_TAB_ALIASES: Record<string, Tab> = {
+  historique: 'en-attente',
+}
+const VALID_TABS: readonly Tab[] = ['upload', 'test', 'sandbox', 'en-attente', 'traites', 'templates'] as const
 
 export default function OcrPage() {
   const location = useLocation()
@@ -43,12 +52,24 @@ export default function OcrPage() {
   const preSort = searchParams.get('sort')
   const preHighlight = searchParams.get('highlight')
 
+  const { data: justifStats } = useJustificatifStats()
+  const pendingCount = justifStats?.en_attente ?? 0
+  const traitesCount = justifStats?.traites ?? 0
+  const sandboxCount = justifStats?.sandbox ?? 0
+
+  // Résolution `initialTab` avec alias legacy (`historique` → `en-attente`)
+  // + validation stricte contre VALID_TABS (tout param non reconnu fallback
+  // sur la règle métier : sandbox si > 0, sinon upload).
+  const resolvePreTab = (): Tab | null => {
+    if (!preTab) return null
+    if (LEGACY_TAB_ALIASES[preTab]) return LEGACY_TAB_ALIASES[preTab]
+    if ((VALID_TABS as readonly string[]).includes(preTab)) return preTab as Tab
+    return null
+  }
   const initialTab: Tab =
-    preTab === 'historique'
-      ? 'historique'
-      : preFile
-        ? 'templates'
-        : 'upload'
+    resolvePreTab() ??
+    (preFile ? 'templates' : null) ??
+    (sandboxCount > 0 ? 'sandbox' : 'upload')
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [templatePreFile, setTemplatePreFile] = useState('')
   const { data: status } = useOcrStatus()
@@ -56,8 +77,6 @@ export default function OcrPage() {
   // (pipeline) — le plafond à 100 faisait disparaître des items traités il y a
   // plus de 100 OCR. Le backend lit déjà tous les `.ocr.json` avant de slicer.
   const { data: history, isLoading: historyLoading } = useOcrHistory(2000)
-  const { data: justifStats } = useJustificatifStats()
-  const pendingCount = justifStats?.en_attente ?? 0
 
   const handleCreateTemplate = (filename: string) => {
     setTemplatePreFile(filename)
@@ -97,12 +116,16 @@ export default function OcrPage() {
         />
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — ordre métier Session 30 :
+          Upload → Test → Sandbox (inbox) → En attente (scan OCR prêt à associer) →
+          Traités (archive post-rapprochement) → Templates. */}
       <div className="flex gap-1 bg-surface rounded-lg p-1 border border-border mb-6 w-fit">
         {([
           { key: 'upload' as Tab, label: 'Upload & OCR', icon: Upload },
           { key: 'test' as Tab, label: 'Test Manuel', icon: ScanLine },
-          { key: 'historique' as Tab, label: 'Gestion OCR', icon: Clock },
+          { key: 'sandbox' as Tab, label: 'Sandbox', icon: Inbox, badge: sandboxCount, badgeColor: 'bg-amber-500' as const, badgeTitle: 'fichier(s) en attente dans la boîte d\u2019arriv\u00e9e' },
+          { key: 'en-attente' as Tab, label: 'En attente', icon: Clock, badge: pendingCount, badgeColor: 'bg-orange-600' as const, badgeTitle: 'scan(s) en attente d\u2019association' },
+          { key: 'traites' as Tab, label: 'Traités', icon: CheckCircle2, badge: traitesCount, badgeColor: 'bg-emerald-600' as const, badgeTitle: 'scan(s) associ\u00e9(s) \u00e0 une op\u00e9ration' },
           { key: 'templates' as Tab, label: 'Templates justificatifs', icon: FileText },
         ]).map(tab => (
           <button
@@ -117,17 +140,17 @@ export default function OcrPage() {
           >
             <tab.icon size={14} />
             {tab.label}
-            {tab.key === 'historique' && pendingCount > 0 && (
+            {'badge' in tab && (tab.badge ?? 0) > 0 && (
               <span
                 className={cn(
                   'text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1',
-                  activeTab === 'historique'
+                  activeTab === tab.key
                     ? 'bg-white/25 text-white'
-                    : 'bg-orange-600 text-white'
+                    : `${tab.badgeColor} text-white`,
                 )}
-                title={`${pendingCount} scan(s) en attente d'association`}
+                title={`${tab.badge} ${tab.badgeTitle}`}
               >
-                {pendingCount}
+                {tab.badge}
               </span>
             )}
           </button>
@@ -138,15 +161,26 @@ export default function OcrPage() {
         <BatchUploadTab onCreateTemplate={handleCreateTemplate} />
       ) : activeTab === 'test' ? (
         <TestManuelTab />
-      ) : activeTab === 'templates' ? (
-        <TemplatesTab preFile={preFile} preIndex={preIndex} preTemplate={preTemplate} preCreateFile={templatePreFile || null} />
-      ) : (
-        <HistoriqueTab
+      ) : activeTab === 'sandbox' ? (
+        <SandboxTab />
+      ) : activeTab === 'en-attente' ? (
+        <OcrListTab
           history={history || []}
           isLoading={historyLoading}
           initialSort={preSort === 'scan_date' ? 'scan_date' : undefined}
           initialHighlight={preHighlight || undefined}
+          statusFilter="en_attente"
         />
+      ) : activeTab === 'traites' ? (
+        <OcrListTab
+          history={history || []}
+          isLoading={historyLoading}
+          initialSort={preSort === 'scan_date' ? 'scan_date' : undefined}
+          initialHighlight={preHighlight || undefined}
+          statusFilter="traites"
+        />
+      ) : (
+        <TemplatesTab preFile={preFile} preIndex={preIndex} preTemplate={preTemplate} preCreateFile={templatePreFile || null} />
       )}
     </div>
   )
@@ -734,25 +768,29 @@ function PdfPreviewHover({ filename }: { filename: string }) {
 }
 
 
-// ──── Historique Tab ────
+// ──── OCR List Tab (ex-HistoriqueTab) ────
+// Affiche les scans OCR de l'exercice courant, pré-filtrés par statut
+// (en_attente = sans opération liée, traites = avec opération liée).
+// Utilisé par les 2 onglets `en-attente` et `traites` (split Session 30).
 
-function HistoriqueTab({
+function OcrListTab({
   history,
   isLoading,
   initialSort,
   initialHighlight,
+  statusFilter,
 }: {
   history: OCRHistoryItem[]
   isLoading: boolean
   initialSort?: 'scan_date'
   initialHighlight?: string
+  statusFilter: 'en_attente' | 'traites'
 }) {
   const { selectedYear } = useFiscalYearStore()
   const extractOcr = useExtractOcr()
   const deleteMutation = useDeleteJustificatif()
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const [filterSupplier, setFilterSupplier] = useState('')
-  const [filterAssociation, setFilterAssociation] = useState<'all' | 'pending' | 'associated'>('all')
   // Nouveau sort 'scan_date' : trie par `processed_at` (date de traitement OCR),
   // utilisé par le toast d'arrivée pour amener l'utilisateur directement sur les
   // scans les plus récents, indépendamment de l'exercice comptable.
@@ -838,19 +876,18 @@ function HistoriqueTab({
     return items
   }, [yearItems, filterMonth, filterSupplier])
 
-  // Compteurs association — recalculés à chaque changement de mois/fournisseur
-  const associationCounts = useMemo(() => {
-    let pending = 0
-    let associated = 0
-    for (const item of scopedItems) {
+  // Compteur post-filtres mois/fournisseur + statusFilter (pré-recherche) —
+  // affiché dans la barre de filtres pour que l'utilisateur voit combien
+  // d'items correspondent réellement au statut actif de l'onglet.
+  const scopedCount = useMemo(() => {
+    return scopedItems.filter(item => {
       const lookups = lookupByFilename.get(item.filename)
-      if (lookups && lookups.length > 0) associated++
-      else pending++
-    }
-    return { total: scopedItems.length, pending, associated }
-  }, [scopedItems, lookupByFilename])
+      const isAssociated = !!(lookups && lookups.length > 0)
+      return statusFilter === 'traites' ? isAssociated : !isAssociated
+    }).length
+  }, [scopedItems, lookupByFilename, statusFilter])
 
-  // Filtrer par association + recherche multifocale (sur scopedItems)
+  // Filtrer par statut (prop `statusFilter`) + recherche multifocale.
   // Exception : quand le sort est 'scan_date', on IGNORE les filtres
   // mois/fournisseur/année pour afficher tous les scans récents (vue "récents").
   const filtered = useMemo(() => {
@@ -858,13 +895,13 @@ function HistoriqueTab({
     // et tirer depuis enriched (tous les items, toutes années confondues).
     let items = sortField === 'scan_date' ? enriched : scopedItems
 
-    if (filterAssociation !== 'all') {
-      items = items.filter(item => {
-        const lookups = lookupByFilename.get(item.filename)
-        const isAssociated = !!(lookups && lookups.length > 0)
-        return filterAssociation === 'associated' ? isAssociated : !isAssociated
-      })
-    }
+    // Filtrage STATUT fige par l'onglet (remplace l'ancien segment
+    // tous/sans/avec). en_attente = aucune op liée ; traites = ≥1 op liée.
+    items = items.filter(item => {
+      const lookups = lookupByFilename.get(item.filename)
+      const isAssociated = !!(lookups && lookups.length > 0)
+      return statusFilter === 'traites' ? isAssociated : !isAssociated
+    })
 
     // Recherche multifocale : libellé, catégorie, sous-catégorie, fournisseur, montant
     // (on exclut volontairement le filename pour éviter les faux positifs avec les dates
@@ -924,7 +961,7 @@ function HistoriqueTab({
       return sortDir === 'desc' ? -cmp : cmp
     })
     return items
-  }, [scopedItems, enriched, filterAssociation, debouncedSearch, lookupByFilename, sortField, sortDir])
+  }, [scopedItems, enriched, statusFilter, debouncedSearch, lookupByFilename, sortField, sortDir])
 
   // Extraire les fournisseurs uniques pour le filtre
   const suppliers = useMemo(() => {
@@ -983,41 +1020,11 @@ function HistoriqueTab({
           ))}
         </select>
 
-        {/* Filtre association (3 états avec compteurs dynamiques) */}
-        <div className="flex bg-background rounded border border-border overflow-hidden">
-          {([
-            ['all', 'Tous', associationCounts.total],
-            ['pending', 'Sans assoc.', associationCounts.pending],
-            ['associated', 'Avec assoc.', associationCounts.associated],
-          ] as const).map(([value, label, count]) => (
-            <button
-              key={value}
-              onClick={() => setFilterAssociation(value)}
-              className={cn(
-                'px-2.5 py-1 text-xs transition-colors flex items-center gap-1.5',
-                filterAssociation === value
-                  ? value === 'pending' && count > 0
-                    ? 'bg-orange-600 text-white'
-                    : 'bg-primary text-white'
-                  : 'text-text-muted hover:text-text'
-              )}
-            >
-              {label}
-              <span
-                className={cn(
-                  'text-[10px] font-semibold px-1 rounded',
-                  filterAssociation === value
-                    ? 'bg-white/25'
-                    : value === 'pending' && count > 0
-                      ? 'bg-orange-500/20 text-orange-400'
-                      : 'bg-surface-hover text-text-muted'
-                )}
-              >
-                {count}
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* Compteur global (items après filtres mois/fournisseur) — le statut
+            en_attente / traites est déjà filtré par l'onglet actif. */}
+        <span className="text-xs text-text-muted px-2 py-1 bg-background border border-border rounded">
+          {scopedCount} {statusFilter === 'en_attente' ? 'sans assoc.' : 'associé(s)'}
+        </span>
 
         {/* Toggle tri par date de scan — ignore les filtres exercice comptable
             pour afficher les scans les plus récemment traités (processed_at desc).

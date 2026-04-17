@@ -59,7 +59,12 @@ def _check_poppler_available() -> bool:
 
 
 def _get_reader():
-    """Retourne le reader EasyOCR (singleton, lazy-loaded)."""
+    """Retourne le reader EasyOCR (singleton, lazy-loaded).
+
+    Le lock protège contre les chargements concurrents (2 threads OCR en // +
+    le preload lifespan). Si le preload est en cours, le 2e caller attend la
+    fin du chargement sur le lock au lieu de relancer une init.
+    """
     global _reader
     if _reader is None:
         with _reader_lock:
@@ -73,6 +78,26 @@ def _get_reader():
                     logger.error(f"Erreur initialisation EasyOCR: {e}")
                     raise
     return _reader
+
+
+def preload_reader_async() -> None:
+    """Précharge EasyOCR dans un thread daemon au lifespan startup.
+
+    Élimine le cold start de ~20-30s sur le 1er OCR après boot. L'appel est
+    non-bloquant (thread) — le backend commence à servir les requêtes immédiatement,
+    et le 1er OCR qui arrive avant la fin du preload attendra simplement sur
+    `_reader_lock` au lieu de relancer une init.
+    """
+    def _load():
+        try:
+            _get_reader()
+            logger.info("EasyOCR preload: terminé (1er OCR sera rapide)")
+        except Exception as e:
+            logger.warning("EasyOCR preload échoué (fallback lazy-load): %s", e)
+
+    t = threading.Thread(target=_load, daemon=True, name="ocr-preload")
+    t.start()
+    logger.info("EasyOCR preload: lancé en arrière-plan")
 
 
 # ─── Cache ───

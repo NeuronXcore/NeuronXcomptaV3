@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
 from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots
 from backend.services.sandbox_service import (
+    scan_existing_sandbox_arrivals,
     seed_recent_events_from_disk,
     start_sandbox_watchdog,
     stop_sandbox_watchdog,
@@ -56,6 +57,7 @@ async def _previsionnel_background_loop():
         await asyncio.sleep(3600)  # 1 heure
 
 _prev_task = None
+_sandbox_auto_task = None
 
 
 def _migrate_repas_to_repas_pro() -> None:
@@ -114,6 +116,13 @@ def _migrate_repas_to_repas_pro() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _prev_task
+    # Seed arrivals in-memory depuis sandbox/ AVANT de démarrer le watchdog
+    # (préserve les mtime originaux, évite qu'ils soient écrasés par datetime.now()
+    # si `_process_file` tombe sur ces mêmes fichiers pendant process_existing_files).
+    try:
+        scan_existing_sandbox_arrivals()
+    except Exception as e:
+        logging.getLogger(__name__).warning("scan_existing_sandbox_arrivals: %s", e)
     start_sandbox_watchdog()
     # Rejeu des events sandbox récents (fenêtre 180s) — rattrape les reloads uvicorn
     try:
@@ -177,12 +186,29 @@ async def lifespan(app: FastAPI):
         _migrate_repas_to_repas_pro()
     except Exception as e:
         logging.getLogger(__name__).warning(f"Migration repas→Repas pro error: {e}")
+    # Preload EasyOCR en arrière-plan (non-bloquant) — élimine le cold start
+    # de ~20-30s sur le 1er OCR après boot. Le thread daemon loade le modèle
+    # pendant que le backend commence à servir les requêtes.
+    try:
+        from backend.services.ocr_service import preload_reader_async
+        preload_reader_async()
+    except Exception as e:
+        logging.getLogger(__name__).warning("EasyOCR preload: %s", e)
     # Demarrer la tache previsionnel en arriere-plan
     _prev_task = asyncio.create_task(_previsionnel_background_loop())
+    # Démarrer la loop auto-processor sandbox (no-op si sandbox_auto_mode=False)
+    global _sandbox_auto_task
+    try:
+        from backend.services.sandbox_auto_processor import auto_processor_loop
+        _sandbox_auto_task = asyncio.create_task(auto_processor_loop())
+    except Exception as e:
+        logging.getLogger(__name__).warning("sandbox_auto_processor: %s", e)
     yield
     stop_sandbox_watchdog()
     if _prev_task:
         _prev_task.cancel()
+    if _sandbox_auto_task:
+        _sandbox_auto_task.cancel()
 
 
 # Créer l'app FastAPI

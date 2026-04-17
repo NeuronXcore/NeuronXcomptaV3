@@ -72,7 +72,7 @@ export default function SandboxArrivalToast({
         cta: 'text-violet-300',
         LabelIcon: Sparkles,
         title: 'Nouveau scan reçu',
-        ctaText: "Voir dans l'historique",
+        ctaText: "Voir en attente",
       }
 
   return (

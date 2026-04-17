@@ -4,15 +4,18 @@
     {
       "name": "backend",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
-      "port": 8000
+      "runtimeArgs": ["-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8100", "--reload", "--timeout-graceful-shutdown", "2", "--reload-exclude", "data/*", "--reload-exclude", "frontend/*", "--reload-exclude", "*.pkl"],
+      "port": 8100
     },
     {
       "name": "frontend",
       "runtimeExecutable": "/opt/homebrew/bin/node",
-      "runtimeArgs": ["node_modules/.bin/vite", "--port", "5173"],
-      "port": 5173,
-      "cwd": "frontend"
+      "runtimeArgs": ["node_modules/.bin/vite", "--port", "5273"],
+      "port": 5273,
+      "cwd": "frontend",
+      "env": {
+        "VITE_API_URL": "http://127.0.0.1:8000"
+      }
     }
   ]
 }

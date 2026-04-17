@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback, createElement } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import SandboxArrivalToast from '@/components/shared/SandboxArrivalToast'
+import SandboxPendingToast from '@/components/shared/SandboxPendingToast'
+import SandboxScanningToast from '@/components/shared/SandboxScanningToast'
 
 export interface SandboxOperationRef {
   file?: string | null
@@ -26,6 +28,7 @@ export interface SandboxEvent {
   best_amount?: number | null
   auto_associated?: boolean
   operation_ref?: SandboxOperationRef | null
+  is_canonical?: boolean | null
   replayed?: boolean
 }
 
@@ -45,22 +48,21 @@ function navigateTo(url: string) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-// Toast « arrivée » léger, affiché dès la détection sandbox (avant OCR).
+// Toast scanner moderne — affiché dès le move sandbox → en_attente, avant OCR.
 // Auto-dismissé quand le toast riche "processed" prend sa place.
 function showScanningToast(data: SandboxEvent) {
   const sandboxName = data.original_filename || data.filename
-  const tid = toast.loading(
-    `Analyse en cours… ${sandboxName}`,
+  const tid = toast.custom(
+    (t) =>
+      createElement(SandboxScanningToast, {
+        toastId: t.id,
+        visible: t.visible,
+        filename: data.filename,
+        originalFilename: data.original_filename,
+      }),
     {
       duration: 60000, // filet de sécurité si le processed n'arrive jamais
       position: 'top-right',
-      style: {
-        background: 'var(--color-surface)',
-        color: 'var(--color-text)',
-        border: '1px solid var(--color-border)',
-        fontSize: '13px',
-        maxWidth: '360px',
-      },
     },
   )
   SCANNING_TOASTS.set(sandboxName, tid)
@@ -75,6 +77,25 @@ function dismissScanningToast(data: SandboxEvent) {
   }
 }
 
+// Toast persistent « non-canonique à renommer » — fichier qui ATTEND dans sandbox/
+// (pas encore OCRisé). Cliquable → navigue vers /ocr?tab=sandbox.
+function showPendingToast(data: SandboxEvent) {
+  const onClickOpen = () => {
+    navigateTo('/ocr?tab=sandbox')
+  }
+  toast.custom(
+    (t) =>
+      createElement(SandboxPendingToast, {
+        toastId: t.id,
+        visible: t.visible,
+        filename: data.filename,
+        originalFilename: data.original_filename,
+        onClickOpen,
+      }),
+    { duration: Infinity, position: 'top-right' },
+  )
+}
+
 // Affichage du toast global d'arrivée — déclaré hors du hook pour stabilité.
 function showArrivalToast(data: SandboxEvent) {
   const autoAssociated = !!data.auto_associated && !!data.operation_ref
@@ -85,8 +106,10 @@ function showArrivalToast(data: SandboxEvent) {
         `/justificatifs?file=${encodeURIComponent(opRef.file)}&highlight=${opRef.index}&filter=avec`,
       )
     } else {
+      // Tab « En attente » (Session 30) — fichiers canoniques post-OCR sans
+      // opération associée, point d'atterrissage par défaut du flow de scan.
       navigateTo(
-        `/ocr?tab=historique&sort=scan_date&highlight=${encodeURIComponent(data.filename)}`,
+        `/ocr?tab=en-attente&sort=scan_date&highlight=${encodeURIComponent(data.filename)}`,
       )
     }
   }
@@ -151,6 +174,7 @@ export function useSandbox() {
         queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
         queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
         queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+        queryClient.invalidateQueries({ queryKey: ['sandbox'] })
 
         // Toast riche pour les events "processed" (nouveau fichier traité avec succès)
         if (data.status === 'scanning') {
@@ -160,6 +184,11 @@ export function useSandbox() {
         } else if (data.status === 'processed') {
           dismissScanningToast(data)
           showArrivalToast(data)
+        } else if (data.status === 'arrived') {
+          // Nouveau fichier non-canonique déposé dans sandbox/ → toast riche
+          // amber persistent, cliquable → navigue vers /ocr?tab=sandbox. Skip sur
+          // rejeu (évite le flood au reload).
+          if (!data.replayed) showPendingToast(data)
         } else if (data.status === 'error') {
           dismissScanningToast(data)
           toast.error(`Erreur OCR : ${data.filename}`, { duration: 4000 })

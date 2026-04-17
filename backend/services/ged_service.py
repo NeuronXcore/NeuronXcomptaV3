@@ -903,6 +903,11 @@ def scan_all_sources() -> dict:
 # ─── Tree building ───
 
 def build_tree(metadata: dict, postes: dict) -> dict:
+    """Construit l'arbre GED depuis l'index metadata (pas de scan filesystem direct).
+
+    NOTE : sandbox/ est hors périmètre GED — les fichiers sandbox n'apparaissent
+    JAMAIS dans l'arbre documentaire. Ne pas étendre les scans à sandbox/.
+    """
     docs = metadata.get("documents", {})
     postes_list = postes.get("postes", [])
     postes_map = {p["id"]: p for p in postes_list}
@@ -1684,6 +1689,12 @@ def search_fulltext(query: str, metadata: dict) -> list[dict]:
 # ─── Stats ───
 
 def get_stats(metadata: dict, postes: dict) -> dict:
+    """Stats GED agrégées depuis l'index metadata.
+
+    NOTE : sandbox/ est scopé out — les compteurs, totaux bruts/déductibles
+    et par-catégorie ignorent les fichiers sandbox. Pour le compteur sandbox
+    seul, voir `/api/justificatifs/stats.sandbox`.
+    """
     docs = metadata.get("documents", {})
     postes_list = postes.get("postes", [])
     postes_map = {p["id"]: p for p in postes_list}

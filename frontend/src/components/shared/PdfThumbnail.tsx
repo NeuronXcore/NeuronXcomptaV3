@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 interface PdfThumbnailProps {
   docId?: string
   justificatifFilename?: string
+  sandboxFilename?: string
   alt?: string
   className?: string
   iconSize?: number
@@ -33,6 +34,7 @@ type Status = 'idle' | 'loading' | 'loaded' | 'error'
 export default function PdfThumbnail({
   docId,
   justificatifFilename,
+  sandboxFilename,
   alt,
   className,
   iconSize = 20,
@@ -44,12 +46,14 @@ export default function PdfThumbnail({
   const [visible, setVisible] = useState(!lazy)
   const [status, setStatus] = useState<Status>('idle')
 
-  // Construction URL
+  // Construction URL — sandbox isolé de justificatifs/GED (cache séparé).
   let url: string | null = null
   if (docId) {
     url = `/api/ged/documents/${encodeURIComponent(docId)}/thumbnail`
   } else if (justificatifFilename) {
     url = `/api/justificatifs/${encodeURIComponent(justificatifFilename)}/thumbnail`
+  } else if (sandboxFilename) {
+    url = `/api/sandbox/${encodeURIComponent(sandboxFilename)}/thumbnail`
   }
   if (url && cacheBuster) {
     url += (url.includes('?') ? '&' : '?') + `v=${encodeURIComponent(cacheBuster)}`

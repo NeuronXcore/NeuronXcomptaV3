@@ -248,14 +248,25 @@ def list_justificatifs(
 
 
 def get_stats() -> dict:
-    """Retourne les statistiques des justificatifs."""
+    """Retourne les statistiques des justificatifs.
+
+    Inclut `sandbox` comme périmètre distinct : sandbox/ est une file d'attente
+    de travail (non-canoniques à corriger), PAS un dossier de référence GED.
+    Le total inclut sandbox pour que le front puisse badge l'OCR sidebar.
+    """
     ensure_directories()
     en_attente = len(list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf")))
     traites = len(list(JUSTIFICATIFS_TRAITES_DIR.glob("*.pdf")))
+    try:
+        from backend.services import sandbox_service
+        sandbox = sandbox_service.count_sandbox_files()
+    except Exception:
+        sandbox = 0
     return {
         "en_attente": en_attente,
         "traites": traites,
-        "total": en_attente + traites,
+        "sandbox": sandbox,
+        "total": en_attente + traites + sandbox,
     }
 
 
@@ -465,7 +476,12 @@ def _clean_operation_link(justificatif_filename: str) -> list:
 # ─── Path resolution ───
 
 def get_justificatif_path(filename: str) -> Optional[Path]:
-    """Résout le chemin d'un justificatif dans en_attente ou traites."""
+    """Résout le chemin d'un justificatif dans en_attente ou traites.
+
+    NOTE : sandbox/ est volontairement exclu — c'est une file d'attente de travail
+    hors périmètre GED. Utilise `sandbox_service.get_sandbox_path()` si tu as
+    besoin de résoudre un fichier sandbox.
+    """
     for dir_path in [JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR]:
         filepath = dir_path / filename
         if filepath.exists():
@@ -1087,7 +1103,12 @@ _REF_CACHE_TTL: float = 5.0  # secondes
 def get_all_referenced_justificatifs() -> set:
     """Version publique avec cache TTL 5s pour éviter de re-scanner à chaque requête.
     Retourne un set[str] de noms de fichiers justificatifs référencés.
-    Invalider via invalidate_referenced_cache() après toute mutation."""
+    Invalider via invalidate_referenced_cache() après toute mutation.
+
+    NOTE : les fichiers sandbox/ ne sont JAMAIS référencés (par construction,
+    l'association op↔justif n'est possible qu'après OCR → déplacement vers
+    en_attente/ ou traites/). N'étend PAS le scan à sandbox/.
+    """
     global _REF_CACHE
     now = _time.time()
     if _REF_CACHE is not None and now - _REF_CACHE[0] < _REF_CACHE_TTL:
@@ -1120,6 +1141,10 @@ def scan_link_issues() -> dict:
       (inspection manuelle requise).
     - ghost_refs : op dont le Lien justificatif pointe vers un fichier absent
       des deux dossiers → le lien doit être vidé.
+
+    NOTE : sandbox/ est SCOPÉ OUT. Le scan ne considère ni les fichiers
+    sandbox/ comme source possible, ni ne génère d'alertes sur eux. Les 6
+    catégories d'incohérences restent strictement `en_attente/` + `traites/`.
     """
     referenced = _collect_referenced_justificatifs()
     traites_pdfs = {p.name for p in JUSTIFICATIFS_TRAITES_DIR.glob("*.pdf")}

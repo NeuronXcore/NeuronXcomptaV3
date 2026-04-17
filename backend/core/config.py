@@ -35,6 +35,10 @@ GED_METADATA_FILE = GED_DIR / "ged_metadata.json"
 GED_POSTES_FILE = GED_DIR / "ged_postes.json"
 GED_THUMBNAILS_DIR = GED_DIR / "thumbnails"
 
+# Cache thumbnails sandbox (séparé de la GED pour ne pas polluer l'index
+# documentaire : les fichiers sandbox sont par définition hors-périmètre GED).
+SANDBOX_THUMBS_DIR = DATA_DIR / "sandbox_thumbs"
+
 # Amortissements
 AMORTISSEMENTS_DIR = DATA_DIR / "amortissements"
 
@@ -147,7 +151,7 @@ def ensure_directories():
         JUSTIFICATIFS_TRAITES_DIR, JUSTIFICATIFS_TEMP_DIR, JUSTIFICATIFS_SANDBOX_DIR,
         ML_DIR, ML_BACKUPS_DIR, ML_LOGS_DIR, ML_PREDICTIONS_LOG_DIR, ML_CORRECTIONS_LOG_DIR,
         COMPTA_ANALYTIQUE_DIR, OCR_DIR,
-        GED_DIR, GED_THUMBNAILS_DIR,
+        GED_DIR, GED_THUMBNAILS_DIR, SANDBOX_THUMBS_DIR,
         AMORTISSEMENTS_DIR,
         BAREMES_DIR,
         TEMPLATES_DIR,

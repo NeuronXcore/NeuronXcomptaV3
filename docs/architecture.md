@@ -74,15 +74,19 @@ Batch PDF/JPG/PNG → POST /api/ocr/batch-upload
   → renomme en fournisseur_YYYYMMDD_montant.XX.pdf (ou suffix _fs pour les fac-similés reconstitués)
   → Retour : résultats avec données OCR + auto_renamed flag
 
-Alternative : Sandbox watchdog
+Alternative : Sandbox inbox (Session 29 — watchdog conditionnel)
   → Dépôt PDF/JPG/PNG dans data/justificatifs/sandbox/
-  → Si image : conversion PDF + écriture en_attente/ + suppression image
-  → Si PDF : shutil.move vers en_attente/
-  → OCR + auto-rename + SSE notification enrichie (auto_renamed + original_filename + supplier + best_date + best_amount)
-  → Frontend : SandboxArrivalToast (toast riche global via useSandbox() lifté dans AppLayout)
-     - Gradient violet→indigo, pulse ring, affichage supplier/date/amount, badge AUTO
-     - CTA "Voir dans l'historique" → /ocr?tab=historique&sort=scan_date&highlight={filename}
-     - Flash-highlight + scroll-into-view sur la row OCR cible (CSS animate-ping-slow 2s)
+  → Si image : conversion PDF INPLACE dans sandbox/ (pas de move prématuré)
+  → Check rename_service.is_canonical(filename) :
+     • Canonique → move sandbox→en_attente + OCR + auto-rapprochement (flow historique)
+       - SandboxArrivalToast riche (emerald si auto-associé, violet sinon)
+       - CTA "Voir l'opération" ou "Voir dans l'historique" selon auto_associated
+     • Non-canonique → reste INPLACE dans sandbox/, apparaît dans l'onglet Sandbox /ocr
+       - _register_sandbox_arrival + event SSE arrived (is_canonical: false)
+       - Toast info discret frontend + invalidate ['sandbox', 'list']
+       - User action : rename inline → [Lancer OCR] (POST /api/sandbox/{name}/process)
+       - Mode auto optionnel : auto-processor loop (off par défaut)
+  → Voir section "Sandbox = Boîte d'arrivée OCR (Session 29)" ci-dessous pour le détail
 
 Renommage manuel : POST /api/justificatifs/{filename}/rename
   → rename_justificatif() : PDF + .ocr.json + associations ops + GED metadata
@@ -720,50 +724,129 @@ Hints comptables (category_hint + sous_categorie_hint) :
   → Test e2e : amazon_20250109 score 0.547 → 0.748 (+20 points) avec hint matching
 ```
 
-### Sandbox Watchdog (OCR automatique par dépôt)
+### Polish UX Sandbox + perf OCR (Session 30)
+
+**Checkboxes batch OCR** — `frontend/src/components/ocr/SandboxRow.tsx` + `SandboxTab.tsx` :
+- Checkbox 22×22 `role="checkbox"` avant la thumbnail, opacity 40%→100% au hover. Primary plein quand sélectionné, row highlight `bg-primary/10 ring-1 ring-primary/40`.
+- Select All tri-état dans la toolbar (Check / Minus / empty) basé sur `filtered.every`/`some`/`none(selected.has)`.
+- Barre flottante `fixed bottom-6 left-1/2 -translate-x-1/2 z-40` avec compteur badge, pill warning amber si non-canoniques présents, bouton « Lancer OCR (N) » primary, X pour dismiss.
+- `handleProcessBatch` lance N `POST /api/sandbox/{filename}/process` en parallèle via `Promise.allSettled`. Chaque POST retourne immédiatement `{status:"started"}` (background task), les events SSE `scanning` → `processed` pilotent la UI.
+- Auto-purge (`useEffect` sur `items`) nettoie les sélections quand les fichiers quittent la sandbox.
+
+**3 toasts SSE distincts** (`frontend/src/hooks/useSandbox.ts` + composants `frontend/src/components/shared/`) :
+- `SandboxScanningToast` (cyan/sky, animations CSS déclarées dans `index.css` : `scan-sweep` ligne horizontale qui balaie verticalement l'icône document + `scan-ring` anneau pulsant + `scan-dot` 3 dots séquentiels) — status `scanning`
+- `SandboxPendingToast` (amber/orange, icône `Inbox`, CTA persistent « Ouvrir la boîte d'arrivée » → `/ocr?tab=sandbox`) — status `arrived` non-canonique
+- `SandboxArrivalToast` (violet ou emerald selon `auto_associated`) — status `processed` (existant)
+
+**Preview PDF inline** — drawer slide-from-right 720px dans `SandboxTab.tsx` (state `previewFilename`, backdrop `bg-black/50 backdrop-blur-sm`, handler Esc global, `<object type="application/pdf">` toolbar native, bouton fallback « Ouvrir dans un onglet »). Remplace l'ancienne ouverture dans nouvel onglet.
+
+**Preload EasyOCR au lifespan backend** — `backend/services/ocr_service.preload_reader_async()` lance un thread daemon qui appelle `_get_reader()` en arrière-plan dès le boot. Le backend sert les requêtes immédiatement (pas de blocage lifespan). `reader_loaded=True` en ~3s post-boot car le modèle est en cache disque `~/.EasyOCR/model/`. Élimine le cold start ~20-30s sur le 1er OCR post-reboot.
+
+**`POST /api/sandbox/{filename}/process` en background task** — `backend/routers/sandbox.py` lance un `threading.Thread(target=_run_background, daemon=True)` qui appelle `process_sandbox_file()`. L'endpoint retourne immédiatement `{status:"started",filename}` au lieu d'attendre la fin du pipeline OCR + rapprochement (10-30s). Résout le « Failed to fetch » côté frontend quand EasyOCR bloquait > timeout fetch browser. Les SSE events `scanning` → `processed` (via `_push_event` depuis le thread) pilotent la UI.
+
+**Countdown bar dynamique** — `SandboxRow.tsx` :
+- `nowTs: number` state (fix du bug `const [, setNow]` qui ne partageait pas `now` avec le `useMemo`)
+- `useEffect` interval 250 ms réglé avec cleanup, conditionnel sur `item.auto_deadline`
+- `useMemo` avec `[auto_deadline, arrived_at, nowTs]` en deps → re-calcul à chaque tick
+- Rendu : `transition-[width] duration-300 ease-linear` pour lisser entre ticks, gradient `amber-400 → orange-500`, label timer `min-w-[90px] text-right`
+
+**Config preview Claude ports alternatifs** — `.claude/launch.json` : backend sur `8100`, frontend sur `5273` avec env `VITE_API_URL=http://127.0.0.1:8000`. `frontend/vite.config.ts` proxy target configurable via `process.env.VITE_API_URL` (défaut `http://127.0.0.1:8000`). Permet de faire tourner `preview_start` sans conflit avec le `./start.sh` local sur `5173/8000`. Cohabitation transparente.
+
+### Réorganisation des onglets `/ocr` (Session 30)
+
+Le composant `HistoriqueTab` (legacy « Gestion OCR ») est splitté en 2 onglets distincts via le composant générique `OcrListTab` paramétré par prop `statusFilter: 'en_attente' | 'traites'`. Le filtrage se fait côté interne via `lookupByFilename.get(filename)` (reverse-lookup des opérations liées) — `length === 0` = `en_attente`, `> 0` = `traites`.
+
+Nouvelle structure des 6 onglets dans l'ordre métier :
+1. **Upload & OCR** — batch upload multi-fichiers PDF/JPG/PNG
+2. **Test Manuel** — extraction OCR ponctuelle
+3. **Sandbox** — boîte d'arrivée (badge amber sur `sandbox_count`)
+4. **En attente** — scans canoniques sans opération liée (badge orange sur `en_attente_count`)
+5. **Traités** — scans associés à une opération (badge emerald sur `traites_count`)
+6. **Templates justificatifs** — bibliothèque templates
+
+L'ancien filtre segmenté Association (tous/sans/avec) est supprimé (l'onglet fige le statut). Remplacé par un compteur live `{N} sans assoc.` / `{N} associé(s)` qui reflète les items après filtres mois + fournisseur + statusFilter.
+
+`LEGACY_TAB_ALIASES = { historique: 'en-attente' }` + `VALID_TABS` (validation stricte) garantissent la rétrocompatibilité des URL `?tab=historique` (events SSE rejoués au reload, fenêtre 180s ring buffer) et la résilience aux params inattendus.
+
+Le `SandboxArrivalToast` pointe désormais vers `/ocr?tab=en-attente&sort=scan_date&highlight=X` (au lieu de `historique`), CTA mis à jour « Voir en attente ».
+
+### Sandbox = Boîte d'arrivée OCR (Session 29)
+
+Depuis Session 29, `data/justificatifs/sandbox/` n'est plus un simple point d'entrée transitoire mais une **boîte d'arrivée visible** dans l'UI (onglet `Sandbox` dans `/ocr`, 1er onglet). Le watchdog est **conditionnel** selon la canonicité du nom.
 
 ```
 Fichier (PDF/JPG/PNG) déposé dans data/justificatifs/sandbox/
   → watchdog (FileSystemEventHandler) détecte on_created
   → Filtre : extension dans ALLOWED_JUSTIFICATIF_EXTENSIONS
   → Attente écriture complète (polling getsize, 500ms)
-  → Si image : _convert_image_to_pdf() → écriture PDF en_attente/ → suppression image
-  → Si PDF : shutil.move → data/justificatifs/en_attente/ (gestion doublons avec suffix timestamp)
-  → [Session 27] _push_event(status="scanning") : toast.loading() côté frontend
-  → ocr_service.extract_or_cached() → .ocr.json
-  → auto_rename_from_ocr() → rename filename canonique
-  → rapprochement_service.run_auto_rapprochement() → capture associations_detail pour ce justif
-    • Si match trouvé, le PDF est déplacé vers traites/ pendant l'associate
-  → get_justificatif_path() résout le chemin final (en_attente/ OU traites/)
-  → get_cached_result(final_path) → re-fetch supplier/best_date/best_amount/processed_at
-  → _push_event(status="processed") enrichi avec :
-    • auto_associated: bool, operation_ref: {file, index, ventilation_index, libelle, date, montant, locked, score}
-    • timestamp = processed_at OCR (pour event_id stable cross-reload)
-  → Event SSE poussé via asyncio.Queue (thread-safe via loop.call_soon_threadsafe)
-  → [Session 27] Ring buffer _recent_events (deque maxlen=30, fenêtre 180s) alimenté
-    • get_recent_events() : rejeu au SSE connect dans _sse_generator
-    • seed_recent_events_from_disk() au lifespan boot : scan en_attente/ + traites/
-      - Pour traites/ : _lookup_operation_ref(pdf_name) scanne les ops pour enrichir operation_ref
-  → Frontend : useSandbox hook (EventSource) **lifté dans AppLayout** → écoute globalement
-     - [Session 27] Dédup via SEEN_EVENT_IDS: Set<string> module-level (FIFO 200)
-       • event_id = {filename}@{timestamp}@{status}
-     - [Session 27] showScanningToast(data) / dismissScanningToast(data) sur status="scanning"
-       • Match via SCANNING_TOASTS Map: sandbox_name → toastId
-       • Dismiss automatique à l'arrivée du processed correspondant
-     - showArrivalToast(data) sur status="processed" : SandboxArrivalToast riche
-       • Variante verte emerald "Associé automatiquement" si auto_associated === true
-         - Bloc op sous chips (libellé + date + montant) dans cadre emerald
-         - Pill 🔒 LOCKED warning si operation_ref.locked === true
-         - CTA "Voir l'opération" → /justificatifs?file=X&highlight=Y&filter=avec
-       • Variante violette classique "Nouveau scan reçu" sinon
-         - Gradient violet→indigo, pulse ring, supplier/date/amount, badge AUTO
-         - CTA "Voir dans l'historique" → /ocr?tab=historique&sort=scan_date&highlight={filename}
-     - Navigation via window.history.pushState + PopStateEvent (pas useNavigate — évite bug hooks order)
-     - Invalidation TanStack Query (ocr-history, justificatifs, ged, operations)
+  → Si image : _convert_image_to_pdf() → écriture PDF INPLACE dans sandbox/ → suppression image
+    • (Pas de move vers en_attente/ — la canonicité est vérifiée APRÈS conversion)
+  → Check : rename_service.is_canonical(filename) ?
+
+  ┌─ Canonique (fournisseur_YYYYMMDD_montant.XX.pdf strict) ──────────────────┐
+  │  _unregister_sandbox_arrival(filename)                                      │
+  │  _process_from_sandbox(filename) [extrait, réutilisable] :                 │
+  │    → shutil.move(sandbox/ → en_attente/)                                    │
+  │    → _push_event(status="scanning") : toast.loading() frontend              │
+  │    → ocr_service.extract_or_cached() → .ocr.json                            │
+  │    → auto_rename_from_ocr() (filename-first avec fallback OCR)              │
+  │    → rapprochement_service.run_auto_rapprochement()                         │
+  │      • Seuil 0.80 = auto-associé, ≥0.95 = auto-lock                         │
+  │    → _push_event(status="processed") enrichi (supplier/date/montant,        │
+  │       auto_associated, operation_ref)                                       │
+  │  → Frontend : SandboxArrivalToast riche (variante emerald si auto-associé) │
+  └─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─ Non-canonique (ex: Scan_0417_103422.pdf) ─────────────────────────────────┐
+  │  Reste INPLACE dans sandbox/                                                │
+  │  _register_sandbox_arrival(filename, now)                                   │
+  │    • _sandbox_arrivals: dict[str, datetime] (thread-safe via lock)          │
+  │  _push_event(status="arrived", is_canonical=false, original_filename=...)   │
+  │  → Frontend : toast info discret + invalide ['sandbox', 'list']             │
+  │  → Apparaît dans l'onglet /ocr → Sandbox pour correction manuelle           │
+  └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Au démarrage du backend, les fichiers (PDF/JPG/PNG) déjà présents dans sandbox/ sont traités automatiquement.
-Le watchdog est géré par le lifespan FastAPI (start/stop). Le seed disque permet de rattraper les events perdus lors d'un reload uvicorn (scanning non rejoués car trop court-vivant ; processed rejoués avec flag replayed: true).
+**Actions utilisateur depuis l'onglet Sandbox** (`SandboxTab.tsx` + `SandboxRow.tsx`) :
+- Rename inline (↵ save / ⇧↵ save+process / Esc cancel) → `POST /api/sandbox/{filename}/rename` (inplace, préserve arrival timestamp)
+- Lancer OCR → `POST /api/sandbox/{filename}/process` (délègue à `_process_from_sandbox`)
+- Supprimer (⌘⌫) → `DELETE /api/sandbox/{filename}` (purge PDF + thumbnail cache + arrival)
+- Preview → `GET /api/sandbox/{filename}/preview` (PDF inline, ouvert en nouvel onglet)
+
+**Mode auto (optionnel, off par défaut)** : `backend/services/sandbox_auto_processor.py` — loop asyncio 10s qui traite les arrivals `(now - arrived_at) >= sandbox_auto_delay_seconds`. Réglage via `AppSettings.sandbox_auto_mode` + `sandbox_auto_delay_seconds` (clamp 5-3600s, 30s par défaut). UI : toggle + slider dans header SandboxTab + section dédiée Settings > Général.
+
+**Seed boot** (lifespan) :
+1. `scan_existing_sandbox_arrivals()` — seed `_sandbox_arrivals` avec `mtime` (préserve l'ancienneté) AVANT le watchdog
+2. `start_sandbox_watchdog()` — démarre Observer + thread `process_existing_files` (from_watchdog=False, pas d'events `arrived` rejoués pour éviter le flood)
+3. `seed_recent_events_from_disk()` — rejeu SSE fenêtre 180s : events `processed` depuis en_attente/ + traites/ ET events `arrived` depuis sandbox/
+
+**SSE events** (enrichis Session 29 avec `is_canonical: bool`) :
+- `scanning` — move sandbox→en_attente, avant OCR (canoniques uniquement)
+- `processed` — fin pipeline (OCR + rename + rapprochement)
+- `arrived` — fichier non-canonique déposé (nouveauté Session 29)
+- `error` — erreur pipeline
+- Dédup frontend via `event_id = {filename}@{timestamp}@{status}` + `SEEN_EVENT_IDS` FIFO 200
+- Rejeu au (re)connect avec `replayed: true` (arrived skip toast sur rejeu)
+
+### Exclusions GED (Session 29)
+
+**Principe** : sandbox/ est une **file d'attente de travail** (fichiers transitoires sans metadata OCR validés), PAS un dossier de référence GED. L'inclure dans la GED polluerait filtres, stats, vues par fournisseur/catégorie avec des items vides. Règles strictement implémentées + commentaires explicites dans chaque service pour prévenir les régressions.
+
+| Scope | Inclut sandbox/ ? | Où |
+|-------|-------------------|-----|
+| `justificatif_service.get_justificatif_path()` | **NON** — scope `en_attente/` + `traites/` uniquement. Résolveur dédié sandbox : `sandbox_service.get_sandbox_path()` |
+| `justificatif_service.get_all_referenced_justificatifs()` | **NON** — par construction, l'association op↔justif n'est possible qu'après OCR → déplacement hors sandbox |
+| `justificatif_service.scan_link_issues()` | **NON** — les 6 catégories (duplicates, misplaced, orphans, ghost_refs, hash_conflicts, reconnectable_ventilation) restent scopées `en_attente/` + `traites/` |
+| `ged_service.build_tree()` | **NON** — 5 axes (période, catégorie, fournisseur, type, année) ignorent sandbox |
+| `ged_service.get_stats()` | **NON** — compteurs par-catégorie/fournisseur/type ignorent sandbox |
+| `ged_service.get_documents()` | **NON** — scans depuis `en_attente/`, `traites/`, `releves/`, `operations/`, `reports/`, `rapports/` uniquement |
+| Thumbnails (`data/ged/thumbnails/`) | **NON** — cache GED séparé. Sandbox a son propre cache `data/sandbox_thumbs/{md5}.png` via `sandbox_service.get_sandbox_thumbnail_path()` |
+| Endpoints `/api/justificatifs/*` | **NON** — ne retournent jamais un fichier sandbox |
+| Endpoints `/api/sandbox/*` | **NON cross-location** — ne retournent jamais un fichier en_attente ou traites |
+
+**Visibilité côté stats** : `GET /api/justificatifs/stats` renvoie `{en_attente, traites, sandbox, total}` — le front badge la sidebar OCR (amber) sur `sandbox` uniquement ; le badge onglet interne `Gestion OCR` garde `en_attente` (scans canoniques sans association).
+
+**Safety net reporté (non-V1)** : pas d'alerte « fichier sandbox > 7 jours » dans AlertesPage. Évolution possible si l'usage montre un besoin (voir CLAUDE.md "On the horizon").
 
 ### Rapprochement bancaire
 

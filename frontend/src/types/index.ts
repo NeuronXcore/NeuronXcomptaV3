@@ -327,6 +327,9 @@ export interface AppSettings {
   // ML retrain — seuils déclenchement tâche auto "Réentraîner le modèle IA"
   ml_retrain_corrections_threshold?: number
   ml_retrain_days_threshold?: number
+  // Sandbox — traitement auto des fichiers non-canoniques
+  sandbox_auto_mode?: boolean
+  sandbox_auto_delay_seconds?: number
 }
 
 // === Email / Envoi Comptable ===
@@ -474,7 +477,29 @@ export interface JustificatifInfo {
 export interface JustificatifStats {
   en_attente: number
   traites: number
+  sandbox: number
   total: number
+}
+
+export interface SandboxFileItem {
+  filename: string
+  size: number
+  size_human: string
+  modified: string
+  is_canonical: boolean
+  arrived_at: string
+  auto_deadline?: string | null
+}
+
+export interface SandboxProcessResult {
+  filename: string
+  status: string
+}
+
+export interface SandboxRenameResult {
+  old: string
+  new: string
+  is_canonical: boolean
 }
 
 export interface JustificatifUploadResult {

@@ -36,6 +36,11 @@ class AppSettings(BaseModel):
     #                OR (corrections_count >= 1 AND days_since_training >= days_threshold)
     ml_retrain_corrections_threshold: int = 10
     ml_retrain_days_threshold: int = 14
+    # Sandbox — mode de traitement des fichiers non-canoniques déposés.
+    # Off par défaut (mode manuel) : user doit cliquer « Lancer OCR » dans l'onglet Sandbox.
+    # On : auto-processor loop traite les fichiers arrivés depuis > delay.
+    sandbox_auto_mode: bool = False
+    sandbox_auto_delay_seconds: int = 30
 
 
 class DiskSpaceInfo(BaseModel):

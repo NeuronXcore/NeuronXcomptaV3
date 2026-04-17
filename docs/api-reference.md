@@ -561,7 +561,24 @@ Supprimer un preset.
 Liste avec filtres. **Quand `status=en_attente`**, les justificatifs déjà référencés par une opération (dans ops JSON ou sous-lignes de ventilation) sont automatiquement exclus via `get_all_referenced_justificatifs()` (cache TTL 5s).
 
 ### `GET /stats`
-Statistiques (en_attente, traites, total).
+Statistiques justificatifs. **Enrichies Session 29** avec la clé `sandbox` (boîte d'arrivée).
+
+**Réponse :**
+```json
+{
+  "en_attente": 157,
+  "traites": 253,
+  "sandbox": 1,
+  "total": 411
+}
+```
+
+- `en_attente` — fichiers canoniques dans `data/justificatifs/en_attente/` (OCR fait, en attente d'association).
+- `traites` — fichiers associés à une opération, dans `data/justificatifs/traites/`.
+- `sandbox` — fichiers dans la boîte d'arrivée `data/justificatifs/sandbox/` (non-canoniques à renommer, ou canoniques en attente de `POST /api/sandbox/{filename}/process`).
+- `total` — somme des trois.
+
+Le front utilise `sandbox` pour le badge sidebar OCR (amber) et `en_attente` pour le badge de l'onglet interne `Gestion OCR`.
 
 ### `POST /upload`
 Upload multi-fichiers PDF/JPG/PNG. Form-data : champ `files` (multiple). Les images sont automatiquement converties en PDF.
@@ -784,6 +801,8 @@ Statut du moteur OCR.
   "total_extractions": 12
 }
 ```
+
+**Depuis Session 30** : `reader_loaded` passe à `true` automatiquement ~3 s après le boot backend grâce à `ocr_service.preload_reader_async()` (thread daemon lancé dans le lifespan qui appelle `_get_reader()` en arrière-plan). Le modèle EasyOCR est déjà en cache disque `~/.EasyOCR/model/` après le 1er usage historique → init ~3 s. Résultat : le 1er OCR post-reboot ne paie plus le cold start (~20-30 s auparavant). Le backend accepte les requêtes immédiatement (le preload ne bloque pas le lifespan).
 
 ### `GET /history?limit=2000`
 Historique des extractions OCR. **Limit par défaut passée de 100 à 2000** en Session 12 pour couvrir toute l'année OCR sans pagination côté frontend (la Gestion OCR itère tous les items pour la recherche multifocale).
@@ -1165,6 +1184,10 @@ Valeurs de `statut` :
 
 ## Sandbox (`/api/sandbox`)
 
+> **Depuis Session 29** : sandbox/ est une **boîte d'arrivée visible** (onglet `Sandbox` dans `/ocr`). Le watchdog est désormais **conditionnel** — seuls les fichiers dont le nom respecte déjà la convention canonique (`fournisseur_YYYYMMDD_montant.XX.pdf`, via `rename_service.is_canonical()`) sont traités automatiquement (move → en_attente + OCR + rapprochement). Les non-canoniques restent dans sandbox/ jusqu'à action manuelle (rename + `POST /{filename}/process`) ou OCR automatique après délai (mode auto opt-in).
+>
+> **Sandbox est hors GED.** Les fichiers sandbox ne figurent JAMAIS dans `/api/ged/*`, `scan_link_issues()` ou `get_all_referenced_justificatifs()`. Les thumbnails ont leur propre cache `data/sandbox_thumbs/` (séparé de `data/ged/thumbnails/`). Voir `docs/architecture.md#exclusions-ged-session-29`.
+
 ### `GET /events`
 Stream SSE (Server-Sent Events) des événements sandbox. Se connecte et reste ouvert.
 
@@ -1172,36 +1195,81 @@ Stream SSE (Server-Sent Events) des événements sandbox. Se connecte et reste o
 
 **Événements :**
 - Connexion : `data: {"status": "connected", "timestamp": ""}`
-- Fichier en cours d'analyse (Session 27) : `data: {"event_id": "facture.pdf@...@scanning", "filename": "facture.pdf", "status": "scanning", "timestamp": "...", "original_filename": null}` — poussé dès le move sandbox → en_attente, avant OCR. Frontend affiche un `toast.loading()` neutre.
-- Fichier traité : `data: {"event_id": "facture.pdf@...@processed", "filename": "facture.pdf", "status": "processed", "timestamp": "<processed_at_ocr>", "supplier": "Auchan", "best_date": "2025-01-28", "best_amount": 49.86, "auto_renamed": false, "auto_associated": true, "operation_ref": {"file": "operations_split_202501_....json", "index": 70, "ventilation_index": 1, "libelle": "DU280125AMAZONPAYMENTSPAYLI/ 202,84", "date": "2025-01-28", "montant": 49.86, "locked": true, "score": 0.98}}` — fin de pipeline (OCR + rename + auto-rapprochement). `auto_associated + operation_ref` présents si match trouvé (seuil 0.80).
+- **Fichier non-canonique déposé (Session 29)** : `data: {"event_id": "Scan_0417_103422.pdf@...@arrived", "filename": "Scan_0417_103422.pdf", "status": "arrived", "timestamp": "...", "is_canonical": false, "original_filename": "Scan_0417_103422.pdf"}` — poussé au dépôt d'un fichier **non-canonique** (reste dans sandbox/). Frontend affiche un toast info discret + invalide `['sandbox', 'list']` pour rafraîchir l'onglet Sandbox.
+- Fichier canonique en cours d'analyse : `data: {"event_id": "facture.pdf@...@scanning", "filename": "facture.pdf", "status": "scanning", "timestamp": "...", "is_canonical": true, "original_filename": null}` — poussé dès le move sandbox → en_attente, avant OCR. Frontend affiche un `toast.loading()` neutre.
+- Fichier traité : `data: {"event_id": "facture.pdf@...@processed", "filename": "facture.pdf", "status": "processed", "timestamp": "<processed_at_ocr>", "supplier": "Auchan", "best_date": "2025-01-28", "best_amount": 49.86, "auto_renamed": false, "is_canonical": true, "auto_associated": true, "operation_ref": {"file": "operations_split_202501_....json", "index": 70, "ventilation_index": 1, "libelle": "DU280125AMAZONPAYMENTSPAYLI/ 202,84", "date": "2025-01-28", "montant": 49.86, "locked": true, "score": 0.98}}` — fin de pipeline (OCR + rename + auto-rapprochement). `auto_associated + operation_ref` présents si match trouvé (seuil 0.80).
 - Erreur OCR : `data: {"filename": "facture.pdf", "status": "error", "timestamp": "..."}`
 - Keepalive (30s) : `: ping`
-- **Rejeu au connect (Session 27)** : les events récents (< 180s) sont rejoués avec `replayed: true` depuis un ring buffer en mémoire **ET** seedé au boot depuis `en_attente/` + `traites/` via `seed_recent_events_from_disk()`. Permet de rattraper les events perdus lors d'un reload uvicorn ou d'une reconnexion EventSource. Frontend déduplique via `event_id = {filename}@{timestamp}@{status}`.
+- **Rejeu au connect** : les events récents (< 180s) sont rejoués avec `replayed: true` depuis un ring buffer en mémoire **ET** seedés au boot depuis `en_attente/` + `traites/` + **`sandbox/`** (Session 29) via `seed_recent_events_from_disk()`. Les events `arrived` de fichiers sandbox non-canoniques sont rejoués si mtime < 180s. Frontend déduplique via `event_id = {filename}@{timestamp}@{status}` et skip les toasts `arrived` sur rejeu (évite le flood au reload).
 
 ### `GET /list`
-Liste les fichiers (PDF/JPG/PNG) actuellement dans le dossier sandbox (non encore traités).
+Liste les fichiers (PDF/JPG/PNG) actuellement dans le dossier sandbox (non encore traités) avec méta enrichies Session 29.
 
 **Réponse :**
 ```json
 [
   {
-    "filename": "facture_novembre.pdf",
-    "size": 245760,
-    "size_human": "240.0 Ko",
-    "modified": "2024-11-20T14:30:00"
+    "filename": "Scan_0417_103422.pdf",
+    "size": 62847,
+    "size_human": "61.4 Ko",
+    "modified": "2026-04-17T16:43:33",
+    "is_canonical": false,
+    "arrived_at": "2026-04-17T16:43:34",
+    "auto_deadline": null
   }
 ]
 ```
 
-### `POST /process`
-Declenche le traitement de tous les fichiers en attente dans le sandbox (OCR + deplacement vers en_attente). Traitement parallele (3 threads).
+- `is_canonical` — true si le nom respecte déjà `rename_service.CANONICAL_RE`.
+- `arrived_at` — timestamp in-memory (préservé au rename inplace, seedé au boot depuis `mtime`).
+- `auto_deadline` — `arrived_at + sandbox_auto_delay_seconds` si `sandbox_auto_mode` activé, sinon `null`.
+
+### `POST /{filename}/rename` (Session 29)
+Renomme un fichier **inplace dans sandbox/** (avant OCR). Ne déclenche PAS l'OCR automatiquement — seul `POST /{filename}/process` ou l'auto-processor le font.
+
+**Body :** `{ "new_filename": "odm_20250301_200.00.pdf" }`
+
+**Validations :**
+- Extension `.pdf` obligatoire sur la cible
+- Pas de path traversal (`/`, `\`, nom commençant par `.`)
+- Idempotent si `old == new`
+- Collision cible → `HTTPException(409)` avec detail `{error: "sandbox_rename_collision", message}`
+
+**Side effects :**
+- PDF renommé sur disque
+- Timestamp arrival transféré (préserve l'ancienneté)
+- Thumbnail cache invalidée
+
+**Réponse :** `{ "old": "Scan_0417_103422.pdf", "new": "odm_20250301_200.00.pdf", "is_canonical": true }`
+
+### `POST /{filename}/process` (Session 29, background task Session 30)
+Déclenche OCR + rapprochement pour un fichier sandbox à la demande. Délègue à `_process_from_sandbox()` — même pipeline que le watchdog canonique (move vers en_attente, OCR, auto-rename post-OCR, auto-rapprochement).
+
+**Depuis Session 30** : exécution en thread daemon. L'endpoint valide que le fichier existe puis **retourne immédiatement** `{status:"started",filename}` sans attendre la fin du pipeline. Évite le « Failed to fetch » côté frontend quand EasyOCR bloquait > 30s au premier chargement. La progression du pipeline est poussée via les events SSE `scanning` puis `processed` (enrichis `supplier`/`best_date`/`best_amount`/`auto_associated`/`operation_ref`).
+
+**Réponse :** `{ "status": "started", "filename": "odm_20250301_200.00.pdf" }` — retour en ~20-30 ms indépendamment du temps d'OCR réel.
+
+**Errors :** `404` si fichier introuvable dans sandbox/.
+
+### `POST /process-all` (renommé depuis `/process`, Session 29)
+Déclenche le traitement de **tous les fichiers canoniques** présents dans sandbox/ (OCR + move → en_attente). Les non-canoniques ne sont PAS traités (restent dans sandbox/ pour correction manuelle). Traitement parallèle (3 threads).
 
 **Réponse :** `{ "status": "started", "count": 42 }`
 
-### `DELETE /{filename}`
-Supprime un fichier du sandbox sans le traiter.
+### `GET /{filename}/thumbnail` (Session 29)
+Retourne la vignette PNG 200px du PDF sandbox. Cache dédié dans `data/sandbox_thumbs/{md5}.png` — **JAMAIS** dans `data/ged/thumbnails/` (sandbox/ est hors périmètre GED).
 
-**Réponse :** `{ "status": "deleted", "filename": "facture_novembre.pdf" }`
+**Content-Type :** `image/png`
+
+### `GET /{filename}/preview` (Session 29)
+Stream inline du PDF sandbox (pour aperçu dans un `<object>` ou nouvel onglet).
+
+**Content-Type :** `application/pdf` (content-disposition: inline)
+
+### `DELETE /{filename}`
+Supprime un fichier du sandbox sans le traiter. Invalide aussi la thumbnail cache et désenregistre l'arrival in-memory.
+
+**Réponse :** `{ "status": "deleted", "filename": "Scan_0417_103422.pdf" }`
 
 ---
 

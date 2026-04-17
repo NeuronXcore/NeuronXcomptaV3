@@ -119,7 +119,10 @@ export default function Sidebar() {
   }, [emailHistory])
 
   const { data: justifStats } = useJustificatifStats()
-  const pendingScansCount = justifStats?.en_attente ?? 0
+  // Badge OCR sidebar = fichiers dans la boîte d'arrivée sandbox (non-canoniques
+  // à renommer). Les scans canoniques en attente d'association restent visibles
+  // via le badge de l'onglet « Gestion OCR » à l'intérieur de /ocr.
+  const sandboxCount = justifStats?.sandbox ?? 0
 
   const { data: gedStats } = useGedStats()
   const gedDocsCount = gedStats?.total_documents ?? 0
@@ -237,9 +240,12 @@ export default function Sidebar() {
                     {agentBadgeCount}
                   </span>
                 )}
-                {to === '/ocr' && pendingScansCount > 0 && (
-                  <span className="ml-auto bg-orange-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                    {pendingScansCount}
+                {to === '/ocr' && sandboxCount > 0 && (
+                  <span
+                    className="ml-auto bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
+                    title={`${sandboxCount} fichier(s) dans la boîte d'arrivée`}
+                  >
+                    {sandboxCount}
                   </span>
                 )}
                 {to === '/ged' && gedDocsCount > 0 && (
