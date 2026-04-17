@@ -18,7 +18,7 @@ function isOpExempt(op: Operation, exemptions: JustificatifExemptions | undefine
 
 type SortKey = 'date' | 'libelle' | 'debit' | 'credit' | 'categorie' | 'sous_categorie'
 type SortOrder = 'asc' | 'desc'
-type JustifFilter = 'all' | 'sans' | 'avec' | 'facsimile'
+type JustifFilter = 'all' | 'sans' | 'avec' | 'exempt' | 'locked' | 'facsimile'
 
 export interface EnrichedOperation extends Operation {
   _originalIndex: number
@@ -178,12 +178,26 @@ export function useJustificatifsPage() {
         return !op['Lien justificatif'] && !isOpExempt(op, exemptions)
       })
     } else if (justifFilter === 'avec') {
+      // Strict : op associée (hors exemptions — qui ont leur propre pill)
       ops = ops.filter(op => {
-        if (isVentilated(op)) return hasVentilationJustif(op)
-        return !!op['Lien justificatif'] || isOpExempt(op, exemptions)
+        if (isOpExempt(op, exemptions)) return false
+        if (isVentilated(op)) {
+          const vl = (op as Record<string, unknown>).ventilation as Array<Record<string, unknown>>
+          return vl.every(l => !!l.justificatif)
+        }
+        return !!op['Lien justificatif']
       })
+    } else if (justifFilter === 'exempt') {
+      ops = ops.filter(op => isOpExempt(op, exemptions))
+    } else if (justifFilter === 'locked') {
+      ops = ops.filter(op => op.locked === true)
     } else if (justifFilter === 'facsimile') {
-      ops = ops.filter(op => isReconstitue(op['Lien justificatif'] || ''))
+      ops = ops.filter(op => {
+        if (isReconstitue(op['Lien justificatif'] || '')) return true
+        // Fac-similé dans une sous-ligne ventilée
+        const vl = (op as Record<string, unknown>).ventilation as Array<Record<string, unknown>> | undefined
+        return !!vl?.some(l => typeof l.justificatif === 'string' && isReconstitue(l.justificatif as string))
+      })
     }
 
     // Filtre catégorie (support spécial __uncategorized__ comme l'éditeur)
@@ -233,13 +247,33 @@ export function useJustificatifsPage() {
     return ops
   }, [enrichedOps, justifFilter, exemptions, categoryFilter, subcategoryFilter, sourceFilter, search, sortKey, sortOrder])
 
-  // Stats (exempt ops count as "avec")
+  // Stats : compteurs séparés pour chaque pill du header. Ventilées traitées
+  // comme « avec » si toutes sous-lignes justifiées, sinon « sans ».
   const stats = useMemo(() => {
     const total = enrichedOps.length
-    const avec = enrichedOps.filter(op => !!op['Lien justificatif'] || isOpExempt(op, exemptions)).length
-    const sans = total - avec
-    const taux = total > 0 ? Math.round((avec / total) * 100) : 0
-    return { total, avec, sans, taux }
+    let avec = 0
+    let sans = 0
+    let exempt = 0
+    let locked = 0
+    let facsimile = 0
+    for (const op of enrichedOps) {
+      const isExempt = isOpExempt(op, exemptions)
+      const vl = (op as Record<string, unknown>).ventilation as Array<Record<string, unknown>> | undefined
+      const isVentilated = (vl?.length ?? 0) > 0
+      const hasJustif = isVentilated
+        ? vl!.every(l => !!l.justificatif)
+        : !!op['Lien justificatif']
+      if (isExempt) exempt++
+      else if (hasJustif) avec++
+      else sans++
+      if (op.locked === true) locked++
+      const parentFs = isReconstitue(op['Lien justificatif'] || '')
+      const vlFs = isVentilated && vl!.some(l => typeof l.justificatif === 'string' && isReconstitue(l.justificatif as string))
+      if (parentFs || vlFs) facsimile++
+    }
+    // Legacy : taux (avec + exempt) / total — conservé pour MetricCard existantes
+    const taux = total > 0 ? Math.round(((avec + exempt) / total) * 100) : 0
+    return { total, avec, sans, exempt, locked, facsimile, taux }
   }, [enrichedOps, exemptions])
 
   // Toggle tri

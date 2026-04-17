@@ -17,7 +17,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
 from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots
-from backend.services.sandbox_service import start_sandbox_watchdog, stop_sandbox_watchdog
+from backend.services.sandbox_service import (
+    seed_recent_events_from_disk,
+    start_sandbox_watchdog,
+    stop_sandbox_watchdog,
+)
 
 # Initialiser les répertoires et migrer les fichiers existants
 ensure_directories()
@@ -111,6 +115,11 @@ def _migrate_repas_to_repas_pro() -> None:
 async def lifespan(app: FastAPI):
     global _prev_task
     start_sandbox_watchdog()
+    # Rejeu des events sandbox récents (fenêtre 180s) — rattrape les reloads uvicorn
+    try:
+        seed_recent_events_from_disk()
+    except Exception as e:
+        logging.getLogger(__name__).warning("seed_recent_events_from_disk: %s", e)
     # Réconciliation index rapports
     from backend.services.report_service import reconcile_index
     reconcile_index()

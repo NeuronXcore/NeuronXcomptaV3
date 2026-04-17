@@ -11,13 +11,15 @@ import os
 import shutil
 import threading
 import time
-from datetime import datetime
+from collections import deque
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 from backend.core.config import (
     JUSTIFICATIFS_EN_ATTENTE_DIR,
     JUSTIFICATIFS_SANDBOX_DIR,
+    JUSTIFICATIFS_TRAITES_DIR,
     ALLOWED_JUSTIFICATIF_EXTENSIONS,
     IMAGE_EXTENSIONS,
     ensure_directories,
@@ -27,10 +29,134 @@ from backend.services.justificatif_service import _convert_image_to_pdf
 
 logger = logging.getLogger(__name__)
 
-# ─── SSE Event Queue (single client) ───
+# ─── SSE Event Queue + ring buffer pour rejeu au (re)connect ───
 
 sandbox_event_queue: asyncio.Queue = asyncio.Queue()
 _event_loop: Optional[asyncio.AbstractEventLoop] = None
+
+# Ring buffer des events récents — rejoué à chaque nouveau client SSE
+# (cas reload uvicorn / frontend fermé au moment du push / reconnect).
+RECENT_EVENT_WINDOW_SEC = 180
+_RECENT_EVENT_MAX = 30
+_recent_events: deque = deque(maxlen=_RECENT_EVENT_MAX)
+_recent_events_lock = threading.Lock()
+
+
+def _make_event_id(filename: str, timestamp: str, status: str = "processed") -> str:
+    """event_id stable : permet au frontend de dédupliquer entre push live et rejeu disque.
+
+    Inclut le status pour différencier les events « scanning » (arrivée) et
+    « processed » (fin du pipeline) sur le même fichier.
+    """
+    return f"{filename}@{timestamp}@{status}"
+
+
+def get_recent_events(window_sec: int = RECENT_EVENT_WINDOW_SEC) -> list[dict]:
+    """Events des dernières `window_sec` secondes (rejeu SSE au connect)."""
+    cutoff = datetime.now() - timedelta(seconds=window_sec)
+    with _recent_events_lock:
+        return [
+            e for e in _recent_events
+            if _parse_iso(e.get("timestamp")) >= cutoff
+        ]
+
+
+def _parse_iso(ts: Optional[str]) -> datetime:
+    if not ts:
+        return datetime.min
+    try:
+        return datetime.fromisoformat(ts)
+    except ValueError:
+        return datetime.min
+
+
+def _lookup_operation_ref(pdf_name: str) -> Optional[dict]:
+    """Cherche l'op qui référence ce justificatif (ou une sous-ligne ventilée)."""
+    try:
+        from backend.services import operation_service
+        for meta in operation_service.list_operation_files():
+            fname = meta["filename"]
+            try:
+                ops = operation_service.load_operations(fname)
+            except Exception:
+                continue
+            for idx, op in enumerate(ops):
+                link = op.get("Lien justificatif") or ""
+                if link and Path(link).name == pdf_name:
+                    return {
+                        "file": fname,
+                        "index": idx,
+                        "ventilation_index": None,
+                        "libelle": op.get("Libellé", ""),
+                        "date": op.get("Date", ""),
+                        "montant": abs(float(op.get("Débit", 0) or 0)) or abs(float(op.get("Crédit", 0) or 0)),
+                        "locked": bool(op.get("locked")),
+                    }
+                for vl_idx, vl in enumerate(op.get("ventilation", []) or []):
+                    if vl.get("justificatif") == pdf_name:
+                        return {
+                            "file": fname,
+                            "index": idx,
+                            "ventilation_index": vl_idx,
+                            "libelle": op.get("Libellé", ""),
+                            "date": op.get("Date", ""),
+                            "montant": float(vl.get("montant", 0) or 0),
+                            "locked": bool(op.get("locked")),
+                        }
+    except Exception:
+        pass
+    return None
+
+
+def seed_recent_events_from_disk(window_sec: int = RECENT_EVENT_WINDOW_SEC) -> int:
+    """Scan en_attente/ ET traites/ *.ocr.json, seed le ring buffer.
+
+    Appelé au démarrage pour rattraper les events perdus si le backend
+    a redémarré pendant/après un batch sandbox. Ne pousse PAS dans la queue —
+    c'est uniquement pour le rejeu au premier SSE connect. Les fichiers en
+    traites/ sont marqués `auto_associated: true` avec leur op de rattachement.
+    """
+    ensure_directories()
+    cutoff = datetime.now() - timedelta(seconds=window_sec)
+    seeded = 0
+    for directory, in_traites in ((JUSTIFICATIFS_EN_ATTENTE_DIR, False), (JUSTIFICATIFS_TRAITES_DIR, True)):
+        if not directory.exists():
+            continue
+        for ocr_file in directory.glob("*.ocr.json"):
+            try:
+                data = json.loads(ocr_file.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if data.get("status") != "success":
+                continue
+            processed_at = data.get("processed_at")
+            if not processed_at or _parse_iso(processed_at) < cutoff:
+                continue
+            pdf_name = data.get("filename") or ocr_file.name.replace(".ocr.json", ".pdf")
+            if not (directory / pdf_name).exists():
+                continue
+            ed = data.get("extracted_data") or {}
+            operation_ref = _lookup_operation_ref(pdf_name) if in_traites else None
+            event = {
+                "event_id": _make_event_id(pdf_name, processed_at),
+                "filename": pdf_name,
+                "status": "processed",
+                "timestamp": processed_at,
+                "auto_renamed": False,
+                "original_filename": None,
+                "supplier": ed.get("supplier"),
+                "best_date": ed.get("best_date"),
+                "best_amount": ed.get("best_amount"),
+                "auto_associated": in_traites and operation_ref is not None,
+                "operation_ref": operation_ref,
+                "replayed": True,
+            }
+            with _recent_events_lock:
+                _recent_events.append(event)
+            seeded += 1
+    if seeded:
+        logger.info("Sandbox: %d event(s) récent(s) seedés depuis en_attente/ + traites/", seeded)
+    return seeded
 
 # ─── Watchdog ───
 
@@ -74,27 +200,37 @@ def _push_event(
     supplier: Optional[str] = None,
     best_date: Optional[str] = None,
     best_amount: Optional[float] = None,
+    timestamp: Optional[str] = None,
+    auto_associated: bool = False,
+    operation_ref: Optional[dict] = None,
 ) -> None:
-    """Pousse un event SSE dans la queue depuis un thread OS.
+    """Pousse un event SSE dans la queue + ring buffer rejeu.
 
-    Champs OCR (supplier/best_date/best_amount) optionnels — utilisés par le
-    toast global d'arrivée dans le frontend pour afficher le contenu extrait
-    sans avoir à refetch.
+    `timestamp` : si fourni (typiquement `processed_at` de l'OCR), utilisé
+    pour garantir un `event_id` stable entre push live et rejeu disque.
+    `operation_ref` : {file, index, libelle, date, montant, ventilation_index?}
+    si `auto_associated` est True.
     """
+    ts = timestamp or datetime.now().isoformat()
     event = {
+        "event_id": _make_event_id(filename, ts, status),
         "filename": filename,
         "status": status,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": ts,
         "auto_renamed": auto_renamed,
         "original_filename": original_filename,
         "supplier": supplier,
         "best_date": best_date,
         "best_amount": best_amount,
+        "auto_associated": auto_associated,
+        "operation_ref": operation_ref,
     }
+    with _recent_events_lock:
+        _recent_events.append(event)
     if _event_loop and _event_loop.is_running():
         _event_loop.call_soon_threadsafe(sandbox_event_queue.put_nowait, event)
     else:
-        logger.warning("Event loop non disponible, event SSE perdu pour %s", filename)
+        logger.warning("Event loop non disponible, event SSE bufferisé (rejeu au connect) pour %s", filename)
 
 
 def _process_file(filepath: Path) -> None:
@@ -123,6 +259,14 @@ def _process_file(filepath: Path) -> None:
             dest = _resolve_destination(filename)
             shutil.move(str(filepath), str(dest))
             logger.info("Sandbox: %s déplacé vers %s", filename, dest.name)
+
+        # Push event « scanning » : le fichier est dans en_attente/, OCR à venir.
+        # Toast minimal côté frontend pour feedback immédiat (~10-15s avant processed).
+        _push_event(
+            dest.name,
+            "scanning",
+            original_filename=filename if filename != dest.name else None,
+        )
 
         # Lancer l'OCR (passer le nom original pour le parsing convention)
         auto_renamed = False
@@ -156,19 +300,45 @@ def _process_file(filepath: Path) -> None:
         except Exception:
             pass
 
-        # Auto-rapprochement après OCR
+        # Auto-rapprochement après OCR — capturer l'éventuelle association pour CE justificatif
+        auto_associated = False
+        operation_ref: Optional[dict] = None
         try:
             from backend.services import rapprochement_service
             rap_result = rapprochement_service.run_auto_rapprochement()
             if rap_result.get("associations_auto", 0) > 0:
                 logger.info(f"Sandbox auto-rapprochement: {rap_result['associations_auto']} associations")
+                for detail in rap_result.get("associations_detail", []) or []:
+                    if detail.get("justificatif") == dest.name:
+                        auto_associated = True
+                        operation_ref = {
+                            "file": detail.get("operation_file"),
+                            "index": detail.get("operation_index"),
+                            "ventilation_index": detail.get("ventilation_index"),
+                            "libelle": detail.get("libelle"),
+                            "date": detail.get("date"),
+                            "montant": detail.get("montant"),
+                            "locked": bool(detail.get("locked")),
+                            "score": detail.get("score"),
+                        }
+                        break
         except Exception as e:
             logger.warning(f"Sandbox auto-rapprochement échoué: {e}")
+
+        # Résoudre le chemin final (en_attente/ OU traites/ si auto-associé)
+        try:
+            from backend.services import justificatif_service as _jsvc
+            final_path = _jsvc.get_justificatif_path(dest.name)
+            if final_path and final_path.exists():
+                dest = final_path
+        except Exception:
+            pass
 
         # Notifier via SSE (avec info auto-rename + données OCR pour le toast riche)
         ocr_supplier: Optional[str] = None
         ocr_date: Optional[str] = None
         ocr_amount: Optional[float] = None
+        ocr_processed_at: Optional[str] = None
         try:
             ocr_final = ocr_service.get_cached_result(dest)
             if ocr_final and ocr_final.get("status") == "success":
@@ -176,6 +346,7 @@ def _process_file(filepath: Path) -> None:
                 ocr_supplier = ed.get("supplier")
                 ocr_date = ed.get("best_date")
                 ocr_amount = ed.get("best_amount")
+                ocr_processed_at = ocr_final.get("processed_at")
         except Exception:
             pass
 
@@ -187,6 +358,9 @@ def _process_file(filepath: Path) -> None:
             supplier=ocr_supplier,
             best_date=ocr_date,
             best_amount=ocr_amount,
+            timestamp=ocr_processed_at,
+            auto_associated=auto_associated,
+            operation_ref=operation_ref,
         )
 
     except FileNotFoundError:

@@ -159,6 +159,15 @@ export interface ScanLinksResult {
   misplaced_to_move_to_traites: Array<{ name: string; refs: number }>
   orphans_to_delete_traites: Array<{ name: string; hash: string }>
   orphans_to_move_to_attente: Array<{ name: string }>
+  reconnectable_ventilation: Array<{
+    name: string
+    op_file: string
+    op_index: number
+    ventilation_index: number
+    montant: number
+    date: string
+    supplier: string
+  }>
   hash_conflicts: Array<{
     name: string
     hash_attente: string
@@ -174,6 +183,7 @@ export interface RepairLinksResult {
   moved_to_traites: number
   deleted_from_traites: number
   moved_to_attente: number
+  ventilation_reconnected: number
   ghost_refs_cleared: number
   conflicts_skipped: number
   errors: string[]

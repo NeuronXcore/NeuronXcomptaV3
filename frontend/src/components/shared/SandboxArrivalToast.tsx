@@ -1,4 +1,4 @@
-import { ScanLine, Sparkles, X, ArrowRight } from 'lucide-react'
+import { ScanLine, Sparkles, X, ArrowRight, CheckCircle2, Link2, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn, formatCurrency } from '@/lib/utils'
 
@@ -11,6 +11,11 @@ interface Props {
   bestAmount?: number | null
   autoRenamed?: boolean
   originalFilename?: string | null
+  autoAssociated?: boolean
+  operationLibelle?: string | null
+  operationDate?: string | null
+  operationMontant?: number | null
+  operationLocked?: boolean
   onClickOpen: () => void
 }
 
@@ -34,6 +39,11 @@ export default function SandboxArrivalToast({
   bestAmount,
   autoRenamed,
   originalFilename,
+  autoAssociated,
+  operationLibelle,
+  operationDate,
+  operationMontant,
+  operationLocked,
   onClickOpen,
 }: Props) {
   const formatDateDisplay = (iso: string | null | undefined): string => {
@@ -41,12 +51,35 @@ export default function SandboxArrivalToast({
     return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`
   }
 
+  const accent = autoAssociated
+    ? {
+        gradient: 'bg-gradient-to-br from-emerald-500/60 via-teal-500/40 to-emerald-400/60',
+        iconBg: 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/40',
+        iconColor: 'text-emerald-300',
+        ring: 'border-emerald-400/60',
+        label: 'text-emerald-300',
+        cta: 'text-emerald-300',
+        LabelIcon: CheckCircle2,
+        title: 'Associé automatiquement',
+        ctaText: "Voir l'opération",
+      }
+    : {
+        gradient: 'bg-gradient-to-br from-violet-500/60 via-indigo-500/40 to-violet-400/60',
+        iconBg: 'bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border-violet-500/40',
+        iconColor: 'text-violet-300',
+        ring: 'border-violet-400/60',
+        label: 'text-violet-300',
+        cta: 'text-violet-300',
+        LabelIcon: Sparkles,
+        title: 'Nouveau scan reçu',
+        ctaText: "Voir dans l'historique",
+      }
+
   return (
     <div
       className={cn(
         'relative max-w-[420px] w-full rounded-2xl p-[1px] shadow-2xl cursor-pointer group',
-        // Gradient border violet→indigo
-        'bg-gradient-to-br from-violet-500/60 via-indigo-500/40 to-violet-400/60',
+        accent.gradient,
         visible ? 'animate-enter' : 'animate-leave',
       )}
       onClick={() => {
@@ -55,24 +88,27 @@ export default function SandboxArrivalToast({
       }}
       role="button"
       tabIndex={0}
-      aria-label={`Nouveau scan : ${filename}`}
+      aria-label={`${accent.title} : ${filename}`}
     >
       <div className="rounded-2xl bg-background/95 backdrop-blur-sm px-4 py-3.5 flex items-start gap-3">
         {/* Icône animée */}
         <div className="shrink-0 relative">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-violet-500/40 flex items-center justify-center">
-            <ScanLine size={20} className="text-violet-300" />
+          <div className={cn('w-11 h-11 rounded-xl border flex items-center justify-center', accent.iconBg)}>
+            {autoAssociated ? (
+              <CheckCircle2 size={20} className={accent.iconColor} />
+            ) : (
+              <ScanLine size={20} className={accent.iconColor} />
+            )}
           </div>
-          {/* Pulse ring */}
-          <span className="absolute inset-0 rounded-xl border-2 border-violet-400/60 animate-ping-slow pointer-events-none" />
+          <span className={cn('absolute inset-0 rounded-xl border-2 animate-ping-slow pointer-events-none', accent.ring)} />
         </div>
 
         {/* Contenu */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <Sparkles size={12} className="text-violet-300 shrink-0" />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-300">
-              Nouveau scan re&#xe7;u
+            <accent.LabelIcon size={12} className={cn('shrink-0', accent.label)} />
+            <span className={cn('text-[11px] font-semibold uppercase tracking-wider', accent.label)}>
+              {accent.title}
             </span>
           </div>
           <div className="text-sm font-medium text-text truncate" title={originalFilename || filename}>
@@ -110,8 +146,38 @@ export default function SandboxArrivalToast({
             </div>
           )}
 
-          <div className="flex items-center gap-1 mt-2 text-[11px] text-violet-300 font-medium group-hover:gap-1.5 transition-all">
-            Voir dans l&#39;historique
+          {autoAssociated && operationLibelle && (
+            <div className="mt-2 flex items-start gap-1.5 text-[11px] rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2 py-1.5">
+              <Link2 size={11} className="shrink-0 text-emerald-300 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <div className="text-emerald-300 font-medium truncate flex-1" title={operationLibelle}>
+                    {operationLibelle}
+                  </div>
+                  {operationLocked && (
+                    <span
+                      className="shrink-0 inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-warning/20 text-warning font-semibold uppercase tracking-wider"
+                      title="Opération verrouillée automatiquement (score ≥ 0.95)"
+                    >
+                      <Lock size={8} /> locked
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-text-muted mt-0.5">
+                  {operationDate && <span>{formatDateDisplay(operationDate)}</span>}
+                  {operationMontant != null && (
+                    <>
+                      <span>&middot;</span>
+                      <span className="font-semibold text-text">{formatCurrency(operationMontant)}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className={cn('flex items-center gap-1 mt-2 text-[11px] font-medium group-hover:gap-1.5 transition-all', accent.cta)}>
+            {accent.ctaText}
             <ArrowRight size={11} />
           </div>
         </div>

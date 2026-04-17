@@ -1145,6 +1145,21 @@ def scan_link_issues() -> dict:
         for op_file, op_idx in referenced[name]:
             ghost_refs.append({"name": name, "op_file": op_file, "op_idx": op_idx})
 
+    # D : reconnect ventilation — orphans traites/ dont le filename canonique
+    # (supplier_YYYYMMDD_montant.pdf) matche une sous-ligne ventilée vide
+    # d'une op au même montant/date. Cas post-split/merge où les refs vl ont
+    # été perdues mais le PDF est resté en traites/.
+    reconnectable_ventilation: list[dict] = []
+    if orphans_to_move_to_attente:
+        orphan_names = [item["name"] for item in orphans_to_move_to_attente]
+        reconnectable_ventilation = _detect_ventilation_reconnects(orphan_names)
+        # Retirer les orphans reconnectés du bucket "move to attente"
+        reconnected_names = {r["name"] for r in reconnectable_ventilation}
+        orphans_to_move_to_attente = [
+            item for item in orphans_to_move_to_attente
+            if item["name"] not in reconnected_names
+        ]
+
     return {
         "scanned": {
             "traites": len(traites_pdfs),
@@ -1155,9 +1170,96 @@ def scan_link_issues() -> dict:
         "misplaced_to_move_to_traites": misplaced_to_move_to_traites,
         "orphans_to_delete_traites": orphans_to_delete_traites,
         "orphans_to_move_to_attente": orphans_to_move_to_attente,
+        "reconnectable_ventilation": reconnectable_ventilation,
         "hash_conflicts": hash_conflicts,
         "ghost_refs": ghost_refs,
     }
+
+
+def _detect_ventilation_reconnects(orphan_names: list) -> list:
+    """Pour chaque orphan en traites/, essaie de matcher le filename canonique
+    à une sous-ligne ventilée vide (même montant ±0.01€, même date).
+
+    Retourne [{name, op_file, op_index, ventilation_index, montant, date}]
+    pour les matches uniques (pas d'ambiguïté multi-sous-lignes).
+    """
+    try:
+        from backend.services import rename_service
+    except Exception:
+        return []
+
+    # Parser tous les filenames en premier (cache)
+    parsed: dict = {}
+    for name in orphan_names:
+        try:
+            result = rename_service.try_parse_filename(name)
+        except Exception:
+            continue
+        if not result:
+            continue
+        supplier, ymd, amount, _suffix = result
+        # YYYYMMDD → YYYY-MM-DD
+        if len(ymd) != 8:
+            continue
+        iso_date = f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:8]}"
+        parsed[name] = {"supplier": supplier, "date": iso_date, "amount": float(amount)}
+    if not parsed:
+        return []
+
+    # Pré-calculer les candidats par (date, montant-rounded)
+    candidates: list = []
+    for fp in sorted(IMPORTS_OPERATIONS_DIR.glob("operations_*.json")):
+        try:
+            with open(fp, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        ops = data.get("operations", data) if isinstance(data, dict) else data
+        if not isinstance(ops, list):
+            continue
+        for op_idx, op in enumerate(ops):
+            op_date = (op.get("Date") or "")[:10]
+            if not op_date:
+                continue
+            vlines = op.get("ventilation", []) or []
+            for vl_idx, vl in enumerate(vlines):
+                if (vl.get("justificatif") or "").strip():
+                    continue  # slot déjà occupé
+                try:
+                    vl_amount = float(vl.get("montant") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if vl_amount <= 0:
+                    continue
+                candidates.append({
+                    "op_file": fp.name,
+                    "op_index": op_idx,
+                    "ventilation_index": vl_idx,
+                    "date": op_date,
+                    "amount": vl_amount,
+                })
+
+    # Matcher chaque orphan à 1 candidat unique
+    reconnects: list = []
+    for name, info in parsed.items():
+        matches = [
+            c for c in candidates
+            if c["date"] == info["date"]
+            and abs(c["amount"] - info["amount"]) <= 0.01
+        ]
+        if len(matches) != 1:
+            continue  # skip si ambigu ou aucun match
+        m = matches[0]
+        reconnects.append({
+            "name": name,
+            "op_file": m["op_file"],
+            "op_index": m["op_index"],
+            "ventilation_index": m["ventilation_index"],
+            "montant": m["amount"],
+            "date": m["date"],
+            "supplier": info["supplier"],
+        })
+    return reconnects
 
 
 def _move_pdf_with_ocr(src: Path, dst: Path) -> None:
@@ -1198,6 +1300,7 @@ def apply_link_repair(plan: Optional[dict] = None) -> dict:
         "moved_to_traites": 0,
         "deleted_from_traites": 0,
         "moved_to_attente": 0,
+        "ventilation_reconnected": 0,
         "ghost_refs_cleared": 0,
         "conflicts_skipped": len(plan.get("hash_conflicts", [])),
         "errors": [],
@@ -1238,6 +1341,46 @@ def apply_link_repair(plan: Optional[dict] = None) -> dict:
         except Exception as e:
             result["errors"].append(f"delete traites/{name}: {e}")
             logger.warning(f"apply_link_repair: delete traites/{name} failed: {e}")
+
+    # 3b. Reconnect ventilation : orphans traites/ → sous-ligne ventilée vide
+    # (matching unique par date + montant ±0.01€). Exécuté AVANT les moves
+    # vers en_attente/ pour ne pas déplacer des fichiers qui redeviennent
+    # référencés.
+    reconnect_by_op: dict = {}
+    for r in plan.get("reconnectable_ventilation", []):
+        reconnect_by_op.setdefault(r["op_file"], []).append(r)
+
+    for op_file, items in reconnect_by_op.items():
+        try:
+            ops = operation_service.load_operations(op_file)
+        except Exception as e:
+            result["errors"].append(f"reconnect load {op_file}: {e}")
+            continue
+        changed = False
+        for r in items:
+            op_idx = r["op_index"]
+            vl_idx = r["ventilation_index"]
+            if not (0 <= op_idx < len(ops)):
+                continue
+            vlines = ops[op_idx].get("ventilation", []) or []
+            if not (0 <= vl_idx < len(vlines)):
+                continue
+            # Re-vérif idempotence : ne pas écraser si déjà attribué
+            if (vlines[vl_idx].get("justificatif") or "").strip():
+                continue
+            vlines[vl_idx]["justificatif"] = r["name"]
+            changed = True
+            result["ventilation_reconnected"] += 1
+            logger.info(
+                f"apply_link_repair: reconnect {r['name']} → {op_file}#{op_idx}/vl{vl_idx} "
+                f"({r['montant']}€ {r['date']})"
+            )
+        if changed:
+            try:
+                operation_service.save_operations(ops, filename=op_file)
+            except Exception as e:
+                result["errors"].append(f"reconnect save {op_file}: {e}")
+                logger.warning(f"apply_link_repair: reconnect save {op_file} failed: {e}")
 
     # 4. Orphans à redéplacer en en_attente/
     for item in plan.get("orphans_to_move_to_attente", []):

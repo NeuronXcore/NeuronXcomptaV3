@@ -14,6 +14,7 @@ import threading
 
 from backend.services.sandbox_service import (
     delete_sandbox_file,
+    get_recent_events,
     list_sandbox_files,
     process_existing_files,
     sandbox_event_queue,
@@ -25,9 +26,18 @@ router = APIRouter()
 
 
 async def _sse_generator():
-    """Générateur SSE avec keepalive ping toutes les 30s."""
+    """Générateur SSE avec keepalive ping toutes les 30s.
+
+    Au connect : rejoue les events récents (fenêtre 180s) depuis le ring buffer,
+    permettant au frontend de rattraper les notifications si le backend a
+    redémarré ou si aucun client n'était connecté au moment du push.
+    Le frontend déduplique via `event_id`.
+    """
     # Envoyer un event initial pour flush la connexion et confirmer le statut
     yield f"data: {json.dumps({'status': 'connected', 'timestamp': ''})}\n\n"
+    # Rejeu des events récents
+    for ev in get_recent_events():
+        yield f"data: {json.dumps({**ev, 'replayed': True})}\n\n"
     try:
         while True:
             try:

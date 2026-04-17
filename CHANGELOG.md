@@ -8,6 +8,59 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-17) — Session 27
+
+- **Sandbox — rejeu SSE + flux 2 toasts (scanning → processed)**
+  - **Ring buffer + event_id stable** : `sandbox_service._recent_events` (`deque(maxlen=30)`, fenêtre 180s) alimenté à chaque `_push_event()`. `event_id = f"{filename}@{timestamp}@{status}"` garantit le dédup cross-reload entre push live et rejeu disque. Au connect SSE : rejeu auto des events récents (flag `replayed: true`).
+  - **Seed disque au startup** : `seed_recent_events_from_disk()` scanne `en_attente/*.ocr.json` **ET `traites/*.ocr.json`** (`processed_at > now - 180s`). Les fichiers en `traites/` sont marqués `auto_associated: true` avec leur op de rattachement (via `_lookup_operation_ref()` qui scanne les ops pour trouver le `Lien justificatif` ou la sous-ligne ventilée référençante). Appelé dans le lifespan `main.py` après `start_sandbox_watchdog()`.
+  - **Flux 2 toasts** :
+    - Toast 1 « scanning » : poussé immédiatement après le move sandbox → en_attente, avant l'OCR. Frontend affiche un `toast.loading()` neutre « Analyse en cours… filename » (top-right, 60s filet).
+    - Toast 2 « processed » : poussé en fin de pipeline (OCR + auto-rename + auto-rapprochement). Frontend dismiss le toast 1 correspondant (matching via `original_filename || filename`) puis affiche le toast riche (violet ou vert).
+    - Dédup frontend via `SEEN_EVENT_IDS: Set<string>` module-level (FIFO 200 entrées). Les events `scanning` ne sont pas rejoués au reconnect (trop court-vivant).
+  - **Toast « Associé automatiquement »** (vert emerald, `CheckCircle2` au lieu de `ScanLine`) : variante du `SandboxArrivalToast` quand l'event porte `auto_associated === true`. Bloc op sous les chips (libellé + date + montant) dans un cadre emerald. CTA « Voir l'opération » → `/justificatifs?file=X&highlight=Y&filter=avec`. Variante violette classique préservée pour les arrivées sans auto-match.
+  - **Pill `🔒 LOCKED`** (amber/warning) dans le bloc op quand `operation_ref.locked === true` (auto-lock score ≥ 0.95 — voir ci-dessous). Tooltip « Opération verrouillée automatiquement (score ≥ 0.95) ».
+
+- **Auto-lock sur auto-association si score ≥ 0.95 (paramètre)**
+  - `rapprochement_service._run_auto_rapprochement_locked()` : après `justificatif_service.associate()` réussi, si `best_score >= 0.95` → set `op.locked = True` + `locked_at = isoformat()` sur l'op, persiste via `save_operations()`. Implémenté dans les 2 branches (ventilée + non-ventilée).
+  - **Matrice** : score 0.60–0.80 = suggestion (pas d'association). 0.80–0.95 = auto-associé, modifiable. ≥ 0.95 = auto-associé + auto-lock.
+  - `associations_detail` enrichi avec `locked: bool` + `score: float`. Event SSE `operation_ref.locked` et `score` propagés jusqu'au toast.
+
+- **Gate date obligatoire pour l'auto-rapprochement**
+  - `_run_auto_rapprochement_locked()` : refuse toute auto-association si `best_match.score.detail.date <= 0.0` (i.e., écart > 14j), **indépendamment du score total**. Résout le bug cross-year : auto-associations à 0.80 pile par montant+fournisseur+catégorie parfaits mais date à 1 an → score_date=0 compensait auparavant. Exemple bloqué : `amazon_20250103_16.99_2.pdf` matché à une op 2026-01-14 de 16,99 €.
+  - Ces candidats passent en `suggestions_fortes` (visibles dans le drawer manuel) au lieu de disparaître silencieusement.
+  - Run-auto sur corpus réel : passage de 1 auto-association cross-year → 0, 21 suggestions fortes, 141 sans correspondance.
+
+- **Passe systémique — reconnexion ventilation post-split/merge**
+  - Nouveau bucket `reconnectable_ventilation` dans `justificatif_service.scan_link_issues()` : pour chaque orphan de `traites/` (PDF non référencé), parse le filename canonique via `rename_service.try_parse_filename()` → `(supplier, YYYYMMDD, amount)`. Scanne toutes les ops pour trouver une sous-ligne ventilée **vide** avec `date_op == date_filename` + `abs(montant - amount) <= 0.01`. Si match unique → reconnect candidat (ambiguïtés skippées).
+  - `apply_link_repair()` : nouvelle étape 3b (avant les moves vers en_attente) qui applique les reconnexions groupées par fichier d'ops, avec re-check idempotence. Invalide le cache des références.
+  - Compteur `ventilation_reconnected` dans le `RepairLinksResult`. Card `IntegrityMetric` ajoutée dans `SettingsPage > Stockage > Intégrité des justificatifs` (« Ventilation à reconnecter »).
+  - **Auto-heal au boot** : le lifespan backend lance déjà `apply_link_repair()` → les desyncs post-split/merge sont réparés silencieusement au démarrage si les filenames canoniques matchent.
+
+- **EditorPage — 6 pills cliquables dans le header (compteurs live + filtres toggle)**
+  - `headerCounters: useMemo([operations, exemptions])` agrège 6 métriques : `withJ, withoutJ, exempt, locked, unlocked, facsimile, total`. Re-calcul automatique à chaque mutation (save, undo, categorize, associate, unlock).
+  - 6 pills côte-à-côte dans `PageHeader.actions` : 📎 vert emerald (avec), 📎 ambre (sans, exclut exemptées), ✓ bleu sky (exempt, si > 0), 🔒 orange warning (locked), 🔓 rose (unlocked = avec justif mais pas locked, « à valider », si > 0), 📄 violet (facsimile = reconstitué, si > 0).
+  - **Clic = filtre toggle** : active un column filter sur `Justificatif` avec valeur magique (`__header_avec__`, `__header_sans__`, `__header_exempt__`, `__header_locked__`, `__header_unlocked__`, `__header_facsimile__`). Re-clic désactive. Visuel `ring-2 ring-*` + fond renforcé quand actif.
+  - Reset automatique du filtre au changement de fichier ou passage year-wide.
+  - Filterfn custom interprète les 6 valeurs magiques, gère les ventilations (parent OU sous-lignes) pour `avec` / `sans` / `facsimile`.
+
+- **JustificatifsPage — 5 pills cliquables (extension `justifFilter`)**
+  - Type `JustifFilter` étendu : `'all' | 'sans' | 'avec' | 'exempt' | 'locked' | 'facsimile'`. `justifFilter === 'avec'` est maintenant **strict** (exclut les exemptées — alignement EditorPage).
+  - `stats` enrichi : `{ total, avec, sans, exempt, locked, facsimile, taux }`. Taux legacy préservé `(avec + exempt) / total` pour la MetricCard existante.
+  - 5 pills côte-à-côte à la place du groupe 4-boutons `Tous/Sans/Avec/Fac-simile` : avec vert / sans ambre / exempt sky (si > 0) / locked warning / facsimile violet (si > 0). Comportement toggle identique à EditorPage. Lien « Tout voir » pour reset rapide.
+  - `justifFilter === 'facsimile'` détecte aussi les fac-similés dans les sous-lignes ventilées (pas seulement le `Lien justificatif` parent).
+
+- **ManualAssociationDrawer — 3 améliorations UX**
+  - **Panneau ops filtre les exemptées** : `useManualAssociation` injecte `appSettings.justificatif_exemptions` via `useSettings()`. Helper `isOpExemptByCategory()` filtre les ops Perso/CARMF/URSSAF/Honoraires dans les 2 branches `mode: 'all'` (single-month + year-wide). Mode `targeted` non filtré (respect du choix manuel). Ops en attente uniquement → pas de faux « manquants ».
+  - **Date = calendrier natif** : `<input type="text">` → `<input type="date">` (128px, `color-scheme: dark`). `parseFrDate()` accepte ISO `YYYY-MM-DD` ET legacy `JJ/MM/AAAA`.
+  - **Pré-filtre mois Éditeur** : à l'ouverture du drawer, si `month` prop défini → `filterDate = {year}-{MM}-15` + `filterDateTol = 15` → fenêtre couvrant tout le mois. Indépendant de l'op sélectionnée (ancrage stable sur le dropdown Éditeur). Year-wide → filtre date vide.
+  - **Drawer élargi quand preview ouvert** : width dynamique 1100 → **1500 px**, panel preview 320 → **600 px** (transition animée `duration-300`). Reste responsive `maxWidth: 98vw`.
+
+- **Éditeur + Justificatifs — sous-lignes ventilées gris foncé**
+  - `VentilationLines.tsx` et tr ventilation dans `JustificatifsPage.tsx` : `bg-surface/50` → `bg-black/30` (hover `bg-black/40`). Contraste net avec la row parente, fonctionne sur light + dark sans dépendre des variables de surface.
+
+- **`isOpUnmatched` gère correctement les ventilations**
+  - `useRapprochementWorkflow.isOpUnmatched` (hook partagé) : pour une op ventilée, retourne `true` si **au moins une sous-ligne** n'a pas de justif, indépendamment du `Lien justificatif` parent (qui est legacy après association partielle). Fixe le bug « Déjà attribué » qui masquait le bouton Attribuer sur les ops partiellement ventilées comme `DU280125AMAZONPAYMENTSPAYLI/ 202,84` (vl#0 associé, vl#1 et vl#2 vides).
+
 ### Added (2026-04-16) — Session 26
 
 - **`ManualAssociationDrawer` — outil d'association manuelle 2-colonnes (op → justif)**

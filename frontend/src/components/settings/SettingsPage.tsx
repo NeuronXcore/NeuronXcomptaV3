@@ -774,6 +774,7 @@ function JustificatifsIntegritySection() {
       data.misplaced_to_move_to_traites.length +
       data.orphans_to_delete_traites.length +
       data.orphans_to_move_to_attente.length +
+      data.reconnectable_ventilation.length +
       data.ghost_refs.length
     : 0
 
@@ -841,6 +842,11 @@ function JustificatifsIntegritySection() {
               label="Orphelins à déplacer"
               value={data.orphans_to_move_to_attente.length}
               hint="traites/ → en_attente/"
+            />
+            <IntegrityMetric
+              label="Ventilation à reconnecter"
+              value={data.reconnectable_ventilation.length}
+              hint="Sous-ligne vide ↔ orphan"
             />
             <IntegrityMetric
               label="Liens fantômes"

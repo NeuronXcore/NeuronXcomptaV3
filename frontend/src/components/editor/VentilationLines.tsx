@@ -17,7 +17,7 @@ export default function VentilationLines({ lines, colSpan, categoryColors, onCli
       {lines.map((vl: VentilationLine, idx: number) => (
         <tr
           key={`vl-${idx}`}
-          className="border-b border-border/10 bg-surface/50 cursor-pointer hover:bg-surface-hover/50 transition-colors"
+          className="border-b border-border/10 bg-black/30 cursor-pointer hover:bg-black/40 transition-colors"
           onClick={onClick}
         >
           <td colSpan={2} className="py-0.5 px-2">

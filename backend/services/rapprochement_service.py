@@ -755,6 +755,7 @@ def _run_auto_rapprochement_locked() -> dict:
             continue
 
     associations_auto = 0
+    associations_detail: list[dict] = []
     suggestions_fortes = 0
     sans_correspondance = 0
 
@@ -818,6 +819,21 @@ def _run_auto_rapprochement_locked() -> dict:
             sans_correspondance += 1
             continue
 
+        # Gate date : refuser toute auto-association si l'écart de date > 14j
+        # (score_date == 0.0). Protège contre les cross-year hallucinés quand
+        # montant + fournisseur + catégorie compensent la date absente.
+        # Les suggestions fortes restent visibles dans le drawer manuel.
+        best_date_score = (
+            (best_match.get("score") or {}).get("detail", {}).get("date", None)
+            if best_match else None
+        )
+        if best_date_score is not None and best_date_score <= 0.0:
+            if best_score >= 0.75:
+                suggestions_fortes += 1
+            else:
+                sans_correspondance += 1
+            continue
+
         # Auto-association : score >= 0.80 et pas d'ex-aequo à ±0.02
         if best_score >= 0.80 and (best_score - second_best_score) > 0.02 and best_match:
             try:
@@ -865,6 +881,30 @@ def _run_auto_rapprochement_locked() -> dict:
                                 except Exception:
                                     pass
                                 associations_auto += 1
+                                # Auto-lock sur score très confiant (≥ 0.95) — évite régressions
+                                # accidentelles sans figer les matches 0.80-0.95 éditables.
+                                locked_by_auto = False
+                                if best_score >= 0.95:
+                                    try:
+                                        cached_op["locked"] = True
+                                        cached_op["locked_at"] = datetime.now().isoformat(timespec="seconds")
+                                        operation_service.save_operations(cached_ops, filename=best_match["op_file"])
+                                        locked_by_auto = True
+                                    except Exception as e:
+                                        logger.warning(f"Auto-lock échoué {filename}: {e}")
+                                _op_v = best_match["op"]
+                                _vl_amount = float(vlines[vl_idx].get("montant", 0)) if vlines and 0 <= vl_idx < len(vlines) else 0
+                                associations_detail.append({
+                                    "justificatif": filename,
+                                    "operation_file": best_match["op_file"],
+                                    "operation_index": best_match["op_index"],
+                                    "ventilation_index": vl_idx,
+                                    "libelle": _op_v.get("Libellé", ""),
+                                    "date": _op_v.get("Date", ""),
+                                    "montant": _vl_amount,
+                                    "score": best_score,
+                                    "locked": locked_by_auto,
+                                })
                                 _log_auto_rapprochement(
                                     action="associe",
                                     justificatif=filename,
@@ -908,6 +948,31 @@ def _run_auto_rapprochement_locked() -> dict:
                         except Exception:
                             pass
                         associations_auto += 1
+                        # Auto-lock si score ≥ 0.95 (très haute confiance)
+                        locked_by_auto = False
+                        if best_score >= 0.95:
+                            try:
+                                fresh_ops = operation_service.load_operations(best_match["op_file"])
+                                if 0 <= best_match["op_index"] < len(fresh_ops):
+                                    fresh_ops[best_match["op_index"]]["locked"] = True
+                                    fresh_ops[best_match["op_index"]]["locked_at"] = datetime.now().isoformat(timespec="seconds")
+                                    operation_service.save_operations(fresh_ops, filename=best_match["op_file"])
+                                    locked_by_auto = True
+                            except Exception as e:
+                                logger.warning(f"Auto-lock échoué {filename}: {e}")
+                        _op_s = best_match["op"]
+                        _op_amount = abs(float(_op_s.get("Débit", 0) or 0)) or abs(float(_op_s.get("Crédit", 0) or 0))
+                        associations_detail.append({
+                            "justificatif": filename,
+                            "operation_file": best_match["op_file"],
+                            "operation_index": best_match["op_index"],
+                            "ventilation_index": None,
+                            "libelle": _op_s.get("Libellé", ""),
+                            "date": _op_s.get("Date", ""),
+                            "montant": _op_amount,
+                            "score": best_score,
+                            "locked": locked_by_auto,
+                        })
                         _log_auto_rapprochement(
                             action="associe",
                             justificatif=filename,
@@ -931,6 +996,7 @@ def _run_auto_rapprochement_locked() -> dict:
     return {
         "total_justificatifs_traites": len(pending_pdfs),
         "associations_auto": associations_auto,
+        "associations_detail": associations_detail,
         "suggestions_fortes": suggestions_fortes,
         "sans_correspondance": sans_correspondance,
         "justificatifs_restants": justificatifs_restants,

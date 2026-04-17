@@ -685,14 +685,27 @@ Détecte 6 catégories :
       "refs": 1
     }
   ],
-  "ghost_refs": []
+  "ghost_refs": [],
+  "reconnectable_ventilation": [
+    {
+      "name": "amazon_20250128_49.86.pdf",
+      "op_file": "operations_split_202501_...json",
+      "op_index": 70,
+      "ventilation_index": 1,
+      "montant": 49.86,
+      "date": "2025-01-28",
+      "supplier": "Amazon"
+    }
+  ]
 }
 ```
+
+**Bucket `reconnectable_ventilation` (Session 27)** : orphans de `traites/` dont le filename canonique (`supplier_YYYYMMDD_montant.pdf`) matche une sous-ligne ventilée **vide** au même `date + montant (±0.01 €)`. Match unique requis (ambiguïtés skippées). Calculé par `_detect_ventilation_reconnects()` via `rename_service.try_parse_filename()`. Ces orphans sont retirés de `orphans_to_move_to_attente` (ils seront reconnectés à leur slot plutôt que renvoyés en attente).
 
 ### `POST /repair-links`
 Apply : répare les incohérences détectées par `scan-links`.
 
-Ordre d'exécution : A1 delete en_attente → A2 move vers traites → B1 delete traites → B2 move vers en_attente → C clear ghost refs. Les `hash_conflicts` sont systématiquement **skippés** (jamais de perte automatique). Le `.ocr.json` compagnon est toujours propagé lors des moves/deletes.
+Ordre d'exécution : A1 delete en_attente → A2 move vers traites → B1 delete traites → **3b reconnect ventilation** → B2 move vers en_attente → C clear ghost refs. Les `hash_conflicts` sont systématiquement **skippés** (jamais de perte automatique). Le `.ocr.json` compagnon est toujours propagé lors des moves/deletes. La reconnexion ventilation groupe les writes par fichier d'ops + re-check idempotence avant d'écrire `vl[i].justificatif`.
 
 **Réponse :**
 ```json
@@ -701,6 +714,7 @@ Ordre d'exécution : A1 delete en_attente → A2 move vers traites → B1 delete
   "moved_to_traites": 1,
   "deleted_from_traites": 2,
   "moved_to_attente": 5,
+  "ventilation_reconnected": 4,
   "ghost_refs_cleared": 0,
   "conflicts_skipped": 2,
   "errors": []
@@ -950,13 +964,31 @@ Couverture d'envoi par mois pour une année : `{ 1: true, 2: false, ... }`.
 ### `POST /run-auto`
 Rapprochement automatique : parcourt tous les justificatifs en attente, auto-associe ceux avec score >= 0.80 et match unique (écart >= 0.02 avec le 2ème meilleur). Déclenché automatiquement après chaque upload de justificatif (via OCR background, batch upload OCR, et sandbox watchdog).
 
+**Gate date obligatoire (Session 27)** : refuse toute auto-association si `best_match.score.detail.date <= 0.0` (i.e., écart > 14 jours) **indépendamment du score total**. Protège contre les cross-year hallucinés où montant + fournisseur + catégorie parfaits compensaient l'absence de date pour atteindre pile 0.80. Les rejetés passent en `suggestions_fortes` (visibles dans le drawer manuel).
+
+**Auto-lock ≥ 0.95 (Session 27)** : si `best_score >= 0.95`, l'op est immédiatement verrouillée après l'association (`locked: true` + `locked_at`). Détail exposé dans `associations_detail[].locked` et propagé dans les events SSE sandbox.
+
 **Réponse :**
 ```json
 {
   "total_justificatifs_traites": 15,
   "associations_auto": 8,
+  "associations_detail": [
+    {
+      "justificatif": "amazon_20250128_49.86.pdf",
+      "operation_file": "operations_split_202501_...json",
+      "operation_index": 70,
+      "ventilation_index": 1,
+      "libelle": "DU280125AMAZONPAYMENTSPAYLI2441535/ 202,84",
+      "date": "2025-01-28",
+      "montant": 49.86,
+      "score": 0.98,
+      "locked": true
+    }
+  ],
   "suggestions_fortes": 3,
   "sans_correspondance": 4,
+  "justificatifs_restants": 4,
   "ran_at": "2024-04-15T10:30:00"
 }
 ```
@@ -1119,9 +1151,11 @@ Stream SSE (Server-Sent Events) des événements sandbox. Se connecte et reste o
 
 **Événements :**
 - Connexion : `data: {"status": "connected", "timestamp": ""}`
-- Fichier traité : `data: {"filename": "facture.pdf", "status": "processed", "timestamp": "2024-11-20T14:30:00"}`
+- Fichier en cours d'analyse (Session 27) : `data: {"event_id": "facture.pdf@...@scanning", "filename": "facture.pdf", "status": "scanning", "timestamp": "...", "original_filename": null}` — poussé dès le move sandbox → en_attente, avant OCR. Frontend affiche un `toast.loading()` neutre.
+- Fichier traité : `data: {"event_id": "facture.pdf@...@processed", "filename": "facture.pdf", "status": "processed", "timestamp": "<processed_at_ocr>", "supplier": "Auchan", "best_date": "2025-01-28", "best_amount": 49.86, "auto_renamed": false, "auto_associated": true, "operation_ref": {"file": "operations_split_202501_....json", "index": 70, "ventilation_index": 1, "libelle": "DU280125AMAZONPAYMENTSPAYLI/ 202,84", "date": "2025-01-28", "montant": 49.86, "locked": true, "score": 0.98}}` — fin de pipeline (OCR + rename + auto-rapprochement). `auto_associated + operation_ref` présents si match trouvé (seuil 0.80).
 - Erreur OCR : `data: {"filename": "facture.pdf", "status": "error", "timestamp": "..."}`
 - Keepalive (30s) : `: ping`
+- **Rejeu au connect (Session 27)** : les events récents (< 180s) sont rejoués avec `replayed: true` depuis un ring buffer en mémoire **ET** seedé au boot depuis `en_attente/` + `traites/` via `seed_recent_events_from_disk()`. Permet de rattraper les events perdus lors d'un reload uvicorn ou d'une reconnexion EventSource. Frontend déduplique via `event_id = {filename}@{timestamp}@{status}`.
 
 ### `GET /list`
 Liste les fichiers (PDF/JPG/PNG) actuellement dans le dossier sandbox (non encore traités).

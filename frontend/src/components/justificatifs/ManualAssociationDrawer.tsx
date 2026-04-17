@@ -31,7 +31,9 @@ interface ManualAssociationDrawerProps {
   targetedOps?: TargetedOp[]
 }
 
-const DRAWER_WIDTH = 1100
+const DRAWER_WIDTH_BASE = 1100
+const DRAWER_WIDTH_WITH_PREVIEW = 1500
+const PREVIEW_PANEL_WIDTH = 600
 
 export default function ManualAssociationDrawer(props: ManualAssociationDrawerProps) {
   const { open, onClose, year, month, targetedOps } = props
@@ -102,14 +104,17 @@ export default function ManualAssociationDrawer(props: ManualAssociationDrawerPr
         onClick={onClose}
       />
 
-      {/* Drawer */}
+      {/* Drawer — s'élargit dynamiquement quand le panel preview est ouvert */}
       <div
         className={cn(
           'fixed top-0 right-0 h-full bg-background border-l border-border shadow-2xl z-50',
-          'transition-transform duration-300 flex flex-col',
+          'transition-[transform,width] duration-300 flex flex-col',
           open ? 'translate-x-0' : 'translate-x-full',
         )}
-        style={{ width: `${DRAWER_WIDTH}px`, maxWidth: '95vw' }}
+        style={{
+          width: `${h.previewFilename ? DRAWER_WIDTH_WITH_PREVIEW : DRAWER_WIDTH_BASE}px`,
+          maxWidth: '98vw',
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
@@ -159,10 +164,10 @@ export default function ManualAssociationDrawer(props: ManualAssociationDrawerPr
 
         {/* Body : flex row (preview | ops | justifs) */}
         <div className="flex flex-row flex-1 min-h-0">
-          {/* Panel preview (gauche, width animée) */}
+          {/* Panel preview (gauche, width animée) — 600px pour lisibilité PDF */}
           <div
             className="flex-shrink-0 overflow-hidden border-r border-border flex flex-col bg-surface transition-all duration-[250ms] ease-in-out"
-            style={{ width: h.previewFilename ? '320px' : '0px' }}
+            style={{ width: h.previewFilename ? `${PREVIEW_PANEL_WIDTH}px` : '0px' }}
           >
             {h.previewFilename && (
               <>
@@ -301,11 +306,11 @@ export default function ManualAssociationDrawer(props: ManualAssociationDrawerPr
                   <div className="flex items-center gap-1">
                     <span className="text-text-muted">Date</span>
                     <input
-                      type="text"
+                      type="date"
                       value={h.filterDate}
                       onChange={e => h.setFilterDate(e.target.value)}
-                      placeholder="jj/mm/aaaa"
-                      className="w-[84px] px-1.5 py-0.5 text-[11px] bg-surface border border-border rounded focus:outline-none focus:border-primary tabular-nums"
+                      className="w-[128px] px-1.5 py-0.5 text-[11px] bg-surface border border-border rounded focus:outline-none focus:border-primary tabular-nums [color-scheme:dark]"
+                      title="Centre de la recherche — calendrier"
                     />
                     <span className="text-text-muted">±</span>
                     <input

@@ -2,9 +2,24 @@ import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { api } from '@/api/client'
-import type { Operation, JustificatifSuggestion, JustificatifInfo, OperationFile } from '@/types'
+import type { Operation, JustificatifSuggestion, JustificatifInfo, OperationFile, JustificatifExemptions } from '@/types'
 import { useOperationFiles, useOperations, useYearOperations } from './useOperations'
 import { useManualAssociate } from './useRapprochement'
+import { useSettings } from './useApi'
+
+/**
+ * Teste si une catégorie+sous-catégorie est exemptée de justificatif
+ * (CARMF, URSSAF, Honoraires, Perso par défaut — configurable dans Paramètres).
+ */
+function isOpExemptByCategory(op: Operation, exemptions: JustificatifExemptions | undefined): boolean {
+  if (!exemptions) return false
+  const cat = (op['Catégorie'] ?? '').trim()
+  if (!cat) return false
+  if (exemptions.categories.includes(cat)) return true
+  const sub = (op['Sous-catégorie'] ?? '').trim()
+  if (sub && exemptions.sous_categories[cat]?.includes(sub)) return true
+  return false
+}
 
 /**
  * TargetedOp : forme minimale d'opération passée depuis l'appelant quand
@@ -101,9 +116,18 @@ function mapJustifSuggestion(s: JustificatifSuggestion): DrawerSuggestion {
 
 /** Parse "jj/mm/aaaa" → timestamp ou null si invalide. */
 function parseFrDate(str: string): number | null {
-  const m = str.trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
-  if (!m) return null
-  const [, d, mo, y] = m
+  const s = str.trim()
+  // ISO YYYY-MM-DD (format natif de l'input type="date")
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (iso) {
+    const [, y, mo, d] = iso
+    const dt = new Date(Number(y), Number(mo) - 1, Number(d))
+    return isNaN(dt.getTime()) ? null : dt.getTime()
+  }
+  // Legacy FR JJ/MM/AAAA
+  const fr = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (!fr) return null
+  const [, d, mo, y] = fr
   const dt = new Date(Number(y), Number(mo) - 1, Number(d))
   if (isNaN(dt.getTime())) return null
   return dt.getTime()
@@ -118,6 +142,10 @@ function parseAmount(str: string): number | null {
 }
 
 export function useManualAssociation({ open, year, month, targetedOps }: UseManualAssociationArgs) {
+  // ─── Settings pour exclure les ops exemptées (Perso, CARMF, etc.) ───
+  const { data: appSettings } = useSettings()
+  const exemptions = appSettings?.justificatif_exemptions
+
   // ─── Filtrage défensif des crédits côté hook ───
   const sanitizedTargetedOps = useMemo(() => {
     if (!targetedOps) return []
@@ -179,6 +207,7 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
       const out: DrawerOp[] = []
       singleOpsQuery.data.forEach((op, idx) => {
         if (!isOpWithoutJustif(op)) return
+        if (isOpExemptByCategory(op, exemptions)) return // skip Perso/CARMF/URSSAF/Honoraires
         // Ventilation : si l'op est ventilée (Catégorie === 'Ventilé'), on itère les sous-lignes non justifiées
         if (op['Catégorie'] === 'Ventilé' && Array.isArray(op.ventilation) && op.ventilation.length > 0) {
           op.ventilation.forEach(vl => {
@@ -217,6 +246,7 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
     const out: DrawerOp[] = []
     yearOpsQuery.data.forEach(op => {
       if (!isOpWithoutJustif(op)) return
+      if (isOpExemptByCategory(op, exemptions)) return // skip Perso/CARMF/URSSAF/Honoraires
       const srcFile = op._sourceFile ?? ''
       const srcIdx = op._index ?? -1
       if (!srcFile || srcIdx < 0) return
@@ -251,7 +281,7 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
       })
     })
     return out
-  }, [mode, sanitizedTargetedOps, month, selectedFile, singleOpsQuery.data, yearOpsQuery.data])
+  }, [mode, sanitizedTargetedOps, month, selectedFile, singleOpsQuery.data, yearOpsQuery.data, exemptions])
 
   const isLoadingOps = useMemo(() => {
     if (mode === 'targeted') return false
@@ -297,12 +327,27 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
   const [broadMode, setBroadMode] = useState(false)
   const [previewFilename, setPreviewFilename] = useState<string | null>(null)
 
-  // Reset filtres + preview au changement d'op
+  // Reset preview + montant au changement d'op.
   useEffect(() => {
     setPreviewFilename(null)
-    setFilterDate('')
     setFilterAmount('')
   }, [selectedOpKey])
+
+  // Date filter par défaut = mi-mois du mois sélectionné dans l'Éditeur
+  // (dropdown mois + year globaux), avec tolérance 15j → couvre tout le mois.
+  // Préserve la valeur utilisateur : applique uniquement à l'ouverture du
+  // drawer ou quand le couple (year, month) change.
+  useEffect(() => {
+    if (!open) return
+    if (month != null && year) {
+      const mm = String(month).padStart(2, '0')
+      setFilterDate(`${year}-${mm}-15`)
+      setFilterDateTol(15)
+    } else {
+      // Year-wide ou pas de mois défini → pas de pré-filtre date
+      setFilterDate('')
+    }
+  }, [open, year, month])
 
   // Reset broadMode à la fermeture
   useEffect(() => {

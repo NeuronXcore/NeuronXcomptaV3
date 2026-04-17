@@ -28,7 +28,7 @@ import {
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
-import { Unlink, Paperclip, Trash2, Link2 } from 'lucide-react'
+import { Unlink, Paperclip, Trash2, Link2, Copy as FacsimileIcon } from 'lucide-react'
 import { LockCell } from '@/components/LockCell'
 import { Lock as LockIcon } from 'lucide-react'
 import type { VentilationLine } from '@/types'
@@ -373,28 +373,93 @@ export default function JustificatifsPage() {
             />
           </div>
 
-          {/* Filtre justificatif */}
-          <div className="flex bg-background rounded border border-border overflow-hidden">
-            {([
-              ['all', 'Tous'],
-              ['sans', 'Sans justif.'],
-              ['avec', 'Avec justif.'],
-              ['facsimile', '\ud83d\ude08 Fac-simile'],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => setJustifFilter(value)}
-                className={cn(
-                  'px-3 py-1.5 text-xs transition-colors',
-                  justifFilter === value
-                    ? 'bg-primary text-white'
-                    : 'text-text-muted hover:text-text'
+          {/* Pills cliquables — filtre par statut justificatif (5 badges) */}
+          {(() => {
+            const togglePill = (target: 'sans' | 'avec' | 'exempt' | 'locked' | 'facsimile') => {
+              setJustifFilter(justifFilter === target ? 'all' : target)
+            }
+            const pillBase = 'inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-medium transition-all cursor-pointer hover:brightness-110'
+            return (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => togglePill('avec')}
+                  className={cn(
+                    pillBase,
+                    'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+                    justifFilter === 'avec' && 'ring-2 ring-emerald-400 bg-emerald-500/30',
+                  )}
+                  title={`${stats.avec} avec justificatif · cliquer pour filtrer`}
+                >
+                  <Paperclip size={11} />
+                  <span className="tabular-nums">{stats.avec}</span>
+                </button>
+                <button
+                  onClick={() => togglePill('sans')}
+                  className={cn(
+                    pillBase,
+                    'bg-amber-500/15 text-amber-300 border-amber-500/30',
+                    justifFilter === 'sans' && 'ring-2 ring-amber-400 bg-amber-500/30',
+                  )}
+                  title={`${stats.sans} sans justificatif (hors exemptions) · cliquer pour filtrer`}
+                >
+                  <Paperclip size={11} className="opacity-50" />
+                  <span className="tabular-nums">{stats.sans}</span>
+                </button>
+                {stats.exempt > 0 && (
+                  <button
+                    onClick={() => togglePill('exempt')}
+                    className={cn(
+                      pillBase,
+                      'bg-sky-500/15 text-sky-300 border-sky-500/30',
+                      justifFilter === 'exempt' && 'ring-2 ring-sky-400 bg-sky-500/30',
+                    )}
+                    title={`${stats.exempt} exemptée${stats.exempt > 1 ? 's' : ''} · cliquer pour filtrer`}
+                  >
+                    <CheckCircle2 size={11} />
+                    <span className="tabular-nums">{stats.exempt}</span>
+                  </button>
                 )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+                <button
+                  onClick={() => togglePill('locked')}
+                  className={cn(
+                    pillBase,
+                    'bg-warning/15 text-warning border-warning/30',
+                    justifFilter === 'locked' && 'ring-2 ring-warning bg-warning/30',
+                  )}
+                  title={`${stats.locked} verrouillée${stats.locked > 1 ? 's' : ''} · cliquer pour filtrer`}
+                >
+                  <LockIcon size={11} />
+                  <span className="tabular-nums">{stats.locked}</span>
+                </button>
+                {stats.facsimile > 0 && (
+                  <button
+                    onClick={() => togglePill('facsimile')}
+                    className={cn(
+                      pillBase,
+                      'bg-purple-500/15 text-purple-300 border-purple-500/30',
+                      justifFilter === 'facsimile' && 'ring-2 ring-purple-400 bg-purple-500/30',
+                    )}
+                    title={`${stats.facsimile} fac-similé${stats.facsimile > 1 ? 's' : ''} · cliquer pour filtrer`}
+                  >
+                    <FacsimileIcon size={11} />
+                    <span className="tabular-nums">{stats.facsimile}</span>
+                  </button>
+                )}
+                <span className="text-text-muted/60 text-[10px] px-1">
+                  / {stats.total}
+                </span>
+                {justifFilter !== 'all' && justifFilter !== 'sans' && (
+                  <button
+                    onClick={() => setJustifFilter('all')}
+                    className="text-[10px] text-text-muted hover:text-text px-1.5"
+                    title="Afficher toutes les opérations"
+                  >
+                    Tout voir
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Filtre catégorie (persistant à travers les mois) */}
           <select
@@ -937,7 +1002,7 @@ export default function JustificatifsPage() {
                       {((op as Record<string, unknown>).ventilation as VentilationLine[] | undefined)?.map((vl, vlIdx) => (
                         <tr
                           key={`${rowId}-vl-${vlIdx}`}
-                          className="border-b border-border/10 bg-surface/30 hover:bg-surface/50 transition-colors"
+                          className="border-b border-border/10 bg-black/30 hover:bg-black/40 transition-colors"
                         >
                           <td className="px-2 py-1.5" />
                           <td className="py-1.5 px-4">

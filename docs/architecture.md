@@ -159,6 +159,11 @@ Scoring v2 : 4 critères orthogonaux + pondération dynamique
 Rapprochement automatique : POST /rapprochement/run-auto
   → Parcourt justificatifs en_attente avec OCR
   → compute_score pour chaque (op, justif), best_match si score ≥ 0.80 ET écart ≥ 0.02 avec 2ème
+  → Gate date (Session 27) : skip si best_match.score.detail.date <= 0.0 (écart > 14j)
+    • Protège contre cross-year hallucinés (montant + fournisseur + catégorie = 1.0 compensaient
+      score_date = 0 pour atteindre pile 0.80). Les rejetés passent en suggestions_fortes.
+  → Auto-lock (Session 27) : si best_score >= 0.95, pose op.locked = true + locked_at après associate()
+    • Retour associations_detail[].locked: bool + score: float pour propagation SSE toast
   → Chaîné automatiquement après OCR (3 points d'entrée) :
     - _run_ocr_background() dans justificatifs.py (upload)
     - batch_upload() dans ocr.py
@@ -276,15 +281,23 @@ justificatif_service.py : service de réparation des incohérences disque ↔ op
              - différent → hash_conflicts (SKIP)
            - Traites only → orphans_to_move_to_attente (B2)
        C : referenced - (traites ∪ attente) → ghost_refs (Justificatif=true mais fichier absent)
+       D : reconnectable_ventilation (Session 27) :
+           - _detect_ventilation_reconnects(orphan_names) parse chaque orphan B2 via
+             rename_service.try_parse_filename() → (supplier, YYYYMMDD, amount)
+           - Scan toutes les ops : sous-ligne ventilée VIDE avec même date + montant ±0.01€
+           - Match unique requis → reconnect candidate ; ambiguïtés skippées
+           - Retirés de orphans_to_move_to_attente (pour ne pas déplacer ce qui sera reconnecté)
 
   apply_link_repair(plan=None) → dict résultat typé
     - Si plan=None, re-scanne
-    - Ordre : A1 delete → A2 move → B1 delete → B2 move → C clear op.Lien
+    - Ordre : A1 delete → A2 move → B1 delete → 3b reconnect ventilation → B2 move → C clear op.Lien
     - Hash conflicts : count uniquement, jamais modifiés (log warning)
     - Chaque action propage le .ocr.json compagnon (_move_pdf_with_ocr, _delete_pdf_with_ocr)
     - Ghost refs groupés par op_file pour 1 seul load/save par fichier
+    - Reconnect ventilation : groupé par op_file + re-check idempotence avant write
     - Retourne {deleted_from_attente, moved_to_traites, deleted_from_traites,
-                moved_to_attente, ghost_refs_cleared, conflicts_skipped, errors}
+                moved_to_attente, ventilation_reconnected, ghost_refs_cleared,
+                conflicts_skipped, errors}
 
   Helpers :
     _md5_file(path, block=65536) : MD5 streamé par blocs
@@ -708,20 +721,41 @@ Fichier (PDF/JPG/PNG) déposé dans data/justificatifs/sandbox/
   → Attente écriture complète (polling getsize, 500ms)
   → Si image : _convert_image_to_pdf() → écriture PDF en_attente/ → suppression image
   → Si PDF : shutil.move → data/justificatifs/en_attente/ (gestion doublons avec suffix timestamp)
+  → [Session 27] _push_event(status="scanning") : toast.loading() côté frontend
   → ocr_service.extract_or_cached() → .ocr.json
-  → _process_file() lit le cache OCR après processing et extrait supplier / best_date / best_amount
-  → _push_event() pousse un event SSE enrichi avec ces 3 champs
+  → auto_rename_from_ocr() → rename filename canonique
+  → rapprochement_service.run_auto_rapprochement() → capture associations_detail pour ce justif
+    • Si match trouvé, le PDF est déplacé vers traites/ pendant l'associate
+  → get_justificatif_path() résout le chemin final (en_attente/ OU traites/)
+  → get_cached_result(final_path) → re-fetch supplier/best_date/best_amount/processed_at
+  → _push_event(status="processed") enrichi avec :
+    • auto_associated: bool, operation_ref: {file, index, ventilation_index, libelle, date, montant, locked, score}
+    • timestamp = processed_at OCR (pour event_id stable cross-reload)
   → Event SSE poussé via asyncio.Queue (thread-safe via loop.call_soon_threadsafe)
-  → Frontend : useSandbox hook (EventSource) **lifté dans AppLayout** → écoute globalement quelle que soit la page
-     - showArrivalToast(data) affiche un SandboxArrivalToast riche (toast.custom + createElement)
-     - Gradient violet→indigo, pulse ring, supplier/date/amount, badge AUTO, CTA "Voir dans l'historique"
-     - Navigation via window.history.pushState + PopStateEvent (pas useNavigate — évite un bug d'ordre des hooks)
-     - URL cible : /ocr?tab=historique&sort=scan_date&highlight={filename}
+  → [Session 27] Ring buffer _recent_events (deque maxlen=30, fenêtre 180s) alimenté
+    • get_recent_events() : rejeu au SSE connect dans _sse_generator
+    • seed_recent_events_from_disk() au lifespan boot : scan en_attente/ + traites/
+      - Pour traites/ : _lookup_operation_ref(pdf_name) scanne les ops pour enrichir operation_ref
+  → Frontend : useSandbox hook (EventSource) **lifté dans AppLayout** → écoute globalement
+     - [Session 27] Dédup via SEEN_EVENT_IDS: Set<string> module-level (FIFO 200)
+       • event_id = {filename}@{timestamp}@{status}
+     - [Session 27] showScanningToast(data) / dismissScanningToast(data) sur status="scanning"
+       • Match via SCANNING_TOASTS Map: sandbox_name → toastId
+       • Dismiss automatique à l'arrivée du processed correspondant
+     - showArrivalToast(data) sur status="processed" : SandboxArrivalToast riche
+       • Variante verte emerald "Associé automatiquement" si auto_associated === true
+         - Bloc op sous chips (libellé + date + montant) dans cadre emerald
+         - Pill 🔒 LOCKED warning si operation_ref.locked === true
+         - CTA "Voir l'opération" → /justificatifs?file=X&highlight=Y&filter=avec
+       • Variante violette classique "Nouveau scan reçu" sinon
+         - Gradient violet→indigo, pulse ring, supplier/date/amount, badge AUTO
+         - CTA "Voir dans l'historique" → /ocr?tab=historique&sort=scan_date&highlight={filename}
+     - Navigation via window.history.pushState + PopStateEvent (pas useNavigate — évite bug hooks order)
      - Invalidation TanStack Query (ocr-history, justificatifs, ged, operations)
 ```
 
 Au démarrage du backend, les fichiers (PDF/JPG/PNG) déjà présents dans sandbox/ sont traités automatiquement.
-Le watchdog est géré par le lifespan FastAPI (start/stop).
+Le watchdog est géré par le lifespan FastAPI (start/stop). Le seed disque permet de rattraper les events perdus lors d'un reload uvicorn (scanning non rejoués car trop court-vivant ; processed rejoués avec flag replayed: true).
 
 ### Rapprochement bancaire
 

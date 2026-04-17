@@ -48,6 +48,13 @@ function getOpBackendIndex(op: Operation | null | undefined, fallbackIdx: number
 
 function isOpUnmatched(op: Operation | undefined): boolean {
   if (!op) return false
+  // Op ventilée : unmatched si au moins une sous-ligne n'a pas de justif.
+  // Le champ parent `Lien justificatif` est legacy et peut pointer vers la
+  // 1re sous-ligne associée — ne pas s'y fier quand la ventilation existe.
+  const vlines = (op as Operation & { ventilation?: { justificatif?: string | null }[] }).ventilation
+  if (Array.isArray(vlines) && vlines.length > 0) {
+    return vlines.some((vl) => !vl?.justificatif || String(vl.justificatif).trim() === '')
+  }
   const lien = op['Lien justificatif']
   return !lien || lien.trim() === ''
 }

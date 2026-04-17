@@ -26,7 +26,7 @@ import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import { LockCell } from '@/components/LockCell'
 import { useBulkLock, type BulkLockItem } from '@/hooks/useBulkLock'
 import { BulkLockBar } from '@/components/BulkLockBar'
-import { Lock as LockIcon } from 'lucide-react'
+import { Lock as LockIcon, LockOpen, Copy as FacsimileIcon } from 'lucide-react'
 import { SnapshotCreateModal } from '@/components/snapshots/SnapshotCreateModal'
 import { SnapshotsListDrawer } from '@/components/snapshots/SnapshotsListDrawer'
 import { SnapshotViewerDrawer } from '@/components/snapshots/SnapshotViewerDrawer'
@@ -40,7 +40,7 @@ import VentilationLines from '@/components/editor/VentilationLines'
 import UrssafSplitWidget, { isUrssafOp } from '@/components/editor/UrssafSplitWidget'
 import { ParticipantsCell } from '@/components/editor/ParticipantsCell'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf, useCreateEmptyMonth } from '@/hooks/useOperations'
-import { useCategories } from '@/hooks/useApi'
+import { useCategories, useSettings } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
@@ -165,6 +165,8 @@ export default function EditorPage() {
   const [searchParams] = useSearchParams()
   const { data: files, isLoading: filesLoading } = useOperationFiles()
   const { data: categoriesData } = useCategories()
+  const { data: appSettings } = useSettings()
+  const exemptions = appSettings?.justificatif_exemptions
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const { selectedYear, setYear } = useFiscalYearStore()
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
@@ -207,6 +209,10 @@ export default function EditorPage() {
   // Special filter from Pipeline navigation
   const [filterUncategorized, setFilterUncategorized] = useState(false)
 
+  // Filtre pills header : avec | sans | exempt | locked | unlocked | facsimile | null
+  type HeaderFilter = 'avec' | 'sans' | 'exempt' | 'locked' | 'unlocked' | 'facsimile' | null
+  const [headerFilter, setHeaderFilter] = useState<HeaderFilter>(null)
+
   // UI state
   const [showFilters, setShowFilters] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -215,6 +221,11 @@ export default function EditorPage() {
 
   // Reset pagination when file or filters change
   useEffect(() => { setPageIndex(0) }, [selectedFile, allYearMode, globalFilter])
+
+  // Reset headerFilter au changement de fichier / année
+  useEffect(() => {
+    setHeaderFilter(null)
+  }, [selectedFile, allYearMode])
 
   // PDF preview state
   const { data: pdfStatus } = useHasPdf(selectedFile)
@@ -284,6 +295,47 @@ export default function EditorPage() {
     () => operations.filter(op => !!op.Justificatif && (op.ventilation?.length ?? 0) === 0),
     [operations]
   )
+
+  // Compteurs live du header : se mettent à jour dès que `operations` change
+  // (après save, undo, categorize, associate, unlock…). Pas de refetch requis.
+  // « sans » exclut les ops exemptées (CARMF/URSSAF/Perso/...) — celles-là
+  // n'ont pas besoin de justif, les compter comme "manquants" serait un faux
+  // positif. Une pill dédiée « exemptées » montre leur nombre séparément.
+  const headerCounters = useMemo(() => {
+    let withJ = 0
+    let withoutJ = 0
+    let exempt = 0
+    let locked = 0
+    let unlocked = 0  // avec justif mais pas verrouillée (à valider)
+    let facsimile = 0 // justif reconstitué (fac-similé)
+    const exCats = exemptions?.categories ?? []
+    const exSubCats = exemptions?.sous_categories ?? {}
+    for (const op of operations) {
+      const cat = (op['Catégorie'] ?? '').trim()
+      const sub = (op['Sous-catégorie'] ?? '').trim()
+      const isExempt = !!cat && (
+        exCats.includes(cat) ||
+        (!!sub && (exSubCats[cat] ?? []).includes(sub))
+      )
+      const vlines = op.ventilation ?? []
+      const isVentilated = vlines.length > 0
+      const hasJustif = isVentilated
+        ? vlines.every(vl => !!vl.justificatif)
+        : !!op.Justificatif || !!op['Lien justificatif']
+      if (hasJustif) withJ++
+      else if (isExempt) exempt++
+      else withoutJ++
+      if (op.locked === true) locked++
+      else if (hasJustif) unlocked++ // non verrouillée mais associée
+
+      // Fac-similé : détecte sur le parent OU dans une sous-ligne ventilée
+      const lien = op['Lien justificatif'] || ''
+      const hasFs = isReconstitue(lien)
+        || (isVentilated && vlines.some(vl => !!vl.justificatif && isReconstitue(vl.justificatif)))
+      if (hasFs) facsimile++
+    }
+    return { withJ, withoutJ, exempt, locked, unlocked, facsimile, total: operations.length }
+  }, [operations, exemptions])
 
   const toggleLockSelection = useCallback((key: string) => {
     setLockSelectedOps(prev => {
@@ -850,6 +902,59 @@ export default function EditorPage() {
       accessorKey: 'Justificatif',
       header: () => <Paperclip size={14} className="mx-auto" title="Justificatif" />,
       size: 56,
+      // Filtre custom : interprète les valeurs magiques déclenchées par les pills du header.
+      // - __header_avec__ : op avec justificatif (parent ou toutes vl ventilées)
+      // - __header_sans__ : op sans justificatif ET non exemptée
+      // - __header_exempt__ : op exemptée (catégorie ou sous-cat dans exemptions)
+      // - __header_locked__ : op verrouillée
+      filterFn: (row, _columnId, filterValue) => {
+        const op = row.original
+        if (filterValue === '__header_locked__') {
+          return op.locked === true
+        }
+        if (filterValue === '__header_unlocked__') {
+          // Non verrouillée ET associée (to-review set)
+          if (op.locked === true) return false
+          const vl = op.ventilation ?? []
+          const hasJustif = vl.length > 0
+            ? vl.every(v => !!v.justificatif)
+            : !!op.Justificatif || !!op['Lien justificatif']
+          return hasJustif
+        }
+        if (filterValue === '__header_facsimile__') {
+          const vl = op.ventilation ?? []
+          const lien = op['Lien justificatif'] || ''
+          return isReconstitue(lien)
+            || (vl.length > 0 && vl.some(v => !!v.justificatif && isReconstitue(v.justificatif)))
+        }
+        if (filterValue === '__header_exempt__') {
+          const cat = (op['Catégorie'] ?? '').trim()
+          const sub = (op['Sous-catégorie'] ?? '').trim()
+          if (!cat || !exemptions) return false
+          return (
+            exemptions.categories.includes(cat) ||
+            (!!sub && (exemptions.sous_categories?.[cat] ?? []).includes(sub))
+          )
+        }
+        if (filterValue === '__header_avec__' || filterValue === '__header_sans__') {
+          const vlines = op.ventilation ?? []
+          const isVentilated = vlines.length > 0
+          const hasJustif = isVentilated
+            ? vlines.every(vl => !!vl.justificatif)
+            : !!op.Justificatif || !!op['Lien justificatif']
+          if (filterValue === '__header_avec__') return hasJustif
+          // sans : no justif AND not exempt
+          if (hasJustif) return false
+          const cat = (op['Catégorie'] ?? '').trim()
+          const sub = (op['Sous-catégorie'] ?? '').trim()
+          const isExempt = !!cat && !!exemptions && (
+            exemptions.categories.includes(cat) ||
+            (!!sub && (exemptions.sous_categories?.[cat] ?? []).includes(sub))
+          )
+          return !isExempt
+        }
+        return true
+      },
       cell: ({ row }) => {
         const hasJustif = row.original.Justificatif || false
         const hintScore = batchHints?.[String(row.index)]
@@ -1312,6 +1417,109 @@ export default function EditorPage() {
         description="Modifier et catégoriser vos opérations bancaires"
         actions={
           <div className="flex gap-2 items-center">
+            {/* Compteurs live + pills cliquables pour filtrer la table */}
+            {operations.length > 0 && (() => {
+              const togglePill = (target: NonNullable<HeaderFilter>) => {
+                const next = headerFilter === target ? null : target
+                setHeaderFilter(next)
+                const magic =
+                  next === 'avec' ? '__header_avec__' :
+                  next === 'sans' ? '__header_sans__' :
+                  next === 'exempt' ? '__header_exempt__' :
+                  next === 'locked' ? '__header_locked__' :
+                  next === 'unlocked' ? '__header_unlocked__' :
+                  next === 'facsimile' ? '__header_facsimile__' :
+                  undefined
+                table.getColumn('Justificatif')?.setFilterValue(magic)
+              }
+              const pillBase = 'inline-flex items-center gap-1 px-2 py-1 rounded-md border transition-all cursor-pointer hover:brightness-110'
+              return (
+                <div className="flex items-center gap-1.5 mr-1 text-[11px] font-medium">
+                  <button
+                    onClick={() => togglePill('avec')}
+                    className={cn(
+                      pillBase,
+                      'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+                      headerFilter === 'avec' && 'ring-2 ring-emerald-400 bg-emerald-500/30',
+                    )}
+                    title={`${headerCounters.withJ} avec justificatif · cliquer pour filtrer`}
+                  >
+                    <Paperclip size={11} />
+                    <span className="tabular-nums">{headerCounters.withJ}</span>
+                  </button>
+                  <button
+                    onClick={() => togglePill('sans')}
+                    className={cn(
+                      pillBase,
+                      'bg-amber-500/15 text-amber-300 border-amber-500/30',
+                      headerFilter === 'sans' && 'ring-2 ring-amber-400 bg-amber-500/30',
+                    )}
+                    title={`${headerCounters.withoutJ} sans justificatif (hors exemptions) · cliquer pour filtrer`}
+                  >
+                    <Paperclip size={11} className="opacity-50" />
+                    <span className="tabular-nums">{headerCounters.withoutJ}</span>
+                  </button>
+                  {headerCounters.exempt > 0 && (
+                    <button
+                      onClick={() => togglePill('exempt')}
+                      className={cn(
+                        pillBase,
+                        'bg-sky-500/15 text-sky-300 border-sky-500/30',
+                        headerFilter === 'exempt' && 'ring-2 ring-sky-400 bg-sky-500/30',
+                      )}
+                      title={`${headerCounters.exempt} exemptée${headerCounters.exempt > 1 ? 's' : ''} · cliquer pour filtrer`}
+                    >
+                      <CheckCircle2 size={11} />
+                      <span className="tabular-nums">{headerCounters.exempt}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => togglePill('locked')}
+                    className={cn(
+                      pillBase,
+                      'bg-warning/15 text-warning border-warning/30',
+                      headerFilter === 'locked' && 'ring-2 ring-warning bg-warning/30',
+                    )}
+                    title={`${headerCounters.locked} verrouillée${headerCounters.locked > 1 ? 's' : ''} · cliquer pour filtrer`}
+                  >
+                    <LockIcon size={11} />
+                    <span className="tabular-nums">{headerCounters.locked}</span>
+                  </button>
+                  {headerCounters.unlocked > 0 && (
+                    <button
+                      onClick={() => togglePill('unlocked')}
+                      className={cn(
+                        pillBase,
+                        'bg-rose-500/15 text-rose-300 border-rose-500/30',
+                        headerFilter === 'unlocked' && 'ring-2 ring-rose-400 bg-rose-500/30',
+                      )}
+                      title={`${headerCounters.unlocked} associée${headerCounters.unlocked > 1 ? 's' : ''} mais non verrouillée${headerCounters.unlocked > 1 ? 's' : ''} (à valider) · cliquer pour filtrer`}
+                    >
+                      <LockOpen size={11} />
+                      <span className="tabular-nums">{headerCounters.unlocked}</span>
+                    </button>
+                  )}
+                  {headerCounters.facsimile > 0 && (
+                    <button
+                      onClick={() => togglePill('facsimile')}
+                      className={cn(
+                        pillBase,
+                        'bg-purple-500/15 text-purple-300 border-purple-500/30',
+                        headerFilter === 'facsimile' && 'ring-2 ring-purple-400 bg-purple-500/30',
+                      )}
+                      title={`${headerCounters.facsimile} fac-similé${headerCounters.facsimile > 1 ? 's' : ''} (justif reconstitué) · cliquer pour filtrer`}
+                    >
+                      <FacsimileIcon size={11} />
+                      <span className="tabular-nums">{headerCounters.facsimile}</span>
+                    </button>
+                  )}
+                  <span className="text-text-muted/60 text-[10px] px-1">
+                    / {headerCounters.total}
+                  </span>
+                </div>
+              )
+            })()}
+
             {allYearMode && (
               <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
                 Lecture seule — Année complète
