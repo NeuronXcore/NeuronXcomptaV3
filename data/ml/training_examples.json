@@ -1813,5 +1813,10 @@
     "libelle": "virementsepaemisrefdoandrececcoli",
     "categorie": "Revenus",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "lhuilleryvoltaagen",
+    "categorie": "Repas pro",
+    "sous_categorie": ""
   }
 ]

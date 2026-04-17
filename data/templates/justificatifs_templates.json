@@ -3,7 +3,7 @@
   "templates": [
     {
       "id": "tpl_1c760f2a",
-      "vendor": "Auchan",
+      "vendor": "Auchan essence",
       "vendor_aliases": [
         "auchan",
         "auchandac"
@@ -71,7 +71,7 @@
     },
     {
       "id": "tpl_a83113c8",
-      "vendor": "CLIPTCHAUME",
+      "vendor": "Repas Clinique",
       "vendor_aliases": [],
       "category": "Repas pro",
       "sous_categorie": "Repas seul",
@@ -112,7 +112,7 @@
     },
     {
       "id": "tpl_b7171931",
-      "vendor": "ASF Lieu-dit",
+      "vendor": "ASF Péage",
       "vendor_aliases": [
         "asf lieu-dit",
         "asflieudit",
@@ -166,6 +166,63 @@
       "page_width_pt": null,
       "page_height_pt": null,
       "taux_tva": 20.0
+    },
+    {
+      "id": "tpl_c3df54e2",
+      "vendor": "PARC CONSUL DUPUY",
+      "vendor_aliases": [
+        "parc consul dupuy",
+        "parcconsuldupuy",
+        "parc"
+      ],
+      "category": null,
+      "sous_categorie": null,
+      "source_justificatif": "parc-consul-dupuy_20250430_0.70.pdf",
+      "fields": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "date",
+          "source": "operation",
+          "required": true,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": 0.8,
+          "coordinates": null
+        },
+        {
+          "key": "montant_ttc",
+          "label": "Montant TTC",
+          "type": "currency",
+          "source": "operation",
+          "required": true,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": 0.8,
+          "coordinates": null
+        },
+        {
+          "key": "fournisseur",
+          "label": "Fournisseur",
+          "type": "text",
+          "source": "ocr",
+          "required": false,
+          "default": null,
+          "formula": null,
+          "options": null,
+          "ocr_confidence": 0.7,
+          "coordinates": null
+        }
+      ],
+      "created_at": "2026-04-17T18:12:16.005238",
+      "created_from": "manual",
+      "usage_count": 0,
+      "is_blank_template": false,
+      "page_width_pt": null,
+      "page_height_pt": null,
+      "taux_tva": 10.0
     }
   ]
 }

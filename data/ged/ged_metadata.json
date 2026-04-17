@@ -7276,29 +7276,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/boulanger_20250917_698.00_20260412_080735.pdf": {
-      "doc_id": "data/justificatifs/en_attente/boulanger_20250917_698.00_20260412_080735.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-12T10:19:22.350676",
-      "original_name": "boulanger_20250917_698.00_20260412_080735.pdf",
-      "ocr_file": "data/justificatifs/en_attente/boulanger_20250917_698.00_20260412_080735.ocr.json",
-      "fournisseur": "Boulanger",
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": 3
-      },
-      "montant": 698.0020260412081,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/boulanger_20250924_1249.99_20260412_080736.pdf": {
       "doc_id": "data/justificatifs/en_attente/boulanger_20250924_1249.99_20260412_080736.pdf",
       "type": "justificatif",
@@ -8922,29 +8899,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/justificatifs/en_attente/orange_20250124_104.97.pdf": {
-      "doc_id": "data/justificatifs/en_attente/orange_20250124_104.97.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "orange_20250124_104.97.pdf",
-      "ocr_file": "data/justificatifs/en_attente/orange_20250124_104.97.ocr.json",
-      "fournisseur": "Orange",
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": 1
-      },
-      "montant": 104.97,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/orange_20250912_46.99_2.pdf": {
       "doc_id": "data/justificatifs/en_attente/orange_20250912_46.99_2.pdf",
       "type": "justificatif",
@@ -9333,29 +9287,6 @@
         "quarter": 4
       },
       "montant": 274.75,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
-    "data/justificatifs/en_attente/udemy_20251006_424.75.pdf": {
-      "doc_id": "data/justificatifs/en_attente/udemy_20251006_424.75.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 10,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "udemy_20251006_424.75.pdf",
-      "ocr_file": "data/justificatifs/en_attente/udemy_20251006_424.75.ocr.json",
-      "fournisseur": "Udemy",
-      "period": {
-        "year": 2025,
-        "month": 10,
-        "quarter": 4
-      },
-      "montant": 424.75,
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
@@ -14609,6 +14540,157 @@
         "generated_at": "2026-04-17T12:25:00.898198",
         "can_regenerate": true,
         "can_compare": true
+      }
+    },
+    "data/justificatifs/traites/orange_20250124_104.97.pdf": {
+      "doc_id": "data/justificatifs/traites/orange_20250124_104.97.pdf",
+      "type": "justificatif",
+      "year": 2024,
+      "month": 8,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "orange_20250124_104.97.pdf",
+      "ocr_file": "data/justificatifs/traites/orange_20250124_104.97.ocr.json",
+      "fournisseur": "orange\"",
+      "period": {
+        "year": 2024,
+        "month": 8,
+        "quarter": 3
+      },
+      "montant": 105.97,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Autres",
+      "sous_categorie": "",
+      "date_operation": "2024-08-05",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185203_bd2093e1.json",
+        "index": 91,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/udemy_20251006_424.75.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251006_424.75.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "udemy_20251006_424.75.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251006_424.75.ocr.json",
+      "fournisseur": "Udemy",
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "montant": 424.75,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Formations",
+      "sous_categorie": "Udemy",
+      "date_operation": "2025-10-06",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 22,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/parc-consul-dupuy_20250430_0.70.pdf": {
+      "doc_id": "data/justificatifs/traites/parc-consul-dupuy_20250430_0.70.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T18:35:18.789562",
+      "original_name": "parc-consul-dupuy_20250430_0.70.pdf",
+      "ocr_file": "data/justificatifs/traites/parc-consul-dupuy_20250430_0.70.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Parking",
+      "date_operation": "2025-04-30",
+      "montant": 0.7,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 71,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
+      },
+      "fournisseur": "Parc Consul Dupuy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/en_attente/royal-buffet_20250322_39.80.pdf": {
+      "doc_id": "data/justificatifs/en_attente/royal-buffet_20250322_39.80.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 3,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T18:35:18.789562",
+      "original_name": "royal-buffet_20250322_3.62.pdf",
+      "ocr_file": "data/justificatifs/en_attente/royal-buffet_20250322_3.62.ocr.json",
+      "filename": "royal-buffet_20250322_39.80.pdf",
+      "renamed_from": "royal-buffet_20250322_3.62.pdf",
+      "fournisseur": "Royal Buffet",
+      "period": {
+        "year": 2025,
+        "month": 3,
+        "quarter": 1
+      },
+      "montant": 39.8,
+      "is_reconstitue": false,
+      "statut_justificatif": "en_attente"
+    },
+    "data/justificatifs/traites/bistrot-voltaire_20250428_87.20.pdf": {
+      "doc_id": "data/justificatifs/traites/bistrot-voltaire_20250428_87.20.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 4,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-17T19:06:23.068680",
+      "original_name": "bistrot-voltaire_20250428_87.20.pdf",
+      "ocr_file": "data/justificatifs/traites/bistrot-voltaire_20250428_87.20.ocr.json",
+      "statut_justificatif": "traite",
+      "categorie": "Repas pro",
+      "sous_categorie": "",
+      "fournisseur": "BISTROT VOLTAIRE",
+      "date_operation": "2025-04-26",
+      "montant": 87.2,
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202504_20260414_234739.json",
+        "index": 62,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 4,
+        "quarter": 2
       }
     }
   }

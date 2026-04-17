@@ -217,7 +217,7 @@
     "asfagen vedene": "Véhicule",
     "sport2000 montauban": "perso",
     "vircpteacpteemismotifbnpacben": "perso",
-    "lhuilleryvoltaagen": "Véhicule",
+    "lhuilleryvoltaagen": "Repas pro",
     "cursorusage m": "Abonnements",
     "gardenicecafemontauban": "Repas pro",
     "groupeburoteam00montauban": "perso",
@@ -333,7 +333,7 @@
     "autowashpowermontauban": "Entretien",
     "asf2paiementvedene": "Péage",
     "auchanmontaubamontauban": "Essence",
-    "virseparecufrmscpanesthesioloeid": "Bloc",
+    "virseparecufrmscpanesthesioloeid": "Optam",
     "norauto205 montauban": "Entretien",
     "virementsepaemismotifimpotsrevenus": "virement",
     "auchandac montauban": "Essence",
@@ -415,7 +415,8 @@
     "sncdls montauban": "Repas seul",
     "mcdonalds montauban": "Repas seul",
     "prlvsepafcebankplcech180725id": "Loyer",
-    "hotelibisstylmontauban": "Hébergement"
+    "hotelibisstylmontauban": "Hébergement",
+    "lhuilleryvoltaagen": "Repas confrères"
   },
   "stats": {
     "operations_processed": 0,
