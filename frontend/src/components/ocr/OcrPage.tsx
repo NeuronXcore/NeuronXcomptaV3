@@ -1099,6 +1099,15 @@ function OcrListTab({
                   >
                     Date {sortField === 'date' && (sortDir === 'desc' ? '↓' : '↑')}
                   </th>
+                  {statusFilter === 'traites' && (
+                    <th
+                      className="text-left px-4 py-3 font-medium cursor-pointer hover:text-text"
+                      onClick={() => toggleSort('scan_date')}
+                      title="Date de traitement OCR (processed_at)"
+                    >
+                      Date scan {sortField === 'scan_date' && (sortDir === 'desc' ? '↓' : '↑')}
+                    </th>
+                  )}
                   <th className="text-left px-4 py-3 font-medium">Montants</th>
                   <th
                     className="text-left px-4 py-3 font-medium cursor-pointer hover:text-text"
@@ -1159,6 +1168,18 @@ function OcrListTab({
                         ? `${String(item._month).padStart(2, '0')}/${item._year}`
                         : item.processed_at ? new Date(item.processed_at).toLocaleDateString('fr-FR') : '-'}
                     </td>
+                    {statusFilter === 'traites' && (
+                      <td className="px-4 py-3 text-xs text-text-muted whitespace-nowrap">
+                        {item.processed_at ? (
+                          <div className="flex flex-col leading-tight">
+                            <span>{new Date(item.processed_at).toLocaleDateString('fr-FR')}</span>
+                            <span className="text-[10px] opacity-60">
+                              {new Date(item.processed_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        ) : '-'}
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {item.amounts_found.slice(0, 2).map((a, j) => (

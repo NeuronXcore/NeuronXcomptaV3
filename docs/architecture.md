@@ -459,20 +459,25 @@ ML Auto-learning (au save éditeur) :
 ```
 Architecture ZIP (generate_single_export) :
   Export_Comptable_{YYYY}_{Mois}_{PDF|CSV}_{timestamp}.zip
-  ├── Export_Comptable_{YYYY}_{Mois}.pdf    (toujours inclus)
-  ├── Export_Comptable_{YYYY}_{Mois}.csv    (toujours inclus)
+  ├── Export_Comptable_{YYYY}_{Mois}.pdf             (chronologique, toujours inclus)
+  ├── Export_Comptable_{YYYY}_{Mois}.csv             (chronologique, toujours inclus)
+  ├── Ventilation_par_categorie_{YYYY}-{MM}_{Mois}.pdf   (Session 31, toujours inclus)
+  ├── Ventilation_par_categorie_{YYYY}-{MM}_{Mois}.csv   (Session 31, toujours inclus)
   ├── releves/
-  │   └── pdf_{hash}.pdf                     (relevé bancaire si trouvé)
+  │   └── pdf_{hash}.pdf                             (relevé bancaire si trouvé)
+  ├── rapports/
+  │   └── *.pdf                                      (rapports auto-détectés pour le mois)
   ├── justificatifs/
-  │   └── *.pdf                              (justificatifs associés aux opérations)
-  └── compte_attente/                        (si include_compte_attente=true, défaut)
+  │   └── *.pdf                                      (justificatifs associés aux opérations)
+  └── compte_attente/                                (si include_compte_attente=true, défaut)
       ├── compte_attente_{mois}.pdf
       └── compte_attente_{mois}.csv
 
 Post-génération :
-  → Copie standalone PDF+CSV dans data/reports/ (scanné par la GED)
+  → Copie standalone PDF+CSV chronologique dans data/reports/ (scanné par la GED)
   → Enregistrement GED via register_rapport() (report_type: "export_comptable")
-  → Déduplication : régénérer écrase le fichier et met à jour l'entrée GED
+  → Déduplication GED : régénérer écrase le fichier et met à jour l'entrée GED
+  → Déduplication historique (Session 31) : voir `_log_export` ci-dessous
 
 _prepare_export_operations(operations, filename) :
   → Itère les opérations, explose les ventilations en sous-lignes [V1/N]
@@ -483,8 +488,41 @@ _prepare_export_operations(operations, filename) :
   → Trie chaque groupe par date ASC
   → Calcule totaux : recettes_pro, charges_pro, solde_bnc, total_perso, total_attente
 
-CSV : séparateur ;, UTF-8 BOM, CRLF, montants FR via _format_amount_fr()
-PDF : paysage A4, logo backend/assets/, footer Page X/Y + NeuronXcompta
+CSV chronologique : séparateur ;, UTF-8 BOM, CRLF, montants FR via _format_amount_fr()
+PDF chronologique : paysage A4, logo backend/assets/, footer Page X/Y + NeuronXcompta
+
+Ventilation par catégorie (Session 31) :
+  _group_by_category(prepared) :
+    → Fusionne pro + perso + attente, re-groupe par (Catégorie, Sous-catégorie)
+    → Tri alpha catégorie puis alpha sous-catégorie
+    → Retourne { groups: [{ categorie, subcats: [{ sous_categorie, lines, debit, credit }],
+                            debit, credit, count, net }], grand_debit, grand_credit, grand_net }
+
+  _generate_pdf_by_category(prepared, month_name, year, month) :
+    → A4 portrait, logo centré, titre "Ventilation par catégorie — {Mois} {Year}"
+    → Pour chaque catégorie : header bleu foncé + sous-sections (1 tableau par sous-cat
+      avec ops + ligne sous-total gris) + bandeau bleu "TOTAL {cat} (N op.)" avec Net
+    → Bandeau noir final "TOTAL GÉNÉRAL (N op.)" avec Net
+    → Pagination footer "Page X — Ventilation par catégorie — {Mois} {Year}"
+
+  _generate_csv_by_category(prepared, month_name, year) :
+    → Titre + nb ops en header (2 lignes texte avant le header CSV)
+    → Même 8 colonnes que le chronologique
+    → Lignes de sous-total par sous-catégorie : "Sous-total {sous_cat} (N op.)"
+    → Lignes de TOTAL par catégorie : "TOTAL {cat} (N op.)" + ligne blanche
+    → Ligne finale "TOTAL GÉNÉRAL (N op.)"
+
+_find_bank_statement(operation_filename) (Session 31) :
+  → Cas 1 : regex originale "operations_\d{8}_\d{6}_<hex>.json" → pdf_<hex>.pdf direct
+  → Cas 2 : fichier "operations_(merged|split)_YYYYMM_*.json" (hex d'origine perdu
+    après split/merge) → scan data/imports/operations/_archive/*.bak_* :
+      - Extraire hex de chaque archive (regex sur .bak_ name)
+      - Résoudre pdf_<hex>.pdf dans IMPORTS_RELEVES_DIR (skip si absent)
+      - Charger l'archive, compter ops où (year, month) == target
+      - Skip si nb_in_month < 3 (évite les débordements de quelques ops)
+      - Scorer par (is_monthly, nb_in_month, concentration) — is_monthly=True
+        si nb_in_month/total ≥ 0.8 (vrai fichier mensuel gagne)
+      - Retourner le pdf du meilleur score
 
 Statut mensuel (get_month_export_status) :
   → 12 mois × { nb_operations, has_data, has_pdf, has_csv, nb_releves, nb_rapports, nb_justificatifs }
@@ -493,10 +531,16 @@ Statut mensuel (get_month_export_status) :
 Historique (exports_history.json) :
   → Log automatique à chaque génération (_log_export)
   → Entrées : id, year, month, format, filename, title, nb_operations, generated_at
+  → Déduplication Session 31 : avant d'appender, toute entrée antérieure avec le
+    même triplet (year, month, format) est retirée de l'historique ET le ZIP
+    correspondant est supprimé du disque (unlink best-effort, try/except OSError).
+    → le dernier export wins, historique et disque restent propres.
 
 Batch (generate_batch_export) :
   → ZIP multi-mois avec sous-dossiers {Mois}_{Année}/
-  → Chaque sous-dossier contient la même architecture que l'export unitaire
+  → Chaque sous-dossier contient PDF+CSV chronologique + ventilation par catégorie
+    PDF+CSV (Session 31) + relevé + rapports + justificatifs
+  → _log_export appelé par mois avec le même ZIP filename (dédup s'applique)
 ```
 
 ### Export Compte d'Attente

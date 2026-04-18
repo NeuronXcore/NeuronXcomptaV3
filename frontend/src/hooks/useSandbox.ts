@@ -131,7 +131,7 @@ function showArrivalToast(data: SandboxEvent) {
         operationLocked: !!opRef?.locked,
         onClickOpen,
       }),
-    { duration: Infinity, position: 'top-right' },
+    { duration: autoAssociated ? 8000 : Infinity, position: 'top-right' },
   )
 }
 

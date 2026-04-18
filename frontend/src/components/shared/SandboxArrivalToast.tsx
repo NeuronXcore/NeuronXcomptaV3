@@ -1,6 +1,41 @@
-import { ScanLine, Sparkles, X, ArrowRight, CheckCircle2, Link2, Lock } from 'lucide-react'
+import { ScanLine, Sparkles, X, ArrowRight, Link2, Lock, Trophy } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { cn, formatCurrency } from '@/lib/utils'
+
+/**
+ * Confetti burst — 8 particules qui explosent en étoile autour de l'icône.
+ * Angles équidistants (0° à 315° par 45°) à un rayon de ~42px, couleurs variées.
+ * Animation one-shot 900ms via `@keyframes victory-confetti` (index.css).
+ */
+const CONFETTI_PARTICLES: Array<{ cx: number; cy: number; cr: number; color: string; delay: number }> = [
+  { cx:  42, cy:   0, cr: 180, color: 'bg-emerald-400', delay: 0   },
+  { cx:  30, cy: -30, cr: 220, color: 'bg-lime-400',    delay: 30  },
+  { cx:   0, cy: -42, cr: 160, color: 'bg-yellow-300',  delay: 60  },
+  { cx: -30, cy: -30, cr: 200, color: 'bg-amber-300',   delay: 90  },
+  { cx: -42, cy:   0, cr: 180, color: 'bg-teal-400',    delay: 40  },
+  { cx: -30, cy:  30, cr: 240, color: 'bg-rose-300',    delay: 70  },
+  { cx:   0, cy:  42, cr: 160, color: 'bg-sky-300',     delay: 20  },
+  { cx:  30, cy:  30, cr: 200, color: 'bg-violet-400',  delay: 50  },
+]
+
+function ConfettiBurst() {
+  return (
+    <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+      {CONFETTI_PARTICLES.map((p, i) => (
+        <span
+          key={i}
+          className={cn('absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-sm animate-victory-confetti', p.color)}
+          style={{
+            ['--cx' as string]: `${p.cx}px`,
+            ['--cy' as string]: `${p.cy}px`,
+            ['--cr' as string]: `${p.cr}deg`,
+            animationDelay: `${p.delay}ms`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
 
 interface Props {
   toastId: string
@@ -53,14 +88,14 @@ export default function SandboxArrivalToast({
 
   const accent = autoAssociated
     ? {
-        gradient: 'bg-gradient-to-br from-emerald-500/60 via-teal-500/40 to-emerald-400/60',
-        iconBg: 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/40',
-        iconColor: 'text-emerald-300',
-        ring: 'border-emerald-400/60',
-        label: 'text-emerald-300',
-        cta: 'text-emerald-300',
-        LabelIcon: CheckCircle2,
-        title: 'Associé automatiquement',
+        gradient: 'bg-gradient-to-br from-emerald-400/80 via-lime-400/60 to-yellow-300/70',
+        iconBg: 'bg-gradient-to-br from-emerald-500/30 to-yellow-300/30 border-emerald-400/60',
+        iconColor: 'text-yellow-200',
+        ring: 'border-emerald-300/80',
+        label: 'text-emerald-200',
+        cta: 'text-emerald-100',
+        LabelIcon: Trophy,
+        title: "C'est dans la boîte !",
         ctaText: "Voir l'opération",
       }
     : {
@@ -75,12 +110,14 @@ export default function SandboxArrivalToast({
         ctaText: "Voir en attente",
       }
 
+  const enterAnimation = autoAssociated ? 'animate-victory-bounce' : 'animate-enter'
+
   return (
     <div
       className={cn(
         'relative max-w-[420px] w-full rounded-2xl p-[1px] shadow-2xl cursor-pointer group',
         accent.gradient,
-        visible ? 'animate-enter' : 'animate-leave',
+        visible ? enterAnimation : 'animate-leave',
       )}
       onClick={() => {
         toast.dismiss(toastId)
@@ -95,12 +132,19 @@ export default function SandboxArrivalToast({
         <div className="shrink-0 relative">
           <div className={cn('w-11 h-11 rounded-xl border flex items-center justify-center', accent.iconBg)}>
             {autoAssociated ? (
-              <CheckCircle2 size={20} className={accent.iconColor} />
+              <Trophy size={20} className={accent.iconColor} />
             ) : (
               <ScanLine size={20} className={accent.iconColor} />
             )}
           </div>
-          <span className={cn('absolute inset-0 rounded-xl border-2 animate-ping-slow pointer-events-none', accent.ring)} />
+          <span
+            className={cn(
+              'absolute inset-0 rounded-xl border-2 pointer-events-none',
+              accent.ring,
+              autoAssociated ? 'animate-victory-ring' : 'animate-ping-slow',
+            )}
+          />
+          {autoAssociated && <ConfettiBurst />}
         </div>
 
         {/* Contenu */}

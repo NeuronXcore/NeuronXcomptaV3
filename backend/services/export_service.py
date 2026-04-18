@@ -213,9 +213,41 @@ def _log_export(
     title: str,
     nb_operations: int,
 ) -> None:
-    """Ajoute une entree dans l'historique des exports."""
+    """Ajoute une entree dans l'historique des exports.
+
+    Déduplique par (year, month, format) : toute entrée antérieure pour le même
+    triplet est retirée et le ZIP correspondant est supprimé du disque (si encore
+    présent dans EXPORTS_DIR). Évite l'empilement des exports successifs pour un
+    même mois.
+    """
     history = _load_exports_history()
-    entry = {
+
+    # Dédup : supprimer les entrées antérieures du même (year, month, fmt)
+    retained = []
+    superseded = []
+    for e in history:
+        if (
+            e.get("year") == year
+            and e.get("month") == month
+            and e.get("format") == fmt
+        ):
+            superseded.append(e)
+        else:
+            retained.append(e)
+
+    # Supprimer les ZIP des entrées supplantées (best-effort)
+    for old in superseded:
+        old_fn = old.get("filename")
+        if not old_fn:
+            continue
+        old_path = EXPORTS_DIR / old_fn
+        try:
+            if old_path.exists() and old_path.suffix == ".zip":
+                old_path.unlink()
+        except OSError as err:
+            logger.warning("Impossible de supprimer l'export supplanté %s: %s", old_fn, err)
+
+    retained.append({
         "id": f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
         "year": year,
         "month": month,
@@ -224,9 +256,8 @@ def _log_export(
         "title": title,
         "nb_operations": nb_operations,
         "generated_at": datetime.now().isoformat(),
-    }
-    history.append(entry)
-    _save_exports_history(history)
+    })
+    _save_exports_history(retained)
 
 
 def get_exports_history(year: Optional[int] = None) -> list:
@@ -478,6 +509,20 @@ def generate_single_export(
         zf.writestr(csv_arc, csv_content)
         files_included.append({"name": csv_arc, "type": "csv"})
 
+        # ── Ventilation par catégorie (PDF + CSV avec sous-totaux) ──
+        try:
+            cat_pdf_bytes = _generate_pdf_by_category(prepared, month_name, year, month)
+            cat_pdf_arc = _category_pdf_filename(year, month)
+            zf.writestr(cat_pdf_arc, cat_pdf_bytes)
+            files_included.append({"name": cat_pdf_arc, "type": "ventilation_categorie_pdf"})
+
+            cat_csv_content = _generate_csv_by_category(prepared, month_name, year)
+            cat_csv_arc = _category_csv_filename(year, month)
+            zf.writestr(cat_csv_arc, cat_csv_content)
+            files_included.append({"name": cat_csv_arc, "type": "ventilation_categorie_csv"})
+        except Exception as e:
+            logger.warning("Impossible de générer la ventilation par catégorie: %s", e)
+
         # ── Copie standalone dans REPORTS_DIR + enregistrement GED ──
         try:
             from backend.services import ged_service
@@ -630,6 +675,19 @@ def generate_batch_export(year: int, months: list, fmt: str) -> dict:
                 else:
                     csv_content = _generate_csv_content(prepared, month_name, year)
                     zf.writestr(f"{prefix}/{_export_filename(year, m, 'csv')}", csv_content)
+
+                # Ventilation par catégorie (toujours PDF + CSV)
+                try:
+                    zf.writestr(
+                        f"{prefix}/{_category_pdf_filename(year, m)}",
+                        _generate_pdf_by_category(prepared, month_name, year, m),
+                    )
+                    zf.writestr(
+                        f"{prefix}/{_category_csv_filename(year, m)}",
+                        _generate_csv_by_category(prepared, month_name, year),
+                    )
+                except Exception as e:
+                    logger.warning("Batch ventilation par catégorie skip %d: %s", m, e)
 
                 # Releves
                 bank_pdf = _find_bank_statement(target_file["filename"])
@@ -1309,6 +1367,326 @@ def _generate_pdf_content(prepared: dict, month_name: str, year: int, month: int
     return buffer.getvalue()
 
 
+# ─── Ventilation par catégorie (PDF + CSV avec sous-totaux) ───
+
+def _group_by_category(prepared: dict) -> dict:
+    """Agrège toutes les lignes (pro + perso + attente) par (Catégorie, Sous-catégorie).
+
+    Ventilations déjà explosées par `_prepare_export_operations`. Catégorie vide
+    ou "Ventilé" parent jamais présent ici (les enfants arrivent avec leur propre
+    cat/sous-cat). Retour trié par cat alpha, sub alpha.
+    """
+    all_lines = list(prepared.get("pro") or []) + list(prepared.get("perso") or []) + list(prepared.get("attente") or [])
+
+    groups: dict[str, dict] = {}
+    for line in all_lines:
+        cat = (line.get("Categorie") or "").strip() or "(Sans catégorie)"
+        sub = (line.get("Sous_categorie") or "").strip() or "(Sans sous-catégorie)"
+        g = groups.setdefault(cat, {"lines_by_sub": {}, "debit": 0.0, "credit": 0.0, "count": 0})
+        sg = g["lines_by_sub"].setdefault(sub, {"lines": [], "debit": 0.0, "credit": 0.0})
+        sg["lines"].append(line)
+        sg["debit"] += _safe_float(line.get("Debit"))
+        sg["credit"] += _safe_float(line.get("Credit"))
+        g["debit"] += _safe_float(line.get("Debit"))
+        g["credit"] += _safe_float(line.get("Credit"))
+        g["count"] += 1
+
+    ordered = []
+    for cat in sorted(groups.keys(), key=lambda s: s.lower()):
+        g = groups[cat]
+        subcats = []
+        for sub in sorted(g["lines_by_sub"].keys(), key=lambda s: s.lower()):
+            sg = g["lines_by_sub"][sub]
+            sg["lines"].sort(key=lambda l: l.get("Date") or "")
+            subcats.append({
+                "sous_categorie": sub,
+                "lines": sg["lines"],
+                "debit": sg["debit"],
+                "credit": sg["credit"],
+            })
+        ordered.append({
+            "categorie": cat,
+            "subcats": subcats,
+            "debit": g["debit"],
+            "credit": g["credit"],
+            "count": g["count"],
+            "net": g["debit"] - g["credit"],
+        })
+
+    grand_debit = sum(g["debit"] for g in ordered)
+    grand_credit = sum(g["credit"] for g in ordered)
+    return {
+        "groups": ordered,
+        "grand_debit": grand_debit,
+        "grand_credit": grand_credit,
+        "grand_net": grand_debit - grand_credit,
+        "nb_lines": sum(g["count"] for g in ordered),
+    }
+
+
+def _category_csv_filename(year: int, month: int) -> str:
+    month_name = MONTH_NAMES_FR[month - 1]
+    return f"Ventilation_par_categorie_{year}-{month:02d}_{month_name}.csv"
+
+
+def _category_pdf_filename(year: int, month: int) -> str:
+    month_name = MONTH_NAMES_FR[month - 1]
+    return f"Ventilation_par_categorie_{year}-{month:02d}_{month_name}.pdf"
+
+
+def _generate_csv_by_category(prepared: dict, month_name: str, year: int) -> str:
+    """CSV groupé par catégorie avec sous-totaux + total général. Format FR."""
+    grouped = _group_by_category(prepared)
+    lines = []
+    lines.append(f"Ventilation par catégorie — {month_name} {year}")
+    lines.append(f"{grouped['nb_lines']} opérations")
+    lines.append("")
+    columns = ["Date", "Libellé", "Débit", "Crédit", "Catégorie", "Sous-catégorie", "Justificatif", "Commentaire"]
+    lines.append(";".join(columns))
+
+    def _csv_row(line: dict) -> str:
+        debit = _format_amount_fr(line["Debit"]) if line["Debit"] > 0 else "0,00"
+        credit = _format_amount_fr(line["Credit"]) if line["Credit"] > 0 else "0,00"
+        libelle = (line.get("Libelle") or "").replace('"', "'")
+        if ";" in libelle:
+            libelle = f'"{libelle}"'
+        comment = (line.get("Commentaire") or "").replace('"', "'")
+        if ";" in comment:
+            comment = f'"{comment}"'
+        return ";".join([
+            line.get("Date", ""),
+            libelle,
+            debit,
+            credit,
+            line.get("Categorie", ""),
+            line.get("Sous_categorie", ""),
+            line.get("Justificatif", ""),
+            comment,
+        ])
+
+    for g in grouped["groups"]:
+        for sg in g["subcats"]:
+            for ln in sg["lines"]:
+                lines.append(_csv_row(ln))
+            # Sous-total sous-catégorie
+            lines.append(";".join([
+                "", "",
+                _format_amount_fr(sg["debit"]),
+                _format_amount_fr(sg["credit"]),
+                g["categorie"], sg["sous_categorie"], "",
+                f"Sous-total {sg['sous_categorie']} ({len(sg['lines'])} op.)",
+            ]))
+        # Sous-total catégorie
+        lines.append(";".join([
+            "", "",
+            _format_amount_fr(g["debit"]),
+            _format_amount_fr(g["credit"]),
+            g["categorie"], "", "",
+            f"TOTAL {g['categorie']} ({g['count']} op.)",
+        ]))
+        lines.append("")
+
+    # Total général
+    lines.append(";".join([
+        "", "",
+        _format_amount_fr(grouped["grand_debit"]),
+        _format_amount_fr(grouped["grand_credit"]),
+        "", "", "",
+        f"TOTAL GÉNÉRAL ({grouped['nb_lines']} op.)",
+    ]))
+    content = "\r\n".join(lines) + "\r\n"
+    return "\ufeff" + content
+
+
+def _generate_pdf_by_category(prepared: dict, month_name: str, year: int, month: int) -> bytes:
+    """PDF A4 portrait : sections par catégorie, sous-sections par sous-cat, sous-totaux.
+
+    Layout compact : titre centré, logo, tableau par catégorie avec lignes
+    ops + lignes sous-totales en emphase, total général en fin de document.
+    """
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm, mm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    from reportlab.platypus import (
+        BaseDocTemplate, PageTemplate, Frame, Table, TableStyle,
+        Paragraph, Spacer, Image, KeepTogether,
+    )
+    import io
+
+    grouped = _group_by_category(prepared)
+
+    page_w, page_h = A4
+    margin_lr = 1.4 * cm
+    margin_tb = 1.4 * cm
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "CatTitle", parent=styles["Heading1"],
+        fontSize=15, spaceAfter=2, alignment=TA_CENTER,
+    )
+    sub_style = ParagraphStyle(
+        "CatSub", parent=styles["Normal"],
+        fontSize=9, spaceAfter=10, alignment=TA_CENTER,
+        textColor=colors.HexColor("#666666"),
+    )
+    cat_header_style = ParagraphStyle(
+        "CatHeader", parent=styles["Normal"],
+        fontSize=11, leading=13, spaceBefore=6, spaceAfter=3,
+        fontName="Helvetica-Bold",
+        textColor=colors.HexColor("#1F3A68"),
+    )
+    subcat_style = ParagraphStyle(
+        "SubCat", parent=styles["Normal"],
+        fontSize=9, leading=11, spaceBefore=2, spaceAfter=1,
+        fontName="Helvetica-Oblique",
+        textColor=colors.HexColor("#444444"),
+    )
+    cell_style = ParagraphStyle("CatCell", parent=styles["Normal"], fontSize=7, leading=9)
+    cell_right = ParagraphStyle("CatCellR", parent=styles["Normal"], fontSize=7, leading=9, alignment=TA_RIGHT)
+
+    usable_w = page_w - 2 * margin_lr
+    col_date = 58
+    col_debit = 62
+    col_credit = 62
+    col_just = 90
+    col_libelle = usable_w - col_date - col_debit - col_credit - col_just
+    col_widths = [col_date, col_libelle, col_debit, col_credit, col_just]
+
+    def _footer(canvas, doc):
+        canvas.saveState()
+        canvas.setFont("Helvetica", 7)
+        canvas.setStrokeColor(colors.HexColor("#CCCCCC"))
+        canvas.line(margin_lr, margin_tb - 8 * mm, page_w - margin_lr, margin_tb - 8 * mm)
+        canvas.drawString(margin_lr, margin_tb - 12 * mm, f"Page {doc.page}")
+        right_text = f"Ventilation par catégorie — {month_name} {year}"
+        canvas.drawRightString(page_w - margin_lr, margin_tb - 12 * mm, right_text)
+        canvas.restoreState()
+
+    buffer = io.BytesIO()
+    doc = BaseDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=margin_lr, rightMargin=margin_lr,
+        topMargin=margin_tb, bottomMargin=margin_tb + 5 * mm,
+    )
+    frame = Frame(
+        margin_lr, margin_tb, usable_w, page_h - 2 * margin_tb - 5 * mm,
+        id="main", leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
+    )
+    doc.addPageTemplates([PageTemplate(id="default", frames=[frame], onPage=_footer)])
+
+    elements = []
+    # Logo (optionnel)
+    try:
+        from backend.core.config import BASE_DIR
+        logo_path = BASE_DIR / "backend" / "assets" / "logo_lockup_light_400.png"
+        if logo_path.exists():
+            img = Image(str(logo_path))
+            img.drawHeight = 1.3 * cm
+            img.drawWidth = 4.2 * cm
+            img.hAlign = "CENTER"
+            elements.append(img)
+            elements.append(Spacer(1, 4))
+    except Exception:
+        pass
+
+    elements.append(Paragraph(f"Ventilation par catégorie — {month_name} {year}", title_style))
+    elements.append(Paragraph(f"{grouped['nb_lines']} opérations — {len(grouped['groups'])} catégories", sub_style))
+
+    header_row = [
+        Paragraph("<b>Date</b>", cell_style),
+        Paragraph("<b>Libellé</b>", cell_style),
+        Paragraph("<b>Débit</b>", cell_right),
+        Paragraph("<b>Crédit</b>", cell_right),
+        Paragraph("<b>Justificatif</b>", cell_style),
+    ]
+
+    for g in grouped["groups"]:
+        elements.append(Paragraph(
+            f"{g['categorie']} <font size='8' color='#888888'>· {g['count']} op.</font>",
+            cat_header_style,
+        ))
+        for sg in g["subcats"]:
+            if sg["sous_categorie"] not in ("(Sans sous-catégorie)",):
+                elements.append(Paragraph(f"— {sg['sous_categorie']} ({len(sg['lines'])} op.)", subcat_style))
+            data = [header_row]
+            for ln in sg["lines"]:
+                debit = _format_amount_fr(ln["Debit"]) if ln["Debit"] > 0 else ""
+                credit = _format_amount_fr(ln["Credit"]) if ln["Credit"] > 0 else ""
+                data.append([
+                    Paragraph(ln.get("Date", ""), cell_style),
+                    Paragraph(ln.get("Libelle", ""), cell_style),
+                    Paragraph(debit, cell_right),
+                    Paragraph(credit, cell_right),
+                    Paragraph(ln.get("Justificatif", ""), cell_style),
+                ])
+            # Sous-total sous-catégorie
+            data.append([
+                "", Paragraph("<b>Sous-total</b>", cell_right),
+                Paragraph(f"<b>{_format_amount_fr(sg['debit'])}</b>", cell_right),
+                Paragraph(f"<b>{_format_amount_fr(sg['credit'])}</b>", cell_right),
+                "",
+            ])
+            tbl = Table(data, colWidths=col_widths, repeatRows=1)
+            tbl.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#D5E8F0")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1F3A68")),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#DDDDDD")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F3F6F9")),
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ]))
+            elements.append(tbl)
+            elements.append(Spacer(1, 3))
+        # Total catégorie
+        cat_tbl = Table(
+            [[
+                Paragraph(f"<b>TOTAL {g['categorie']}</b>", cell_style),
+                Paragraph(f"<b>{_format_amount_fr(g['debit'])}</b>", cell_right),
+                Paragraph(f"<b>{_format_amount_fr(g['credit'])}</b>", cell_right),
+                Paragraph(f"<b>Net {_format_amount_fr(g['net'])}</b>", cell_right),
+            ]],
+            colWidths=[col_libelle + col_date, col_debit, col_credit, col_just],
+        )
+        cat_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1F3A68")),
+            ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(cat_tbl)
+        elements.append(Spacer(1, 10))
+
+    # Total général
+    grand = Table(
+        [[
+            Paragraph("<b>TOTAL GÉNÉRAL</b>", cell_style),
+            Paragraph(f"<b>{_format_amount_fr(grouped['grand_debit'])}</b>", cell_right),
+            Paragraph(f"<b>{_format_amount_fr(grouped['grand_credit'])}</b>", cell_right),
+            Paragraph(f"<b>Net {_format_amount_fr(grouped['grand_net'])}</b>", cell_right),
+        ]],
+        colWidths=[col_libelle + col_date, col_debit, col_credit, col_just],
+    )
+    grand.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#111827")),
+        ("TEXTCOLOR", (0, 0), (-1, -1), colors.white),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(grand)
+
+    doc.build(elements)
+    return buffer.getvalue()
+
+
 # ─── Contenu Excel ───
 
 def _generate_excel_content(prepared: dict, month_name: str, year: int) -> bytes:
@@ -1421,14 +1799,83 @@ def _generate_excel_content(prepared: dict, month_name: str, year: int) -> bytes
 # ─── Releve bancaire ───
 
 def _find_bank_statement(operation_filename: str) -> Optional[Path]:
-    """Trouve le PDF du releve bancaire associe au fichier d'operations."""
+    """Trouve le PDF du releve bancaire associe au fichier d'operations.
+
+    Cas géré :
+    1. Fichier original `operations_YYYYMMDD_HHMMSS_<hex>.json` → `pdf_<hex>.pdf` direct.
+    2. Fichier issu d'un merge/split `operations_(merged|split)_YYYYMM_*.json` → le
+       hex d'origine est perdu ; on scanne `_archive/` pour retrouver un source
+       archivé (`operations_YYYYMMDD_HHMMSS_<hex>.json.bak_*`) dont le mois dominant
+       correspond et dont la période recouvre `YYYYMM`, puis on résout son `pdf_<hex>.pdf`.
+    """
+    # Cas 1 : format original
     match = re.search(r"operations_\d{8}_\d{6}_([a-f0-9]+)\.json", operation_filename)
     if match:
         file_id = match.group(1)
         pdf_path = IMPORTS_RELEVES_DIR / f"pdf_{file_id}.pdf"
         if pdf_path.exists():
             return pdf_path
-    return None
+
+    # Cas 2 : merged/split → scan _archive/ pour trouver le source d'origine.
+    #
+    # Stratégie : parcourir les archives `operations_YYYYMMDD_HHMMSS_<hex>.json.bak_*`,
+    # compter combien d'ops tombent dans le mois cible, et retourner le relevé de
+    # l'archive avec le plus d'ops dans ce mois (≥ 3 pour éviter les faux positifs
+    # des merged multi-mois). Résout les 2 cas :
+    # - merged : plusieurs archives (un par mois pré-existant), chacune a 100% du mois
+    # - split  : une seule archive (fichier multi-mois) avec sous-ensemble du mois cible
+    merge_split = re.search(r"operations_(?:merged|split)_(\d{4})(\d{2})_", operation_filename)
+    if not merge_split:
+        return None
+    target_year = int(merge_split.group(1))
+    target_month = int(merge_split.group(2))
+
+    from backend.core.config import IMPORTS_OPERATIONS_DIR
+    archive_dir = IMPORTS_OPERATIONS_DIR / "_archive"
+    if not archive_dir.exists():
+        return None
+
+    # Tri priorisant les fichiers mensuels (concentration élevée) sur les multi-mois.
+    # Score = (is_monthly, concentration_ratio, nb_in_month) — plus haut est meilleur.
+    # is_monthly = 1 si ≥80% des ops du fichier sont dans le mois cible, sinon 0.
+    best_match: Optional[tuple[tuple[int, float, int], Path]] = None
+    for archived in archive_dir.glob("operations_*_*.json.bak_*"):
+        m = re.search(r"operations_\d{8}_\d{6}_([a-f0-9]+)\.json\.bak_", archived.name)
+        if not m:
+            continue
+        hex_id = m.group(1)
+        pdf_candidate = IMPORTS_RELEVES_DIR / f"pdf_{hex_id}.pdf"
+        if not pdf_candidate.exists():
+            continue
+        try:
+            with open(archived, "r", encoding="utf-8") as f:
+                ops = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(ops, list) or not ops:
+            continue
+        nb_in_month = 0
+        for op in ops:
+            d = (op.get("Date") or "").strip()
+            if len(d) < 7:
+                continue
+            try:
+                if int(d[:4]) == target_year and int(d[5:7]) == target_month:
+                    nb_in_month += 1
+            except ValueError:
+                continue
+        if nb_in_month < 3:
+            continue
+        total = len(ops)
+        concentration = nb_in_month / total if total else 0.0
+        is_monthly = 1 if concentration >= 0.8 else 0
+        # Priorité : fichier mensuel ciblé > plus d'ops dans le mois > concentration
+        # (évite les files qui ont juste 3-5 ops en débordement d'un autre mois)
+        score = (is_monthly, nb_in_month, concentration)
+        if best_match is None or score > best_match[0]:
+            best_match = (score, pdf_candidate)
+
+    return best_match[1] if best_match else None
 
 
 # ─── Rapports existants ───

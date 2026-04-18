@@ -734,14 +734,16 @@ def generate_reconstitue(request: GenerateRequest) -> dict:
         except Exception as e:
             logger.warning(f"Fac-similé échoué, fallback ReportLab: {e}")
             _generate_pdf(pdf_path, tpl.vendor, field_values)
-    elif source_pdf and tpl.is_blank_template:
-        # Blank template avec background mais aucun champ positionné : rasteriser le
-        # background en fond + superposer date/montant par défaut (haut à droite)
-        # plutôt que de perdre complètement le layout du PDF vierge.
+    elif source_pdf:
+        # Fallback overlay : rasteriser le PDF source en fond + superposer date/montant.
+        # Couvre 2 cas : (a) blank template sans coords (placeholders {KEY}/(KEY) substitués
+        # dans le text layer) ; (b) template scanné classique dont le PDF source est
+        # image-only (text layer vide → pdfplumber ne peut pas positionner les champs
+        # automatiquement, mais on garde au moins le layout visuel du scan).
         try:
             _generate_pdf_blank_overlay(pdf_path, source_pdf, field_values, tpl)
         except Exception as e:
-            logger.warning(f"Overlay blank template échoué, fallback ReportLab: {e}")
+            logger.warning(f"Overlay background échoué, fallback ReportLab: {e}")
             _generate_pdf(pdf_path, tpl.vendor, field_values)
     else:
         _generate_pdf(pdf_path, tpl.vendor, field_values)
