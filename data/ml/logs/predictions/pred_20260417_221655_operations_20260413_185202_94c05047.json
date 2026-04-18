@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-04-17T22:16:55.466330",
+  "filename": "operations_20260413_185202_94c05047.json",
+  "mode": "empty_only",
+  "total_operations": 34,
+  "predicted": 6,
+  "high_confidence": 4,
+  "medium_confidence": 0,
+  "low_confidence": 2,
+  "hallucination_flags": 2,
+  "predictions": [
+    {
+      "libelle": "VIRCPTEACPTEEMIS/MOTIF/BENMANDRE 10000,00",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": null,
+      "confidence": 0.24623194609155438,
+      "source": "sklearn",
+      "hallucination_risk": true
+    },
+    {
+      "libelle": "PRLVSEPAORANGESA-ORANGEECH/050226ID 35,65",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAORANGESAECH/090226ID 9,99",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAORANGESAECH/130226ID 46,99",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    },
+    {
+      "libelle": "PRLVSEPAFCEBANKPLCECH/180226ID 1443,55",
+      "predicted_category": "Véhicule",
+      "predicted_subcategory": null,
+      "confidence": 0.24623194609155438,
+      "source": "sklearn",
+      "hallucination_risk": true
+    },
+    {
+      "libelle": "PRLVSEPAORANGESAECH/260226ID 5,99",
+      "predicted_category": "Telephone-Internet",
+      "predicted_subcategory": null,
+      "confidence": 1.0,
+      "source": "keywords",
+      "hallucination_risk": false
+    }
+  ]
+}

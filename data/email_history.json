@@ -322,5 +322,233 @@
     "taille_totale_mo": 0.04,
     "success": true,
     "error_message": null
+  },
+  {
+    "id": "71680775",
+    "sent_at": "2026-04-18T00:09:43.796124",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Janvier PDF 20260418 000642 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Janvier_PDF_20260418_000642.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 2.81,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "b3063ee6",
+    "sent_at": "2026-04-18T00:26:49.718529",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Juin PDF 20260418 002243 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Juin_PDF_20260418_002243.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 2.1,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "ba95f621",
+    "sent_at": "2026-04-18T00:29:15.210744",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Janvier PDF 20260418 002856 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Janvier_PDF_20260418_002856.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 2.84,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "25fc66fd",
+    "sent_at": "2026-04-18T00:34:34.548833",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Documents comptables (31 fichiers) — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "compte_attente_septembre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_vehicule_2025_20260417_114004.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_carmf_2025_20260417_224848.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_toutes_categories_2025_20260415_160916.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Septembre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Septembre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Octobre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Octobre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Novembre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Novembre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mars.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mars.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mai.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mai.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juin.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juin.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juillet.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juillet.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Janvier.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Janvier.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Février.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Février.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Décembre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Décembre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Avril.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Avril.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Août.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Août.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "repas_20251231_2643,30.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "quote_part_vehicule_2025.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "blanchissage_20251231_2367,40.pdf"
+      }
+    ],
+    "nb_documents": 31,
+    "taille_totale_mo": 0.35,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "c809167f",
+    "sent_at": "2026-04-18T00:45:31.583678",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Janvier PDF 20260418 004157 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Janvier_PDF_20260418_004157.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.02,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "6e532eaf",
+    "sent_at": "2026-04-18T00:49:03.327326",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Février PDF 20260418 004841 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Février_PDF_20260418_004841.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 1.47,
+    "success": true,
+    "error_message": null
   }
 ]
