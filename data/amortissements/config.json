@@ -1,0 +1,30 @@
+{
+  "seuil_immobilisation": 500,
+  "durees_par_defaut": {
+    "materiel-medical": 3,
+    "informatique": 3,
+    "vehicule": 5,
+    "mobilier": 10,
+    "telephone": 3,
+    "travaux": 10,
+    "logiciel": 1,
+    "materiel": 5
+  },
+  "methode_par_defaut": "lineaire",
+  "categories_immobilisables": [
+    "Matériel",
+    "Informatique"
+  ],
+  "sous_categories_exclues": [
+    "Carburant",
+    "Entretien",
+    "Assurance",
+    "Consommables",
+    "Péage",
+    "Parking",
+    "Location",
+    "Leasing",
+    "Loyer"
+  ],
+  "exercice_cloture": "12-31"
+}

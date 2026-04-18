@@ -84,7 +84,7 @@
         },
         {
           "file": "operations_split_202501_20260414_233641.json",
-          "index": 85
+          "index": 76
         }
       ],
       "context_year": 2025,
@@ -93,7 +93,7 @@
         "globalFilter": "ama"
       },
       "created_at": "2026-04-16T21:12:06",
-      "updated_at": null
+      "updated_at": "2026-04-18T18:39:48"
     },
     {
       "id": "e4b94bc499",
@@ -160,6 +160,200 @@
         "globalFilter": "ama"
       },
       "created_at": "2026-04-16T21:15:45",
+      "updated_at": null
+    },
+    {
+      "id": "26a7080865",
+      "name": "CARMF 2025",
+      "description": null,
+      "color": "#7c3aed",
+      "ops_refs": [
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 9
+        },
+        {
+          "file": "operations_merged_202502_20260414_234739.json",
+          "index": 15
+        },
+        {
+          "file": "operations_merged_202503_20260414_234739.json",
+          "index": 17
+        },
+        {
+          "file": "operations_merged_202504_20260414_234739.json",
+          "index": 26
+        },
+        {
+          "file": "operations_merged_202505_20260414_234739.json",
+          "index": 12
+        },
+        {
+          "file": "operations_merged_202506_20260414_234739.json",
+          "index": 9
+        },
+        {
+          "file": "operations_merged_202507_20260414_234739.json",
+          "index": 12
+        },
+        {
+          "file": "operations_merged_202508_20260414_234739.json",
+          "index": 25
+        },
+        {
+          "file": "operations_merged_202509_20260414_234739.json",
+          "index": 20
+        },
+        {
+          "file": "operations_merged_202510_20260414_234739.json",
+          "index": 20
+        },
+        {
+          "file": "operations_merged_202511_20260414_234739.json",
+          "index": 18
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 24
+        }
+      ],
+      "context_year": 2025,
+      "context_month": null,
+      "context_filters": {
+        "columnFilters": [
+          {
+            "id": "Catégorie",
+            "value": "CARMF"
+          }
+        ],
+        "allYearMode": true
+      },
+      "created_at": "2026-04-18T10:34:50",
+      "updated_at": null
+    },
+    {
+      "id": "dd13bfde0b",
+      "name": "Honoraires 2025",
+      "description": null,
+      "color": "#7c3aed",
+      "ops_refs": [
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 11
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 25
+        },
+        {
+          "file": "operations_split_202501_20260414_233641.json",
+          "index": 72
+        },
+        {
+          "file": "operations_merged_202502_20260414_234739.json",
+          "index": 35
+        },
+        {
+          "file": "operations_merged_202502_20260414_234739.json",
+          "index": 62
+        },
+        {
+          "file": "operations_merged_202503_20260414_234739.json",
+          "index": 27
+        },
+        {
+          "file": "operations_merged_202503_20260414_234739.json",
+          "index": 60
+        },
+        {
+          "file": "operations_merged_202504_20260414_234739.json",
+          "index": 37
+        },
+        {
+          "file": "operations_merged_202504_20260414_234739.json",
+          "index": 69
+        },
+        {
+          "file": "operations_merged_202505_20260414_234739.json",
+          "index": 34
+        },
+        {
+          "file": "operations_merged_202505_20260414_234739.json",
+          "index": 64
+        },
+        {
+          "file": "operations_merged_202506_20260414_234739.json",
+          "index": 26
+        },
+        {
+          "file": "operations_merged_202506_20260414_234739.json",
+          "index": 75
+        },
+        {
+          "file": "operations_merged_202507_20260414_234739.json",
+          "index": 4
+        },
+        {
+          "file": "operations_merged_202507_20260414_234739.json",
+          "index": 20
+        },
+        {
+          "file": "operations_merged_202507_20260414_234739.json",
+          "index": 75
+        },
+        {
+          "file": "operations_merged_202508_20260414_234739.json",
+          "index": 43
+        },
+        {
+          "file": "operations_merged_202508_20260414_234739.json",
+          "index": 75
+        },
+        {
+          "file": "operations_merged_202509_20260414_234739.json",
+          "index": 31
+        },
+        {
+          "file": "operations_merged_202509_20260414_234739.json",
+          "index": 90
+        },
+        {
+          "file": "operations_merged_202510_20260414_234739.json",
+          "index": 30
+        },
+        {
+          "file": "operations_merged_202510_20260414_234739.json",
+          "index": 81
+        },
+        {
+          "file": "operations_merged_202511_20260414_234739.json",
+          "index": 50
+        },
+        {
+          "file": "operations_merged_202511_20260414_234739.json",
+          "index": 111
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 37
+        },
+        {
+          "file": "operations_merged_202512_20260414_234739.json",
+          "index": 60
+        }
+      ],
+      "context_year": 2025,
+      "context_month": null,
+      "context_filters": {
+        "columnFilters": [
+          {
+            "id": "Catégorie",
+            "value": "Honoraires"
+          }
+        ],
+        "allYearMode": true
+      },
+      "created_at": "2026-04-18T18:39:42",
       "updated_at": null
     }
   ]

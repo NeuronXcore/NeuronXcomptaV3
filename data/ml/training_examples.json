@@ -1828,5 +1828,25 @@
     "libelle": "prlvsepaamazonpaymentseuropes c a",
     "categorie": "Fournitures",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepaamazoneusarlsuccursale",
+    "categorie": "Matériel",
+    "sous_categorie": "Informatique"
+  },
+  {
+    "libelle": "docteur andre ceccoli clinique du pont de chaume 82000 montauban fr",
+    "categorie": "Fournitures",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "leroymerlin montauban",
+    "categorie": "perso",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "leroymerlin montauban",
+    "categorie": "Fournitures",
+    "sous_categorie": ""
   }
 ]

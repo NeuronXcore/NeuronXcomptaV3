@@ -24,10 +24,10 @@
     "boulanger": "Matériel",
     "aamazon": "Matériel",
     "amazon": "Matériel",
-    "leroymerlin montauban": "Matériel",
+    "leroymerlin montauban": "Fournitures",
     "total montauban": "Véhicule",
     "amazonpaymentspayli": "Fournitures",
-    "pagaunal montauban": "perso",
+    "pagaunal montauban": "Repas pro",
     "boulanger montauban": "Fournitures",
     "culturamontaubmontauban": "Fournitures",
     "ldlcmontauban montauban": "Matériel",
@@ -42,7 +42,7 @@
     "prlvsepaurssafpaysdeloire": "URSSAF",
     "virseparecufrmurssafpaysdeloire": "URSSAF",
     "asf vedene": "Véhicule",
-    "uber one": "perso",
+    "uber one": "Transport",
     "uber eats": "perso",
     "tommysmontaubaescalquens": "Repas pro",
     "openaichatgpt": "Abonnements",
@@ -252,7 +252,8 @@
     "virementsepaemismotiftresorpublic": "Revenus",
     "cgrcinemas perignyproxi": "Loisirs",
     "virementsepaemismotifbenmandre": "Revenus",
-    "virementsepaemismotifcredit": "Revenus"
+    "virementsepaemismotifcredit": "Revenus",
+    "docteur andre ceccoli clinique du pont de chaume 82000 montauban fr": "Fournitures"
   },
   "keywords": {
     "Remplaçant": [
@@ -416,7 +417,9 @@
     "mcdonalds montauban": "Repas seul",
     "prlvsepafcebankplcech180725id": "Loyer",
     "hotelibisstylmontauban": "Hébergement",
-    "lhuilleryvoltaagen": "Repas confrères"
+    "lhuilleryvoltaagen": "Repas confrères",
+    "prlvsepaamazoneusarlsuccursale": "Informatique",
+    "prlvsepapaypaleuropesarletcie": "Informatique"
   },
   "stats": {
     "operations_processed": 0,
