@@ -14,7 +14,7 @@ import {
   type RowSelectionState,
 } from '@tanstack/react-table'
 import {
-  Save, Bot, Plus, Trash2, Filter, Loader2, Check, Search,
+  Save, Bot, Plus, Trash2, Filter, FilterX, Loader2, Check, Search,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
@@ -1519,6 +1519,25 @@ export default function EditorPage() {
                 </div>
               )
             })()}
+
+            {/* Badge "Voir toutes" — visible uniquement quand au moins un filtre est actif.
+                Reset complet : pills header, filtres colonnes (cat/sous-cat/source), recherche, ?filter=uncategorized. */}
+            {(headerFilter !== null || columnFilters.length > 0 || globalFilter.trim() !== '' || filterUncategorized) && (
+              <button
+                onClick={() => {
+                  setHeaderFilter(null)
+                  setColumnFilters([])
+                  setGlobalFilter('')
+                  setFilterUncategorized(false)
+                  table.getColumn('Justificatif')?.setFilterValue(undefined)
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold bg-warning/15 text-warning border border-warning/40 rounded-lg hover:bg-warning/25 transition-colors"
+                title="Effacer tous les filtres et voir toutes les opérations"
+              >
+                <FilterX size={13} />
+                Voir toutes
+              </button>
+            )}
 
             {allYearMode && (
               <span className="text-[10px] font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">

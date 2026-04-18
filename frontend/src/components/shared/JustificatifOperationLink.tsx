@@ -98,10 +98,18 @@ function PendingView({ justificatifFilename, className }: { justificatifFilename
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ['justificatif-reverse-lookup'] })
           queryClient.invalidateQueries({ queryKey: ['justificatif-operation-suggestions'] })
+          queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
           toast.success('Justificatif associé')
         },
         onError: (err: Error) => {
-          toast.error(err.message || "Erreur lors de l'association")
+          // Invalide les caches même en erreur — un 423 (op lockée) ou 409 (déjà associé)
+          // signifie souvent que l'état backend a changé depuis le dernier fetch.
+          // Sans invalidation, la suggestion obsolète reste affichée et l'utilisateur
+          // re-clique sans rien voir bouger.
+          queryClient.invalidateQueries({ queryKey: ['justificatif-reverse-lookup'] })
+          queryClient.invalidateQueries({ queryKey: ['justificatif-operation-suggestions'] })
+          queryClient.invalidateQueries({ queryKey: ['ocr-history'] })
+          toast.error(err.message || "Erreur lors de l'association", { duration: 6000 })
         },
       }
     )

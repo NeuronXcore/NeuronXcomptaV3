@@ -23,7 +23,7 @@ import {
   FileText, Search, ScanLine, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, ArrowUpDown, ArrowUp, ArrowDown,
   FileCheck, FileX, Percent, Hash, Zap, Loader2, X, Layers,
-  Check, Minus, Stamp, Ban,
+  Check, Minus, Stamp, Ban, FilterX,
 } from 'lucide-react'
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
@@ -266,6 +266,24 @@ export default function JustificatifsPage() {
         description="Attribution des justificatifs aux opérations bancaires"
         actions={
           <div className="flex items-center gap-3">
+            {/* Badge "Voir toutes" — visible quand l'affichage est restreint (y compris
+                le défaut justifFilter='sans'). Clic = passe à 'all' pour voir TOUTES les opérations. */}
+            {(justifFilter !== 'all' || categoryFilter !== '' || subcategoryFilter !== '' || sourceFilter !== 'all' || search.trim() !== '') && (
+              <button
+                onClick={() => {
+                  setSearch('')
+                  setJustifFilter('all')
+                  setCategoryFilter('')
+                  setSubcategoryFilter('')
+                  setSourceFilter('all')
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold bg-warning/15 text-warning border border-warning/40 rounded-lg hover:bg-warning/25 transition-colors"
+                title="Effacer tous les filtres et voir toutes les opérations"
+              >
+                <FilterX size={13} />
+                Voir toutes
+              </button>
+            )}
             {isConnected && (
               <span className="flex items-center gap-2 text-xs text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-lg">
                 <span className="relative flex h-2 w-2">
@@ -955,7 +973,18 @@ export default function JustificatifsPage() {
                             const isChecked = lockSelectedOps.has(key)
 
                             if (!isLockable) {
-                              // Pas lockable : rien à afficher dans cette colonne
+                              // Cas spécial : parent ventilé partiellement associé qu'une sous-ligne
+                              // ≥0.95 a auto-lockée → on doit pouvoir le déverrouiller depuis ici.
+                              if (op.locked) {
+                                return (
+                                  <LockCell
+                                    filename={op._filename}
+                                    index={op._originalIndex}
+                                    locked={true}
+                                    hasJustificatif={false}
+                                  />
+                                )
+                              }
                               return null
                             }
 

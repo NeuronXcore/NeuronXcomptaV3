@@ -15,7 +15,9 @@ export function LockCell({ filename, index, locked, hasJustificatif }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const toggleLock = useToggleLock()
 
-  if (!hasJustificatif) return null
+  // Affiche aussi quand l'op est déjà verrouillée sans justif direct
+  // (cas parent ventilé auto-locké via une sous-ligne ≥0.95) pour permettre le déverrouillage.
+  if (!hasJustificatif && !locked) return null
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()

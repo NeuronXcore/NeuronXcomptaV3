@@ -8,6 +8,16 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-18) — Polish UX
+
+- **Badge « Voir toutes » header Éditeur/Justificatifs** — pill amber `FilterX` dans `PageHeader.actions` ([EditorPage.tsx:1523](frontend/src/components/editor/EditorPage.tsx:1523), [JustificatifsPage.tsx:269](frontend/src/components/justificatifs/JustificatifsPage.tsx:269)), visible uniquement quand au moins un filtre est actif. Reset complet en un clic : Éditeur (`headerFilter`, `columnFilters`, `globalFilter`, `filterUncategorized`) / Justificatifs (`search`, `justifFilter='all'`, `categoryFilter`, `subcategoryFilter`, `sourceFilter='all'`). Le filtre défaut `justifFilter='sans'` compte comme restriction → la pill apparaît dès l'ouverture de Justificatifs et le clic passe à `'all'` pour voir 100% des ops.
+
+### Fixed (2026-04-18)
+
+- **LockCell déverrouillable sur parent ventilé auto-locké** — [LockCell.tsx:18](frontend/src/components/LockCell.tsx:18) : `if (!hasJustificatif && !locked) return null` (au lieu de `!hasJustificatif`). Le bouton déverrou apparaît désormais même si `op.Justificatif` est falsy tant que `op.locked=true`. Fallback miroir dans [JustificatifsPage.tsx:957](frontend/src/components/justificatifs/JustificatifsPage.tsx:957) quand `isLockable=false` + `op.locked=true` (cas parent ventilé partiellement associé qu'une sous-ligne ≥0.95 a auto-lockée). Avant : utilisateur voyait le lock orange mais rien à cliquer.
+- **SandboxArrivalToast persistant pour auto-associé** — [useSandbox.ts:134](frontend/src/hooks/useSandbox.ts:134) : `duration: Infinity` pour les 2 variantes (violet + victoire emerald). Avant, la variante auto-associée avait `duration: 8000ms` qui disparaissait avant que l'utilisateur puisse le lire, surtout en cas de HMR/reload.
+- **JustificatifOperationLink invalide les caches aussi sur erreur** — [JustificatifOperationLink.tsx:98-113](frontend/src/components/shared/JustificatifOperationLink.tsx:98) : ajout `['ocr-history']` dans `onSuccess`, et dans `onError` invalidation des 3 caches (`justificatif-reverse-lookup`, `justificatif-operation-suggestions`, `ocr-history`) pour refresh les suggestions obsolètes après un 423 (op lockée) ou 409 (déjà associée). Durée toast erreur passée à 6s. Avant : click Associer sur suggestion obsolète → 423 silencieux → utilisateur re-clique sans comprendre.
+
 ### Added (2026-04-18) — Polish Rapports + Snapshots
 
 - **Titre auto des rapports : inclusion des sous-catégories** — `buildReportTitle()` (`frontend/src/components/reports/ReportsPage.tsx`) accepte désormais `selectedSubcategories` + `allSubcategoriesCount`. Quand au moins une sous-cat est sélectionnée ET que ce n'est pas l'intégralité des sous-cats disponibles pour les cats cochées, le titre intercale ` · {Sous-cats}` entre la catPart et la périodePart (ex. `Véhicule · Essence, Péage — Janvier 2026`). Mêmes paliers que la catPart : 1-4 listées, 5+ avec `… (+N)`. Omis si 0 sous-cat OU toutes (équivalent à pas de filtre → on reste sur `Véhicule — 2026`). Nouveau `allSubCount` mémoïsé à partir de `filters.categories` + `categoriesData?.categories`. Propagé à `autoTitle` (preview live) ET au loop batch 12 mois (titres mensuels cohérents). Aucun changement d'API, pur frontend.
