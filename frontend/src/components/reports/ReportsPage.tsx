@@ -17,7 +17,9 @@ function buildReportTitle(
   selectedCategories: string[],
   allCategoriesCount: number,
   year?: number,
-  month?: number
+  month?: number,
+  selectedSubcategories: string[] = [],
+  allSubcategoriesCount: number = 0
 ): string {
   // Partie catégories
   const displayNames = selectedCategories.map(c =>
@@ -35,6 +37,20 @@ function buildReportTitle(
     catPart = `${displayed}… (+${displayNames.length - 3})`
   }
 
+  // Partie sous-catégories (seulement si sous-ensemble strict des sous-cats disponibles)
+  let subPart = ''
+  if (
+    selectedSubcategories.length > 0 &&
+    selectedSubcategories.length < allSubcategoriesCount
+  ) {
+    if (selectedSubcategories.length <= 4) {
+      subPart = selectedSubcategories.join(', ')
+    } else {
+      const displayed = selectedSubcategories.slice(0, 3).join(', ')
+      subPart = `${displayed}… (+${selectedSubcategories.length - 3})`
+    }
+  }
+
   // Partie période
   let periodPart = ''
   if (year && month) {
@@ -43,7 +59,8 @@ function buildReportTitle(
     periodPart = `${year}`
   }
 
-  return periodPart ? `${catPart} — ${periodPart}` : catPart
+  const headPart = subPart ? `${catPart} · ${subPart}` : catPart
+  return periodPart ? `${headPart} — ${periodPart}` : headPart
 }
 
 export default function ReportsPage() {
@@ -68,14 +85,27 @@ export default function ReportsPage() {
     return count
   }, [categoriesData])
 
+  // Nombre total de sous-catégories disponibles pour les catégories sélectionnées
+  // (miroir de la mémoïsation `subcategories` dans ReportFilters)
+  const allSubCount = useMemo(() => {
+    const cats = categoriesData?.categories ?? []
+    const selected = filters.categories ?? []
+    if (selected.length === 0) return 0
+    return cats
+      .filter(c => selected.includes(c.name))
+      .reduce((acc, c) => acc + c.subcategories.length, 0)
+  }, [categoriesData, filters.categories])
+
   const autoTitle = useMemo(() => {
     return buildReportTitle(
       filters.categories ?? [],
       allCatCount,
       filters.year,
-      filters.month
+      filters.month,
+      filters.subcategories ?? [],
+      allSubCount
     )
-  }, [filters.categories, allCatCount, filters.year, filters.month])
+  }, [filters.categories, allCatCount, filters.year, filters.month, filters.subcategories, allSubCount])
 
   useEffect(() => {
     if (!titleManuallyEdited) {
@@ -130,7 +160,9 @@ export default function ReportsPage() {
             filters.categories ?? [],
             allCatCount,
             year,
-            month
+            month,
+            filters.subcategories ?? [],
+            allSubCount
           )
           await api.post<{ replaced?: string }>('/reports/generate', {
             format,
@@ -166,7 +198,7 @@ export default function ReportsPage() {
     } finally {
       setIsBatchGenerating(false)
     }
-  }, [filters, format, templateId, selectedYear, navigate, allCatCount])
+  }, [filters, format, templateId, selectedYear, navigate, allCatCount, allSubCount])
 
   const handleFiltersChange = (f: ReportFiltersV2) => {
     setFilters(f)

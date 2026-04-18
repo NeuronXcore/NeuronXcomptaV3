@@ -1560,7 +1560,7 @@ export default function EditorPage() {
             </button>
 
             {/* Snapshot — créer depuis sélection courante (visible si rowSelection > 0) */}
-            {selectedCount > 0 && !allYearMode && (
+            {selectedCount > 0 && (
               <button
                 onClick={() => setSnapshotCreateOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold bg-warning/15 text-warning border border-warning/40 rounded-lg hover:bg-warning/25 transition-colors"
