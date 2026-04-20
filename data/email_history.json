@@ -794,5 +794,45 @@
     "taille_totale_mo": 4.74,
     "success": true,
     "error_message": null
+  },
+  {
+    "id": "d1e258a6",
+    "sent_at": "2026-04-18T20:52:28.536956",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com",
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr"
+    ],
+    "objet": "URSSAF releve situation 2025 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "ged",
+        "filename": "URSSAF_releve situation 2025.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.08,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "id": "3209d2c9",
+    "sent_at": "2026-04-19T20:08:20.250287",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com",
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr"
+    ],
+    "objet": "URSSAF releve situation 2025 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "ged",
+        "filename": "URSSAF_releve situation 2025.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.08,
+    "success": true,
+    "error_message": null
   }
 ]

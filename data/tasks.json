@@ -1,188 +1,8 @@
 [
   {
-    "id": "44efba21",
-    "title": "Catégoriser 86 opérations — janvier 2025",
-    "description": "Fichier operations_20260402_115725_275b0690.json contient 86 opérations sans catégorie ou catégorie générique.",
-    "status": "in_progress",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_115725_275b0690.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.760449",
-    "completed_at": null,
-    "order": 0
-  },
-  {
-    "id": "72638995",
-    "title": "Catégoriser 55 opérations — février 2025",
-    "description": "Fichier operations_20260402_120614_51b5892b.json contient 55 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_120614_51b5892b.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.760769",
-    "completed_at": null,
-    "order": 0
-  },
-  {
-    "id": "469a29ca",
-    "title": "Catégoriser 62 opérations — mars 2025",
-    "description": "Fichier operations_20260402_171328_d238601f.json contient 62 opérations sans catégorie ou catégorie générique.",
-    "status": "in_progress",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_171328_d238601f.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.761000",
-    "completed_at": null,
-    "order": 0
-  },
-  {
-    "id": "347e4fff",
-    "title": "Catégoriser 70 opérations — avril 2025",
-    "description": "Fichier operations_20260402_163034_4cf58a44.json contient 70 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_163034_4cf58a44.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.761247",
-    "completed_at": null,
-    "order": 1
-  },
-  {
-    "id": "b1ecfbfd",
-    "title": "Catégoriser 73 opérations — mai 2025",
-    "description": "Fichier operations_20260402_163338_38dd0f42.json contient 73 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_163338_38dd0f42.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.761498",
-    "completed_at": null,
-    "order": 2
-  },
-  {
-    "id": "11397757",
-    "title": "Catégoriser 79 opérations — juin 2025",
-    "description": "Fichier operations_20260402_163812_41fcd232.json contient 79 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_163812_41fcd232.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.761821",
-    "completed_at": null,
-    "order": 3
-  },
-  {
-    "id": "71a97542",
-    "title": "Catégoriser 77 opérations — juillet 2025",
-    "description": "Fichier operations_20260402_163825_1c979f6e.json contient 77 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_163825_1c979f6e.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.762109",
-    "completed_at": null,
-    "order": 4
-  },
-  {
-    "id": "67d60fe2",
-    "title": "Catégoriser 87 opérations — août 2025",
-    "description": "Fichier operations_20260402_171413_dd562f0f.json contient 87 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_171413_dd562f0f.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.762778",
-    "completed_at": null,
-    "order": 5
-  },
-  {
-    "id": "a16fbd2e",
-    "title": "Catégoriser 97 opérations — septembre 2025",
-    "description": "Fichier operations_20260402_171459_7bbe45dd.json contient 97 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_171459_7bbe45dd.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.763579",
-    "completed_at": null,
-    "order": 6
-  },
-  {
-    "id": "41a2ba46",
-    "title": "Catégoriser 89 opérations — octobre 2025",
-    "description": "Fichier operations_20260402_164709_e7ae1dab.json contient 89 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_164709_e7ae1dab.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.764196",
-    "completed_at": null,
-    "order": 7
-  },
-  {
-    "id": "eba9c40a",
-    "title": "Catégoriser 119 opérations — novembre 2025",
-    "description": "Fichier operations_20260402_164722_e7eba879.json contient 119 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_164722_e7eba879.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.764653",
-    "completed_at": null,
-    "order": 8
-  },
-  {
-    "id": "257b7c64",
-    "title": "Catégoriser 90 opérations — décembre 2025",
-    "description": "Fichier operations_20260402_164325_a4edeb28.json contient 90 opérations sans catégorie ou catégorie générique.",
-    "status": "todo",
-    "priority": "haute",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "categorize:operations_20260402_164325_a4edeb28.json",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-05T20:51:25.764971",
-    "completed_at": null,
-    "order": 9
-  },
-  {
     "id": "28fe7307",
-    "title": "Clôturer Janvier 2025 (lettrage 28%, justificatifs 50%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 28%, taux justificatifs 50%.",
+    "title": "Clôturer Janvier 2025 (lettrage 39%, justificatifs 100%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 39%, taux justificatifs 100%.",
     "status": "todo",
     "priority": "normale",
     "source": "auto",
@@ -192,12 +12,13 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840899",
     "completed_at": null,
-    "order": 10
+    "order": 10,
+    "metadata": null
   },
   {
     "id": "ec1b62c0",
-    "title": "Clôturer Février 2025 (lettrage 36%, justificatifs 59%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 36%, taux justificatifs 59%.",
+    "title": "Clôturer Février 2025 (lettrage 43%, justificatifs 80%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 43%, taux justificatifs 80%.",
     "status": "todo",
     "priority": "normale",
     "source": "auto",
@@ -207,14 +28,15 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840918",
     "completed_at": null,
-    "order": 11
+    "order": 11,
+    "metadata": null
   },
   {
     "id": "9dbd4eca",
-    "title": "Clôturer Mars 2025 (lettrage 24%, justificatifs 39%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 24%, taux justificatifs 39%.",
+    "title": "Clôturer Mars 2025 (lettrage 47%, justificatifs 52%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 47%, taux justificatifs 52%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-03",
@@ -222,14 +44,15 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840927",
     "completed_at": null,
-    "order": 12
+    "order": 12,
+    "metadata": null
   },
   {
     "id": "16556edb",
-    "title": "Clôturer Avril 2025 (lettrage 11%, justificatifs 23%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 11%, taux justificatifs 23%.",
+    "title": "Clôturer Avril 2025 (lettrage 51%, justificatifs 44%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 51%, taux justificatifs 44%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-04",
@@ -237,14 +60,15 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840936",
     "completed_at": null,
-    "order": 13
+    "order": 13,
+    "metadata": null
   },
   {
     "id": "38237032",
-    "title": "Clôturer Mai 2025 (lettrage 19%, justificatifs 41%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 19%, taux justificatifs 41%.",
+    "title": "Clôturer Mai 2025 (lettrage 54%, justificatifs 60%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 54%, taux justificatifs 60%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-05",
@@ -252,14 +76,15 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840943",
     "completed_at": null,
-    "order": 14
+    "order": 14,
+    "metadata": null
   },
   {
     "id": "37120d38",
-    "title": "Clôturer Juin 2025 (lettrage 34%, justificatifs 35%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 34%, taux justificatifs 35%.",
+    "title": "Clôturer Juin 2025 (lettrage 54%, justificatifs 52%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 54%, taux justificatifs 52%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-06",
@@ -267,14 +92,15 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840950",
     "completed_at": null,
-    "order": 15
+    "order": 15,
+    "metadata": null
   },
   {
     "id": "3c929f93",
-    "title": "Clôturer Juillet 2025 (lettrage 27%, justificatifs 39%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 27%, taux justificatifs 39%.",
+    "title": "Clôturer Juillet 2025 (lettrage 51%, justificatifs 53%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 51%, taux justificatifs 53%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-07",
@@ -282,14 +108,15 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840957",
     "completed_at": null,
-    "order": 16
+    "order": 16,
+    "metadata": null
   },
   {
     "id": "a7fbcb97",
-    "title": "Clôturer Août 2025 (lettrage 31%, justificatifs 43%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 31%, taux justificatifs 43%.",
+    "title": "Clôturer Août 2025 (lettrage 54%, justificatifs 27%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 54%, taux justificatifs 27%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-08",
@@ -297,12 +124,13 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840964",
     "completed_at": null,
-    "order": 17
+    "order": 17,
+    "metadata": null
   },
   {
     "id": "81d4bbca",
-    "title": "Clôturer Septembre 2025 (lettrage 21%, justificatifs 32%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 21%, taux justificatifs 32%.",
+    "title": "Clôturer Septembre 2025 (lettrage 38%, justificatifs 41%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 38%, taux justificatifs 41%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -312,12 +140,13 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840970",
     "completed_at": null,
-    "order": 19
+    "order": 19,
+    "metadata": null
   },
   {
     "id": "11a2a26b",
-    "title": "Clôturer Octobre 2025 (lettrage 17%, justificatifs 40%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 17%, taux justificatifs 40%.",
+    "title": "Clôturer Octobre 2025 (lettrage 45%, justificatifs 42%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 45%, taux justificatifs 42%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -327,12 +156,13 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840977",
     "completed_at": null,
-    "order": 20
+    "order": 20,
+    "metadata": null
   },
   {
     "id": "91ed8e32",
-    "title": "Clôturer Novembre 2025 (lettrage 13%, justificatifs 30%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 13%, taux justificatifs 30%.",
+    "title": "Clôturer Novembre 2025 (lettrage 29%, justificatifs 31%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 29%, taux justificatifs 31%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -342,14 +172,15 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840984",
     "completed_at": null,
-    "order": 21
+    "order": 21,
+    "metadata": null
   },
   {
     "id": "b8c394f6",
-    "title": "Clôturer Décembre 2025 (lettrage 23%, justificatifs 58%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 23%, taux justificatifs 58%.",
+    "title": "Clôturer Décembre 2025 (lettrage 35%, justificatifs 42%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 35%, taux justificatifs 42%.",
     "status": "todo",
-    "priority": "normale",
+    "priority": "haute",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-12",
@@ -357,12 +188,13 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.840990",
     "completed_at": null,
-    "order": 22
+    "order": 22,
+    "metadata": null
   },
   {
     "id": "20a081b0",
-    "title": "Traiter 444 alertes en compte d'attente",
-    "description": "444 opérations en compte d'attente nécessitent une résolution.",
+    "title": "Traiter 319 alertes en compte d'attente",
+    "description": "319 opérations en compte d'attente nécessitent une résolution.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -372,7 +204,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:25.981061",
     "completed_at": null,
-    "order": 23
+    "order": 23,
+    "metadata": null
   },
   {
     "id": "2bfb32dc",
@@ -387,7 +220,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.891704",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "bda35f81",
@@ -402,7 +236,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.891937",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "138d1385",
@@ -417,7 +252,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.892190",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "e89672c1",
@@ -432,7 +268,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.892501",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "58ade5b0",
@@ -447,7 +284,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.892771",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "92738680",
@@ -462,7 +300,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.892945",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "58c97af0",
@@ -477,7 +316,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.893207",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "9fca20b9",
@@ -492,7 +332,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.893570",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "13e27bdc",
@@ -507,7 +348,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.893878",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "cf337fbd",
@@ -522,7 +364,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.894097",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "95eee080",
@@ -537,7 +380,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.894440",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "759b012d",
@@ -552,7 +396,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.894751",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "cae595aa",
@@ -567,7 +412,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966400",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "f7db60c1",
@@ -582,7 +428,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966419",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "1e67c36c",
@@ -597,7 +444,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966429",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "35172b12",
@@ -612,7 +460,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966437",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "a03235ed",
@@ -627,7 +476,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966444",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "8acee7cc",
@@ -642,7 +492,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966451",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "a8595e35",
@@ -657,7 +508,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966458",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "79e42750",
@@ -672,7 +524,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966464",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "cf49cd83",
@@ -687,7 +540,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966471",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "3bfa6eb7",
@@ -702,7 +556,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966478",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "95e55645",
@@ -717,7 +572,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966485",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "a42b30df",
@@ -732,7 +588,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:43.966492",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "021d2f8a",
@@ -747,7 +604,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:44.103142",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "c9baf13f",
@@ -762,7 +620,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:47.770621",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "6f6be24f",
@@ -777,7 +636,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:47.770791",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "875da149",
@@ -792,7 +652,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:47.836333",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "1bd9ce70",
@@ -807,7 +668,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:47.836351",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "bb16fc05",
@@ -822,7 +684,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:47.900822",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "63128f2a",
@@ -837,7 +700,8 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:47.900841",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "7762b0d9",
@@ -852,12 +716,13 @@
     "dismissed": false,
     "created_at": "2026-04-05T20:51:47.964983",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "3c20ac8d",
-    "title": "Rapprocher 149 justificatifs en attente",
-    "description": "149 justificatifs PDF en attente de rapprochement bancaire.",
+    "title": "Rapprocher 184 justificatifs en attente",
+    "description": "184 justificatifs PDF en attente de rapprochement bancaire.",
     "status": "in_progress",
     "priority": "haute",
     "source": "auto",
@@ -867,7 +732,8 @@
     "dismissed": false,
     "created_at": "2026-04-06T16:06:15.412141",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "d66b9ef6",
@@ -882,7 +748,8 @@
     "dismissed": false,
     "created_at": "2026-04-06T20:20:50.356523",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "e9838e24",
@@ -897,7 +764,8 @@
     "dismissed": false,
     "created_at": "2026-04-06T23:26:27.669388",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "d7a45e14",
@@ -912,7 +780,8 @@
     "dismissed": false,
     "created_at": "2026-04-06T23:26:34.929040",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "1ac87d7b",
@@ -927,7 +796,8 @@
     "dismissed": false,
     "created_at": "2026-04-06T23:27:19.268680",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "33418b4e",
@@ -942,7 +812,8 @@
     "dismissed": false,
     "created_at": "2026-04-06T23:27:34.743760",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "32d65e1a",
@@ -957,7 +828,8 @@
     "dismissed": false,
     "created_at": "2026-04-12T06:46:37.228694",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "536726ac",
@@ -972,7 +844,8 @@
     "dismissed": false,
     "created_at": "2026-04-12T07:10:39.798513",
     "completed_at": null,
-    "order": 0
+    "order": 0,
+    "metadata": null
   },
   {
     "id": "e852b826",
@@ -987,6 +860,199 @@
     "dismissed": false,
     "created_at": "2026-04-12T11:09:58.346364",
     "completed_at": null,
-    "order": 18
+    "order": 18,
+    "metadata": null
+  },
+  {
+    "id": "300ef5e0",
+    "title": "Catégoriser 78 opérations — janvier 2025",
+    "description": "Fichier operations_split_202501_20260414_233641.json contient 78 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_split_202501_20260414_233641.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.805113",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "cab7963a",
+    "title": "Catégoriser 65 opérations — février 2025",
+    "description": "Fichier operations_merged_202502_20260414_234739.json contient 65 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202502_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.805484",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "02f7854a",
+    "title": "Catégoriser 72 opérations — mars 2025",
+    "description": "Fichier operations_merged_202503_20260414_234739.json contient 72 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202503_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.805810",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "a2dea913",
+    "title": "Catégoriser 75 opérations — avril 2025",
+    "description": "Fichier operations_merged_202504_20260414_234739.json contient 75 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202504_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.806146",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "1f43ec6f",
+    "title": "Catégoriser 78 opérations — mai 2025",
+    "description": "Fichier operations_merged_202505_20260414_234739.json contient 78 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202505_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.806507",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "fa497257",
+    "title": "Catégoriser 79 opérations — juin 2025",
+    "description": "Fichier operations_merged_202506_20260414_234739.json contient 79 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202506_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.806831",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "8192b200",
+    "title": "Catégoriser 83 opérations — juillet 2025",
+    "description": "Fichier operations_merged_202507_20260414_234739.json contient 83 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202507_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.807192",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "5cd46517",
+    "title": "Catégoriser 89 opérations — août 2025",
+    "description": "Fichier operations_merged_202508_20260414_234739.json contient 89 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202508_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.807547",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "153d84e4",
+    "title": "Catégoriser 98 opérations — septembre 2025",
+    "description": "Fichier operations_merged_202509_20260414_234739.json contient 98 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202509_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.807956",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "ba502840",
+    "title": "Catégoriser 92 opérations — octobre 2025",
+    "description": "Fichier operations_merged_202510_20260414_234739.json contient 92 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202510_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.808336",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "98563755",
+    "title": "Catégoriser 123 opérations — novembre 2025",
+    "description": "Fichier operations_merged_202511_20260414_234739.json contient 123 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202511_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.808830",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
+  },
+  {
+    "id": "6993dedc",
+    "title": "Catégoriser 92 opérations — décembre 2025",
+    "description": "Fichier operations_merged_202512_20260414_234739.json contient 92 opérations sans catégorie ou catégorie générique.",
+    "status": "todo",
+    "priority": "haute",
+    "source": "auto",
+    "year": 2025,
+    "auto_key": "categorize:operations_merged_202512_20260414_234739.json",
+    "due_date": null,
+    "dismissed": false,
+    "created_at": "2026-04-19T20:07:10.809233",
+    "completed_at": null,
+    "order": 0,
+    "metadata": null
   }
 ]

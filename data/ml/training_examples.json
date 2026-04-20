@@ -1848,5 +1848,15 @@
     "libelle": "leroymerlin montauban",
     "categorie": "Fournitures",
     "sous_categorie": ""
+  },
+  {
+    "libelle": "prlvsepapaypaleuropesarletcie",
+    "categorie": "Immobilisations",
+    "sous_categorie": ""
+  },
+  {
+    "libelle": "virementsepaemismotifvirementdem",
+    "categorie": "perso",
+    "sous_categorie": ""
   }
 ]

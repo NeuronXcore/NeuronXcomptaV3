@@ -5388,7 +5388,7 @@
       "deductible_pct_override": null,
       "tags": [],
       "notes": "",
-      "added_at": "2026-04-13T06:07:33.486484",
+      "added_at": "2026-04-19T20:06:13.235946",
       "original_name": "blanchissage_20251231_2367,40.pdf",
       "ocr_file": null,
       "fournisseur": "Blanchissage",
@@ -5401,7 +5401,7 @@
       "montant": 2367.4,
       "ventilation_index": null,
       "is_reconstitue": false,
-      "operation_ref": "operations_20260402_164325_a4edeb28.json:90",
+      "operation_ref": "operations_merged_202512_20260414_234739.json:91",
       "source_module": "charges-forfaitaires",
       "rapport_meta": {
         "template_id": null,
@@ -5413,7 +5413,7 @@
         },
         "format": "pdf",
         "favorite": false,
-        "generated_at": "2026-04-13T06:07:33.486484",
+        "generated_at": "2026-04-19T20:06:13.235946",
         "can_regenerate": false,
         "can_compare": false
       }
@@ -5431,7 +5431,7 @@
       "deductible_pct_override": null,
       "tags": [],
       "notes": "",
-      "added_at": "2026-04-14T15:59:11.290981",
+      "added_at": "2026-04-19T20:06:18.758344",
       "original_name": "quote_part_vehicule_2025.pdf",
       "ocr_file": null,
       "fournisseur": "Véhicule",
@@ -5456,7 +5456,7 @@
         },
         "format": "pdf",
         "favorite": false,
-        "generated_at": "2026-04-14T15:59:11.290981",
+        "generated_at": "2026-04-19T20:06:18.758344",
         "can_regenerate": false,
         "can_compare": false
       }
@@ -13611,63 +13611,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
-    "data/reports/rapport_remplacant_hebergement_2025_20260418_101723.pdf": {
-      "doc_id": "data/reports/rapport_remplacant_hebergement_2025_20260418_101723.pdf",
-      "type": "rapport",
-      "filename": "rapport_remplacant_hebergement_2025_20260418_101723.pdf",
-      "year": 2025,
-      "month": null,
-      "poste_comptable": null,
-      "categorie": "Remplaçant",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-18T10:17:23.233234",
-      "original_name": "rapport_remplacant_hebergement_2025_20260418_101723.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": null,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Remplaçant · Hébergement — 2025",
-        "description": null,
-        "filters": {
-          "categories": [
-            "Remplaçant"
-          ],
-          "subcategories": [
-            "Hébergement"
-          ],
-          "date_from": null,
-          "date_to": null,
-          "year": 2025,
-          "quarter": null,
-          "month": null,
-          "type": null,
-          "source": null,
-          "important_only": false,
-          "min_amount": null,
-          "max_amount": null
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-18T10:17:23.233234",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
     "data/justificatifs/traites/essence_20260319_133.81.pdf": {
       "doc_id": "data/justificatifs/traites/essence_20260319_133.81.pdf",
       "type": "justificatif",
@@ -17596,11 +17539,11 @@
       "original_name": "URSSAF_releve situation 2025.pdf",
       "ocr_file": "data/ged/2025/12/URSSAF_releve situation 2025.ocr.json"
     },
-    "data/justificatifs/en_attente/peage_20250103_7.90.pdf": {
-      "doc_id": "data/justificatifs/en_attente/peage_20250103_7.90.pdf",
+    "data/justificatifs/traites/peage_20250103_7.90.pdf": {
+      "doc_id": "data/justificatifs/traites/peage_20250103_7.90.pdf",
       "type": "justificatif",
-      "year": null,
-      "month": null,
+      "year": 2025,
+      "month": 1,
       "poste_comptable": null,
       "montant_brut": null,
       "deductible_pct_override": null,
@@ -17608,17 +17551,140 @@
       "notes": "",
       "added_at": "2026-04-18T19:55:45.583733",
       "original_name": "peage_20250103_7.90.pdf",
-      "ocr_file": "data/justificatifs/en_attente/peage_20250103_7.90.ocr.json",
-      "fournisseur": null,
-      "period": null,
-      "montant": null,
+      "ocr_file": "data/justificatifs/traites/peage_20250103_7.90.ocr.json",
+      "fournisseur": "Peage",
+      "period": {
+        "year": 2025,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 7.9,
       "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "categorie": null,
-      "sous_categorie": null,
-      "date_operation": null,
+      "statut_justificatif": "traite",
+      "categorie": "Véhicule",
+      "sous_categorie": "Péage",
+      "date_operation": "2025-01-03",
       "ventilation_index": null,
-      "operation_ref": null
+      "operation_ref": {
+        "file": "operations_split_202501_20260414_233641.json",
+        "index": 6,
+        "ventilation_index": null
+      }
+    },
+    "data/reports/rapport_honoraires_2025_20260419_194644.pdf": {
+      "doc_id": "data/reports/rapport_honoraires_2025_20260419_194644.pdf",
+      "type": "rapport",
+      "filename": "rapport_honoraires_2025_20260419_194644.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Honoraires",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-19T19:46:44.538054",
+      "original_name": "rapport_honoraires_2025_20260419_194644.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Honoraires — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Honoraires"
+          ],
+          "subcategories": [
+            "Bloc",
+            "Optam"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-19T19:46:44.538054",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_remplacant_honoraires_2025_20260419_194917.pdf": {
+      "doc_id": "data/reports/rapport_remplacant_honoraires_2025_20260419_194917.pdf",
+      "type": "rapport",
+      "filename": "rapport_remplacant_honoraires_2025_20260419_194917.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Remplaçant",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-19T19:49:17.901201",
+      "original_name": "rapport_remplacant_honoraires_2025_20260419_194917.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Remplaçant · Honoraires — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Remplaçant"
+          ],
+          "subcategories": [
+            "Honoraires"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-19T19:49:17.901201",
+        "can_regenerate": true,
+        "can_compare": true
+      }
     }
   }
 }
