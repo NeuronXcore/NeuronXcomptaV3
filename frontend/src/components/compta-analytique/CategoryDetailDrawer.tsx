@@ -19,6 +19,38 @@ interface Props {
   month: number | null
 }
 
+// Badge de nature fiscale (miroir backend _nature_of_category)
+function NatureBadge({ category }: { category: string | null }) {
+  if (!category) return null
+  const cat = category.trim()
+  const cl = cat.toLowerCase()
+  let label: string
+  let bg: string
+  let color: string
+  if (cl === 'perso') {
+    label = 'perso'
+    bg = 'rgba(148,163,184,0.15)'
+    color = '#64748b'
+  } else if (cat === '' || cl === 'autres' || cl === 'ventilé') {
+    label = 'attente'
+    bg = '#FAEEDA'
+    color = '#854F0B'
+  } else {
+    label = 'pro'
+    bg = '#EEEDFE'
+    color = '#3C3489'
+  }
+  return (
+    <span
+      className="text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0"
+      style={{ background: bg, color }}
+      title={label === 'pro' ? 'Inclus dans le BNC' : label === 'perso' ? 'Hors BNC (ops personnelles)' : 'Compte d\'attente'}
+    >
+      {label}
+    </span>
+  )
+}
+
 const tooltipStyle = {
   backgroundColor: '#1e293b',
   border: '1px solid #334155',
@@ -105,9 +137,12 @@ export default function CategoryDetailDrawer({
                 <Tags size={18} className="text-primary" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-text truncate">
-                  {category || ''}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-text truncate">
+                    {category || ''}
+                  </h2>
+                  <NatureBadge category={category} />
+                </div>
                 {data && (
                   <div className="flex items-center gap-3 text-xs text-text-muted mt-0.5">
                     <span className="text-red-400">{formatCurrency(data.total_debit)} débit</span>

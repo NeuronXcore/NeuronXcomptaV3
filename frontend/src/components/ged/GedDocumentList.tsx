@@ -72,6 +72,7 @@ const TYPE_LABELS: Record<string, string> = {
   justificatif: 'Justificatif',
   rapport: 'Rapport',
   document_libre: 'Document',
+  liasse_fiscale_scp: 'Liasse SCP',
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -79,6 +80,7 @@ const TYPE_COLORS: Record<string, string> = {
   justificatif: 'bg-amber-500/15 text-amber-400',
   rapport: 'bg-emerald-500/15 text-emerald-400',
   document_libre: 'bg-purple-500/15 text-purple-400',
+  liasse_fiscale_scp: 'bg-orange-500/15 text-orange-400',
 }
 
 export default function GedDocumentList({

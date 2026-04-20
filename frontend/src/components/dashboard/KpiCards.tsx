@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { TrendingUp, TrendingDown, Calculator, Landmark, Brain, Minus } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calculator, Landmark, Brain, Minus, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useMLHealthKPI } from '@/hooks/useApi'
+import { useLiasseScpDrawerStore } from '@/stores/liasseScpDrawerStore'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import type { DashboardKPIs, DeltaN1 } from '@/types'
 
 interface KpiCardsProps {
@@ -45,20 +47,47 @@ function Sparkline({ data }: { data: number[] }) {
 export default function KpiCards({ kpis, delta }: KpiCardsProps) {
   const navigate = useNavigate()
   const { data: health } = useMLHealthKPI()
+  const { selectedYear } = useFiscalYearStore()
+  const openLiasseDrawer = useLiasseScpDrawerStore((s) => s.open)
   const chargesSociales = Math.round(kpis.bnc_estime * 0.39)
+  const baseRecettes = kpis.base_recettes ?? 'bancaire'
+  const isLiasse = baseRecettes === 'liasse' && kpis.ca_liasse != null
+  const handleOpenLiasse = () => openLiasseDrawer({ initialYear: selectedYear, yearSource: 'fiscal_store' })
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      {/* Recettes */}
+      {/* Recettes pro */}
       <div className="bg-surface rounded-lg p-4 border border-border">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
             <TrendingUp size={16} className="text-emerald-400" />
           </div>
-          <span className="text-xs text-text-muted">Recettes</span>
+          <span className="text-xs text-text-muted">Recettes pro</span>
           {delta && <DeltaBadge value={delta.delta_recettes_pct} />}
         </div>
         <p className="text-xl font-bold text-text">{formatCurrency(kpis.total_recettes)}</p>
+        <div className="flex items-center gap-1.5 mt-1.5">
+          {isLiasse ? (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
+              style={{ background: '#EAF3DE', color: '#3B6D11' }}
+              title={`CA déclaré liasse fiscale SCP : ${formatCurrency(kpis.ca_liasse!)}`}
+            >
+              <CheckCircle2 size={9} />
+              liasse · définitif
+            </span>
+          ) : (
+            <button
+              onClick={handleOpenLiasse}
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded hover:opacity-80 transition-opacity"
+              style={{ background: '#FAEEDA', color: '#854F0B' }}
+              title="Cliquer pour saisir le CA de la liasse fiscale SCP"
+            >
+              <AlertTriangle size={9} />
+              provisoire · bancaire
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Charges */}

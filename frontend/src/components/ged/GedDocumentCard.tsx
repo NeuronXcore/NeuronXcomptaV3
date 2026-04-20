@@ -1,5 +1,5 @@
 import {
-  FileText, Receipt, BarChart3, FolderOpen, Star, File,
+  FileText, Receipt, BarChart3, FolderOpen, Star, File, Landmark,
   Link as LinkIcon, CheckCircle2, Lock, Building2, Tag, CalendarDays, Euro,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDateShort } from '@/lib/utils'
@@ -15,6 +15,7 @@ const TYPE_ICON: Record<string, typeof FileText> = {
   justificatif: Receipt,
   rapport: BarChart3,
   document_libre: FolderOpen,
+  liasse_fiscale_scp: Landmark,
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -22,6 +23,7 @@ const TYPE_LABEL: Record<string, string> = {
   justificatif: 'Justificatif',
   rapport: 'Rapport',
   document_libre: 'Document',
+  liasse_fiscale_scp: 'Liasse SCP',
 }
 
 interface GedDocumentCardProps {

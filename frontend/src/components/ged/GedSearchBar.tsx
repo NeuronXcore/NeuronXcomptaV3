@@ -19,6 +19,7 @@ const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'releve', label: 'Relevés' },
   { value: 'rapport', label: 'Rapports' },
   { value: 'document_libre', label: 'Documents libres' },
+  { value: 'liasse_fiscale_scp', label: 'Liasses fiscales SCP' },
 ]
 
 const MOIS = [

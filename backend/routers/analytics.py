@@ -6,9 +6,23 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
-from backend.services import operation_service, analytics_service
+from backend.services import operation_service, analytics_service, liasse_scp_service
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+
+
+def _resolve_ca_liasse(
+    year: Optional[int],
+    quarter: Optional[int],
+    month: Optional[int],
+) -> Optional[float]:
+    """CA liasse applicable uniquement sur année complète (pas de filtre mois/trimestre).
+
+    Sinon on mélangerait recettes annuelles (liasse) avec charges partielles (mois/trimestre).
+    """
+    if year is None or quarter is not None or month is not None:
+        return None
+    return liasse_scp_service.get_ca_for_bnc(year)
 
 
 def _load_all_ops(
@@ -62,7 +76,8 @@ async def get_dashboard(
 ):
     """Données agrégées pour le dashboard, filtrées par période."""
     all_ops = _load_all_ops(year, quarter, month)
-    return analytics_service.get_dashboard_data(all_ops)
+    ca_liasse = _resolve_ca_liasse(year, quarter, month)
+    return analytics_service.get_dashboard_data(all_ops, ca_liasse=ca_liasse)
 
 
 @router.get("/summary")
@@ -121,10 +136,12 @@ async def compare_periods(
     quarter_b: Optional[int] = Query(None),
     month_b: Optional[int] = Query(None),
 ):
-    """Compare deux périodes : KPIs, ventilation par catégorie."""
+    """Compare deux périodes : KPIs BNC + ventilation par catégorie."""
     ops_a = _load_all_ops(year_a, quarter_a, month_a)
     ops_b = _load_all_ops(year_b, quarter_b, month_b)
-    return analytics_service.compare_periods(ops_a, ops_b)
+    ca_a = _resolve_ca_liasse(year_a, quarter_a, month_a)
+    ca_b = _resolve_ca_liasse(year_b, quarter_b, month_b)
+    return analytics_service.compare_periods(ops_a, ops_b, ca_liasse_a=ca_a, ca_liasse_b=ca_b)
 
 
 @router.get("/year-overview")

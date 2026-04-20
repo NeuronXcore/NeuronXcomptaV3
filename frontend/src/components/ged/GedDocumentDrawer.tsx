@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil, Expand, Link2, LockOpen, Unlink,
+  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil, Expand, Link2, LockOpen, Unlink, Landmark,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import GedMetadataEditor from './GedMetadataEditor'
 import JustificatifOperationLink from '@/components/shared/JustificatifOperationLink'
 import OcrEditDrawer from '@/components/ocr/OcrEditDrawer'
@@ -15,6 +15,10 @@ import { useGedUpdateDocument, useGedDeleteDocument, useGedOpenNative } from '@/
 import { useOcrHistory } from '@/hooks/useOcr'
 import { useDeleteJustificatif, useDissociate } from '@/hooks/useJustificatifs'
 import { useToggleLock } from '@/hooks/useToggleLock'
+import { useLiasseScp } from '@/hooks/useLiasseScp'
+import { useLiasseScpDrawerStore } from '@/stores/liasseScpDrawerStore'
+import { resolveLiasseYear } from '@/lib/liasse-year-resolver'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { UnlockConfirmModal } from '@/components/UnlockConfirmModal'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import type { GedDocument, PosteComptable, OCRHistoryItem } from '@/types'
@@ -134,7 +138,34 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
   const name = localDoc?.original_name || docId?.split('/').pop() || ''
   const basename = docId?.split('/').pop() ?? ''
   const isJustificatif = localDoc?.type === 'justificatif'
+  const isLiasse = localDoc?.type === 'liasse_fiscale_scp'
   const isImage = /\.(jpe?g|png)$/i.test(name)
+
+  // Résolution de l'année liasse (cascade ged_year > ged_date > ged_filename > fiscal_store)
+  const { selectedYear: fiscalYear } = useFiscalYearStore()
+  const liasseYearResolution = useMemo(() => {
+    if (!isLiasse || !localDoc) return null
+    return resolveLiasseYear(
+      {
+        year: localDoc.year ?? null,
+        date: localDoc.date_document ?? null,
+        filename: basename,
+      },
+      fiscalYear,
+    )
+  }, [isLiasse, localDoc, basename, fiscalYear])
+  const resolvedLiasseYear = liasseYearResolution?.year ?? null
+  const { data: savedLiasse } = useLiasseScp(resolvedLiasseYear)
+  const openLiasseDrawer = useLiasseScpDrawerStore((s) => s.open)
+
+  const handleOpenLiasseDrawer = () => {
+    if (resolvedLiasseYear === null || !docId) return
+    openLiasseDrawer({
+      initialYear: resolvedLiasseYear,
+      gedDocumentId: docId,
+      yearSource: liasseYearResolution?.source ?? 'fiscal_store',
+    })
+  }
 
   // Item OCR pour OcrEditDrawer (fallback synthétique si pas trouvé dans l'historique)
   const ocrItem: OCRHistoryItem | null = useMemo(() => {
@@ -368,6 +399,21 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
               >
                 <Link2 size={14} />
                 Associer à une opération
+              </button>
+            )}
+            {isLiasse && resolvedLiasseYear !== null && (
+              <button
+                onClick={handleOpenLiasseDrawer}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors"
+                style={{
+                  background: savedLiasse ? '#EAF3DE' : '#FAEEDA',
+                  borderColor: savedLiasse ? '#C0DD97' : '#FAC775',
+                  color: savedLiasse ? '#3B6D11' : '#854F0B',
+                }}
+                title={savedLiasse ? `Modifier le CA ${formatCurrency(savedLiasse.ca_declare)}` : `Saisir le CA pour l'exercice ${resolvedLiasseYear}`}
+              >
+                <Landmark size={14} />
+                {savedLiasse ? `Modifier le CA (${formatCurrency(savedLiasse.ca_declare)})` : `Saisir le CA · ${resolvedLiasseYear}`}
               </button>
             )}
             <button

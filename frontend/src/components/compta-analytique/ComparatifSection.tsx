@@ -8,6 +8,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend,
 } from 'recharts'
+import NatureFilter, { type NatureFilter as NatureFilterValue } from './NatureFilter'
 
 const tooltipStyle = {
   backgroundColor: '#1e293b',
@@ -122,12 +123,18 @@ export default function ComparatifSection({ onCategoryClick }: Props) {
     canCompare,
   )
 
-  // Split categories into recettes / dépenses
+  // Nature filter (Pro / Perso / Tout) — applique le filtre sur les catégories affichées
+  const [natureFilter, setNatureFilter] = useState<NatureFilterValue>('pro')
+
+  // Split categories into recettes / dépenses (filtré par nature)
   const { recettes, depenses } = useMemo(() => {
     if (!data) return { recettes: [], depenses: [] }
     const rec: typeof data.categories = []
     const dep: typeof data.categories = []
-    for (const c of data.categories) {
+    const filtered = natureFilter === 'all'
+      ? data.categories
+      : data.categories.filter(c => (c as { nature?: string }).nature === natureFilter)
+    for (const c of filtered) {
       if ((c.a_credit + c.b_credit) > (c.a_debit + c.b_debit)) {
         rec.push(c)
       } else {
@@ -139,7 +146,7 @@ export default function ComparatifSection({ onCategoryClick }: Props) {
     // Sort depenses by total debit desc
     dep.sort((a, b) => (b.a_debit + b.b_debit) - (a.a_debit + a.b_debit))
     return { recettes: rec, depenses: dep }
-  }, [data])
+  }, [data, natureFilter])
 
   const periodLabelA = [yearA, quarterA ? `T${quarterA}` : null, monthA ? MOIS_FR[monthA - 1]?.slice(0, 3) : null].filter(Boolean).join(' ') || 'Toutes'
   const periodLabelB = [yearB, quarterB ? `T${quarterB}` : null, monthB ? MOIS_FR[monthB - 1]?.slice(0, 3) : null].filter(Boolean).join(' ') || 'Toutes'
@@ -205,6 +212,13 @@ export default function ComparatifSection({ onCategoryClick }: Props) {
         </div>
       ) : (
         <>
+          {/* Nature filter — filtre les catégories affichées (tableau + graphes) */}
+          <NatureFilter
+            value={natureFilter}
+            onChange={setNatureFilter}
+            hint="les tableaux et les graphes filtrent en conséquence"
+          />
+
           {/* KPI comparison */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {([

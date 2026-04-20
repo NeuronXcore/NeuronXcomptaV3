@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { DashboardData, OperationFile, CategoryGroup, CategoryRaw, AppSettings, MLModelInfo, MLModelFull, TrainingExample, TrendRecord, AnomalyRecord, YearOverviewResponse, MLMonitoringStats, MLHealthKPI } from '@/types'
+import type { DashboardData, OperationFile, CategoryGroup, CategoryRaw, AppSettings, MLModelInfo, MLModelFull, TrainingExample, TrendsResponse, AnomalyRecord, YearOverviewResponse, MLMonitoringStats, MLHealthKPI } from '@/types'
 
 function _periodParams(year?: number | null, quarter?: number | null, month?: number | null): string {
   const params = new URLSearchParams()
@@ -152,7 +152,7 @@ export function useAnalyticsTrends(months: number = 0, year?: number | null, qua
   if (year != null) params.set('year', String(year))
   if (quarter != null) params.set('quarter', String(quarter))
   if (month != null) params.set('month', String(month))
-  return useQuery<TrendRecord[]>({
+  return useQuery<TrendsResponse>({
     queryKey: ['analytics-trends', months, year ?? 'all', quarter ?? 'all', month ?? 'all'],
     queryFn: () => api.get(`/analytics/trends?${params.toString()}`),
   })

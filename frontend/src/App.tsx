@@ -26,6 +26,7 @@ import TasksPage from '@/components/tasks/TasksPage'
 import SnapshotsPage from '@/components/snapshots/SnapshotsPage'
 import ChargesForfaitairesPage from '@/components/charges-forfaitaires/ChargesForfaitairesPage'
 import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
+import LiasseScpDrawer from '@/components/liasse/LiasseScpDrawer'
 
 export default function App() {
   const { data: settings } = useSettings()
@@ -84,6 +85,7 @@ export default function App() {
       </Route>
     </Routes>
     <SendToAccountantDrawer />
+    <LiasseScpDrawer />
     </>
   )
 }

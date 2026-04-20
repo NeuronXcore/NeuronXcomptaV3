@@ -2,6 +2,7 @@
 Service pour l'analytique financière.
 Refactoré depuis utils/analytics.py de V2.
 """
+from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
@@ -11,6 +12,99 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+# ─── BNC — source of truth fiscale unique ───
+# Règle : BNC = recettes_pro − charges_pro_déductibles. Les ops "perso" sont HORS assiette.
+# Le tri pro/perso/attente + l'explosion des ventilations sont délégués à
+# export_service._prepare_export_operations() pour garantir une règle fiscale unique
+# entre l'export comptable et l'analytique. Ne pas dupliquer la logique ici.
+
+
+def _nature_of_category(categorie: str) -> str:
+    """Classifie une catégorie en 'pro', 'perso' ou 'attente'. Miroir de export_service._classify_line."""
+    cat = (categorie or "").strip()
+    cat_lower = cat.lower()
+    if cat_lower == "perso":
+        return "perso"
+    if cat == "" or cat_lower == "autres" or cat_lower == "ventilé":
+        return "attente"
+    return "pro"
+
+
+def _bnc_metrics_from_operations(
+    operations: list[dict],
+    ca_liasse: Optional[float] = None,
+) -> dict:
+    """Calcule la structure 4-blocs {bnc, perso, attente, tresorerie} à partir des opérations brutes.
+
+    Délègue le tri pro/perso/attente + explosion ventilations à export_service._prepare_export_operations.
+    Injecte `ca_liasse` comme base de recettes si fourni (→ base_recettes='liasse'), sinon bancaire.
+
+    Note : `charges_pro` intègre déjà la déduction `csg_non_deductible` (faite dans _prepare_export_operations).
+    Ne pas la resoustraire.
+    """
+    # Import local pour éviter circular import potentiel
+    from backend.services import export_service
+
+    split = export_service._prepare_export_operations(operations or [], "")
+    pro_ops = split["pro"]
+    perso_ops = split["perso"]
+    attente_ops = split["attente"]
+    totals = split["totals"]
+
+    recettes_pro_bancaires = float(totals.get("recettes_pro", 0.0))
+    charges_pro = float(totals.get("charges_pro", 0.0))
+
+    if ca_liasse is not None:
+        recettes_pro = float(ca_liasse)
+        base_recettes = "liasse"
+    else:
+        recettes_pro = recettes_pro_bancaires
+        base_recettes = "bancaire"
+
+    solde_bnc = recettes_pro - charges_pro
+
+    # Trésorerie = tout confondu (pro + perso + attente)
+    total_debit = sum(
+        float(line.get("Debit", 0) or 0)
+        for group in (pro_ops, perso_ops, attente_ops)
+        for line in group
+    )
+    total_credit = sum(
+        float(line.get("Credit", 0) or 0)
+        for group in (pro_ops, perso_ops, attente_ops)
+        for line in group
+    )
+    nb_total = len(pro_ops) + len(perso_ops) + len(attente_ops)
+
+    return {
+        "bnc": {
+            "recettes_pro": round(recettes_pro, 2),
+            "recettes_pro_bancaires": round(recettes_pro_bancaires, 2),
+            "ca_liasse": round(float(ca_liasse), 2) if ca_liasse is not None else None,
+            "base_recettes": base_recettes,
+            "charges_pro": round(charges_pro, 2),
+            "solde_bnc": round(solde_bnc, 2),
+            "nb_ops_pro": len(pro_ops),
+        },
+        "perso": {
+            "total_debit": round(float(totals.get("debit_perso", 0.0)), 2),
+            "total_credit": round(float(totals.get("credit_perso", 0.0)), 2),
+            "nb_ops": len(perso_ops),
+        },
+        "attente": {
+            "total_debit": round(float(totals.get("debit_attente", 0.0)), 2),
+            "total_credit": round(float(totals.get("credit_attente", 0.0)), 2),
+            "nb_ops": len(attente_ops),
+        },
+        "tresorerie": {
+            "total_debit": round(total_debit, 2),
+            "total_credit": round(total_credit, 2),
+            "solde": round(total_credit - total_debit, 2),
+            "nb_ops": nb_total,
+        },
+    }
 
 
 def _expand_ventilation(operations: list[dict]) -> list[dict]:
@@ -69,15 +163,27 @@ def get_category_summary(operations: list[dict]) -> list[dict]:
     else:
         summary["Pourcentage_Dépenses"] = 0
 
-    return summary.reset_index().to_dict(orient="records")
+    records = summary.reset_index().to_dict(orient="records")
+    for row in records:
+        row["nature"] = _nature_of_category(row.get("Catégorie", ""))
+    return records
 
 
-def get_monthly_trends(operations: list[dict], nb_months: int = 6) -> list[dict]:
-    """Tendances mensuelles."""
+def get_monthly_trends(operations: list[dict], nb_months: int = 6) -> dict:
+    """Tendances mensuelles par catégorie, séparées par nature (pro / perso / all).
+
+    Retourne 3 listes parallèles permettant au frontend de piloter les graphes
+    selon le segmented control Pro/Perso/Tout :
+        - trends_all  : toutes les ops (équivalent de l'ancien retour plat)
+        - trends_pro  : uniquement catégories pro (hors perso, hors attente)
+        - trends_perso: uniquement ops perso
+
+    Chaque élément : {Mois: "YYYY-MM", Catégorie: str, Crédit: float, Débit: float}.
+    """
     operations = _expand_ventilation(operations)
     df = pd.DataFrame(operations)
     if df.empty:
-        return []
+        return {"trends_all": [], "trends_pro": [], "trends_perso": []}
 
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df["Crédit"] = pd.to_numeric(df.get("Crédit", 0), errors="coerce").fillna(0)
@@ -85,7 +191,7 @@ def get_monthly_trends(operations: list[dict], nb_months: int = 6) -> list[dict]
 
     df = df.dropna(subset=["Date"])
     if df.empty:
-        return []
+        return {"trends_all": [], "trends_pro": [], "trends_perso": []}
 
     if nb_months > 0:
         start_date = datetime.now() - timedelta(days=30 * nb_months)
@@ -97,11 +203,35 @@ def get_monthly_trends(operations: list[dict], nb_months: int = 6) -> list[dict]
     }).reset_index()
     monthly["Mois"] = monthly["Mois"].astype(str)
 
-    return monthly.to_dict(orient="records")
+    records = monthly.to_dict(orient="records")
+    for row in records:
+        row["nature"] = _nature_of_category(row.get("Catégorie", ""))
+
+    trends_pro = [r for r in records if r["nature"] == "pro"]
+    trends_perso = [r for r in records if r["nature"] == "perso"]
+
+    return {
+        "trends_all": records,
+        "trends_pro": trends_pro,
+        "trends_perso": trends_perso,
+    }
 
 
-def get_dashboard_data(all_operations: list[dict]) -> dict:
-    """Données agrégées pour le dashboard."""
+def get_dashboard_data(
+    all_operations: list[dict],
+    ca_liasse: Optional[float] = None,
+) -> dict:
+    """Données agrégées pour le dashboard.
+
+    Retourne les champs plats historiques (`total_debit`, `total_credit`, `solde`, ...)
+    ET la structure 4-blocs BNC (`bnc`, `perso`, `attente`, `tresorerie`) pour le nouveau modèle.
+
+    Si `ca_liasse` fourni, `bnc.recettes_pro = ca_liasse` et `bnc.base_recettes = 'liasse'`,
+    sinon `bnc.recettes_pro = sum(crédits pro)` et `bnc.base_recettes = 'bancaire'`.
+    """
+    # Calcul BNC sur opérations BRUTES (ventilations explosées à l'intérieur de _bnc_metrics_from_operations)
+    bnc_metrics = _bnc_metrics_from_operations(all_operations or [], ca_liasse=ca_liasse)
+
     all_operations = _expand_ventilation(all_operations)
     df = pd.DataFrame(all_operations)
     if df.empty:
@@ -110,6 +240,10 @@ def get_dashboard_data(all_operations: list[dict]) -> dict:
             "nb_operations": 0, "category_summary": [],
             "recent_operations": [], "monthly_evolution": [],
             "by_source": [],
+            "bnc": bnc_metrics["bnc"],
+            "perso": bnc_metrics["perso"],
+            "attente": bnc_metrics["attente"],
+            "tresorerie": bnc_metrics["tresorerie"],
         }
 
     df["Crédit"] = pd.to_numeric(df.get("Crédit", 0), errors="coerce").fillna(0)
@@ -173,6 +307,10 @@ def get_dashboard_data(all_operations: list[dict]) -> dict:
         "recent_operations": recent_list,
         "monthly_evolution": monthly_list,
         "by_source": by_source,
+        "bnc": bnc_metrics["bnc"],
+        "perso": bnc_metrics["perso"],
+        "attente": bnc_metrics["attente"],
+        "tresorerie": bnc_metrics["tresorerie"],
     }
 
 
@@ -306,8 +444,16 @@ def _period_totals(operations: list[dict]) -> dict:
     return {"total_debit": td, "total_credit": tc, "solde": tc - td, "nb_operations": len(df)}
 
 
-def compare_periods(ops_a: list[dict], ops_b: list[dict]) -> dict:
-    """Compare deux ensembles d'opérations : KPIs + ventilation par catégorie."""
+def compare_periods(
+    ops_a: list[dict],
+    ops_b: list[dict],
+    ca_liasse_a: Optional[float] = None,
+    ca_liasse_b: Optional[float] = None,
+) -> dict:
+    """Compare deux ensembles d'opérations : KPIs BNC + ventilation par catégorie.
+
+    Enrichi avec les blocs bnc/perso/tresorerie par période + delta BNC + nature par catégorie.
+    """
     totals_a = _period_totals(ops_a)
     totals_b = _period_totals(ops_b)
 
@@ -323,6 +469,20 @@ def compare_periods(ops_a: list[dict], ops_b: list[dict]) -> dict:
         "solde": _delta_pct(abs(totals_a["solde"]) if totals_a["solde"] != 0 else 1, totals_b["solde"]),
         "nb_operations": _delta_pct(totals_a["nb_operations"], totals_b["nb_operations"]),
     }
+
+    # BNC metrics par période
+    bnc_a = _bnc_metrics_from_operations(ops_a or [], ca_liasse=ca_liasse_a)
+    bnc_b = _bnc_metrics_from_operations(ops_b or [], ca_liasse=ca_liasse_b)
+
+    # Delta BNC
+    delta["bnc_solde"] = bnc_b["bnc"]["solde_bnc"] - bnc_a["bnc"]["solde_bnc"]
+    delta["recettes_pro"] = bnc_b["bnc"]["recettes_pro"] - bnc_a["bnc"]["recettes_pro"]
+    delta["charges_pro"] = bnc_b["bnc"]["charges_pro"] - bnc_a["bnc"]["charges_pro"]
+    delta["perso_debit"] = bnc_b["perso"]["total_debit"] - bnc_a["perso"]["total_debit"]
+
+    # Enrichir totals avec bnc/perso/tresorerie
+    period_a = {**totals_a, "bnc": bnc_a["bnc"], "perso": bnc_a["perso"], "tresorerie": bnc_a["tresorerie"]}
+    period_b = {**totals_b, "bnc": bnc_b["bnc"], "perso": bnc_b["perso"], "tresorerie": bnc_b["tresorerie"]}
 
     # Category comparison
     cat_a = get_category_summary(ops_a)
@@ -340,6 +500,7 @@ def compare_periods(ops_a: list[dict], ops_b: list[dict]) -> dict:
         b_debit = float(b.get("Débit", 0))
         categories.append({
             "category": cat,
+            "nature": _nature_of_category(cat),
             "a_debit": a_debit,
             "a_credit": float(a.get("Crédit", 0)),
             "a_ops": int(a.get("Nombre_Opérations", 0)),
@@ -353,8 +514,8 @@ def compare_periods(ops_a: list[dict], ops_b: list[dict]) -> dict:
     categories.sort(key=lambda c: abs(c.get("delta_pct") or 0), reverse=True)
 
     return {
-        "period_a": totals_a,
-        "period_b": totals_b,
+        "period_a": period_a,
+        "period_b": period_b,
         "delta": delta,
         "categories": categories,
     }
@@ -363,15 +524,23 @@ def compare_periods(ops_a: list[dict], ops_b: list[dict]) -> dict:
 # ─── Year Overview (Dashboard V2) ───
 
 def get_year_overview(year: int) -> dict:
-    """Cockpit annuel : mois, KPIs, alertes, progression, activité."""
+    """Cockpit annuel : mois, KPIs, alertes, progression, activité.
+
+    Les KPIs BNC excluent strictement les ops perso (règle fiscale unique).
+    Si la liasse fiscale SCP est saisie pour l'année, `kpis.total_recettes = ca_liasse`
+    et `kpis.base_recettes = 'liasse'` ; sinon base bancaire (proxy provisoire).
+    """
     from backend.core.config import (
         MOIS_FR, EXPORTS_DIR, IMPORTS_OPERATIONS_DIR,
         JUSTIFICATIFS_TRAITES_DIR, ensure_directories,
     )
-    from backend.services import operation_service, cloture_service
+    from backend.services import operation_service, cloture_service, liasse_scp_service
     import os
 
     ensure_directories()
+
+    # CA liasse éventuel (None si pas saisi pour cette année)
+    ca_liasse = liasse_scp_service.get_ca_for_bnc(year)
 
     # a) Données mensuelles
     annual_status = cloture_service.get_annual_status(year)
@@ -412,8 +581,12 @@ def get_year_overview(year: int) -> dict:
         taux_cat = nb_categorised / nb if nb > 0 else 0.0
         taux_rapp = nb_rapproches / nb_debit_ops if nb_debit_ops > 0 else 0.0
 
+        # Trésorerie brute (affichage des cards mensuelles du dashboard)
         total_credit = sum(op.get("Crédit", 0) for op in all_ops)
         total_debit = sum(op.get("Débit", 0) - (op.get("csg_non_deductible") or 0) for op in all_ops)
+
+        # BNC mensuel — base bancaire (ca_liasse est annuel, pas mensuel)
+        bnc_m = _bnc_metrics_from_operations(all_ops, ca_liasse=None)
 
         # Export exists?
         has_export = False
@@ -432,16 +605,28 @@ def get_year_overview(year: int) -> dict:
             "has_export": has_export,
             "total_credit": round(total_credit, 2),
             "total_debit": round(total_debit, 2),
+            "bnc_recettes_pro": bnc_m["bnc"]["recettes_pro_bancaires"],
+            "bnc_charges_pro": bnc_m["bnc"]["charges_pro"],
+            "bnc_solde": bnc_m["bnc"]["solde_bnc"],
             "filename": m_status.get("filename"),
         })
 
-    # b) KPIs annuels
-    total_recettes = sum(m["total_credit"] for m in mois_data)
-    total_charges = sum(m["total_debit"] for m in mois_data)
+    # b) KPIs annuels — BNC propre (exclut perso, applique CA liasse si saisi)
+    recettes_pro_bancaires = sum(m["bnc_recettes_pro"] for m in mois_data)
+    total_charges = sum(m["bnc_charges_pro"] for m in mois_data)
+
+    if ca_liasse is not None:
+        total_recettes = float(ca_liasse)
+        base_recettes = "liasse"
+    else:
+        total_recettes = recettes_pro_bancaires
+        base_recettes = "bancaire"
+
     bnc_estime = total_recettes - total_charges
     nb_operations = sum(m["nb_operations"] for m in mois_data)
     nb_mois_actifs = sum(1 for m in mois_data if m["nb_operations"] > 0)
-    bnc_mensuel = [m["total_credit"] - m["total_debit"] for m in mois_data]
+    # bnc_mensuel = vraie série BNC mensuelle (bancaire — la liasse étant annuelle par définition)
+    bnc_mensuel = [m["bnc_solde"] for m in mois_data]
 
     kpis = {
         "total_recettes": round(total_recettes, 2),
@@ -450,23 +635,27 @@ def get_year_overview(year: int) -> dict:
         "nb_operations": nb_operations,
         "nb_mois_actifs": nb_mois_actifs,
         "bnc_mensuel": [round(v, 2) for v in bnc_mensuel],
+        "ca_liasse": round(float(ca_liasse), 2) if ca_liasse is not None else None,
+        "base_recettes": base_recettes,
+        "recettes_pro_bancaires": round(recettes_pro_bancaires, 2),
     }
 
-    # c) Delta N-1
+    # c) Delta N-1 — utilise le BNC propre (exclut perso)
     delta_n1 = None
     prev_year = year - 1
     prev_files = [f for f in files if f.get("year") == prev_year]
     if prev_files:
-        prev_credit = 0.0
-        prev_debit = 0.0
+        prev_all_ops: list[dict] = []
         for pf in prev_files:
             try:
-                ops = operation_service.load_operations(pf["filename"])
-                prev_credit += sum(op.get("Crédit", 0) for op in ops)
-                prev_debit += sum(op.get("Débit", 0) for op in ops)
+                prev_all_ops.extend(operation_service.load_operations(pf["filename"]))
             except Exception:
                 pass
-        prev_bnc = prev_credit - prev_debit
+        prev_ca_liasse = liasse_scp_service.get_ca_for_bnc(prev_year)
+        prev_bnc_m = _bnc_metrics_from_operations(prev_all_ops, ca_liasse=prev_ca_liasse)
+        prev_credit = prev_bnc_m["bnc"]["recettes_pro"]
+        prev_debit = prev_bnc_m["bnc"]["charges_pro"]
+        prev_bnc = prev_bnc_m["bnc"]["solde_bnc"]
         delta_n1 = {
             "prev_total_recettes": round(prev_credit, 2),
             "prev_total_charges": round(prev_debit, 2),

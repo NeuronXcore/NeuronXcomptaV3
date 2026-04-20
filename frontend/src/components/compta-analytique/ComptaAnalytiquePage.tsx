@@ -7,9 +7,12 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import QueryDrawer from './QueryDrawer'
 import CategoryDetailDrawer from './CategoryDetailDrawer'
 import ComparatifSection from './ComparatifSection'
+import BncBanner from './BncBanner'
+import VentilationDepensesCard from './VentilationDepensesCard'
+import NatureFilter, { type NatureFilter as NatureFilterValue } from './NatureFilter'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import {
-  TrendingDown, TrendingUp, Wallet, Hash, Tags,
+  TrendingDown, TrendingUp, Briefcase, Hash, Tags, Calculator, Wallet,
   AlertTriangle, CheckCircle, ArrowUpDown, Search,
   Filter, ChevronRight,
 } from 'lucide-react'
@@ -18,7 +21,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
   BarChart, Bar,
 } from 'recharts'
-import type { TrendRecord, CategorySummary, SourceBreakdown } from '@/types'
+import type { TrendRecord, CategorySummary, SourceBreakdown, BncMetrics, PersoMetrics } from '@/types'
 
 const COLORS = [
   '#811971', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
@@ -69,16 +72,48 @@ export default function ComptaAnalytiquePage() {
   const [granularity, setGranularity] = useState<Granularity>('month')
   const [evolutionMode, setEvolutionMode] = useState<EvolutionMode>('aggregated')
 
+  // Nature filter (Pro / Perso / Tout) — pilote tableau catégories + graphes
+  const [natureFilter, setNatureFilter] = useState<NatureFilterValue>('pro')
+
   // Drawers
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drillCategory, setDrillCategory] = useState<string | null>(null)
 
-  // Loading
+  // Trends : sélection de la série selon natureFilter
+  const trendsSelected: TrendRecord[] = useMemo(() => {
+    if (!trends) return []
+    if (natureFilter === 'pro') return trends.trends_pro
+    if (natureFilter === 'perso') return trends.trends_perso
+    return trends.trends_all
+  }, [trends, natureFilter])
+
+  // Catégories filtrées par nature (tableau + donut) — safe si dashboard absent
+  const filteredCategorySummary = useMemo(() => {
+    const list = dashboard?.category_summary ?? []
+    if (natureFilter === 'all') return list
+    return list.filter((c) => c.nature === natureFilter)
+  }, [dashboard?.category_summary, natureFilter])
+
+  const periodLabel = useMemo(() => {
+    if (globalMonth) return `${MOIS_FR[globalMonth - 1]} ${globalYear}`
+    if (globalQuarter) return `T${globalQuarter} ${globalYear}`
+    return `${globalYear}`
+  }, [globalYear, globalQuarter, globalMonth])
+
+  // Loading — MUST be after all hooks (Rules of Hooks)
   if (dashLoading || trendsLoading) return <LoadingSpinner text="Chargement des données analytiques..." />
   if (dashError) return <p className="text-danger p-8">Erreur: {dashError.message}</p>
   if (!dashboard) return null
 
-  const { total_debit, total_credit, solde, nb_operations, category_summary, by_source } = dashboard
+  const { nb_operations, category_summary, by_source, bnc, perso, tresorerie } = dashboard
+
+  // KPIs BNC (avec fallback sur champs plats si bnc absent — non-régression)
+  const recettesPro = bnc?.recettes_pro ?? dashboard.total_credit
+  const depensesTotales = (bnc?.charges_pro ?? 0) + (perso?.total_debit ?? 0) + (dashboard.attente?.total_debit ?? 0) || dashboard.total_debit
+  const soldeBnc = bnc?.solde_bnc ?? (dashboard.total_credit - dashboard.total_debit)
+
+  // Bandeau liasse — affiché uniquement en année complète (disabled si filtre mois/trimestre)
+  const bandeauDisabled = globalQuarter !== null || globalMonth !== null
 
   return (
     <div>
@@ -183,13 +218,27 @@ export default function ComptaAnalytiquePage() {
           )}
         </div>
 
-        {/* KPIs */}
-        <KPIRow
-          totalDebit={total_debit}
-          totalCredit={total_credit}
-          solde={solde}
+        {/* Bandeau BNC provisoire / définitif */}
+        <BncBanner bnc={bnc} disabled={bandeauDisabled} />
+
+        {/* KPIs BNC (Recettes pro / Dépenses totales / BNC estimé) */}
+        <BncKPIRow
+          bnc={bnc}
+          perso={perso}
+          recettesPro={recettesPro}
+          depensesTotales={depensesTotales}
+          soldeBnc={soldeBnc}
           nbOperations={nb_operations}
           nbCategories={category_summary.length}
+          tresorerieSolde={tresorerie?.solde ?? 0}
+        />
+
+        {/* Ventilation des dépenses Pro/Perso */}
+        <VentilationDepensesCard
+          bnc={bnc}
+          perso={perso}
+          categorySummary={category_summary}
+          periodLabel={periodLabel}
         />
 
         {/* Répartition par type d'opération (bancaire vs note de frais) */}
@@ -197,10 +246,17 @@ export default function ComptaAnalytiquePage() {
           <RepartitionParTypeCard sources={by_source} />
         )}
 
+        {/* Nature filter — pilote tableau catégories ET graphe d'évolution */}
+        <NatureFilter
+          value={natureFilter}
+          onChange={setNatureFilter}
+          hint="le tableau et les graphes filtrent en conséquence"
+        />
+
         {/* Ventilation */}
         <VentilationSection
-          categorySummary={category_summary}
-          trends={trends || []}
+          categorySummary={filteredCategorySummary}
+          trends={trendsSelected}
           sortCol={sortCol}
           setSortCol={setSortCol}
           sortDir={sortDir}
@@ -210,7 +266,7 @@ export default function ComptaAnalytiquePage() {
 
         {/* Évolution temporelle */}
         <EvolutionSection
-          trends={trends || []}
+          trends={trendsSelected}
           granularity={granularity}
           setGranularity={setGranularity}
           mode={evolutionMode}
@@ -242,18 +298,65 @@ export default function ComptaAnalytiquePage() {
   )
 }
 
-// ──────────── KPI Row ────────────
+// ──────────── KPI Row BNC ────────────
 
-function KPIRow({ totalDebit, totalCredit, solde, nbOperations, nbCategories }: {
-  totalDebit: number; totalCredit: number; solde: number; nbOperations: number; nbCategories: number
+function BncKPIRow({
+  bnc, perso, recettesPro, depensesTotales, soldeBnc, nbOperations, nbCategories, tresorerieSolde,
+}: {
+  bnc: BncMetrics | undefined
+  perso: PersoMetrics | undefined
+  recettesPro: number
+  depensesTotales: number
+  soldeBnc: number
+  nbOperations: number
+  nbCategories: number
+  tresorerieSolde: number
 }) {
+  const baseLabel = bnc?.base_recettes === 'liasse'
+    ? 'liasse SCP · définitif'
+    : 'crédits bancaires · provisoire'
+  const depensesSub = (perso?.total_debit ?? 0) > 0
+    ? `pro + perso confondus`
+    : 'pro déductible'
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-      <MetricCard title="Total Dépenses" value={formatCurrency(totalDebit)} icon={<TrendingDown size={20} />} trend="down" />
-      <MetricCard title="Total Revenus" value={formatCurrency(totalCredit)} icon={<TrendingUp size={20} />} trend="up" />
-      <MetricCard title="Solde" value={formatCurrency(solde)} icon={<Wallet size={20} />} trend={solde >= 0 ? 'up' : 'down'} />
+      {/* Recettes pro */}
+      <MetricCard
+        title="Recettes pro"
+        value={formatCurrency(recettesPro)}
+        icon={<TrendingUp size={20} />}
+        trend="up"
+      />
+      {/* Dépenses totales */}
+      <MetricCard
+        title="Dépenses totales"
+        value={formatCurrency(depensesTotales)}
+        icon={<TrendingDown size={20} />}
+        trend="down"
+      />
+      {/* BNC estimé */}
+      <MetricCard
+        title={bnc?.base_recettes === 'liasse' ? 'BNC' : 'BNC estimé'}
+        value={formatCurrency(soldeBnc)}
+        icon={<Calculator size={20} />}
+        trend={soldeBnc >= 0 ? 'up' : 'down'}
+      />
+      {/* Secondaires : opérations + catégories */}
       <MetricCard title="Opérations" value={nbOperations.toString()} icon={<Hash size={20} />} />
       <MetricCard title="Catégories" value={nbCategories.toString()} icon={<Tags size={20} />} />
+
+      {/* Sous-labels informatifs sous les 3 cartes principales (ligne séparée pour ne pas casser la grille des icônes MetricCard) */}
+      <div className="col-span-2 md:col-span-3 lg:col-span-5 -mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-[10px] text-text-muted">
+        <span className="truncate" title={baseLabel}>{baseLabel}</span>
+        <span className="truncate">{depensesSub}</span>
+        <span className="truncate">recettes pro − charges pro</span>
+        <span />
+        <span className="truncate hidden lg:inline" title={`Trésorerie brute : ${formatCurrency(tresorerieSolde)}`}>
+          <Briefcase size={9} className="inline-block mr-1 opacity-60" />
+          trésorerie : {formatCurrency(tresorerieSolde)}
+        </span>
+      </div>
     </div>
   )
 }

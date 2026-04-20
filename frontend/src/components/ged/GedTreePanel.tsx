@@ -50,7 +50,7 @@ function deriveFiltersFromNode(nodeId: string, tab: TreeTab, nodeLabel?: string)
       if (parts[0] === 'none') {
         // year-none or year-none-{type}
         if (parts.length >= 2) {
-          const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', document_libre: 'document_libre' }
+          const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', document_libre: 'document_libre', liasse_fiscale_scp: 'liasse_fiscale_scp' }
           if (typeMap[parts[1]]) return { type: typeMap[parts[1]] }
         }
         return {}
@@ -58,11 +58,11 @@ function deriveFiltersFromNode(nodeId: string, tab: TreeTab, nodeLabel?: string)
       const y = parseInt(parts[0])
       if (parts.length === 1) return { year: y }
       if (parts.length === 2) {
-        const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', document_libre: 'document_libre' }
+        const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', document_libre: 'document_libre', liasse_fiscale_scp: 'liasse_fiscale_scp' }
         if (typeMap[parts[1]]) return { year: y, type: typeMap[parts[1]] }
       }
       if (parts.length === 3) {
-        const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', document_libre: 'document_libre' }
+        const typeMap: Record<string, string> = { releve: 'releve', justificatif: 'justificatif', rapport: 'rapport', document_libre: 'document_libre', liasse_fiscale_scp: 'liasse_fiscale_scp' }
         const m = parseInt(parts[2])
         return { year: y, ...(typeMap[parts[1]] ? { type: typeMap[parts[1]] } : {}), ...(m > 0 ? { month: m } : {}) }
       }

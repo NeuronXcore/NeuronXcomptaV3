@@ -120,7 +120,7 @@ export default function DashboardPage() {
 
       {/* Bottom row: chart + activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueChart mois={data.mois} />
+        <RevenueChart mois={data.mois} caLiasse={data.kpis.ca_liasse ?? null} />
         <ActivityFeed activites={data.activite_recente} />
       </div>
 

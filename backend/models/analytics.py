@@ -16,6 +16,10 @@ class MoisOverview(BaseModel):
     has_export: bool
     total_credit: float
     total_debit: float
+    # BNC mensuel — exclut perso (règle fiscale unique)
+    bnc_recettes_pro: Optional[float] = 0
+    bnc_charges_pro: Optional[float] = 0
+    bnc_solde: Optional[float] = 0
     filename: Optional[str] = None
 
 
@@ -26,6 +30,12 @@ class KPIs(BaseModel):
     nb_operations: int
     nb_mois_actifs: int
     bnc_mensuel: list[float]
+    # Source du CA retenu pour `total_recettes` : "liasse" (définitif) ou "bancaire" (provisoire)
+    base_recettes: Optional[str] = "bancaire"
+    # CA liasse SCP si saisi pour l'exercice, sinon None
+    ca_liasse: Optional[float] = None
+    # Recettes pro calculées depuis les crédits bancaires — toujours exposé pour comparaison
+    recettes_pro_bancaires: Optional[float] = 0
 
 
 class DeltaN1(BaseModel):

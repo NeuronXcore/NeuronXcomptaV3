@@ -91,6 +91,42 @@ export interface DashboardData {
   recent_operations: Operation[]
   monthly_evolution: MonthlyEvolution[]
   by_source?: SourceBreakdown[]
+  // Nouveau modèle BNC (source of truth fiscale)
+  bnc?: BncMetrics
+  perso?: PersoMetrics
+  attente?: AttenteMetrics
+  tresorerie?: TresorerieMetrics
+}
+
+// ─── BNC — source of truth fiscale ───
+
+export interface BncMetrics {
+  recettes_pro: number
+  recettes_pro_bancaires: number
+  ca_liasse: number | null
+  base_recettes: 'liasse' | 'bancaire'
+  charges_pro: number
+  solde_bnc: number
+  nb_ops_pro: number
+}
+
+export interface PersoMetrics {
+  total_debit: number
+  total_credit: number
+  nb_ops: number
+}
+
+export interface AttenteMetrics {
+  total_debit: number
+  total_credit: number
+  nb_ops: number
+}
+
+export interface TresorerieMetrics {
+  total_debit: number
+  total_credit: number
+  solde: number
+  nb_ops: number
 }
 
 export interface SourceBreakdown {
@@ -107,6 +143,7 @@ export interface CategorySummary {
   Montant_Net: number
   Nombre_Opérations: number
   Pourcentage_Dépenses: number
+  nature?: 'pro' | 'perso' | 'attente'
 }
 
 export interface MonthlyEvolution {
@@ -253,6 +290,14 @@ export interface TrendRecord {
   'Catégorie': string
   'Crédit': number
   'Débit': number
+  nature?: 'pro' | 'perso' | 'attente'
+}
+
+// Réponse du GET /api/analytics/trends : 3 séries parallèles par nature
+export interface TrendsResponse {
+  trends_all: TrendRecord[]
+  trends_pro: TrendRecord[]
+  trends_perso: TrendRecord[]
 }
 
 export interface AnomalyRecord {
@@ -1070,7 +1115,7 @@ export interface RapportMeta {
 
 export interface GedDocument {
   doc_id: string
-  type: 'releve' | 'justificatif' | 'rapport' | 'document_libre'
+  type: 'releve' | 'justificatif' | 'rapport' | 'document_libre' | 'liasse_fiscale_scp'
   year: number | null
   month: number | null
   poste_comptable: string | null
@@ -1157,6 +1202,10 @@ export interface MoisOverview {
   has_export: boolean
   total_credit: number
   total_debit: number
+  // BNC mensuel — exclut perso (règle fiscale unique)
+  bnc_recettes_pro?: number
+  bnc_charges_pro?: number
+  bnc_solde?: number
   filename: string | null
 }
 
@@ -1167,6 +1216,30 @@ export interface DashboardKPIs {
   nb_operations: number
   nb_mois_actifs: number
   bnc_mensuel: number[]
+  // Source du CA retenu pour `total_recettes` : "liasse" (définitif) ou "bancaire" (provisoire)
+  base_recettes?: 'liasse' | 'bancaire'
+  // CA liasse SCP si saisi pour l'exercice
+  ca_liasse?: number | null
+  // Toujours exposé pour comparaison avec la liasse
+  recettes_pro_bancaires?: number
+}
+
+// ─── Liasse fiscale SCP ───
+
+export interface LiasseScp {
+  year: number
+  ca_declare: number
+  ged_document_id: string | null
+  note: string | null
+  saved_at: string
+}
+
+export interface LiasseComparator {
+  year: number
+  ca_liasse: number
+  honoraires_bancaires: number
+  ecart_absolu: number
+  ecart_pct: number
 }
 
 export interface DeltaN1 {

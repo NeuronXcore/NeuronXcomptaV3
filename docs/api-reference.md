@@ -377,26 +377,51 @@ Taux de correction par mois.
 ## Analytics (`/api/analytics`)
 
 ### `GET /dashboard`
-Données complètes du tableau de bord.
+Données complètes du tableau de bord. **Enrichi BNC** : retourne la structure 4-blocs `{bnc, perso, attente, tresorerie}` **en plus** des champs plats historiques (non-régression).
 
 **Réponse :**
 ```json
 {
-  "total_debit": 450000,
-  "total_credit": 320000,
-  "solde": -130000,
-  "nb_operations": 1024,
-  "category_summary": [...],
+  "total_debit": 387048.84,
+  "total_credit": 459440.51,
+  "solde": 72391.67,
+  "nb_operations": 1023,
+  "category_summary": [
+    { "Catégorie": "Véhicule", "Débit": 12887.10, "nature": "pro", "..." }
+  ],
   "recent_operations": [...],
-  "monthly_evolution": [...]
+  "monthly_evolution": [...],
+  "by_source": [...],
+  "bnc": {
+    "recettes_pro": 312580.0,
+    "recettes_pro_bancaires": 458370.0,
+    "ca_liasse": 312580.0,
+    "base_recettes": "liasse",
+    "charges_pro": 200271.47,
+    "solde_bnc": 112308.53,
+    "nb_ops_pro": 667
+  },
+  "perso": { "total_debit": 186777.37, "total_credit": 1070.51, "nb_ops": 215 },
+  "attente": { "total_debit": 0.0, "total_credit": 0.0, "nb_ops": 0 },
+  "tresorerie": { "total_debit": 387048.84, "total_credit": 459440.51, "solde": 72391.67, "nb_ops": 882 }
 }
 ```
 
+**Règle BNC** : `BNC = recettes_pro − charges_pro_déductibles`. Les ops `perso` sont **hors assiette** (ni dans recettes, ni dans charges). `charges_pro = sum(débits pro) − sum(csg_non_deductible)`. Si la liasse SCP de l'année est saisie ET qu'aucun filtre `month`/`quarter` n'est actif → `bnc.recettes_pro = ca_liasse` et `base_recettes = "liasse"`, sinon `bnc.recettes_pro = recettes_pro_bancaires` et `base_recettes = "bancaire"`.
+
 ### `GET /summary`
-Résumé par catégorie.
+Résumé par catégorie. Chaque entrée porte un champ `nature: "pro" | "perso" | "attente"`.
 
 ### `GET /trends?months=6`
-Tendances mensuelles. `months=0` pour toutes les données.
+Tendances mensuelles par catégorie. `months=0` pour toutes les données. **Retourne 3 séries parallèles** pour piloter le segmented control Pro/Perso/Tout :
+
+```json
+{
+  "trends_all":   [{ "Mois": "2026-01", "Catégorie": "Véhicule", "Crédit": 0, "Débit": 1200, "nature": "pro" }],
+  "trends_pro":   [...],
+  "trends_perso": [...]
+}
+```
 
 ### `GET /anomalies?threshold=2.0`
 Détection d'anomalies par écart-type.
@@ -431,24 +456,84 @@ Détail d'une catégorie : sous-catégories, évolution mensuelle, dernières op
 ```
 
 ### `GET /compare`
-Compare deux périodes avec KPIs et ventilation par catégorie.
+Compare deux périodes avec KPIs BNC et ventilation par catégorie.
 
 **Paramètres :** `year_a`, `quarter_a`, `month_a`, `year_b`, `quarter_b`, `month_b` (tous optional)
 
 **Réponse :**
 ```json
 {
-  "period_a": { "total_debit": 210662, "total_credit": 140064, "solde": -70598, "nb_operations": 120 },
-  "period_b": { "total_debit": 79802, "total_credit": 98755, "solde": 18952, "nb_operations": 176 },
-  "delta": { "total_debit": -62.1, "total_credit": -29.5, "solde": -73.2, "nb_operations": 46.7 },
+  "period_a": {
+    "total_debit": 210662, "total_credit": 140064, "solde": -70598, "nb_operations": 120,
+    "bnc": { "recettes_pro": 140064, "charges_pro": 85000, "solde_bnc": 55064, "base_recettes": "bancaire", "..." },
+    "perso": { "total_debit": 12000, "total_credit": 0, "nb_ops": 8 },
+    "tresorerie": { "total_debit": 210662, "total_credit": 140064, "solde": -70598, "nb_ops": 128 }
+  },
+  "period_b": { "total_debit": 79802, "total_credit": 98755, "solde": 18952, "nb_operations": 176, "bnc": {...}, "perso": {...}, "tresorerie": {...} },
+  "delta": {
+    "total_debit": -62.1, "total_credit": -29.5, "solde": -73.2, "nb_operations": 46.7,
+    "bnc_solde": -36112, "recettes_pro": -41309, "charges_pro": -5197, "perso_debit": -8000
+  },
   "categories": [
-    { "category": "Matériel", "a_debit": 30000, "a_credit": 0, "b_debit": 42000, "b_credit": 0, "delta_pct": 40.0, "a_ops": 15, "b_ops": 22 }
+    { "category": "Matériel", "nature": "pro", "a_debit": 30000, "a_credit": 0, "b_debit": 42000, "b_credit": 0, "delta_pct": 40.0, "a_ops": 15, "b_ops": 22 }
   ]
 }
 ```
 
-**Note :** Le frontend sépare les catégories en recettes (credit > debit) et dépenses, avec 2 tableaux et 2 graphiques distincts.
+**Note :** Chaque période expose bnc/perso/tresorerie. Chaque catégorie porte `nature` pour le filtrage Pro/Perso/Tout côté frontend. Le frontend sépare aussi en recettes (credit > debit) et dépenses, avec 2 tableaux et 2 graphiques distincts.
+
+### `GET /year-overview?year={year}`
+Cockpit annuel (Dashboard V2). **KPIs BNC propres** : `total_recettes = ca_liasse si saisi, sinon sum(bnc_recettes_pro_mensuel)`, `total_charges = sum(bnc_charges_pro_mensuel)` (exclut perso). Chaque mois expose aussi `bnc_recettes_pro/bnc_charges_pro/bnc_solde`. `kpis` enrichi : `base_recettes: "liasse"|"bancaire"`, `ca_liasse: number|null`, `recettes_pro_bancaires: number` (toujours exposé pour comparaison). `delta_n1` recalculé via le même split (non pollué par les perso N-1).
+
+---
+
+## Liasse fiscale SCP (`/api/liasse-scp`)
+
+Module de saisie du CA fiscal annuel déclaré sur la liasse 2035 (quote-part SCP). Tant que non saisi, le BNC est calculé à partir des crédits bancaires (proxy **provisoire**). Dès que saisi, `analytics.get_dashboard_data` et `get_year_overview` consomment ce CA comme base **définitive** des recettes pro (règle : uniquement si pas de filtre `month`/`quarter`, sinon on mélangerait recettes annuelles avec charges partielles).
+
+### `GET /`
+Liste toutes les liasses enregistrées, triées par année DESC.
+
+**Réponse :**
+```json
+[
+  { "year": 2025, "ca_declare": 312580.0, "ged_document_id": "doc_abc", "note": null, "saved_at": "2026-04-19T10:30:00" }
+]
 ```
+
+### `GET /{year}`
+Retourne la liasse d'une année précise. **404** si absente.
+
+### `POST /`
+Crée ou met à jour la liasse d'une année (écrase si existante).
+
+**Body :**
+```json
+{ "year": 2025, "ca_declare": 312580.00, "ged_document_id": "doc_abc", "note": "Ref comptable" }
+```
+
+Contraintes : `year ∈ [2000, 2100]`, `ca_declare > 0`. `ged_document_id` et `note` optionnels.
+
+**Réponse :** la liasse créée (même shape que `GET /{year}`).
+
+### `DELETE /{year}`
+Supprime la liasse d'une année. Retourne `{"deleted": year}` ou **404**.
+
+### `GET /{year}/comparator`
+Compare le CA liasse avec les honoraires bancaires crédités de l'année (somme des crédits pro via `analytics.bnc.recettes_pro_bancaires`).
+
+**Réponse :**
+```json
+{
+  "year": 2025,
+  "ca_liasse": 312580.0,
+  "honoraires_bancaires": 458370.0,
+  "ecart_absolu": -145790.0,
+  "ecart_pct": -31.8
+}
+```
+
+Écart attendu : décalages de trésorerie (janvier N+1 rattaché à N), prélèvements SCP, régularisations. Seuils UX côté frontend : >10% rouge, 5-10% orange, <5% neutre.
 
 ---
 
