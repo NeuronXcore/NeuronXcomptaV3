@@ -100,7 +100,9 @@ async def update_document(doc_id: str, updates: GedDocumentUpdate):
     try:
         return ged_service.update_document(doc_id, updates.model_dump(exclude_none=True))
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        msg = str(e)
+        status = 400 if msg.startswith("Conversion de type interdite") else 404
+        raise HTTPException(status_code=status, detail=msg)
 
 
 @router.delete("/documents/{doc_id:path}")

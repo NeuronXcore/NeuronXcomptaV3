@@ -75,26 +75,30 @@ def get_annual_status(year: int) -> list[dict]:
                 ops = operation_service.load_operations(mf["filename"])
                 for op in ops:
                     vlines = op.get("ventilation", [])
+
+                    # Lettrage : éclatement des sous-lignes (logique inchangée)
                     if vlines:
                         nb_operations += len(vlines)
                         nb_lettrees += sum(1 for vl in vlines if vl.get("lettre", False))
-                        for vl in vlines:
-                            vl_cat = (vl.get("categorie") or "").strip()
-                            vl_sub = (vl.get("sous_categorie") or "").strip()
-                            if is_justificatif_required(vl_cat, vl_sub):
-                                nb_justif_required += 1
-                                if vl.get("justificatif"):
-                                    nb_avec_justif += 1
                     else:
                         nb_operations += 1
                         if op.get("lettre", False):
                             nb_lettrees += 1
-                        op_cat = (op.get("Catégorie") or "").strip()
-                        op_sub = (op.get("Sous-catégorie") or "").strip()
-                        if is_justificatif_required(op_cat, op_sub):
-                            nb_justif_required += 1
-                            if op.get("Justificatif", False):
+
+                    # Justificatifs : 1 op = 1 unité, aligné sur la page Justificatifs
+                    # (useJustificatifsPage.stats). Op ventilée = "avec" ssi toutes
+                    # les sous-lignes ont un justificatif. Op simple = "avec" ssi
+                    # `Lien justificatif` non vide (le booléen `Justificatif` peut
+                    # diverger via _mark_perso_as_justified — on l'ignore).
+                    op_cat = (op.get("Catégorie") or "").strip()
+                    op_sub = (op.get("Sous-catégorie") or "").strip()
+                    if is_justificatif_required(op_cat, op_sub):
+                        nb_justif_required += 1
+                        if vlines:
+                            if all(vl.get("justificatif") for vl in vlines):
                                 nb_avec_justif += 1
+                        elif (op.get("Lien justificatif") or "").strip():
+                            nb_avec_justif += 1
             except Exception as e:
                 logger.warning(f"Erreur chargement {mf['filename']}: {e}")
 

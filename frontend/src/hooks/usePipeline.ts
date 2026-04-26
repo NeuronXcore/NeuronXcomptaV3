@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { api } from '../api/client'
-import type { PipelineStep, PipelineStepStatus } from '../types'
+import { useSettings } from './useApi'
+import type { PipelineStep, PipelineStepStatus, JustificatifExemptions } from '../types'
 
 // Pondération pour le calcul de progression globale (7 étapes)
 // Import, Catég, Justif, Verrouillage, Lettrage, Vérif, Clôture
@@ -48,10 +49,23 @@ interface AlertesSummary {
   par_fichier?: Array<{ filename: string; nb_alertes: number }>
 }
 
+function isOpExempt(
+  cat: string,
+  sub: string,
+  exemptions: JustificatifExemptions | undefined,
+): boolean {
+  if (!exemptions || !cat) return false
+  if (exemptions.categories.includes(cat)) return true
+  if (sub && exemptions.sous_categories[cat]?.includes(sub)) return true
+  return false
+}
+
 export function usePipeline() {
   const currentDate = new Date()
   const [year, setYearState] = useState(() => readStoredNumber(STORAGE_KEY_YEAR, currentDate.getFullYear()))
   const [month, setMonthState] = useState(() => readStoredNumber(STORAGE_KEY_MONTH, currentDate.getMonth() + 1))
+  const { data: appSettings } = useSettings()
+  const exemptions = appSettings?.justificatif_exemptions
 
   const setYear = useCallback((y: number) => {
     setYearState(y)
@@ -132,31 +146,42 @@ export function usePipeline() {
   }, [operationsQuery.data])
 
   // Calcul verrouillage des associations
+  // Aligné sur useJustificatifsPage.stats : 1 op = 1 unité, ventilation "avec"
+  // ssi toutes les sous-lignes justifiées (every, pas some), exemptions exclues.
+  // `locked` = compteur brut des op.locked === true (= pill 🔒 Justificatifs).
+  // `taux` = ops associées ET verrouillées / associées (clamp implicite ≤ 100%).
   const lockingStats = useMemo(() => {
     if (!operationsQuery.data) return { associated: 0, locked: 0, taux: 0 }
     const ops = operationsQuery.data as unknown as Array<{
       'Lien justificatif'?: string
+      'Catégorie'?: string
+      'Sous-catégorie'?: string
       locked?: boolean
       ventilation?: Array<{ justificatif?: string | null }>
     }>
-    // Dénominateur : ops avec un vrai lien de justif (PDF attaché) OU ops ventilées avec au moins une sous-ligne justifiée
-    const associated = ops.filter(op => {
-      const lien = (op['Lien justificatif'] || '').trim()
-      if (lien) return true
-      return (op.ventilation || []).some(v => !!v.justificatif)
-    }).length
-    // Numérateur : parmi ces ops, celles verrouillées
-    const locked = ops.filter(op => {
-      const lien = (op['Lien justificatif'] || '').trim()
-      const hasVlJustif = (op.ventilation || []).some(v => !!v.justificatif)
-      return (lien || hasVlJustif) && !!op.locked
-    }).length
+    const hasJustifStrict = (op: typeof ops[number]) => {
+      const vl = op.ventilation || []
+      if (vl.length > 0) return vl.every(v => !!v.justificatif)
+      return !!(op['Lien justificatif'] || '').trim()
+    }
+    const exempt = (op: typeof ops[number]) =>
+      isOpExempt((op['Catégorie'] || '').trim(), (op['Sous-catégorie'] || '').trim(), exemptions)
+
+    const associatedOps = ops.filter(op => !exempt(op) && hasJustifStrict(op))
+    const associated = associatedOps.length
+    // Compteur brut aligné avec la pill JustificatifsPage (toutes les locked, même
+    // sans justif — signal d'écart visible si locked > associated)
+    const locked = ops.filter(op => op.locked === true).length
+    const lockedInAssociated = associatedOps.filter(op => op.locked === true).length
+    const lockedOrphans = locked - lockedInAssociated
     return {
       associated,
       locked,
-      taux: associated > 0 ? locked / associated : 0,
+      lockedInAssociated,
+      lockedOrphans,
+      taux: associated > 0 ? lockedInAssociated / associated : 0,
     }
-  }, [operationsQuery.data])
+  }, [operationsQuery.data, exemptions])
 
   // Années disponibles (extraites des fichiers)
   const availableYears = useMemo(() => {
@@ -302,10 +327,18 @@ export function usePipeline() {
           },
           {
             label: 'Verrouillées',
-            value: lockingStats.locked,
+            value: lockingStats.lockedInAssociated,
             total: lockingStats.associated,
             variant: 'default',
           },
+          // Signal optionnel : ops verrouillées qui n'ont plus de justif
+          // (legacy auto-lock cascade, dissociation post-lock, etc.).
+          // Visible uniquement si > 0 — sinon on n'encombre pas la card.
+          ...(lockingStats.lockedOrphans > 0 ? [{
+            label: 'Lockées sans justif',
+            value: lockingStats.lockedOrphans,
+            variant: 'warning' as const,
+          }] : []),
         ],
         actionLabel: 'Voir les associations',
         actionRoute: fileParam ? `/justificatifs?${fileParam}&filter=avec` : '/justificatifs?filter=avec',

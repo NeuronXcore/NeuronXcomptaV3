@@ -1121,7 +1121,11 @@ Année → cloture router → cloture_service.get_annual_status(year)
   → Pour chaque mois 1-12 :
     → Identifie le fichier d'opérations (metadata month/year)
     → Compte nb_operations, nb_lettrees, taux_lettrage
+      (lettrage : éclatement des sous-lignes ventilées, 1 vl = 1 unité)
     → Compte nb_justificatifs_total, nb_justificatifs_ok, taux_justificatifs
+      (justifs : 1 op = 1 unité, ventilées « avec » ssi every sous-ligne justifiée,
+       op simple via `Lien justificatif` non vide — aligné avec
+       useJustificatifsPage.stats côté frontend, voir CHANGELOG 2026-04-26)
     → Statut : complet (100% L + 100% J) | partiel (relevé chargé) | manquant
   → Retourne tableau 12 mois avec statut et stats
 ```

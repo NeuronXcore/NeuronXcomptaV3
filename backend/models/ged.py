@@ -90,6 +90,7 @@ class GedUploadRequest(BaseModel):
 
 
 class GedDocumentUpdate(BaseModel):
+    type: Optional[str] = None
     poste_comptable: Optional[str] = None
     categorie: Optional[str] = None
     sous_categorie: Optional[str] = None

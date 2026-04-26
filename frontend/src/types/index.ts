@@ -1113,9 +1113,12 @@ export interface RapportMeta {
   can_compare: boolean
 }
 
+export type GedKnownType = 'releve' | 'justificatif' | 'rapport' | 'document_libre' | 'liasse_fiscale_scp'
+
 export interface GedDocument {
   doc_id: string
-  type: 'releve' | 'justificatif' | 'rapport' | 'document_libre' | 'liasse_fiscale_scp'
+  // Types reconnus (icônes/couleurs/comportements) + types libres (contrat, attestation, etc.)
+  type: GedKnownType | string
   year: number | null
   month: number | null
   poste_comptable: string | null

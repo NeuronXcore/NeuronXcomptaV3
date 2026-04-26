@@ -1275,6 +1275,7 @@ def _resolve_poste_for_doc(doc: dict, postes_map: dict[str, dict]) -> Optional[s
 DEFAULT_DOCUMENT_TYPES: set[str] = {
     "relevé", "justificatif", "rapport", "contrat", "courrier fiscal",
     "courrier social", "attestation", "devis", "divers",
+    "liasse_fiscale_scp",
 }
 
 
@@ -1563,6 +1564,9 @@ def upload_document(file_content: bytes, filename: str, request: dict) -> dict:
     }
 
 
+_PROTECTED_TYPES = {"justificatif", "rapport", "releve"}
+
+
 def update_document(doc_id: str, updates: dict) -> dict:
     metadata = load_metadata()
     docs = metadata.get("documents", {})
@@ -1570,6 +1574,21 @@ def update_document(doc_id: str, updates: dict) -> dict:
         raise ValueError(f"Document non trouvé: {doc_id}")
 
     doc = docs[doc_id]
+
+    # Garde sur le changement de type : justificatif/rapport/relevé impliquent une
+    # localisation physique ou un cycle de vie spécifique (OCR + ops, report_service,
+    # imports). On bloque toute conversion qui implique un type protégé.
+    if "type" in updates and updates["type"] is not None:
+        new_type = str(updates["type"]).strip()
+        current_type = (doc.get("type") or "").strip()
+        if new_type != current_type:
+            if current_type in _PROTECTED_TYPES or new_type in _PROTECTED_TYPES:
+                raise ValueError(
+                    f"Conversion de type interdite: {current_type or '?'} → {new_type}. "
+                    f"Les types {sorted(_PROTECTED_TYPES)} sont liés à un cycle de vie spécifique."
+                )
+            doc["type"] = new_type
+
     for key in ["poste_comptable", "categorie", "sous_categorie", "tags", "notes", "montant_brut", "deductible_pct_override"]:
         if key in updates and updates[key] is not None:
             doc[key] = updates[key]

@@ -11,7 +11,7 @@ import JustificatifOperationLink from '@/components/shared/JustificatifOperation
 import OcrEditDrawer from '@/components/ocr/OcrEditDrawer'
 import JustifToOpDrawer from '@/components/justificatifs/JustifToOpDrawer'
 import GedPreviewSubDrawer from './GedPreviewSubDrawer'
-import { useGedUpdateDocument, useGedDeleteDocument, useGedOpenNative } from '@/hooks/useGed'
+import { useGedUpdateDocument, useGedDeleteDocument, useGedOpenNative, useGedTypes } from '@/hooks/useGed'
 import { useOcrHistory } from '@/hooks/useOcr'
 import { useDeleteJustificatif, useDissociate } from '@/hooks/useJustificatifs'
 import { useToggleLock } from '@/hooks/useToggleLock'
@@ -47,6 +47,7 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
 
   const updateMutation = useGedUpdateDocument()
   const deleteMutation = useGedDeleteDocument()
+  const { data: allTypes = [] } = useGedTypes()
   const deleteJustifMutation = useDeleteJustificatif()
   const dissociateMutation = useDissociate()
   const toggleLockMutation = useToggleLock()
@@ -118,6 +119,7 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
     updateMutation.mutate({
       docId,
       updates: {
+        type: localDoc.type,
         poste_comptable: localDoc.poste_comptable,
         categorie: localDoc.categorie,
         sous_categorie: localDoc.sous_categorie,
@@ -125,6 +127,13 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
         notes: localDoc.notes,
         montant_brut: localDoc.montant_brut,
         deductible_pct_override: localDoc.deductible_pct_override,
+      },
+    }, {
+      onError: (err: unknown) => {
+        const detail = (err as { detail?: string; message?: string })?.detail
+          || (err as Error)?.message
+          || 'Erreur de sauvegarde'
+        toast.error(detail)
       },
     })
   }
@@ -338,6 +347,55 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
               </div>
             </div>
           )}
+
+          {/* Type de document — modifiable sauf pour les types protégés */}
+          {localDoc && (() => {
+            const PROTECTED = new Set(['releve', 'justificatif', 'rapport'])
+            const TYPE_LABELS: Record<string, string> = {
+              releve: 'Relevé bancaire',
+              justificatif: 'Justificatif',
+              rapport: 'Rapport généré',
+              document_libre: 'Document libre',
+              liasse_fiscale_scp: 'Liasse fiscale SCP',
+              contrat: 'Contrat',
+              'courrier fiscal': 'Courrier fiscal',
+              'courrier social': 'Courrier social',
+              attestation: 'Attestation',
+              devis: 'Devis',
+              divers: 'Divers',
+            }
+            const currentType = localDoc.type ?? ''
+            const isProtected = PROTECTED.has(currentType)
+            // Normalise les variantes ("relevé" → "releve") et exclut les types protégés
+            const normalized = (t: string) => (t === 'relevé' ? 'releve' : t)
+            const editableTypes = Array.from(new Set(
+              [...allTypes.map(normalized), 'document_libre', 'liasse_fiscale_scp']
+                .filter(t => !PROTECTED.has(t))
+            )).sort()
+            return (
+              <div>
+                <label className="text-[10px] text-text-muted block mb-1">Type de document</label>
+                <select
+                  value={currentType}
+                  onChange={e => handleChange({ type: e.target.value })}
+                  disabled={isProtected}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isProtected && (
+                    <option value={currentType}>{TYPE_LABELS[currentType] ?? currentType}</option>
+                  )}
+                  {!isProtected && editableTypes.map(t => (
+                    <option key={t} value={t}>{TYPE_LABELS[t] ?? t}</option>
+                  ))}
+                </select>
+                {isProtected && (
+                  <p className="text-[10px] text-text-muted mt-1">
+                    Type lié à un cycle de vie spécifique (OCR, génération, import) — non modifiable.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Metadata editor */}
           {localDoc && (

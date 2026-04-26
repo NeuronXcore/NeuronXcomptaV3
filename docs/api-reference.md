@@ -1490,13 +1490,18 @@ Modifier les métadonnées d'un document.
 **Body :**
 ```json
 {
+  "type": "liasse_fiscale_scp",
   "poste_comptable": "vehicule",
+  "categorie": "Véhicule",
+  "sous_categorie": "Carburant",
   "tags": ["fiscal", "2025"],
   "notes": "Facture carburant",
   "montant_brut": 85.50,
   "deductible_pct_override": 70
 }
 ```
+
+**Champ `type`** (depuis 2026-04-26) : permet de reclasser un document mal typé à l'upload. Garde stricte côté backend : conversion **vers ou depuis** `{"justificatif", "rapport", "releve"}` → **HTTP 400** `Conversion de type interdite: <from> → <to>`. Ces 3 types sont liés à un cycle de vie spécifique (OCR + ops, `report_service`, imports relevés) et ne peuvent pas être créés ou retirés via ce endpoint. Tous les autres types sont librement éditables (`document_libre`, `liasse_fiscale_scp`, `contrat`, `attestation`, `devis`, `divers`, `courrier fiscal`, `courrier social`).
 
 ### `DELETE /documents/{doc_id:path}`
 Supprime un document libre uniquement. Refuse pour relevés/justificatifs/rapports.
