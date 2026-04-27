@@ -52,10 +52,22 @@ export function useBatchJustificatifScores() {
   })
 }
 
+export interface AutoRapprochementScope {
+  year?: number
+  month?: number
+}
+
 export function useRunAutoRapprochement() {
   const queryClient = useQueryClient()
-  return useMutation<AutoRapprochementReport>({
-    mutationFn: () => api.post('/rapprochement/run-auto'),
+  return useMutation<AutoRapprochementReport, Error, AutoRapprochementScope | undefined>({
+    mutationFn: (scope?: AutoRapprochementScope) => {
+      // Construire query string si scope fourni — `month` requiert `year` côté backend.
+      const params = new URLSearchParams()
+      if (scope?.year != null) params.set('year', String(scope.year))
+      if (scope?.month != null) params.set('month', String(scope.month))
+      const qs = params.toString()
+      return api.post(`/rapprochement/run-auto${qs ? `?${qs}` : ''}`)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
       queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
@@ -84,6 +96,7 @@ export function useManualAssociate() {
       operation_index: number
       rapprochement_score?: number
       ventilation_index?: number | null
+      force?: boolean
     }) => api.post('/rapprochement/associate-manual', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['justificatifs'] })

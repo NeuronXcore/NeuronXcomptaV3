@@ -1,0 +1,151 @@
+{
+  "_comment": "Aliases fournisseur → patterns détectables dans les libellés bancaires. Utilisé par rapprochement_service.score_fournisseur en fallback quand le match lexical direct retourne 0. Auto-enrichi à chaque association manuelle (cf. learn_alias).",
+  "_version": 1,
+  "aliases": {
+    "essence": [
+      "qpf",
+      "avia",
+      "total",
+      "totalener",
+      "bpdupuy",
+      "shell",
+      "esso",
+      "intermarche",
+      "carrefourstation",
+      "leclerc"
+    ],
+    "boulanger": [
+      "paypaleuropes",
+      "paypal"
+    ],
+    "openai": [
+      "openai",
+      "chatgpt"
+    ],
+    "anthropic": [
+      "anthropic",
+      "claude"
+    ],
+    "uber": [
+      "uber"
+    ],
+    "uber-eats": [
+      "uber"
+    ],
+    "amazon": [
+      "amazonpayments",
+      "amazon"
+    ],
+    "auchan": [
+      "auchandac",
+      "auchan"
+    ],
+    "orange": [
+      "prlvsepaorange",
+      "orange"
+    ],
+    "asf": [
+      "asfsaintjory",
+      "asf"
+    ],
+    "ldlc": [
+      "ldlcmontauban",
+      "ldlc"
+    ],
+    "udemy": [
+      "udemy"
+    ],
+    "mistralai": [
+      "mistralai",
+      "mistral"
+    ],
+    "ford-credit": [
+      "fcebank",
+      "fcebankplc"
+    ],
+    "remarkable": [
+      "remarkable"
+    ],
+    "edf": [
+      "edfpaiement",
+      "edf"
+    ],
+    "free": [
+      "freemobile",
+      "freetelecom",
+      "free"
+    ],
+    "sfr": [
+      "sfrmobile",
+      "sfr"
+    ],
+    "bouygues": [
+      "bouygues"
+    ],
+    "netflix": [
+      "netflix"
+    ],
+    "spotify": [
+      "spotify"
+    ],
+    "apple": [
+      "appleitunes",
+      "apple",
+      "itunes"
+    ],
+    "google": [
+      "googlecloud",
+      "googleads",
+      "google"
+    ],
+    "carmf": [
+      "carmf"
+    ],
+    "urssaf": [
+      "urssaf",
+      "dspamc"
+    ],
+    "1001epile": [
+      "1001epile",
+      "1001"
+    ],
+    "leroymerlin": [
+      "leroymerlin"
+    ],
+    "bricotdepot": [
+      "bricodepot",
+      "bricotdepot"
+    ],
+    "cliptchaume": [
+      "cliptchaume"
+    ],
+    "paga": [
+      "pagamontauban",
+      "paga"
+    ],
+    "tuttipizza": [
+      "tuttipizza"
+    ],
+    "lw": [
+      "lwmontauban"
+    ],
+    "bjoptique": [
+      "bjoptique"
+    ],
+    "parc-consul": [
+      "parcconsuldupuy",
+      "parcconsul"
+    ],
+    "parking": [
+      "parking"
+    ],
+    "peage": [
+      "asf",
+      "tunnel",
+      "peage"
+    ],
+    "direct assurance": [
+      "prlvsepaavanssu"
+    ]
+  }
+}

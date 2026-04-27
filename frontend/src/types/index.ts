@@ -817,6 +817,14 @@ export interface JustificatifScoreDetail {
   categorie: number | null
 }
 
+export interface JustificatifReferencedBy {
+  operation_file: string
+  operation_index: number
+  libelle: string
+  locked: boolean
+  ventilation_index: number | null
+}
+
 export interface JustificatifSuggestion {
   filename: string
   ocr_date: string
@@ -825,6 +833,10 @@ export interface JustificatifSuggestion {
   score: number
   score_detail?: JustificatifScoreDetail
   size_human: string
+  // Présents uniquement quand l'endpoint est appelé avec ?include_referenced=true.
+  // is_referenced=true => le PDF est déjà lié à une autre op (referenced_by).
+  is_referenced?: boolean
+  referenced_by?: JustificatifReferencedBy | null
 }
 
 export interface AutoRapprochementReport {

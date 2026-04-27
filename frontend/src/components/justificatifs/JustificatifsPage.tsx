@@ -617,7 +617,17 @@ export default function JustificatifsPage() {
               </div>
               <button
                 onClick={() => {
-                  autoRapprochement.mutate(undefined, {
+                  // Scope ±1 mois autour du mois sélectionné pour accélérer
+                  // (~0.2s vs ~2s global). En mode "Toute l'année" → pas de
+                  // scope = scan global. Si selectedMonth est null (état
+                  // initial), fallback sur le mois du fichier sélectionné.
+                  const effectiveMonth =
+                    selectedMonth ?? selectedFile?.month ?? null
+                  const scope =
+                    isYearWide || effectiveMonth == null || effectiveMonth === 0
+                      ? undefined
+                      : { year, month: effectiveMonth }
+                  autoRapprochement.mutate(scope, {
                     onSuccess: (report) => {
                       const auto = report.associations_auto ?? 0
                       const suggestions = report.suggestions_fortes ?? 0

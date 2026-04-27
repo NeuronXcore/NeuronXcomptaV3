@@ -9,11 +9,13 @@ import logging
 import re
 import threading
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 from backend.core.config import (
     JUSTIFICATIFS_EN_ATTENTE_DIR,
+    JUSTIFICATIFS_TRAITES_DIR,
     LOGS_DIR,
     ensure_directories,
 )
@@ -42,14 +44,20 @@ def _normalize_tokens(text: str) -> set:
 
 def score_montant(j_montant: Optional[float], o_montant: float) -> float:
     """
-    Score de correspondance montant (dégradation progressive).
+    Score de correspondance montant TTC (dégradation progressive ±10%).
 
     Paliers sur l'écart relatif :
     - Exact (0%) → 1.0
-    - ≤ 1% → 0.95
-    - ≤ 2% → 0.85
-    - ≤ 5% → 0.60
-    - > 5% → 0.0
+    - ≤ 1%  → 0.95
+    - ≤ 2%  → 0.90
+    - ≤ 3%  → 0.85
+    - ≤ 5%  → 0.70
+    - ≤ 10% → 0.40
+    - > 10% → 0.0
+
+    Tolérance élargie pour absorber les variations TTC réelles :
+    - frais bancaires, arrondis, change forex (USD→EUR pour OpenAI/Mistral)
+    - taux variables sur abonnements Stripe / facturation prorata
 
     Inclut un test HT/TTC (plancher 0.95) : si le montant OCR (TTC facturé)
     divisé par un taux TVA usuel correspond au montant op (HT prélevé).
@@ -77,9 +85,13 @@ def score_montant(j_montant: Optional[float], o_montant: float) -> float:
     elif ecart <= 0.01:
         base_score = 0.95
     elif ecart <= 0.02:
+        base_score = 0.90
+    elif ecart <= 0.03:
         base_score = 0.85
     elif ecart <= 0.05:
-        base_score = 0.60
+        base_score = 0.70
+    elif ecart <= 0.10:
+        base_score = 0.40
     else:
         base_score = 0.0
 
@@ -120,7 +132,7 @@ def score_date(j_date_str: Optional[str], o_date_str: str) -> float:
 
 def score_fournisseur(j_fournisseur: Optional[str], o_libelle: Optional[str]) -> float:
     """
-    Score fournisseur multi-stratégie : max(substring, Jaccard, Levenshtein).
+    Score fournisseur multi-stratégie : max(substring, Jaccard, Levenshtein, aliases).
 
     Stratégies :
     1. Substring match : fournisseur présent dans le libellé bancaire → 1.0
@@ -128,6 +140,10 @@ def score_fournisseur(j_fournisseur: Optional[str], o_libelle: Optional[str]) ->
     2. Jaccard similarity sur tokens normalisés (hors stopwords)
     3. Levenshtein ratio (via difflib.SequenceMatcher) sur formes concaténées ;
        plancher 0.5 pour éviter le bruit
+    4. Aliases fallback : si 1-3 retournent tous 0, vérifier la table
+       `data/aliases_fournisseurs.json` (ex: "boulanger" → "paypaleuropes",
+       "essence" → "qpf"/"avia"/"total"). Score 0.85 (signal plus faible que
+       match lexical direct). Auto-enrichi par les associations manuelles.
     """
     if not j_fournisseur or not o_libelle:
         return 0.0
@@ -162,7 +178,17 @@ def score_fournisseur(j_fournisseur: Optional[str], o_libelle: Optional[str]) ->
         ratio = SequenceMatcher(None, j_norm, o_norm).ratio()
         lev = ratio if ratio >= 0.5 else 0.0
 
-    return max(substring, jaccard, lev)
+    base = max(substring, jaccard, lev)
+
+    # 4) Aliases fallback uniquement si aucun signal lexical direct.
+    # Évite d'écraser un score lexical fort par un alias plus faible.
+    if base > 0.0:
+        return base
+    try:
+        from backend.services import aliases_service
+        return aliases_service.score_aliases(j_fournisseur, o_libelle)
+    except Exception:
+        return 0.0
 
 
 def _confidence_level(score: float) -> str:
@@ -180,6 +206,56 @@ def _normalize_supplier(s: Optional[str]) -> str:
     if not s:
         return ""
     return re.sub(r"[^\w]", "", s.lower())
+
+
+@lru_cache(maxsize=1024)
+def _ml_predict_for_supplier(
+    supplier_key: str,
+) -> tuple[Optional[str], Optional[str], float]:
+    """
+    Prédiction ML cachée pour un fournisseur normalisé (lowercase strip).
+
+    Retourne `(predicted_cat, predicted_sub, confidence)`.
+    - Rules-based d'abord (confiance 1.0 quand match)
+    - Sklearn fallback sinon (confiance réelle, accepté si ≥ 0.5)
+    - `(None, None, 0.0)` si rien d'exploitable
+
+    Cache **intra-run** : `_run_auto_rapprochement_locked` appelle `cache_clear()`
+    en début de run pour éviter toute stale après un retraining ML. Sur 1 run
+    auto-rapprochement, la même paire (supplier × N ops) ne fait qu'1 prédiction.
+
+    `supplier_key` doit déjà être normalisé (lowercase strip) — la normalisation
+    est faite à l'appelant pour éviter de cacher des variantes de la même clé.
+    """
+    if not supplier_key:
+        return (None, None, 0.0)
+
+    try:
+        from backend.services import ml_service
+    except Exception:
+        return (None, None, 0.0)
+
+    # 1) Rules-based (confiance 1.0 quand ça hit)
+    try:
+        rules_pred = ml_service.predict_category(supplier_key)
+    except Exception:
+        rules_pred = None
+    if rules_pred:
+        try:
+            predicted_sub = ml_service.predict_subcategory(supplier_key)
+        except Exception:
+            predicted_sub = None
+        return (rules_pred, predicted_sub, 1.0)
+
+    # 2) Sklearn fallback avec confiance réelle
+    try:
+        cat, conf, _risk = ml_service.evaluate_hallucination_risk(supplier_key)
+    except Exception:
+        cat, conf = None, 0.0
+    if cat and conf >= 0.5:
+        return (cat, None, float(conf))
+
+    return (None, None, 0.0)
 
 
 def score_categorie(
@@ -224,44 +300,15 @@ def score_categorie(
             return 0.6
         return 1.0
 
-    # ── Stratégie 2 : fallback ML (comportement d'origine) ──
+    # ── Stratégie 2 : fallback ML (cache intra-run via _ml_predict_for_supplier) ──
     if not ocr_fournisseur:
         return None
 
-    try:
-        from backend.services import ml_service
-    except Exception:
-        return None
-
-    libelle = ocr_fournisseur.strip()
+    libelle = ocr_fournisseur.strip().lower()
     if not libelle:
         return None
 
-    predicted_cat: Optional[str] = None
-    predicted_sub: Optional[str] = None
-    confidence = 0.0
-
-    # 1) Rules-based (confiance 1.0 quand ça hit)
-    try:
-        rules_pred = ml_service.predict_category(libelle)
-    except Exception:
-        rules_pred = None
-    if rules_pred:
-        predicted_cat = rules_pred
-        confidence = 1.0
-        try:
-            predicted_sub = ml_service.predict_subcategory(libelle)
-        except Exception:
-            predicted_sub = None
-    else:
-        # 2) Sklearn fallback avec confiance réelle
-        try:
-            cat, conf, _risk = ml_service.evaluate_hallucination_risk(libelle)
-        except Exception:
-            cat, conf = None, 0.0
-        if cat and conf >= 0.5:
-            predicted_cat = cat
-            confidence = float(conf)
+    predicted_cat, predicted_sub, confidence = _ml_predict_for_supplier(libelle)
 
     if not predicted_cat or confidence < 0.5:
         return None
@@ -324,7 +371,6 @@ def compute_score(
     override_montant: si fourni, utiliser ce montant (ventilation)
     override_categorie / override_sous_categorie: pour les sous-lignes ventilées
     """
-    j_amount = justificatif_ocr.get("best_amount")
     j_date = justificatif_ocr.get("best_date")
     j_supplier = justificatif_ocr.get("supplier")
     # Hints top-level du .ocr.json (injectés par _load_ocr_data).
@@ -352,7 +398,41 @@ def compute_score(
         else (operation.get("Sous-catégorie", "") or "")
     )
 
-    s_montant = score_montant(j_amount, o_montant)
+    # Score montant : MAX sur tous les montants candidats (filename_amount canonique,
+    # best_amount OCR, et tableau OCR amounts complet). Robustesse contre les bugs
+    # OCR qui ont mal sélectionné best_amount (ex: openai 824 alors que la bonne
+    # valeur 24.0 est dans amounts[]). Le filename canonique
+    # (supplier_YYYYMMDD_amount.pdf) est généralement la source la plus fiable.
+    j_amounts: list = []
+    fa = justificatif_ocr.get("filename_amount")
+    if fa is not None:
+        j_amounts.append(fa)
+    ba = justificatif_ocr.get("best_amount")
+    if ba is not None:
+        j_amounts.append(ba)
+    raw_amounts = justificatif_ocr.get("amounts") or []
+    if isinstance(raw_amounts, list):
+        j_amounts.extend(raw_amounts)
+    seen: set = set()
+    deduped: list = []
+    for a in j_amounts:
+        try:
+            af = float(a)
+        except (TypeError, ValueError):
+            continue
+        if af in seen:
+            continue
+        seen.add(af)
+        deduped.append(af)
+    if deduped:
+        s_montant = max(score_montant(a, o_montant) for a in deduped)
+        j_amount = next(
+            (a for a in deduped if score_montant(a, o_montant) == s_montant),
+            deduped[0],
+        )
+    else:
+        s_montant = 0.0
+        j_amount = None  # noqa: F841 (conservé pour compat éventuelle)
     s_date = score_date(j_date, o_date)
     s_fournisseur = score_fournisseur(j_supplier, o_libelle)
     s_categorie = score_categorie(
@@ -393,13 +473,72 @@ def _parse_date(date_str: str) -> Optional[datetime]:
     return None
 
 
+_FILENAME_DATE_RE = re.compile(r"_(\d{4})(\d{2})(\d{2})(?:_|\.)")
+
+
+def _extract_pdf_date(filename: str, ocr_data: dict) -> Optional[datetime]:
+    """Date de référence d'un justificatif (filename canonique > OCR best_date)."""
+    m = _FILENAME_DATE_RE.search(filename)
+    if m:
+        try:
+            return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            pass
+    return _parse_date(ocr_data.get("best_date") or "")
+
+
+def _compute_scope_window(year: int, month: int) -> tuple[datetime, datetime]:
+    """
+    Fenêtre temporelle ±1 mois autour de (year, month) pour le scope-mois
+    de l'auto-rapprochement. Gère les overflows année (déc → janv N+1, janv → déc N-1).
+
+    Ex. (2025, 5) → (2025-04-01 00:00:00, 2025-06-30 23:59:59)
+    Ex. (2025, 1) → (2024-12-01 00:00:00, 2025-02-28 23:59:59)
+    Ex. (2025, 12) → (2025-11-01 00:00:00, 2026-01-31 23:59:59)
+    """
+    from calendar import monthrange
+
+    if month == 1:
+        start_year, start_month = year - 1, 12
+    else:
+        start_year, start_month = year, month - 1
+
+    if month == 12:
+        end_year, end_month = year + 1, 1
+    else:
+        end_year, end_month = year, month + 1
+
+    last_day = monthrange(end_year, end_month)[1]
+    return (
+        datetime(start_year, start_month, 1, 0, 0, 0),
+        datetime(end_year, end_month, last_day, 23, 59, 59),
+    )
+
+
+_FILENAME_AMOUNT_RE = re.compile(r"_(\d+(?:\.\d{1,2})?)(?:_[a-z0-9]+)*\.pdf$", re.IGNORECASE)
+
+
+def _extract_filename_amount(filename: str) -> Optional[float]:
+    """Extrait le montant canonique du filename (supplier_YYYYMMDD_amount[.suffix].pdf)."""
+    m = _FILENAME_AMOUNT_RE.search(filename)
+    if not m:
+        return None
+    try:
+        return float(m.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
 def _load_ocr_data(justificatif_filename: str) -> dict:
     """Charge les données OCR d'un justificatif. Retourne un dict vide-safe.
 
-    Inclut également les hints cat/sous-cat stockés au top-level du .ocr.json
-    (category_hint, sous_categorie_hint) — ils sont utilisés comme override
-    par `score_categorie()` pour booster le scoring quand l'utilisateur a
-    déjà associé le fichier à une op catégorisée par le passé.
+    Inclut :
+    - Les hints cat/sous-cat stockés au top-level du .ocr.json
+      (category_hint, sous_categorie_hint) — utilisés comme override par
+      `score_categorie()` pour booster le scoring sur fichiers déjà associés.
+    - `filename_amount` : montant extrait du filename canonique
+      (supplier_YYYYMMDD_amount.pdf). Plus fiable que `best_amount` OCR
+      qui peut mal sélectionner (ex: openai 824 alors que 24.0 est dans amounts[]).
     """
     try:
         from backend.services import ocr_service
@@ -408,15 +547,18 @@ def _load_ocr_data(justificatif_filename: str) -> dict:
             cached = ocr_service.get_cached_result(filepath)
             if cached and cached.get("status") == "success":
                 ed = dict(cached.get("extracted_data", {}))
-                # Injecter les hints top-level dans le dict ocr_data pour
-                # qu'ils soient accessibles par `compute_score()` sans changer
-                # la signature existante.
                 ed["category_hint"] = cached.get("category_hint")
                 ed["sous_categorie_hint"] = cached.get("sous_categorie_hint")
+                # Montant canonique du filename : robustesse anti-OCR-erronés.
+                fa = _extract_filename_amount(justificatif_filename)
+                if fa is not None:
+                    ed["filename_amount"] = fa
                 return ed
     except Exception:
         pass
-    return {}
+    # Fallback minimal : même sans .ocr.json, exposer le filename_amount
+    fa = _extract_filename_amount(justificatif_filename)
+    return {"filename_amount": fa} if fa is not None else {}
 
 
 def _get_operation_montant(op: dict) -> float:
@@ -438,6 +580,42 @@ def _human_size(size_bytes: int) -> str:
     return f"{size_bytes:.1f} To"
 
 
+def _build_referenced_index() -> dict[str, list[dict]]:
+    """Map {filename: [{operation_file, operation_index, libelle, locked, ventilation_index}]}
+    en 1 scan complet des ops. Utilisé pour enrichir `get_filtered_suggestions` avec
+    `is_referenced` + `referenced_by` quand `include_referenced=True`.
+    """
+    index: dict[str, list[dict]] = {}
+    for f in operation_service.list_operation_files():
+        try:
+            ops = operation_service.load_operations(f["filename"])
+        except Exception:
+            continue
+        for idx, op in enumerate(ops):
+            lien = op.get("Lien justificatif", "") or ""
+            if lien:
+                fname = lien.split("/")[-1]
+                index.setdefault(fname, []).append({
+                    "operation_file": f["filename"],
+                    "operation_index": idx,
+                    "libelle": op.get("Libellé", ""),
+                    "locked": bool(op.get("locked")),
+                    "ventilation_index": None,
+                })
+            for vl_idx, vl in enumerate(op.get("ventilation", []) or []):
+                vl_lien = vl.get("justificatif", "") or ""
+                if vl_lien:
+                    fname = vl_lien.split("/")[-1]
+                    index.setdefault(fname, []).append({
+                        "operation_file": f["filename"],
+                        "operation_index": idx,
+                        "libelle": vl.get("libelle") or op.get("Libellé", ""),
+                        "locked": bool(op.get("locked")),
+                        "ventilation_index": vl_idx,
+                    })
+    return index
+
+
 def get_filtered_suggestions(
     operation_file: str,
     operation_index: int,
@@ -447,8 +625,15 @@ def get_filtered_suggestions(
     date_to: Optional[str] = None,
     search: Optional[str] = None,
     ventilation_index: Optional[int] = None,
+    include_referenced: bool = False,
 ) -> list:
-    """Suggestions filtrées de justificatifs pour une opération (drawer manuel)."""
+    """Suggestions filtrées de justificatifs pour une opération (drawer manuel).
+
+    Si `include_referenced=True` : inclut aussi les PDFs déjà référencés par
+    une autre op (scan en_attente/ + traites/). Chaque suggestion est enrichie
+    de `is_referenced: bool` et `referenced_by: {operation_file, operation_index,
+    libelle, locked, ventilation_index} | None`.
+    """
     ensure_directories()
     try:
         ops = operation_service.load_operations(operation_file)
@@ -485,8 +670,20 @@ def get_filtered_suggestions(
         except (ValueError, IndexError):
             pass
 
+    # Itérer sur en_attente/ + (si include_referenced) traites/.
+    # Les PDFs traites/ ne sont scannés que sur demande pour ne pas alourdir le
+    # cas standard. Dedup par filename pour éviter les doublons d'affichage si
+    # un PDF existe en double (cas hash_conflict).
+    pdf_iter = list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"))
+    if include_referenced and JUSTIFICATIFS_TRAITES_DIR.exists():
+        seen_names = {p.name for p in pdf_iter}
+        for p in JUSTIFICATIFS_TRAITES_DIR.glob("*.pdf"):
+            if p.name not in seen_names:
+                pdf_iter.append(p)
+                seen_names.add(p.name)
+
     suggestions = []
-    for pdf_path in JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"):
+    for pdf_path in pdf_iter:
         # Pré-filtre par mois : extraire la date du nom de fichier (convention fournisseur_YYYYMMDD_montant.pdf)
         if op_year and op_month:
             fname_match = re.search(r"(\d{4})(\d{2})\d{2}", pdf_path.stem)
@@ -555,7 +752,9 @@ def get_filtered_suggestions(
             "size_human": _human_size(file_size),
         })
 
-    # Exclure les justificatifs déjà associés à une autre opération
+    # Exclure les justificatifs déjà associés à une autre opération.
+    # Si include_referenced=True : ne pas exclure mais enrichir chaque suggestion
+    # avec is_referenced + referenced_by (op qui le référence actuellement).
     from backend.services.justificatif_service import get_all_referenced_justificatifs
     referenced = get_all_referenced_justificatifs()
 
@@ -572,7 +771,38 @@ def get_filtered_suggestions(
     if current_justif:
         referenced = referenced - {current_justif}
 
-    suggestions = [s for s in suggestions if s["filename"] not in referenced]
+    if include_referenced:
+        # Enrichir : pour chaque suggestion, calculer is_referenced + referenced_by
+        # (excluant la cible courante pour ne pas se référencer soi-même).
+        ref_index = _build_referenced_index()
+        for s in suggestions:
+            refs = ref_index.get(s["filename"], [])
+            # Filtrer la cible courante de la liste des refs
+            refs = [
+                r for r in refs
+                if not (
+                    r["operation_file"] == operation_file
+                    and r["operation_index"] == operation_index
+                    and r.get("ventilation_index") == ventilation_index
+                )
+            ]
+            if refs:
+                # Prendre la première ref comme référent principal (cas usuel : 1 PDF = 1 op)
+                first = refs[0]
+                s["is_referenced"] = True
+                s["referenced_by"] = {
+                    "operation_file": first["operation_file"],
+                    "operation_index": first["operation_index"],
+                    "libelle": first["libelle"][:80] if first["libelle"] else "",
+                    "locked": first["locked"],
+                    "ventilation_index": first.get("ventilation_index"),
+                }
+            else:
+                s["is_referenced"] = False
+                s["referenced_by"] = None
+    else:
+        # Comportement par défaut : filtrer les référencés pour ne montrer que les libres
+        suggestions = [s for s in suggestions if s["filename"] not in referenced]
 
     suggestions.sort(key=lambda s: s["score"], reverse=True)
     return suggestions
@@ -721,22 +951,86 @@ def get_suggestions_for_justificatif(
     return suggestions[:max_results]
 
 
-def run_auto_rapprochement() -> dict:
+def run_auto_rapprochement(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+) -> dict:
     """
     Parcourt tous les justificatifs en attente et auto-associe ceux
     avec un score >= 0.95 et un match unique.
+
+    Si `year` et `month` sont fournis, restreint le scope au mois ±1 (PDFs
+    et ops) pour accélérer drastiquement le run sur grand volume. Sinon scan
+    complet — appelé typiquement depuis sandbox / scan-rename / OCR upload
+    où le contexte UI n'est pas connu.
     """
     with _auto_lock:
-        return _run_auto_rapprochement_locked()
+        return _run_auto_rapprochement_locked(year=year, month=month)
 
 
-def _run_auto_rapprochement_locked() -> dict:
+def _run_auto_rapprochement_locked(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+) -> dict:
     ensure_directories()
     now = datetime.now().isoformat()
+    start_ts = datetime.now()
+
+    # Reset du cache ML (intra-run) — évite toute stale après un retraining ML
+    # entre deux runs. Sur un run, la même paire (supplier × N ops) profite
+    # du cache pour ne faire qu'1 prédiction ML par fournisseur unique.
+    _ml_predict_for_supplier.cache_clear()
+
+    # Calculer la fenêtre de scope si year+month fournis (±1 mois autour).
+    scope_start: Optional[datetime] = None
+    scope_end: Optional[datetime] = None
+    scope_label: str = "global"
+    if year is not None and month is not None:
+        try:
+            scope_start, scope_end = _compute_scope_window(year, month)
+            scope_label = f"{year:04d}-{month:02d}"
+        except (ValueError, TypeError) as e:
+            logger.warning(f"auto_rapprochement: scope invalide ({year=}, {month=}): {e} — fallback global")
+            scope_start = scope_end = None
 
     # Charger tous les justificatifs en attente
-    pending_pdfs = list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"))
+    all_pending = list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf"))
+
+    # Skip les PDFs déjà référencés par une op (cache TTL 5s côté justificatif_service).
+    # Évite de scorer des fichiers qui sont en en_attente/ par accident (ex. miettes
+    # post-split/merge) mais qui sont déjà liés à une op via Lien justificatif ou
+    # ventilation — la passe `apply_link_repair` les nettoie au boot, mais on filtre
+    # par sécurité.
+    referenced = justificatif_service.get_all_referenced_justificatifs()
+    pending_pdfs_unfiltered = [p for p in all_pending if p.name not in referenced]
+    skipped_referenced = len(all_pending) - len(pending_pdfs_unfiltered)
+
+    # Pré-filtre scope-mois sur les PDFs : ne garder que ceux dont la date
+    # (filename canonique ou OCR best_date) tombe dans la fenêtre. Sans date
+    # inférable → skip (choix produit : les passes globales les couvrent).
+    skipped_no_date = 0
+    skipped_out_of_scope = 0
+    if scope_start is not None and scope_end is not None:
+        pending_pdfs = []
+        for p in pending_pdfs_unfiltered:
+            ocr = _load_ocr_data(p.name)
+            pdf_date = _extract_pdf_date(p.name, ocr)
+            if pdf_date is None:
+                skipped_no_date += 1
+                continue
+            if pdf_date < scope_start or pdf_date > scope_end:
+                skipped_out_of_scope += 1
+                continue
+            pending_pdfs.append(p)
+    else:
+        pending_pdfs = pending_pdfs_unfiltered
+
     if not pending_pdfs:
+        logger.info(
+            f"auto_rapprochement: noop scope={scope_label} "
+            f"(skipped {skipped_referenced} ref, {skipped_no_date} no-date, "
+            f"{skipped_out_of_scope} hors scope)"
+        )
         return {
             "total_justificatifs_traites": 0,
             "associations_auto": 0,
@@ -745,7 +1039,10 @@ def _run_auto_rapprochement_locked() -> dict:
             "ran_at": now,
         }
 
-    # Cache des fichiers d'opérations
+    # Cache des fichiers d'opérations (full load — indices préservés par position
+    # dans la liste, critique pour save_operations + GED enrichment + ventilation).
+    # Le filtre scope-mois est appliqué LATE dans le loop sur la Date de chaque op,
+    # même coût que le pré-filtre ±15j existant.
     op_files = operation_service.list_operation_files()
     ops_cache: dict[str, list] = {}
     for f in op_files:
@@ -758,10 +1055,26 @@ def _run_auto_rapprochement_locked() -> dict:
     associations_detail: list[dict] = []
     suggestions_fortes = 0
     sans_correspondance = 0
+    score_calls = 0
+    skipped_date_window = 0
+    skipped_out_of_scope_ops = 0
+
+    logger.info(
+        f"auto_rapprochement: start scope={scope_label}, "
+        f"{len(pending_pdfs)} pending PDFs "
+        f"(skipped {skipped_referenced} ref, {skipped_no_date} no-date, "
+        f"{skipped_out_of_scope} hors scope), "
+        f"{sum(len(ops) for ops in ops_cache.values())} ops in {len(ops_cache)} files"
+    )
 
     for pdf_path in pending_pdfs:
         filename = pdf_path.name
         ocr_data = _load_ocr_data(filename)
+        # Date de référence du PDF (filename canonique ou OCR best_date) pour
+        # pré-filtrer les ops candidates : score_date renvoie 0 au-delà de ±14j
+        # → le gate de ligne ~830 rejette → inutile de scorer hors fenêtre.
+        # Fallback : si pas de date inférable, on garde le scan complet.
+        ref_date = _extract_pdf_date(filename, ocr_data)
 
         best_score = 0.0
         best_match = None
@@ -771,6 +1084,26 @@ def _run_auto_rapprochement_locked() -> dict:
             for idx, op in enumerate(ops):
                 if op.get("locked"):
                     continue  # skip silencieusement les ops verrouillées manuellement
+
+                # Pré-filtre scope-mois (si activé) : skip les ops hors fenêtre.
+                # Cheap : 1 _parse_date par op. Cohérent avec le filtre PDF en amont.
+                if scope_start is not None and scope_end is not None:
+                    op_date_scope = _parse_date(op.get("Date", ""))
+                    if op_date_scope is not None and (
+                        op_date_scope < scope_start or op_date_scope > scope_end
+                    ):
+                        skipped_out_of_scope_ops += 1
+                        continue
+
+                # Pré-filtre date : ±15j autour de la date de référence du PDF.
+                # Strictement plus large que le gate (≤14j → score=0) pour garder
+                # la marge de tolérance, mais coupe O(N×M) sur les paires impossibles.
+                if ref_date is not None:
+                    op_date = _parse_date(op.get("Date", ""))
+                    if op_date and abs((op_date - ref_date).days) > 15:
+                        skipped_date_window += 1
+                        continue
+
                 vlines = op.get("ventilation", [])
                 if vlines:
                     # Op ventilée : scorer chaque sous-ligne individuellement
@@ -784,10 +1117,18 @@ def _run_auto_rapprochement_locked() -> dict:
                             override_categorie=vl.get("categorie", ""),
                             override_sous_categorie=vl.get("sous_categorie", ""),
                         )
-                        total = result["total"]
-                        if total > best_score:
+                        score_calls += 1
+                        # Auto-score : montant TTC + date uniquement (0.55/0.45).
+                        # Fournisseur et catégorie sont écartés du total auto, mais
+                        # restent calculés (utiles pour le drawer manuel + garde-fou).
+                        auto_total = round(
+                            0.55 * result["detail"]["montant"]
+                            + 0.45 * result["detail"]["date"],
+                            4,
+                        )
+                        if auto_total > best_score:
                             second_best_score = best_score
-                            best_score = total
+                            best_score = auto_total
                             best_match = {
                                 "op_file": op_file,
                                 "op_index": idx,
@@ -795,16 +1136,21 @@ def _run_auto_rapprochement_locked() -> dict:
                                 "op": op,
                                 "ventilation_index": vl_idx,
                             }
-                        elif total > second_best_score:
-                            second_best_score = total
+                        elif auto_total > second_best_score:
+                            second_best_score = auto_total
                 else:
                     if op.get("Justificatif"):
                         continue
                     result = compute_score(ocr_data, op)
-                    total = result["total"]
-                    if total > best_score:
+                    score_calls += 1
+                    auto_total = round(
+                        0.55 * result["detail"]["montant"]
+                        + 0.45 * result["detail"]["date"],
+                        4,
+                    )
+                    if auto_total > best_score:
                         second_best_score = best_score
-                        best_score = total
+                        best_score = auto_total
                         best_match = {
                             "op_file": op_file,
                             "op_index": idx,
@@ -812,16 +1158,15 @@ def _run_auto_rapprochement_locked() -> dict:
                             "op": op,
                             "ventilation_index": None,
                         }
-                    elif total > second_best_score:
-                        second_best_score = total
+                    elif auto_total > second_best_score:
+                        second_best_score = auto_total
 
         if best_score < 0.60:
             sans_correspondance += 1
             continue
 
         # Gate date : refuser toute auto-association si l'écart de date > 14j
-        # (score_date == 0.0). Protège contre les cross-year hallucinés quand
-        # montant + fournisseur + catégorie compensent la date absente.
+        # (score_date == 0.0). Protège contre les cross-year hallucinés.
         # Les suggestions fortes restent visibles dans le drawer manuel.
         best_date_score = (
             (best_match.get("score") or {}).get("detail", {}).get("date", None)
@@ -833,6 +1178,22 @@ def _run_auto_rapprochement_locked() -> dict:
             else:
                 sans_correspondance += 1
             continue
+
+        # Garde-fou fournisseur strict : rejet auto si score_fournisseur=0.
+        # Sans signal lexical du fournisseur dans le libellé bancaire, on n'a
+        # aucune preuve que le PDF correspond à cette op — montant + date
+        # similaires ne suffisent pas (ex. EDF 48.20€ le 01/05 vs LW MONTAUBAN
+        # 47.80€ le 29/04 : 2 ops totalement distinctes mais montant + date
+        # ressemblants). La suggestion reste visible dans le drawer manuel
+        # pour validation humaine.
+        if best_match:
+            best_fournisseur_score = best_match["score"]["detail"].get("fournisseur", 0.0)
+            if best_fournisseur_score == 0.0:
+                if best_score >= 0.75:
+                    suggestions_fortes += 1
+                else:
+                    sans_correspondance += 1
+                continue
 
         # Auto-association : score >= 0.80 et pas d'ex-aequo à ±0.02
         if best_score >= 0.80 and (best_score - second_best_score) > 0.02 and best_match:
@@ -992,6 +1353,16 @@ def _run_auto_rapprochement_locked() -> dict:
 
     # Compter les justificatifs restants en attente après traitement
     justificatifs_restants = len(list(JUSTIFICATIFS_EN_ATTENTE_DIR.glob("*.pdf")))
+
+    elapsed = (datetime.now() - start_ts).total_seconds()
+    cache_info = _ml_predict_for_supplier.cache_info()
+    logger.info(
+        f"auto_rapprochement: done in {elapsed:.1f}s scope={scope_label} — "
+        f"{associations_auto} auto, {suggestions_fortes} fortes, {sans_correspondance} skip "
+        f"(score_calls={score_calls}, skipped_date_window={skipped_date_window}, "
+        f"skipped_out_of_scope_ops={skipped_out_of_scope_ops}, "
+        f"ml_cache=hits={cache_info.hits}/misses={cache_info.misses})"
+    )
 
     return {
         "total_justificatifs_traites": len(pending_pdfs),

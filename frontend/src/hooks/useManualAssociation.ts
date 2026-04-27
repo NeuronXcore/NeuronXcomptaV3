@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { api } from '@/api/client'
-import type { Operation, JustificatifSuggestion, JustificatifInfo, OperationFile, JustificatifExemptions } from '@/types'
+import type { Operation, JustificatifSuggestion, JustificatifReferencedBy, JustificatifInfo, OperationFile, JustificatifExemptions } from '@/types'
 import { useOperationFiles, useOperations, useYearOperations } from './useOperations'
 import { useManualAssociate } from './useRapprochement'
 import { useSettings } from './useApi'
@@ -71,6 +71,10 @@ export interface DrawerSuggestion {
   score: number | null // null en mode élargi (pas de scoring)
   score_detail?: JustificatifSuggestion['score_detail']
   size_human?: string
+  // Présents uniquement quand includeReferenced=true côté drawer.
+  // is_referenced=true => le PDF est déjà lié à une autre op (referenced_by).
+  is_referenced?: boolean
+  referenced_by?: JustificatifReferencedBy | null
 }
 
 function buildOpKey(filename: string, index: number, vlIdx: number | null): string {
@@ -111,6 +115,8 @@ function mapJustifSuggestion(s: JustificatifSuggestion): DrawerSuggestion {
     score: s.score,
     score_detail: s.score_detail,
     size_human: s.size_human,
+    is_referenced: s.is_referenced,
+    referenced_by: s.referenced_by ?? null,
   }
 }
 
@@ -325,6 +331,7 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
   const [filterAmount, setFilterAmount] = useState('')
   const [filterAmountTol, setFilterAmountTol] = useState(50)
   const [broadMode, setBroadMode] = useState(false)
+  const [includeReferenced, setIncludeReferenced] = useState(false)
   const [previewFilename, setPreviewFilename] = useState<string | null>(null)
 
   // Reset preview + montant au changement d'op.
@@ -349,10 +356,11 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
     }
   }, [open, year, month])
 
-  // Reset broadMode à la fermeture
+  // Reset broadMode + includeReferenced à la fermeture
   useEffect(() => {
     if (!open) {
       setBroadMode(false)
+      setIncludeReferenced(false)
       setOpSearch('')
     }
   }, [open])
@@ -365,6 +373,7 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
       selectedOp?.index ?? null,
       selectedOp?.ventilationIndex ?? null,
       broadMode,
+      includeReferenced,
     ],
     queryFn: async () => {
       if (broadMode) {
@@ -375,6 +384,9 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
       const p = new URLSearchParams()
       if (selectedOp.ventilationIndex != null) {
         p.set('ventilation_index', String(selectedOp.ventilationIndex))
+      }
+      if (includeReferenced) {
+        p.set('include_referenced', 'true')
       }
       const qs = p.toString()
       const items = await api.get<JustificatifSuggestion[]>(
@@ -451,7 +463,7 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
   const associateMutation = useManualAssociate()
 
   const associate = useCallback(
-    (justifFilename: string, score?: number | null): Promise<boolean> => {
+    (justifFilename: string, score?: number | null, force?: boolean): Promise<boolean> => {
       if (!selectedOp) return Promise.resolve(false)
       return associateMutation
         .mutateAsync({
@@ -460,9 +472,10 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
           operation_index: selectedOp.index,
           rapprochement_score: score ?? undefined,
           ventilation_index: selectedOp.ventilationIndex,
+          force: force ?? false,
         })
         .then(() => {
-          toast.success('Justificatif associé')
+          toast.success(force ? 'Justificatif déplacé sur cette op' : 'Justificatif associé')
           return true
         })
         .catch((err: unknown) => {
@@ -517,6 +530,9 @@ export function useManualAssociation({ open, year, month, targetedOps }: UseManu
     // Mode élargi
     broadMode,
     setBroadMode,
+    // Inclure déjà référencés (réutilise traites/ + enrichit referenced_by)
+    includeReferenced,
+    setIncludeReferenced,
     // Suggestions
     suggestions,
     filteredSuggestions,

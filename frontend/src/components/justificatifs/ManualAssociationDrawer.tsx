@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import toast from 'react-hot-toast'
 import {
   X,
   Search,
@@ -10,6 +11,9 @@ import {
   Eye,
   CalendarDays,
   Euro,
+  Lock,
+  Unlink,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import PdfThumbnail from '@/components/shared/PdfThumbnail'
@@ -79,7 +83,72 @@ export default function ManualAssociationDrawer(props: ManualAssociationDrawerPr
   }, [open, onClose, h])
 
   const handleAssociate = async (s: DrawerSuggestion) => {
-    const ok = await h.associate(s.filename, s.score)
+    // Cas standard : association libre, pas de force.
+    if (!s.is_referenced) {
+      const ok = await h.associate(s.filename, s.score)
+      if (ok) {
+        const advanced = h.goToNextOp()
+        if (!advanced) onClose()
+      }
+      return
+    }
+    // Cas référencé : ouvrir une confirmation toast.
+    const refLibelle = s.referenced_by?.libelle || 'une autre opération'
+    const refLocked = !!s.referenced_by?.locked
+    const confirmed = await new Promise<boolean>(resolve => {
+      const tid = toast.custom(
+        t => (
+          <div
+            className={cn(
+              'max-w-md w-full bg-surface border-2 border-amber-500/50 rounded-2xl p-4 shadow-2xl transition-all',
+              t.visible ? 'animate-enter' : 'animate-leave',
+            )}
+          >
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle size={18} className="text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text mb-1">
+                  Déplacer ce justificatif ?
+                </p>
+                <p className="text-xs text-text-muted">
+                  Le PDF est actuellement lié à : <span className="text-text font-medium">{refLibelle}</span>
+                  {refLocked && <span className="ml-1 text-warning">(verrouillée — sera déverrouillée)</span>}
+                </p>
+                <p className="text-[11px] text-text-muted/80 mt-1.5 italic">
+                  L'ancienne association sera automatiquement supprimée.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  toast.dismiss(tid)
+                  resolve(false)
+                }}
+                className="px-3 py-1.5 text-xs text-text-muted hover:text-text rounded transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  toast.dismiss(tid)
+                  resolve(true)
+                }}
+                className="px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-600/90 text-white rounded-md font-medium transition-colors flex items-center gap-1.5"
+              >
+                <Unlink size={12} />
+                Déplacer
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: 30_000 },
+      )
+    })
+    if (!confirmed) return
+    const ok = await h.associate(s.filename, s.score, true)
     if (ok) {
       const advanced = h.goToNextOp()
       if (!advanced) onClose()
@@ -284,20 +353,37 @@ export default function ManualAssociationDrawer(props: ManualAssociationDrawerPr
                   )}
                 </div>
 
-                {/* Toggle broadMode */}
-                <label className="flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={h.broadMode}
-                    onChange={e => h.setBroadMode(e.target.checked)}
-                    className="accent-primary"
-                  />
-                  <span
-                    title="Ignore le pré-filtre ±1 mois — affiche tous les justificatifs sans association"
-                  >
-                    Élargir à tous les en attente
-                  </span>
-                </label>
+                {/* Toggles : élargir + inclure référencés */}
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={h.broadMode}
+                      onChange={e => h.setBroadMode(e.target.checked)}
+                      className="accent-primary"
+                    />
+                    <span
+                      title="Ignore le pré-filtre ±1 mois — affiche tous les justificatifs sans association"
+                    >
+                      Élargir à tous les en attente
+                    </span>
+                  </label>
+                  {!h.broadMode && (
+                    <label className="flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={h.includeReferenced}
+                        onChange={e => h.setIncludeReferenced(e.target.checked)}
+                        className="accent-amber-500"
+                      />
+                      <span
+                        title="Affiche aussi les PDFs déjà liés à une autre opération. Pratique pour récupérer un justificatif mal attribué."
+                      >
+                        Inclure déjà référencés
+                      </span>
+                    </label>
+                  )}
+                </div>
               </div>
 
               {/* Barre filtres libres (masquée en mode élargi) */}
@@ -543,6 +629,9 @@ function JustifRow({
   const fournisseur =
     suggestion.ocr_fournisseur || parseFournisseurFromFilename(suggestion.filename)
   const deltaJours = computeDeltaJours(opDate, suggestion.ocr_date)
+  const isReferenced = !!suggestion.is_referenced
+  const refLibelle = suggestion.referenced_by?.libelle || ''
+  const refLocked = !!suggestion.referenced_by?.locked
 
   return (
     <div
@@ -550,7 +639,8 @@ function JustifRow({
         'flex items-stretch gap-3 px-4 py-2.5 border-b border-border transition-colors',
         isPreviewing && 'bg-primary/10 border-l-2 border-l-primary',
         !isPreviewing && isBestMatch && 'bg-emerald-500/10 border-l-2 border-l-emerald-500',
-        !isPreviewing && !isBestMatch && 'border-l-2 border-l-transparent hover:bg-surface',
+        !isPreviewing && isReferenced && !isBestMatch && 'bg-amber-500/5 border-l-2 border-l-amber-500/40',
+        !isPreviewing && !isBestMatch && !isReferenced && 'border-l-2 border-l-transparent hover:bg-surface',
       )}
     >
       {/* Thumbnail cliquable pour ouvrir preview */}
@@ -595,6 +685,16 @@ function JustifRow({
               title={`OCR partiel : ${!suggestion.ocr_date ? 'date' : ''}${!suggestion.ocr_date && suggestion.ocr_montant == null ? ' + ' : ''}${suggestion.ocr_montant == null ? 'montant' : ''} manquant`}
             >
               OCR partiel
+            </span>
+          )}
+          {isReferenced && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[9px] font-medium flex-shrink-0"
+              title={`Déjà liée à : ${refLibelle}${refLocked ? ' (op verrouillée)' : ''}`}
+            >
+              <Link2 size={9} />
+              Déjà liée
+              {refLocked && <Lock size={9} className="ml-0.5" />}
             </span>
           )}
         </div>
@@ -646,17 +746,35 @@ function JustifRow({
             deltaJours={deltaJours}
           />
         )}
+        {isReferenced && refLibelle && (
+          <div
+            className="text-[10px] text-amber-400/80 truncate italic"
+            title={`Op actuelle : ${refLibelle}`}
+          >
+            ↳ {refLibelle}
+          </div>
+        )}
       </div>
 
-      {/* Bouton associer */}
+      {/* Bouton associer / déplacer */}
       <div className="flex items-center shrink-0">
         <button
           onClick={onAssociate}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary hover:bg-primary/90 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white',
+            isReferenced
+              ? 'bg-amber-600 hover:bg-amber-600/90'
+              : 'bg-primary hover:bg-primary/90',
+          )}
+          title={
+            isReferenced
+              ? 'Déplacer ce justificatif sur cette op (dissocie l\'ancienne en cascade)'
+              : 'Associer'
+          }
         >
-          <Link2 size={12} />
-          Associer
+          {isReferenced ? <Unlink size={12} /> : <Link2 size={12} />}
+          {isReferenced ? 'Déplacer ici' : 'Associer'}
         </button>
       </div>
     </div>
