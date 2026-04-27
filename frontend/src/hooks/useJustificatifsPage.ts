@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useFiscalYearStore } from '../stores/useFiscalYearStore'
 import { useOperationFiles, useOperations, useYearOperations } from './useOperations'
 import { useSettings } from './useApi'
-import { isReconstitue } from '@/lib/utils'
+import { isReconstitue, matchesOperationType, type OperationTypeFilter } from '@/lib/utils'
 import type { Operation, OperationFile, JustificatifExemptions } from '@/types'
 
 function isOpExempt(op: Operation, exemptions: JustificatifExemptions | undefined): boolean {
@@ -44,7 +44,7 @@ export function useJustificatifsPage() {
   // tout en gardant le même filtre "Remplaçant / Hébergement" par exemple)
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('')
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'bancaire' | 'note_de_frais'>('all')
+  const [sourceFilter, setSourceFilter] = useState<OperationTypeFilter>('all')
   const [selectedOpIndex, setSelectedOpIndex] = useState<number | null>(null)
   const [selectedOpFilename, setSelectedOpFilename] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -218,11 +218,9 @@ export function useJustificatifsPage() {
       ops = ops.filter(op => (op['Sous-catégorie'] ?? '') === subcategoryFilter)
     }
 
-    // Filtre source (Type d'opération : bancaire / note_de_frais)
-    if (sourceFilter === 'note_de_frais') {
-      ops = ops.filter(op => op.source === 'note_de_frais')
-    } else if (sourceFilter === 'bancaire') {
-      ops = ops.filter(op => !op.source)
+    // Filtre source (Type d'opération) — étendu Prompt B2 : 5 valeurs
+    if (sourceFilter !== 'all') {
+      ops = ops.filter(op => matchesOperationType(op, sourceFilter))
     }
 
     if (search.trim()) {

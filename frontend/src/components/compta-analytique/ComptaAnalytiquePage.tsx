@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useDashboard, useAnalyticsTrends, useAnalyticsAnomalies, useOperationFiles } from '@/hooks/useApi'
 import PageHeader from '@/components/shared/PageHeader'
@@ -43,6 +44,8 @@ const tooltipStyle = {
 }
 
 export default function ComptaAnalytiquePage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+
   // Page mode
   const [pageMode, setPageMode] = useState<'analyse' | 'comparatif'>('analyse')
 
@@ -99,6 +102,30 @@ export default function ComptaAnalytiquePage() {
     if (globalQuarter) return `T${globalQuarter} ${globalYear}`
     return `${globalYear}`
   }, [globalYear, globalQuarter, globalMonth])
+
+  // Auto-open drawer via URL ?category=... (Prompt B2)
+  // Synchronise aussi ?year=... et nettoie les params après ouverture pour
+  // éviter une ré-ouverture intempestive au refresh.
+  useEffect(() => {
+    const categoryParam = searchParams.get('category')
+    const yearParam = searchParams.get('year')
+    if (yearParam) {
+      const y = parseInt(yearParam)
+      if (!Number.isNaN(y) && y !== globalYear) setGlobalYear(y)
+    }
+    if (!categoryParam || !dashboard) return
+    const cat = dashboard.category_summary.find((c) => c['Catégorie'] === categoryParam)
+    if (cat) {
+      setDrillCategory(categoryParam)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('category')
+        next.delete('year')
+        return next
+      }, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, dashboard])
 
   // Loading — MUST be after all hooks (Rules of Hooks)
   if (dashLoading || trendsLoading) return <LoadingSpinner text="Chargement des données analytiques..." />
@@ -241,9 +268,9 @@ export default function ComptaAnalytiquePage() {
           periodLabel={periodLabel}
         />
 
-        {/* Répartition par type d'opération (bancaire vs note de frais) */}
+        {/* Répartition par type d'opération (bancaire / NDF / immo / dotation) — Prompt B2 */}
         {by_source && by_source.length > 0 && (
-          <RepartitionParTypeCard sources={by_source} />
+          <RepartitionParTypeCard sources={by_source} categorySummary={category_summary} />
         )}
 
         {/* Nature filter — pilote tableau catégories ET graphe d'évolution */}
@@ -361,33 +388,48 @@ function BncKPIRow({
   )
 }
 
-// ──────────── Répartition par type d'opération (bancaire / note de frais) ────────────
+// ──────────── Répartition par type d'opération (5 types — Prompt B2) ────────────
 
-function RepartitionParTypeCard({ sources }: { sources: SourceBreakdown[] }) {
+function RepartitionParTypeCard({
+  sources,
+  categorySummary,
+}: {
+  sources: SourceBreakdown[]
+  categorySummary: CategorySummary[]
+}) {
   const bancaire = sources.find(s => s.source === 'bancaire')
   const ndf = sources.find(s => s.source === 'note_de_frais')
-  const totalDebit = (bancaire?.debit ?? 0) + (ndf?.debit ?? 0)
-  const ndfShare = totalDebit > 0 ? ((ndf?.debit ?? 0) / totalDebit) * 100 : 0
+
+  // Immobilisations + dotations dérivés du category_summary (catégories dédiées)
+  const immoCat = categorySummary.find(c => (c['Catégorie'] ?? '').toLowerCase() === 'immobilisations')
+  const dotationCat = categorySummary.find(c => c['Catégorie'] === 'Dotations aux amortissements')
+  const immoDebit = immoCat?.['Débit'] ?? 0
+  const immoCount = immoCat?.Nombre_Opérations ?? 0
+  const dotationDebit = dotationCat?.['Débit'] ?? 0
+  const dotationCount = dotationCat?.Nombre_Opérations ?? 0
+
+  const totalDebit = (bancaire?.debit ?? 0) + (ndf?.debit ?? 0) + immoDebit + dotationDebit
+  const share = (v: number) => (totalDebit > 0 ? ((v / totalDebit) * 100).toFixed(1) : '0.0')
 
   return (
     <div className="bg-surface rounded-xl border border-border p-4 mt-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-text">Répartition par type d'opération</h3>
-        {ndf && ndf.count > 0 && (
-          <span className="text-xs text-text-muted">{ndfShare.toFixed(1)}% des dépenses en notes de frais</span>
-        )}
+        <span className="text-xs text-text-muted">Total {formatCurrency(totalDebit)}</span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Bancaire */}
         <div className="bg-background rounded-lg p-3 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-text-muted mb-0.5">Opérations bancaires</div>
+          <div className="min-w-0">
+            <div className="text-xs text-text-muted mb-0.5">Bancaire</div>
             <div className="text-lg font-semibold text-text tabular-nums">{formatCurrency(bancaire?.debit ?? 0)}</div>
-            <div className="text-[10px] text-text-muted mt-0.5">{bancaire?.count ?? 0} ops · {formatCurrency(bancaire?.credit ?? 0)} crédités</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{bancaire?.count ?? 0} ops · {share(bancaire?.debit ?? 0)}%</div>
           </div>
-          <Wallet size={28} className="text-text-muted/40" />
+          <Wallet size={26} className="text-text-muted/40 shrink-0" />
         </div>
+        {/* Notes de frais */}
         <div className="bg-background rounded-lg p-3 flex items-center justify-between border border-amber-500/20">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5 mb-0.5">
               <span
                 style={{
@@ -403,12 +445,43 @@ function RepartitionParTypeCard({ sources }: { sources: SourceBreakdown[] }) {
               >
                 Note de frais
               </span>
-              <span className="text-xs text-text-muted">CB perso</span>
             </div>
             <div className="text-lg font-semibold text-text tabular-nums">{formatCurrency(ndf?.debit ?? 0)}</div>
-            <div className="text-[10px] text-text-muted mt-0.5">{ndf?.count ?? 0} op{(ndf?.count ?? 0) > 1 ? 's' : ''}</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{ndf?.count ?? 0} op{(ndf?.count ?? 0) > 1 ? 's' : ''} · {share(ndf?.debit ?? 0)}%</div>
           </div>
-          <Wallet size={28} className="text-amber-500/40" />
+          <Wallet size={26} className="text-amber-500/40 shrink-0" />
+        </div>
+        {/* Immobilisations */}
+        <div className="bg-background rounded-lg p-3 flex items-center justify-between border border-[#CECBF6]/40">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span
+                className="text-[10px] font-medium px-1.5 rounded leading-4"
+                style={{ background: '#EEEDFE', color: '#3C3489' }}
+              >
+                Immobilisations
+              </span>
+            </div>
+            <div className="text-lg font-semibold text-text tabular-nums">{formatCurrency(immoDebit)}</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{immoCount} op{immoCount > 1 ? 's' : ''} · {share(immoDebit)}%</div>
+          </div>
+          <Wallet size={26} className="text-[#3C3489]/40 shrink-0" />
+        </div>
+        {/* Dotations */}
+        <div className="bg-background rounded-lg p-3 flex items-center justify-between border border-[#7F77DD]/40">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span
+                className="text-[10px] font-medium px-1.5 rounded leading-4"
+                style={{ background: '#CECBF6', color: '#26215C' }}
+              >
+                Dotation
+              </span>
+            </div>
+            <div className="text-lg font-semibold text-text tabular-nums">{formatCurrency(dotationDebit)}</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{dotationCount} op{dotationCount > 1 ? 's' : ''} · {share(dotationDebit)}%</div>
+          </div>
+          <Wallet size={26} className="text-[#26215C]/40 shrink-0" />
         </div>
       </div>
     </div>
