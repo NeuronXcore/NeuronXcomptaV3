@@ -834,5 +834,25 @@
     "taille_totale_mo": 0.08,
     "success": true,
     "error_message": null
+  },
+  {
+    "id": "2cbb2f10",
+    "sent_at": "2026-04-27T20:50:41.988328",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com",
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr"
+    ],
+    "objet": "SCP Compte de resultat 2025 — docteur.andre.ceccoli@gmail.com",
+    "documents": [
+      {
+        "type": "ged",
+        "filename": "SCP_Compte de resultat 2025.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.15,
+    "success": true,
+    "error_message": null
   }
 ]
