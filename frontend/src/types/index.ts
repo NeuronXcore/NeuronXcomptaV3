@@ -1485,6 +1485,34 @@ export interface BackfillComputeResponse {
   }>
 }
 
+// ─── Prompt B2 — OD dotation amortissements ───
+
+export interface OcrPrefill {
+  designation: string
+  date_acquisition: string
+  base_amortissable: number
+}
+
+export interface CandidateDetail {
+  operation: Operation
+  filename: string
+  index: number
+  justificatif: { filename: string; ocr_data: Record<string, any> } | null
+  ocr_prefill: OcrPrefill
+}
+
+export interface DotationGenere {
+  year: number
+  pdf_filename: string | null
+  ged_doc_id: string | null
+  montant: number
+  filename: string
+  index: number
+  date: string
+}
+
+export type OperationType = 'all' | 'bancaire' | 'note_de_frais' | 'immobilisation' | 'dotation'
+
 // ============================================================
 // Simulation BNC
 // ============================================================

@@ -6,6 +6,7 @@ import type {
   DotationsExercice, AmortissementCandidate, AmortissementConfig,
   CessionResult, AmortissementVirtualDetail, DotationRef,
   BackfillComputeRequest, BackfillComputeResponse,
+  CandidateDetail, DotationGenere,
 } from '@/types'
 
 // ─── Queries ───
@@ -177,5 +178,69 @@ export function useDotationRef(year: number) {
 export function useComputeBackfill() {
   return useMutation<BackfillComputeResponse, Error, BackfillComputeRequest>({
     mutationFn: (req) => api.post('/amortissements/compute-backfill', req),
+  })
+}
+
+// ─── Prompt B2 — OD dotation (generer / supprimer / regenerer-pdf / dotation-genere / candidate-detail) ───
+
+export function useDotationGenere(year: number) {
+  return useQuery<DotationGenere | null>({
+    queryKey: ['amortissements', 'dotation-genere', year],
+    queryFn: () => api.get(`/amortissements/dotation-genere?year=${year}`),
+  })
+}
+
+export function useCandidateDetail(filename: string | null, index: number | null) {
+  return useQuery<CandidateDetail>({
+    queryKey: ['amortissements', 'candidate-detail', filename, index],
+    queryFn: () => api.get(`/amortissements/candidate-detail?filename=${encodeURIComponent(filename ?? '')}&index=${index ?? 0}`),
+    enabled: !!filename && index !== null,
+  })
+}
+
+export function useGenererDotation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (year: number) => api.post(`/amortissements/generer-dotation?year=${year}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['amortissements'] })
+      qc.invalidateQueries({ queryKey: ['amortissement-kpis'] })
+      qc.invalidateQueries({ queryKey: ['operations'] })
+      qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['analytics'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+    },
+  })
+}
+
+export function useSupprimerDotation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (year: number) => api.delete(`/amortissements/supprimer-dotation?year=${year}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['amortissements'] })
+      qc.invalidateQueries({ queryKey: ['amortissement-kpis'] })
+      qc.invalidateQueries({ queryKey: ['operations'] })
+      qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['analytics'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+export function useRegenererPdfDotation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (year: number) => api.post(`/amortissements/regenerer-pdf-dotation?year=${year}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['amortissements', 'dotation-genere'] })
+    },
   })
 }
