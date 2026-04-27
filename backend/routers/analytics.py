@@ -74,10 +74,18 @@ async def get_dashboard(
     quarter: Optional[int] = Query(None),
     month: Optional[int] = Query(None),
 ):
-    """Données agrégées pour le dashboard, filtrées par période."""
+    """Données agrégées pour le dashboard, filtrées par période.
+
+    Sur année complète (year fourni, sans quarter/month), `bnc.solde_bnc` inclut les
+    dotations annuelles et forfaits déductibles via `bnc_service.compute_bnc(year)`.
+    Sinon, BNC en proxy bancaire (sans dotations — limite documentée).
+    """
     all_ops = _load_all_ops(year, quarter, month)
     ca_liasse = _resolve_ca_liasse(year, quarter, month)
-    return analytics_service.get_dashboard_data(all_ops, ca_liasse=ca_liasse)
+    year_full = year if (year is not None and quarter is None and month is None) else None
+    return analytics_service.get_dashboard_data(
+        all_ops, ca_liasse=ca_liasse, year_full=year_full
+    )
 
 
 @router.get("/summary")

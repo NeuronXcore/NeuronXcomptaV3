@@ -1484,3 +1484,19 @@ class ChargesForfaitairesService:
         self._save_bareme_vehicule(year, bareme)
 
         return True
+
+
+# ─── Module-level helpers ───
+
+def get_total_deductible_year(year: int) -> float:
+    """Total des charges forfaitaires déductibles pour une année.
+
+    En A1 : retourne 0.0 car les OD blanchissage/repas/véhicule sont déjà inscrites
+    comme opérations bancaires dans le fichier de décembre (catégorie respective)
+    et donc déjà comptées dans `charges_pro` du BNC. Les ajouter ici créerait un
+    double-comptage.
+
+    Stratégie cible (Prompt C) : soit OD réelles (et `get_total_deductible_year=0`),
+    soit ligne virtuelle (et exclure les catégories OD de `charges_pro`). Pas les deux.
+    """
+    return 0.0

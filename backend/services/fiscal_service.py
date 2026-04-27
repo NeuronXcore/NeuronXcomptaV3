@@ -492,8 +492,14 @@ def find_seuils_critiques(year: int, parts: float = 1.0) -> list:
 
 
 def get_historical_bnc(years: Optional[list] = None) -> dict:
-    """Calcule le BNC historique depuis les fichiers d'opérations."""
-    from backend.services import operation_service
+    """BNC historique : monthly (proxy bancaire) + annual (BNC fiscal complet via bnc_service).
+
+    Le mensuel reste en proxy bancaire (`recettes − depenses`) car les dotations sont annuelles
+    par nature — un raffinement mensuel est différé au Prompt B (OD mensuelles).
+    L'annual utilise `bnc_service.compute_bnc(year)` : recettes_pro (CA liasse si saisi),
+    charges_pro (hors EXCLUDED_FROM_CHARGES_PRO, après CSG), dotations annuelles, forfaits.
+    """
+    from backend.services import operation_service, bnc_service
 
     files = operation_service.list_operation_files()
     monthly = []
@@ -515,23 +521,41 @@ def get_historical_bnc(years: Optional[list] = None) -> dict:
 
     monthly.sort(key=lambda x: (x["year"], x["month"]))
 
-    # Agréger par année
-    annual_map: dict[int, dict] = {}
-    for m in monthly:
-        y = m["year"]
-        if y not in annual_map:
-            annual_map[y] = {"year": y, "recettes": 0, "depenses": 0, "bnc": 0, "nb_mois": 0}
-        annual_map[y]["recettes"] += m["recettes"]
-        annual_map[y]["depenses"] += m["depenses"]
-        annual_map[y]["bnc"] += m["bnc"]
-        annual_map[y]["nb_mois"] += 1
-    annual = sorted(annual_map.values(), key=lambda x: x["year"])
-    for a in annual:
-        a["recettes"] = round(a["recettes"], 2)
-        a["depenses"] = round(a["depenses"], 2)
-        a["bnc"] = round(a["bnc"], 2)
+    # Agrégat annuel via bnc_service (source unique fiscale)
+    all_years = sorted({m["year"] for m in monthly})
+    if years:
+        all_years = [y for y in all_years if y in years]
 
-    all_years = sorted(set(m["year"] for m in monthly))
+    annual: list[dict] = []
+    for y in all_years:
+        try:
+            bd = bnc_service.compute_bnc(y)
+            year_monthly = [m for m in monthly if m["year"] == y]
+            annual.append({
+                "year": y,
+                "recettes": round(bd.recettes_pro, 2),
+                "recettes_pro_bancaires": round(bd.recettes_pro_bancaires, 2),
+                "base_recettes": bd.base_recettes,
+                "depenses": round(bd.charges_pro, 2),
+                "dotations_amortissements": round(bd.dotations_amortissements, 2),
+                "forfaits_total": round(bd.forfaits_total, 2),
+                "bnc": round(bd.bnc, 2),
+                "ca_liasse": round(bd.ca_liasse, 2) if bd.ca_liasse is not None else None,
+                "nb_mois": len(year_monthly),
+            })
+        except Exception as e:
+            logger.warning(f"bnc_service.compute_bnc({y}) failed in historical: {e}")
+            # Fallback proxy bancaire
+            year_monthly = [m for m in monthly if m["year"] == y]
+            annual.append({
+                "year": y,
+                "recettes": round(sum(m["recettes"] for m in year_monthly), 2),
+                "depenses": round(sum(m["depenses"] for m in year_monthly), 2),
+                "bnc": round(sum(m["bnc"] for m in year_monthly), 2),
+                "dotations_amortissements": 0.0,
+                "forfaits_total": 0.0,
+                "nb_mois": len(year_monthly),
+            })
 
     # Profil saisonnier
     profil = []

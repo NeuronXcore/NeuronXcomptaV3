@@ -154,14 +154,35 @@ def _prepare_export_operations(operations: list, filename: str) -> dict:
     return {"pro": pro, "perso": perso, "attente": attente, "totals": totals}
 
 
+def get_bnc_summary(year: int, ca_liasse: Optional[float] = None) -> dict:
+    """Façade vers `bnc_service.compute_bnc(year)` pour les consommateurs externes.
+
+    Retourne le breakdown sérialisé en dict (cohérent avec les valeurs exposées par
+    le dashboard via `get_dashboard_data(..., year_full=year)`).
+    """
+    from backend.services import bnc_service
+    breakdown = bnc_service.compute_bnc(year, ca_liasse=ca_liasse)
+    return breakdown.to_dict()
+
+
 def _classify_line(line: dict, pro: list, perso: list, attente: list):
-    """Classe une ligne normalisee dans le bon groupe."""
+    """Classe une ligne normalisee dans le bon groupe.
+
+    Les catégories `EXCLUDED_FROM_CHARGES_PRO` (Immobilisations, Dotations aux
+    amortissements, Ventilé) sont placées en 'attente' — visibles dans le compte
+    d'attente de l'export comptable mais hors agrégat `charges_pro` du BNC.
+    Évite le double-comptage avec les dotations annuelles calculées par le module
+    Amortissements.
+    """
+    # Import local pour éviter un cycle
+    from backend.services.analytics_service import EXCLUDED_FROM_CHARGES_PRO
+
     cat = (line.get("Categorie") or "").strip()
     cat_lower = cat.lower()
 
     if cat_lower == "perso":
         perso.append(line)
-    elif cat == "" or cat_lower == "autres" or cat_lower == "ventilé":
+    elif cat == "" or cat_lower == "autres" or cat in EXCLUDED_FROM_CHARGES_PRO:
         attente.append(line)
     else:
         pro.append(line)

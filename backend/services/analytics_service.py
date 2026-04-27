@@ -14,6 +14,21 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+# ─── Catégories exclues du calcul charges_pro (BNC) ───
+# Ces catégories ne sont PAS comptées dans `bnc.charges_pro` :
+#   - "Immobilisations" : la charge a été comptée à l'achat (op bancaire), mais sera
+#     déduite via les dotations annuelles → exclure pour éviter le double-comptage.
+#   - "Dotations aux amortissements" : ligne virtuelle injectée par le module Amortissements
+#     dans le dashboard. Pas une vraie op bancaire → exclure des charges_pro.
+#   - "Ventilé" : catégorie parente d'une op ventilée. Les sous-lignes (explosées par
+#     `_expand_ventilation` / `_prepare_export_operations`) sont comptées individuellement.
+EXCLUDED_FROM_CHARGES_PRO: set[str] = {
+    "Immobilisations",
+    "Dotations aux amortissements",
+    "Ventilé",
+}
+
+
 # ─── BNC — source of truth fiscale unique ───
 # Règle : BNC = recettes_pro − charges_pro_déductibles. Les ops "perso" sont HORS assiette.
 # Le tri pro/perso/attente + l'explosion des ventilations sont délégués à
@@ -22,12 +37,16 @@ logger = logging.getLogger(__name__)
 
 
 def _nature_of_category(categorie: str) -> str:
-    """Classifie une catégorie en 'pro', 'perso' ou 'attente'. Miroir de export_service._classify_line."""
+    """Classifie une catégorie en 'pro', 'perso' ou 'attente'. Miroir de export_service._classify_line.
+
+    Les catégories `EXCLUDED_FROM_CHARGES_PRO` sont classées en 'attente' (visibles
+    dans l'export comptable mais hors `charges_pro` BNC).
+    """
     cat = (categorie or "").strip()
     cat_lower = cat.lower()
     if cat_lower == "perso":
         return "perso"
-    if cat == "" or cat_lower == "autres" or cat_lower == "ventilé":
+    if cat == "" or cat_lower == "autres" or cat in EXCLUDED_FROM_CHARGES_PRO:
         return "attente"
     return "pro"
 
@@ -220,6 +239,7 @@ def get_monthly_trends(operations: list[dict], nb_months: int = 6) -> dict:
 def get_dashboard_data(
     all_operations: list[dict],
     ca_liasse: Optional[float] = None,
+    year_full: Optional[int] = None,
 ) -> dict:
     """Données agrégées pour le dashboard.
 
@@ -228,9 +248,29 @@ def get_dashboard_data(
 
     Si `ca_liasse` fourni, `bnc.recettes_pro = ca_liasse` et `bnc.base_recettes = 'liasse'`,
     sinon `bnc.recettes_pro = sum(crédits pro)` et `bnc.base_recettes = 'bancaire'`.
+
+    Si `year_full` fourni (année complète, sans filtre mois/trimestre), enrichit le bloc BNC
+    avec `dotations_amortissements` et `forfaits_total` annuels via `bnc_service.compute_bnc`,
+    et `solde_bnc` reflète recettes − charges − dotations − forfaits. Sinon ces champs valent 0.0.
     """
     # Calcul BNC sur opérations BRUTES (ventilations explosées à l'intérieur de _bnc_metrics_from_operations)
     bnc_metrics = _bnc_metrics_from_operations(all_operations or [], ca_liasse=ca_liasse)
+
+    # Enrichissement annuel (dotations + forfaits) — strict sur année complète uniquement
+    if year_full is not None:
+        from backend.services import bnc_service
+        try:
+            breakdown = bnc_service.compute_bnc(year_full, ca_liasse=ca_liasse)
+            bnc_metrics["bnc"]["dotations_amortissements"] = breakdown.dotations_amortissements
+            bnc_metrics["bnc"]["forfaits_total"] = breakdown.forfaits_total
+            bnc_metrics["bnc"]["solde_bnc"] = breakdown.bnc
+        except Exception as e:
+            logger.warning(f"bnc_service.compute_bnc({year_full}) failed: {e}")
+            bnc_metrics["bnc"]["dotations_amortissements"] = 0.0
+            bnc_metrics["bnc"]["forfaits_total"] = 0.0
+    else:
+        bnc_metrics["bnc"]["dotations_amortissements"] = 0.0
+        bnc_metrics["bnc"]["forfaits_total"] = 0.0
 
     all_operations = _expand_ventilation(all_operations)
     df = pd.DataFrame(all_operations)
@@ -263,6 +303,27 @@ def get_dashboard_data(
 
     # Résumé par catégorie
     cat_summary = get_category_summary(all_operations)
+
+    # Ligne virtuelle "Dotations aux amortissements" (uniquement année complète + dotations > 0)
+    dotations_virtuelle = float(bnc_metrics["bnc"].get("dotations_amortissements", 0.0) or 0.0)
+    if year_full is not None and dotations_virtuelle > 0:
+        try:
+            from backend.services import amortissement_service
+            dotations_data = amortissement_service.get_dotations(year_full)
+            nb_immos = len(dotations_data.get("detail", []))
+        except Exception:
+            nb_immos = 0
+        cat_summary.append({
+            "Catégorie": "Dotations aux amortissements",
+            "Crédit": 0.0,
+            "Débit": dotations_virtuelle,
+            "Montant_Net": -dotations_virtuelle,
+            "Nombre_Opérations": nb_immos,
+            "Pourcentage_Dépenses": 0,  # recalculé ci-dessous si pertinent
+            "nature": "pro",  # affichée dans la vue Pro
+            "is_virtual": True,
+            "source": "amortissement",
+        })
 
     # Évolution mensuelle
     df_dated = df.dropna(subset=["Date"])
@@ -622,7 +683,19 @@ def get_year_overview(year: int) -> dict:
         total_recettes = recettes_pro_bancaires
         base_recettes = "bancaire"
 
-    bnc_estime = total_recettes - total_charges
+    # Dotations + forfaits annuels via bnc_service (source unique fiscale)
+    from backend.services import bnc_service
+    try:
+        bnc_breakdown = bnc_service.compute_bnc(year, ca_liasse=ca_liasse)
+        dotations_year = bnc_breakdown.dotations_amortissements
+        forfaits_year = bnc_breakdown.forfaits_total
+        bnc_estime = bnc_breakdown.bnc
+    except Exception as e:
+        logger.warning(f"bnc_service.compute_bnc({year}) failed in year_overview: {e}")
+        dotations_year = 0.0
+        forfaits_year = 0.0
+        bnc_estime = total_recettes - total_charges
+
     nb_operations = sum(m["nb_operations"] for m in mois_data)
     nb_mois_actifs = sum(1 for m in mois_data if m["nb_operations"] > 0)
     # bnc_mensuel = vraie série BNC mensuelle (bancaire — la liasse étant annuelle par définition)
@@ -631,6 +704,8 @@ def get_year_overview(year: int) -> dict:
     kpis = {
         "total_recettes": round(total_recettes, 2),
         "total_charges": round(total_charges, 2),
+        "dotations_amortissements": round(dotations_year, 2),
+        "forfaits_total": round(forfaits_year, 2),
         "bnc_estime": round(bnc_estime, 2),
         "nb_operations": nb_operations,
         "nb_mois_actifs": nb_mois_actifs,
