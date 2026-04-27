@@ -158,5 +158,10 @@
     "Catégorie": "Blanchissage professionnel",
     "Sous-catégorie": "Forfait annuel",
     "Couleur": "#6CB4EE"
+  },
+  {
+    "Catégorie": "Dotations aux amortissements",
+    "Sous-catégorie": null,
+    "Couleur": "#3C3489"
   }
 ]

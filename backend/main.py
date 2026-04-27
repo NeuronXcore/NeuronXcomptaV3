@@ -80,6 +80,143 @@ _prev_task = None
 _sandbox_auto_task = None
 
 
+def _seed_dotations_amortissements_category() -> None:
+    """Seed idempotent : ajoute la catégorie 'Dotations aux amortissements' si absente.
+
+    Cette catégorie est consommée par la ligne virtuelle injectée dans le dashboard
+    (analytics) et future ligne d'OD (Prompt B). Elle est exclue de `charges_pro` via
+    `EXCLUDED_FROM_CHARGES_PRO`.
+    """
+    log = logging.getLogger(__name__)
+    try:
+        from backend.services import category_service
+        existing = category_service.load_categories() or []
+        names = {c.get("Catégorie") for c in existing}
+        if "Dotations aux amortissements" not in names:
+            category_service.add_category(
+                name="Dotations aux amortissements",
+                color="#3C3489",
+                sous_categorie=None,
+            )
+            log.info("✓ Catégorie 'Dotations aux amortissements' ajoutée")
+    except Exception as e:
+        log.warning(f"Seed catégorie Dotations: {e}")
+
+
+def _migrate_amortissement_config() -> None:
+    """Migration idempotente : config.json + immobilisations.json vers le nouveau format.
+
+    Config :
+      - seuil_immobilisation → seuil (cast float)
+      - suppression de methode_par_defaut, categories_immobilisables, exercice_cloture
+
+    Immobilisations :
+      - libelle → designation, valeur_origine → base_amortissable, duree_amortissement → duree
+      - methode → mode (forcé `lineaire` si `degressif` — interdit en BNC régime recettes)
+      - poste_comptable → poste, quote_part_pro cast float
+      - ajout champs reprise (exercice_entree_neuronx, amortissements_anterieurs, vnc_ouverture)
+    """
+    from backend.core.config import AMORTISSEMENTS_DIR
+
+    log = logging.getLogger(__name__)
+
+    # 1) Migration config.json
+    config_path = AMORTISSEMENTS_DIR / "config.json"
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            changed = False
+            if "seuil_immobilisation" in data and "seuil" not in data:
+                try:
+                    data["seuil"] = float(data.pop("seuil_immobilisation"))
+                except (ValueError, TypeError):
+                    data["seuil"] = 500.0
+                    data.pop("seuil_immobilisation", None)
+                changed = True
+            elif "seuil" in data and not isinstance(data["seuil"], float):
+                try:
+                    data["seuil"] = float(data["seuil"])
+                    changed = True
+                except (ValueError, TypeError):
+                    pass
+            for k in ("methode_par_defaut", "categories_immobilisables", "exercice_cloture"):
+                if k in data:
+                    del data[k]
+                    changed = True
+            if changed:
+                config_path.write_text(
+                    json.dumps(data, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                log.info("✓ amortissements/config.json migré (nouveau format)")
+
+    # 2) Migration immobilisations.json
+    immos_path = AMORTISSEMENTS_DIR / "immobilisations.json"
+    if not immos_path.exists():
+        return
+    try:
+        immos_data = json.loads(immos_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    if not isinstance(immos_data, list):
+        return
+
+    rename_map = {
+        "libelle": "designation",
+        "valeur_origine": "base_amortissable",
+        "duree_amortissement": "duree",
+        "methode": "mode",
+        "poste_comptable": "poste",
+    }
+
+    renamed = 0
+    forced_lineaire = 0
+    added_reprise = 0
+
+    for immo in immos_data:
+        if not isinstance(immo, dict):
+            continue
+        for old, new in rename_map.items():
+            if old in immo:
+                if new not in immo:
+                    immo[new] = immo.pop(old)
+                    renamed += 1
+                else:
+                    # Les deux sont présents : conserver le nouveau, jeter l'ancien
+                    del immo[old]
+        # Cast quote_part_pro en float
+        if "quote_part_pro" in immo:
+            try:
+                immo["quote_part_pro"] = float(immo["quote_part_pro"])
+            except (ValueError, TypeError):
+                immo["quote_part_pro"] = 100.0
+        # Force mode lineaire
+        if immo.get("mode") == "degressif":
+            immo["mode"] = "lineaire"
+            forced_lineaire += 1
+        # Ajout champs reprise par défaut
+        if "exercice_entree_neuronx" not in immo:
+            immo["exercice_entree_neuronx"] = None
+            immo["amortissements_anterieurs"] = float(immo.get("amortissements_anterieurs", 0.0) or 0.0)
+            immo["vnc_ouverture"] = None
+            added_reprise += 1
+
+    if renamed or forced_lineaire or added_reprise:
+        immos_path.write_text(
+            json.dumps(immos_data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        if renamed:
+            log.info(f"✓ {renamed} champ(s) immobilisation renommé(s) (libelle→designation, etc.)")
+        if forced_lineaire:
+            log.info(f"✓ {forced_lineaire} immo(s) migrée(s) dégressif → linéaire")
+        if added_reprise:
+            log.info(f"✓ {added_reprise} immo(s) enrichie(s) avec champs reprise (None par défaut)")
+
+
 def _migrate_repas_to_repas_pro() -> None:
     """Migration one-shot : 'repas' → 'Repas pro' + sous-cat 'Repas seul' dans les opérations."""
     from backend.core.config import IMPORTS_OPERATIONS_DIR
@@ -206,6 +343,16 @@ async def lifespan(app: FastAPI):
         _migrate_repas_to_repas_pro()
     except Exception as e:
         logging.getLogger(__name__).warning(f"Migration repas→Repas pro error: {e}")
+    # Seed catégorie 'Dotations aux amortissements' (idempotent)
+    try:
+        _seed_dotations_amortissements_category()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Seed catégorie Dotations error: {e}")
+    # Migration amortissements (config.json + immobilisations.json) — idempotente
+    try:
+        _migrate_amortissement_config()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Migration amortissements error: {e}")
     # Preload EasyOCR en arrière-plan (non-bloquant) — élimine le cold start
     # de ~20-30s sur le 1er OCR après boot. Le thread daemon loade le modèle
     # pendant que le backend commence à servir les requêtes.
