@@ -1,5 +1,8 @@
-import { useState } from 'react'
-import { Landmark, Settings2, Plus, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  Landmark, Settings2, Plus, AlertTriangle, List, Calendar, BarChart3, Sparkles, Calculator,
+} from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
@@ -7,18 +10,28 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import ImmobilisationDrawer from './ImmobilisationDrawer'
 import ConfigAmortissementsDrawer from './ConfigAmortissementsDrawer'
 import CessionDrawer from './CessionDrawer'
+import DotationTab from './DotationTab'
 import {
   useImmobilisations, useAmortissementKpis, useDotationsExercice,
-  useCandidates, useIgnoreCandidate,
+  useCandidates, useIgnoreCandidate, useDotationGenere, useDotationVirtualDetail,
 } from '@/hooks/useAmortissements'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import type { Immobilisation, AmortissementCandidate, AmortissementKpis } from '@/types'
 
-type TabKey = 'registre' | 'tableau' | 'synthese' | 'candidates'
+type TabKey = 'registre' | 'tableau' | 'synthese' | 'candidates' | 'dotation'
+const VALID_TABS: TabKey[] = ['registre', 'tableau', 'synthese', 'candidates', 'dotation']
 
 export default function AmortissementsPage() {
-  const [tab, setTab] = useState<TabKey>('registre')
+  const [searchParams, setSearchParams] = useSearchParams()
   const selectedYear = useFiscalYearStore((s) => s.selectedYear)
+
+  // Tab initial depuis URL ?tab=...
+  const initialTab = useMemo<TabKey>(() => {
+    const param = searchParams.get('tab') as TabKey | null
+    return param && VALID_TABS.includes(param) ? param : 'registre'
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [tab, setTab] = useState<TabKey>(initialTab)
   const [selectedImmo, setSelectedImmo] = useState<Immobilisation | null>(null)
   const [selectedCandidate, setSelectedCandidate] = useState<AmortissementCandidate | null>(null)
   const [showConfig, setShowConfig] = useState(false)
@@ -29,15 +42,43 @@ export default function AmortissementsPage() {
   const { data: kpis } = useAmortissementKpis(selectedYear)
   const { data: dotations } = useDotationsExercice(selectedYear)
   const { data: candidates } = useCandidates()
+  const { data: dotationGenere } = useDotationGenere(selectedYear)
+  const { data: virtualDetail } = useDotationVirtualDetail(selectedYear)
   const ignoreMutation = useIgnoreCandidate()
+
+  // Scroll-to immo via ?immo_id=X (force tab=registre + smooth scroll + flash highlight)
+  const scrollHandledRef = useRef<string | null>(null)
+  useEffect(() => {
+    const immoId = searchParams.get('immo_id')
+    if (!immoId || !immos || scrollHandledRef.current === immoId) return
+    scrollHandledRef.current = immoId
+    setTab('registre')
+    setTimeout(() => {
+      const el = document.getElementById(`immo-row-${immoId}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('flash-highlight')
+        setTimeout(() => el.classList.remove('flash-highlight'), 2000)
+      }
+      // Nettoyer l'URL pour éviter ré-exécution au refresh
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('immo_id')
+        return next
+      }, { replace: true })
+    }, 100)
+  }, [searchParams, immos, setSearchParams])
 
   if (isLoading) return <LoadingSpinner text="Chargement..." />
 
-  const tabs: Array<{ key: TabKey; label: string; badge?: number }> = [
-    { key: 'registre', label: 'Registre' },
-    { key: 'tableau', label: 'Tableau annuel' },
-    { key: 'synthese', label: 'Synthèse par poste' },
-    { key: 'candidates', label: 'Candidates', badge: candidates?.length },
+  const needsDotation = !dotationGenere && (virtualDetail?.nb_immos_actives ?? 0) > 0
+
+  const tabs: Array<{ key: TabKey; label: string; icon: any; badge?: number; badgeColor?: string }> = [
+    { key: 'registre', label: 'Registre', icon: List },
+    { key: 'tableau', label: 'Tableau annuel', icon: Calendar },
+    { key: 'synthese', label: 'Synthèse par poste', icon: BarChart3 },
+    { key: 'candidates', label: 'Candidates', icon: Sparkles, badge: candidates?.length },
+    { key: 'dotation', label: 'Dotation', icon: Calculator, badge: needsDotation ? 1 : undefined, badgeColor: needsDotation ? 'amber' : undefined },
   ]
 
   return (
@@ -86,23 +127,33 @@ export default function AmortissementsPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cn(
-              'px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2',
-              tab === t.key ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'
-            )}
-          >
-            {t.label}
-            {t.badge != null && t.badge > 0 && (
-              <span className="text-[10px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded-full font-bold">
-                {t.badge}
-              </span>
-            )}
-          </button>
-        ))}
+        {tabs.map(t => {
+          const Icon = t.icon
+          const isActive = tab === t.key
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={cn(
+                'px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2',
+                isActive ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'
+              )}
+            >
+              <Icon size={14} />
+              {t.label}
+              {t.badge != null && t.badge > 0 && (
+                <span className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded-full font-bold',
+                  t.badgeColor === 'amber'
+                    ? 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30'
+                    : 'bg-amber-500/15 text-amber-400',
+                )}>
+                  {t.badgeColor === 'amber' ? '!' : t.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Tab content */}
@@ -121,6 +172,9 @@ export default function AmortissementsPage() {
           onImmobiliser={setSelectedCandidate}
           onIgnorer={(c) => ignoreMutation.mutate({ filename: c.filename, index: c.index })}
         />
+      )}
+      {tab === 'dotation' && (
+        <DotationTab year={selectedYear} />
       )}
 
       {/* Drawers */}
@@ -169,6 +223,7 @@ function RegistreTab({ immos, onSelect, onCession: _onCession }: {
           {immos.map(i => (
             <tr
               key={i.id}
+              id={`immo-row-${i.id}`}
               onClick={() => onSelect(i)}
               className={cn(
                 'border-b border-border hover:bg-surface-hover cursor-pointer transition-colors',
