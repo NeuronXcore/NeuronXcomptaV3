@@ -103,7 +103,7 @@ export default function ProviderDrawer({ open, onClose, provider }: Props) {
           {/* Mode */}
           <div>
             <label className="text-[10px] text-text-muted mb-1 block">Mode</label>
-            <select value={mode} onChange={(e) => setMode(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text">
+            <select value={mode} onChange={(e) => setMode(e.target.value as 'facture' | 'echeancier')} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text">
               <option value="facture">Facture récurrente</option>
               <option value="echeancier">Échéancier de prélèvements</option>
             </select>
@@ -123,7 +123,7 @@ export default function ProviderDrawer({ open, onClose, provider }: Props) {
           {mode !== 'echeancier' && (
             <div>
               <label className="text-[10px] text-text-muted mb-1 block">Périodicité</label>
-              <select value={periodicite} onChange={(e) => setPeriodicite(e.target.value)} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text">
+              <select value={periodicite} onChange={(e) => setPeriodicite(e.target.value as 'mensuel' | 'bimestriel' | 'trimestriel' | 'semestriel' | 'annuel')} className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text">
                 <option value="mensuel">Mensuel</option>
                 <option value="bimestriel">Bimestriel</option>
                 <option value="trimestriel">Trimestriel</option>

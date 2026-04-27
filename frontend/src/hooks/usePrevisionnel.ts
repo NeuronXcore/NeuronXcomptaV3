@@ -88,8 +88,8 @@ export function usePrevDashboard(year: number) {
 export function useScanPrev() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => api.post('/previsionnel/scan'),
-    onSuccess: (data: { scanned: number; matched: number }) => {
+    mutationFn: () => api.post<{ scanned: number; matched: number }>('/previsionnel/scan'),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: KEY })
       toast.success(`Scan terminé : ${data.matched} document(s) associé(s)`)
     },
@@ -100,8 +100,8 @@ export function useScanPrev() {
 export function useRefreshEcheances() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (year: number) => api.post(`/previsionnel/refresh?year=${year}`),
-    onSuccess: (data: { created: number; total: number }) => {
+    mutationFn: (year: number) => api.post<{ created: number; total: number }>(`/previsionnel/refresh?year=${year}`),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: KEY })
       toast.success(`${data.created} échéance(s) créée(s)`)
     },
@@ -175,8 +175,8 @@ export function useAutoPopulateOcr() {
 export function useScanPrelevements() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => api.post(`/previsionnel/echeances/${id}/scan-prelevements`),
-    onSuccess: (data: { matched: number; ecarts: number }) => {
+    mutationFn: (id: string) => api.post<{ matched: number; ecarts: number }>(`/previsionnel/echeances/${id}/scan-prelevements`),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: KEY })
       toast.success(`${data.matched} prélèvement(s) vérifié(s)${data.ecarts ? `, ${data.ecarts} écart(s)` : ''}`)
     },

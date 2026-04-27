@@ -391,7 +391,7 @@ export default function QueryDrawer({ open, onClose }: QueryDrawerProps) {
                       tickLine={false}
                       tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
                     />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => formatCurrency(Number(v))} />
                     <Legend wrapperStyle={{ fontSize: '10px' }} iconSize={8} />
                     <Bar dataKey="debit" name="Débits" fill="#ef4444" radius={[2, 2, 0, 0]} />
                     <Bar dataKey="credit" name="Crédits" fill="#22c55e" radius={[2, 2, 0, 0]} />

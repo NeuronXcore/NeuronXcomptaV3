@@ -254,7 +254,7 @@ export default function ComparatifSection({ onCategoryClick }: Props) {
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} angle={-30} textAnchor="end" height={60} />
                     <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} width={70} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => formatCurrency(Number(v))} />
                     <Legend wrapperStyle={{ fontSize: '11px' }} />
                     <Bar dataKey="periodA" name={periodLabelA} fill="#3b82f6" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="periodB" name={periodLabelB} fill="#22c55e" radius={[3, 3, 0, 0]} />
@@ -275,7 +275,7 @@ export default function ComparatifSection({ onCategoryClick }: Props) {
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8' }} angle={-30} textAnchor="end" height={60} />
                     <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} width={70} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => formatCurrency(Number(v))} />
                     <Legend wrapperStyle={{ fontSize: '11px' }} />
                     <Bar dataKey="periodA" name={periodLabelA} fill="#3b82f6" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="periodB" name={periodLabelB} fill="#ef4444" radius={[3, 3, 0, 0]} />

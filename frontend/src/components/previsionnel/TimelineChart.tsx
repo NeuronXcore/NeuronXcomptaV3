@@ -27,9 +27,10 @@ export default function TimelineChart({ mois, showCumul, selectedMonth, onSelect
     [mois],
   )
 
-  const handleClick = (entry: { mois?: number }) => {
-    if (entry?.mois) {
-      onSelectMonth(selectedMonth === entry.mois ? null : entry.mois)
+  const handleClick = (entry: unknown) => {
+    const mois = (entry as { mois?: number } | undefined)?.mois
+    if (mois) {
+      onSelectMonth(selectedMonth === mois ? null : mois)
     }
   }
 
@@ -45,10 +46,13 @@ export default function TimelineChart({ mois, showCumul, selectedMonth, onSelect
             borderRadius: 8,
             fontSize: 12,
           }}
-          formatter={(value: number, name: string) => [
-            formatCurrency(Math.abs(value)),
-            name === 'charges_neg' ? 'Charges' : name === 'recettes_total' ? 'Recettes' : name === 'solde_cumule' ? 'Trésorerie cumulée' : 'Solde',
-          ]}
+          formatter={(value, name) => {
+            const n = String(name)
+            return [
+              formatCurrency(Math.abs(Number(value))),
+              n === 'charges_neg' ? 'Charges' : n === 'recettes_total' ? 'Recettes' : n === 'solde_cumule' ? 'Trésorerie cumulée' : 'Solde',
+            ]
+          }}
         />
         <ReferenceLine y={0} stroke="var(--color-border)" strokeWidth={1} />
 

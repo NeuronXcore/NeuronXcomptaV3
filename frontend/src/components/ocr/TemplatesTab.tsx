@@ -392,7 +392,7 @@ function CreateSection({ preCreateFile }: { preCreateFile?: string | null }) {
                       </td>
                       <td className="px-3 py-1.5 text-center">
                         {f.coordinates ? (
-                          <Crosshair size={12} className="text-emerald-400 mx-auto" title={`Page ${(f.coordinates.page || 0) + 1} — x:${Math.round(f.coordinates.x)} y:${Math.round(f.coordinates.y)}`} />
+                          <span title={`Page ${(f.coordinates.page || 0) + 1} — x:${Math.round(f.coordinates.x)} y:${Math.round(f.coordinates.y)}`} className="inline-flex"><Crosshair size={12} className="text-emerald-400 mx-auto" /></span>
                         ) : (
                           <span className="text-text-muted/30">—</span>
                         )}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Loader2 } from 'lucide-react'
+import { X, Save, Loader2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAmortissementConfig, useSaveAmortissementConfig } from '@/hooks/useAmortissements'
 import type { AmortissementConfig } from '@/types'
@@ -43,48 +43,67 @@ export default function ConfigAmortissementsDrawer({ open, onClose }: ConfigAmor
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Note info détection automatique */}
+          <div className="flex items-start gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-md text-xs text-blue-400">
+            <Info size={14} className="shrink-0 mt-0.5" />
+            <p>
+              Seule la catégorie <code className="font-mono bg-background/50 px-1 rounded">Matériel</code>
+              {' '}est analysée pour la détection automatique des candidates. Les autres catégories
+              restent immobilisables manuellement via le bouton "Nouvelle immobilisation".
+            </p>
+          </div>
+
           {/* Seuil */}
           <div>
             <label className="text-[10px] text-text-muted block mb-1">Seuil d'immobilisation (€ TTC)</label>
-            <input type="number" value={local.seuil_immobilisation}
-              onChange={e => setLocal({ ...local, seuil_immobilisation: parseInt(e.target.value) || 0 })}
+            <input type="number" value={local.seuil}
+              onChange={e => setLocal({ ...local, seuil: parseFloat(e.target.value) || 0 })}
               className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary" />
             <p className="text-[10px] text-text-muted mt-1">Médecin exonéré TVA — seuil en TTC</p>
+          </div>
+
+          {/* Sous-catégories exclues */}
+          <div>
+            <label className="text-[10px] text-text-muted block mb-1">Sous-catégories exclues</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {local.sous_categories_exclues.map(s => (
+                <span key={s} className="text-xs bg-surface border border-border text-text-muted px-2 py-0.5 rounded-full flex items-center gap-1">
+                  {s}
+                  <button onClick={() => setLocal({
+                    ...local,
+                    sous_categories_exclues: local.sous_categories_exclues.filter(x => x !== s)
+                  })} className="hover:text-red-400"><X size={10} /></button>
+                </span>
+              ))}
+              {local.sous_categories_exclues.length === 0 && (
+                <span className="text-[10px] text-text-muted italic">Aucune sous-catégorie exclue</span>
+              )}
+            </div>
+            <p className="text-[10px] text-text-muted">
+              Les opérations avec ces sous-catégories ne seront pas considérées comme candidates même si {'>'} seuil.
+            </p>
           </div>
 
           {/* Durées par défaut */}
           <div>
             <label className="text-[10px] text-text-muted block mb-2">Durées par défaut (années)</label>
             <div className="space-y-2">
-              {Object.entries(local.durees_par_defaut).map(([poste, duree]) => (
-                <div key={poste} className="flex items-center justify-between">
-                  <span className="text-xs text-text">{poste}</span>
+              {Object.entries(local.durees_par_defaut).map(([sousCat, duree]) => (
+                <div key={sousCat} className="flex items-center justify-between">
+                  <span className="text-xs text-text">{sousCat}</span>
                   <select value={duree}
                     onChange={e => setLocal({
                       ...local,
-                      durees_par_defaut: { ...local.durees_par_defaut, [poste]: parseInt(e.target.value) }
+                      durees_par_defaut: { ...local.durees_par_defaut, [sousCat]: parseInt(e.target.value) }
                     })}
                     className="bg-surface border border-border rounded px-2 py-1 text-xs text-text focus:outline-none focus:border-primary">
                     {[1, 3, 5, 7, 10].map(d => <option key={d} value={d}>{d} ans</option>)}
                   </select>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Catégories éligibles */}
-          <div>
-            <label className="text-[10px] text-text-muted block mb-1">Catégories éligibles</label>
-            <div className="flex flex-wrap gap-1.5">
-              {local.categories_immobilisables.map(c => (
-                <span key={c} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full flex items-center gap-1">
-                  {c}
-                  <button onClick={() => setLocal({
-                    ...local,
-                    categories_immobilisables: local.categories_immobilisables.filter(x => x !== c)
-                  })} className="hover:text-red-400"><X size={10} /></button>
-                </span>
-              ))}
+              {Object.keys(local.durees_par_defaut).length === 0 && (
+                <p className="text-[10px] text-text-muted italic">Aucune durée configurée</p>
+              )}
             </div>
           </div>
 

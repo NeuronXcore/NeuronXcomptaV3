@@ -24,6 +24,9 @@ export interface EnrichedOperation extends Operation {
   _originalIndex: number
   _filename: string
   _ventilationIndex?: number
+  // Index signature pour permettre les casts vers Record<string, unknown>
+  // (utilisé pour itérer dynamiquement sur les colonnes de filtre/tri).
+  [key: string]: unknown
 }
 
 export function useJustificatifsPage() {

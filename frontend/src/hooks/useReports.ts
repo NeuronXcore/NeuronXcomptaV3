@@ -124,8 +124,8 @@ export function useOpenReportNative() {
 export function useDeleteAllReports() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => api.delete('/reports/all'),
-    onSuccess: (data: { deleted: number }) => {
+    mutationFn: () => api.delete<{ deleted: number }>('/reports/all'),
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['reports-gallery'] })
       qc.invalidateQueries({ queryKey: ['reports-tree'] })
       toast.success(`${data.deleted} rapport${data.deleted > 1 ? 's' : ''} supprimé${data.deleted > 1 ? 's' : ''}`)

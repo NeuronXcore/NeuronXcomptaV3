@@ -94,7 +94,7 @@ export default function HomePage() {
   const enAttente = justifStats?.en_attente ?? 0
   const accuracy = mlModel?.stats?.success_rate ?? 0
 
-  const monthlyData = trends ? aggregateTrends(trends) : []
+  const monthlyData = trends ? aggregateTrends(trends.trends_all) : []
   const topCats = summary ? getTopCategories(summary) : []
   const allCats = summary
     ? [...summary].sort((a, b) => b['Débit'] - a['Débit']).map((c) => ({
@@ -274,7 +274,7 @@ export default function HomePage() {
                     border: '1px solid var(--color-border)',
                     borderRadius: 8,
                   }}
-                  formatter={(val: number) => formatCurrency(val)}
+                  formatter={(val) => formatCurrency(Number(val))}
                 />
                 <Line type="monotone" dataKey="debit" stroke="#ef4444" strokeWidth={2} dot={false} name="Débits" />
                 <Line type="monotone" dataKey="credit" stroke="#22c55e" strokeWidth={2} dot={false} name="Crédits" />
@@ -308,7 +308,7 @@ export default function HomePage() {
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(val: number) => formatCurrency(val)} />
+                  <Tooltip formatter={(val) => formatCurrency(Number(val))} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex-1 space-y-1.5">
@@ -433,7 +433,7 @@ export default function HomePage() {
                   border: '1px solid var(--color-border)',
                   borderRadius: 8,
                 }}
-                formatter={(val: number) => formatCurrency(val)}
+                formatter={(val) => formatCurrency(Number(val))}
               />
               <Legend />
               <Line type="monotone" dataKey="debit" stroke="#ef4444" strokeWidth={2} dot={false} name="Débits" />
@@ -477,7 +477,7 @@ export default function HomePage() {
                   border: '1px solid var(--color-border)',
                   borderRadius: 8,
                 }}
-                formatter={(val: number) => formatCurrency(val)}
+                formatter={(val) => formatCurrency(Number(val))}
               />
               <Bar dataKey="debit" fill="#ef4444" name="Débits" radius={[0, 4, 4, 0]} />
             </BarChart>

@@ -128,8 +128,9 @@ export default function TasksPage() {
     }
   }, [tasks, tasksByStatus, updateMutation, reorderMutation])
 
-  const handleCreate = (data: TaskCreate) => {
-    createMutation.mutate({ ...data, year: selectedYear }, {
+  const handleCreate = (data: TaskCreate | TaskUpdate) => {
+    const payload = { ...(data as TaskCreate), year: selectedYear }
+    createMutation.mutate(payload, {
       onSuccess: () => setAddingInColumn(null),
     })
   }

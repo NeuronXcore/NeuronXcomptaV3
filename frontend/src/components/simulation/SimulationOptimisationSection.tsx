@@ -438,7 +438,7 @@ export default function SimulationOptimisationSection({ year }: Props) {
             <BarChart data={projectionData}>
               <XAxis dataKey="year" />
               <YAxis tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={(v) => formatCurrency(Number(v))} />
               <Legend />
               <Bar dataKey="dotations_existantes" name="Dotations existantes" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
             </BarChart>

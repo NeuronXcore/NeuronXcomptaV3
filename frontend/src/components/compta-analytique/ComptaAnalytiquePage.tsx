@@ -757,7 +757,7 @@ function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }
             />
             <Tooltip
               contentStyle={tooltipStyle}
-              formatter={(value: number) => formatCurrency(value)}
+              formatter={(value) => formatCurrency(Number(value))}
             />
             <Legend wrapperStyle={{ fontSize: '11px' }} iconSize={8} />
             {categories.map((cat, i) => (
@@ -788,7 +788,7 @@ function EvolutionSection({ trends, granularity, setGranularity, mode, setMode }
             />
             <Tooltip
               contentStyle={tooltipStyle}
-              formatter={(value: number) => formatCurrency(value)}
+              formatter={(value) => formatCurrency(Number(value))}
             />
             <Legend wrapperStyle={{ fontSize: '11px' }} iconSize={8} />
 

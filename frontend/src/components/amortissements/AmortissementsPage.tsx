@@ -11,13 +11,14 @@ import {
   useImmobilisations, useAmortissementKpis, useDotationsExercice,
   useCandidates, useIgnoreCandidate,
 } from '@/hooks/useAmortissements'
-import type { Immobilisation, AmortissementCandidate } from '@/types'
+import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
+import type { Immobilisation, AmortissementCandidate, AmortissementKpis } from '@/types'
 
 type TabKey = 'registre' | 'tableau' | 'synthese' | 'candidates'
 
 export default function AmortissementsPage() {
   const [tab, setTab] = useState<TabKey>('registre')
-  const [selectedYear] = useState(new Date().getFullYear())
+  const selectedYear = useFiscalYearStore((s) => s.selectedYear)
   const [selectedImmo, setSelectedImmo] = useState<Immobilisation | null>(null)
   const [selectedCandidate, setSelectedCandidate] = useState<AmortissementCandidate | null>(null)
   const [showConfig, setShowConfig] = useState(false)
@@ -137,7 +138,7 @@ export default function AmortissementsPage() {
 
 // ─── Sub-components ───
 
-function RegistreTab({ immos, onSelect, onCession }: {
+function RegistreTab({ immos, onSelect, onCession: _onCession }: {
   immos: Immobilisation[]
   onSelect: (i: Immobilisation) => void
   onCession: (i: Immobilisation) => void
@@ -154,10 +155,10 @@ function RegistreTab({ immos, onSelect, onCession }: {
         <thead>
           <tr className="bg-surface border-b border-border text-text-muted text-xs">
             <th className="text-left px-3 py-2 font-medium">Date acq.</th>
-            <th className="text-left px-3 py-2 font-medium">Libellé</th>
+            <th className="text-left px-3 py-2 font-medium">Désignation</th>
             <th className="text-left px-3 py-2 font-medium">Poste</th>
-            <th className="text-left px-3 py-2 font-medium">Méthode</th>
-            <th className="text-right px-3 py-2 font-medium">Valeur</th>
+            <th className="text-left px-3 py-2 font-medium">Mode</th>
+            <th className="text-right px-3 py-2 font-medium">Base</th>
             <th className="text-center px-3 py-2 font-medium">Durée</th>
             <th className="text-center px-3 py-2 font-medium">Avancement</th>
             <th className="text-right px-3 py-2 font-medium">VNC</th>
@@ -175,11 +176,23 @@ function RegistreTab({ immos, onSelect, onCession }: {
               )}
             >
               <td className="px-3 py-2 text-xs text-text-muted">{i.date_acquisition}</td>
-              <td className="px-3 py-2 text-text truncate max-w-[200px]">{i.libelle}</td>
-              <td className="px-3 py-2 text-xs text-text-muted">{i.poste_comptable}</td>
-              <td className="px-3 py-2 text-xs">{i.methode === 'lineaire' ? 'Lin.' : 'Dég.'}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatCurrency(i.valeur_origine)}</td>
-              <td className="px-3 py-2 text-center text-xs">{i.duree_amortissement} ans</td>
+              <td className="px-3 py-2 text-text max-w-[280px]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="truncate">{i.designation}</span>
+                  {i.exercice_entree_neuronx != null && (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-700 font-medium"
+                      title={`Reprise depuis ${i.exercice_entree_neuronx} — acquisition réelle ${i.date_acquisition.slice(0, 4)}`}
+                    >
+                      Reprise {i.exercice_entree_neuronx}
+                    </span>
+                  )}
+                </div>
+              </td>
+              <td className="px-3 py-2 text-xs text-text-muted">{i.poste ?? '—'}</td>
+              <td className="px-3 py-2 text-xs">{i.mode === 'lineaire' ? 'Lin.' : 'Dég.'}</td>
+              <td className="px-3 py-2 text-right font-mono text-xs">{formatCurrency(i.base_amortissable)}</td>
+              <td className="px-3 py-2 text-center text-xs">{i.duree} ans</td>
               <td className="px-3 py-2">
                 <div className="flex items-center gap-1.5">
                   <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden">
@@ -205,7 +218,7 @@ function RegistreTab({ immos, onSelect, onCession }: {
   )
 }
 
-function TableauTab({ dotations, year }: { dotations: { year: number; total_dotations_brutes: number; total_dotations_deductibles: number; detail: Array<{ immo_id: string; libelle: string; poste_comptable: string; dotation_brute: number; dotation_deductible: number; vnc: number }> }; year: number }) {
+function TableauTab({ dotations, year }: { dotations: { year: number; total_dotations_brutes: number; total_dotations_deductibles: number; detail: Array<{ immo_id: string; designation: string; poste: string; dotation_brute: number; dotation_deductible: number; vnc: number }> }; year: number }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -226,8 +239,8 @@ function TableauTab({ dotations, year }: { dotations: { year: number; total_dota
           <tbody>
             {dotations.detail.map(d => (
               <tr key={d.immo_id} className="border-b border-border">
-                <td className="px-3 py-2 text-text">{d.libelle}</td>
-                <td className="px-3 py-2 text-xs text-text-muted">{d.poste_comptable}</td>
+                <td className="px-3 py-2 text-text">{d.designation}</td>
+                <td className="px-3 py-2 text-xs text-text-muted">{d.poste}</td>
                 <td className="px-3 py-2 text-right font-mono text-xs">{formatCurrency(d.dotation_brute)}</td>
                 <td className="px-3 py-2 text-right font-mono text-xs text-emerald-400">{formatCurrency(d.dotation_deductible)}</td>
                 <td className="px-3 py-2 text-right font-mono text-xs">{formatCurrency(d.vnc)}</td>

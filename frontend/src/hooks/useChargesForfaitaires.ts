@@ -34,7 +34,7 @@ export function useUpdateBaremeBlanchissage() {
 
 // Calcul blanchissage (mutation car prend des paramètres)
 export function useCalculerBlanchissage() {
-  return useMutation<ForfaitResult, Error, { year: number; jours_travailles: number; mode: string }>({
+  return useMutation<ForfaitResult, Error, { year: number; jours_travailles: number; mode: string; honoraires_liasse?: number | null }>({
     mutationFn: (data) => api.post('/charges-forfaitaires/calculer/blanchissage', data),
   })
 }

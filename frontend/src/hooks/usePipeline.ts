@@ -151,7 +151,7 @@ export function usePipeline() {
   // `locked` = compteur brut des op.locked === true (= pill 🔒 Justificatifs).
   // `taux` = ops associées ET verrouillées / associées (clamp implicite ≤ 100%).
   const lockingStats = useMemo(() => {
-    if (!operationsQuery.data) return { associated: 0, locked: 0, taux: 0 }
+    if (!operationsQuery.data) return { associated: 0, locked: 0, lockedInAssociated: 0, lockedOrphans: 0, taux: 0 }
     const ops = operationsQuery.data as unknown as Array<{
       'Lien justificatif'?: string
       'Catégorie'?: string

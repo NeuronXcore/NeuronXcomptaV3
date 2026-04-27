@@ -100,7 +100,7 @@ export default function SendToAccountantDrawer() {
   }, [isOpen, close])
 
   // Auto-preview with debounce
-  const previewTimer = useRef<ReturnType<typeof setTimeout>>()
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     if (!isOpen || selected.size === 0) return
     clearTimeout(previewTimer.current)

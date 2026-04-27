@@ -883,7 +883,7 @@ export default function EditorPage() {
     // Participants (visible uniquement pour Repas confrères)
     {
       id: 'participants',
-      header: () => <Users2 size={14} className="mx-auto" title="Participants" />,
+      header: () => <span title="Participants" className="inline-flex"><Users2 size={14} className="mx-auto" /></span>,
       size: 44,
       cell: ({ row }) => {
         if (row.original['Sous-catégorie'] !== 'Repas confrères') return null
@@ -900,7 +900,7 @@ export default function EditorPage() {
     // Justificatif — interactive paperclip + reconstituer
     {
       accessorKey: 'Justificatif',
-      header: () => <Paperclip size={14} className="mx-auto" title="Justificatif" />,
+      header: () => <span title="Justificatif" className="inline-flex"><Paperclip size={14} className="mx-auto" /></span>,
       size: 56,
       // Filtre custom : interprète les valeurs magiques déclenchées par les pills du header.
       // - __header_avec__ : op avec justificatif (parent ou toutes vl ventilées)
@@ -1126,7 +1126,7 @@ export default function EditorPage() {
     // Important
     {
       accessorKey: 'Important',
-      header: () => <Star size={14} className="mx-auto text-warning" title="Important" />,
+      header: () => <span title="Important" className="inline-flex"><Star size={14} className="mx-auto text-warning" /></span>,
       size: 40,
       cell: ({ row }) => (
         <CheckboxCell
@@ -1142,7 +1142,7 @@ export default function EditorPage() {
     // A_revoir
     {
       accessorKey: 'A_revoir',
-      header: () => <AlertTriangle size={14} className="mx-auto text-danger" title="À revoir" />,
+      header: () => <span title="À revoir" className="inline-flex"><AlertTriangle size={14} className="mx-auto text-danger" /></span>,
       size: 40,
       cell: ({ row }) => (
         <CheckboxCell
@@ -1158,7 +1158,7 @@ export default function EditorPage() {
     // Lettrée
     {
       accessorKey: 'lettre',
-      header: () => <CheckCircle2 size={14} className="mx-auto text-emerald-400" title="Pointée" />,
+      header: () => <span title="Pointée" className="inline-flex"><CheckCircle2 size={14} className="mx-auto text-emerald-400" /></span>,
       size: 40,
       cell: ({ row }) => {
         const isLettre = row.original.lettre || false

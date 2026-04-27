@@ -53,7 +53,7 @@ export default function RevenueChart({ mois, caLiasse }: RevenueChartProps) {
               fontSize: '11px',
               color: 'var(--color-text)',
             }}
-            formatter={(value: number) => [`${value.toLocaleString('fr-FR')} €`, '']}
+            formatter={(value) => [`${Number(value).toLocaleString('fr-FR')} €`, '']}
           />
           <Bar dataKey="recettes" fill="#1D9E75" radius={[3, 3, 0, 0]} name="Recettes" />
           <Bar dataKey="depenses" fill="#E24B4A" radius={[3, 3, 0, 0]} name="Dépenses" />

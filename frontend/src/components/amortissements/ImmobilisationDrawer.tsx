@@ -1,10 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
-import { X, Landmark, Save, Loader2 } from 'lucide-react'
+import {
+  X, Landmark, Save, Loader2, Info, AlertTriangle, CheckCircle2, RefreshCw,
+} from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { calcTableauAmortissement } from '@/lib/amortissement-engine'
-import { useCreateImmobilisation, useUpdateImmobilisation, useImmobiliserCandidate } from '@/hooks/useAmortissements'
+import {
+  useCreateImmobilisation, useUpdateImmobilisation, useImmobiliserCandidate,
+  useComputeBackfill,
+} from '@/hooks/useAmortissements'
 import { useGedPostes } from '@/hooks/useGed'
-import type { Immobilisation, AmortissementCandidate, LigneAmortissement } from '@/types'
+import type { Immobilisation, AmortissementCandidate, LigneAmortissement, ImmobilisationCreate } from '@/types'
 
 interface ImmobilisationDrawerProps {
   isOpen: boolean
@@ -20,56 +25,86 @@ const PLAFONDS_VEHICULE = [
   { label: 'Polluant (> 130g CO2)', plafond: 9900 },
 ]
 
+const formatEuro = (n: number) => formatCurrency(n)
+
 export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, candidate }: ImmobilisationDrawerProps) {
   const { data: postesConfig } = useGedPostes()
   const createMutation = useCreateImmobilisation()
   const updateMutation = useUpdateImmobilisation()
   const immobiliserMutation = useImmobiliserCandidate()
+  const computeBackfill = useComputeBackfill()
 
   const isEdit = !!immobilisation
   const isCandidate = !!candidate
+  // Section Reprise visible uniquement en mode création (pas en édition)
+  const reprisAllowed = !isEdit
 
-  const [libelle, setLibelle] = useState('')
-  const [dateAcq, setDateAcq] = useState('')
-  const [valeur, setValeur] = useState(0)
+  // Champs principaux (renommés)
+  const [designation, setDesignation] = useState('')
+  const [dateAcquisition, setDateAcquisition] = useState('')
+  const [baseAmortissable, setBaseAmortissable] = useState(0)
   const [duree, setDuree] = useState(5)
-  const [methode, setMethode] = useState<'lineaire' | 'degressif'>('lineaire')
+  // Mode locké à 'lineaire' en création / lecture seule en édition (legacy degressif autorisé en lecture)
+  const [mode, setMode] = useState<string>('lineaire')
   const [poste, setPoste] = useState('')
   const [dateMes, setDateMes] = useState('')
-  const [quotePart, setQuotePart] = useState(100)
+  const [quotePartPro, setQuotePartPro] = useState(100)
   const [co2, setCo2] = useState('')
   const [plafond, setPlafond] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
 
+  // Section Reprise d'exercice antérieur
+  const [isReprise, setIsReprise] = useState(false)
+  const [exerciceEntree, setExerciceEntree] = useState<number>(new Date().getFullYear())
+  const [amortAnterieurs, setAmortAnterieurs] = useState<number>(0)
+  const [vncOuverture, setVncOuverture] = useState<number>(0)
+  const [backfillManuallyEdited, setBackfillManuallyEdited] = useState(false)
+
   useEffect(() => {
     if (immobilisation) {
-      setLibelle(immobilisation.libelle)
-      setDateAcq(immobilisation.date_acquisition)
-      setValeur(immobilisation.valeur_origine)
-      setDuree(immobilisation.duree_amortissement)
-      setMethode(immobilisation.methode)
-      setPoste(immobilisation.poste_comptable)
+      setDesignation(immobilisation.designation)
+      setDateAcquisition(immobilisation.date_acquisition)
+      setBaseAmortissable(immobilisation.base_amortissable)
+      setDuree(immobilisation.duree)
+      setMode(immobilisation.mode)
+      setPoste(immobilisation.poste ?? '')
       setDateMes(immobilisation.date_mise_en_service || '')
-      setQuotePart(immobilisation.quote_part_pro)
+      setQuotePartPro(immobilisation.quote_part_pro)
       setCo2(immobilisation.co2_classe || '')
-      setPlafond(immobilisation.plafond_fiscal)
+      setPlafond(immobilisation.plafond_fiscal ?? null)
       setNotes(immobilisation.notes || '')
+      // Section reprise — pré-remplir si existe
+      if (immobilisation.exercice_entree_neuronx != null) {
+        setIsReprise(true)
+        setExerciceEntree(immobilisation.exercice_entree_neuronx)
+        setAmortAnterieurs(immobilisation.amortissements_anterieurs)
+        setVncOuverture(immobilisation.vnc_ouverture ?? 0)
+        setBackfillManuallyEdited(true)
+      } else {
+        setIsReprise(false)
+        setExerciceEntree(new Date().getFullYear())
+        setAmortAnterieurs(0)
+        setVncOuverture(0)
+        setBackfillManuallyEdited(false)
+      }
     } else if (candidate) {
-      setLibelle(candidate.libelle)
-      setDateAcq(candidate.date)
-      setValeur(candidate.debit)
+      setDesignation(candidate.libelle)
+      setDateAcquisition(candidate.date)
+      setBaseAmortissable(candidate.debit)
       setDuree(5)
-      setMethode('lineaire')
+      setMode('lineaire')
       setPoste('')
       setDateMes(candidate.date)
-      setQuotePart(100)
-      setCo2('')
-      setPlafond(null)
-      setNotes('')
-    } else {
-      setLibelle(''); setDateAcq(''); setValeur(0); setDuree(5)
-      setMethode('lineaire'); setPoste(''); setDateMes(''); setQuotePart(100)
+      setQuotePartPro(100)
       setCo2(''); setPlafond(null); setNotes('')
+      setIsReprise(false); setExerciceEntree(new Date().getFullYear())
+      setAmortAnterieurs(0); setVncOuverture(0); setBackfillManuallyEdited(false)
+    } else {
+      setDesignation(''); setDateAcquisition(''); setBaseAmortissable(0); setDuree(5)
+      setMode('lineaire'); setPoste(''); setDateMes(''); setQuotePartPro(100)
+      setCo2(''); setPlafond(null); setNotes('')
+      setIsReprise(false); setExerciceEntree(new Date().getFullYear())
+      setAmortAnterieurs(0); setVncOuverture(0); setBackfillManuallyEdited(false)
     }
   }, [immobilisation?.id, candidate?.index, isOpen])
 
@@ -80,40 +115,87 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
     return () => window.removeEventListener('keydown', handler)
   }, [isOpen, onClose])
 
-  // Realtime tableau preview
+  // Calcul backfill auto avec debounce 400ms (sauf si édité manuellement)
+  useEffect(() => {
+    if (!isReprise || backfillManuallyEdited) return
+    if (!dateAcquisition || !baseAmortissable || !duree || !exerciceEntree) return
+
+    const yearAcq = parseInt(dateAcquisition.slice(0, 4))
+    if (Number.isNaN(yearAcq) || exerciceEntree <= yearAcq) return
+
+    const timeoutId = setTimeout(() => {
+      computeBackfill.mutate(
+        {
+          date_acquisition: dateAcquisition,
+          base_amortissable: baseAmortissable,
+          duree,
+          exercice_entree_neuronx: exerciceEntree,
+          quote_part_pro: quotePartPro,
+        },
+        {
+          onSuccess: (res) => {
+            setAmortAnterieurs(res.amortissements_anterieurs_theorique)
+            setVncOuverture(res.vnc_ouverture_theorique)
+          },
+        },
+      )
+    }, 400)
+
+    return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateAcquisition, baseAmortissable, duree, exerciceEntree, quotePartPro, isReprise, backfillManuallyEdited])
+
+  // Realtime tableau preview (inchangé pour les immos sans reprise)
   const tableau = useMemo<LigneAmortissement[]>(() => {
-    if (!dateAcq || valeur <= 0 || duree <= 0) return []
+    if (!dateAcquisition || baseAmortissable <= 0 || duree <= 0) return []
     return calcTableauAmortissement({
-      valeur_origine: valeur,
+      base_amortissable: baseAmortissable,
       duree,
-      methode,
-      date_mise_en_service: dateMes || dateAcq,
-      quote_part_pro: quotePart,
+      mode: (mode === 'degressif' ? 'degressif' : 'lineaire'),
+      date_mise_en_service: dateMes || dateAcquisition,
+      quote_part_pro: quotePartPro,
       plafond_fiscal: plafond,
     })
-  }, [valeur, duree, methode, dateAcq, dateMes, quotePart, plafond])
+  }, [baseAmortissable, duree, mode, dateAcquisition, dateMes, quotePartPro, plafond])
 
   const currentYear = new Date().getFullYear()
 
+  // Validation cohérence backfill
+  const incoherenceBackfill = isReprise
+    ? Math.abs(amortAnterieurs + vncOuverture - baseAmortissable) > 1
+    : false
+
   const handleSubmit = () => {
-    const data = {
-      libelle, date_acquisition: dateAcq, valeur_origine: valeur,
-      duree_amortissement: duree, methode, poste_comptable: poste,
-      date_mise_en_service: dateMes || null, quote_part_pro: quotePart,
-      plafond_fiscal: plafond, co2_classe: co2 || null, notes: notes || null,
+    const payload: ImmobilisationCreate = {
+      designation,
+      date_acquisition: dateAcquisition,
+      base_amortissable: baseAmortissable,
+      duree,
+      // En création : toujours lineaire. En édition : on conserve la valeur courante (legacy degressif autorisé en lecture).
+      mode: isEdit ? mode : 'lineaire',
+      quote_part_pro: quotePartPro,
+      poste: poste || null,
+      date_mise_en_service: dateMes || null,
+      plafond_fiscal: plafond,
+      co2_classe: co2 || null,
+      notes: notes || null,
       operation_source: candidate ? { file: candidate.filename, index: candidate.index } : null,
+      exercice_entree_neuronx: isReprise ? exerciceEntree : null,
+      amortissements_anterieurs: isReprise ? amortAnterieurs : 0,
+      vnc_ouverture: isReprise ? vncOuverture : null,
     }
 
     if (isCandidate) {
-      immobiliserMutation.mutate(data, { onSuccess: () => onClose() })
+      immobiliserMutation.mutate(payload, { onSuccess: () => onClose() })
     } else if (isEdit && immobilisation) {
-      updateMutation.mutate({ id: immobilisation.id, data }, { onSuccess: () => onClose() })
+      updateMutation.mutate({ id: immobilisation.id, data: payload as unknown as Record<string, unknown> }, { onSuccess: () => onClose() })
     } else {
-      createMutation.mutate(data, { onSuccess: () => onClose() })
+      createMutation.mutate(payload, { onSuccess: () => onClose() })
     }
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending || immobiliserMutation.isPending
+  const canSave = !!designation && !!dateAcquisition && baseAmortissable > 0 && !incoherenceBackfill
 
   return (
     <>
@@ -142,18 +224,18 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
           {/* Form */}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="text-[10px] text-text-muted block mb-1">Libellé</label>
-              <input type="text" value={libelle} onChange={e => setLibelle(e.target.value)}
+              <label className="text-[10px] text-text-muted block mb-1">Désignation</label>
+              <input type="text" value={designation} onChange={e => setDesignation(e.target.value)}
                 className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary" />
             </div>
             <div>
               <label className="text-[10px] text-text-muted block mb-1">Date d'acquisition</label>
-              <input type="date" value={dateAcq} onChange={e => setDateAcq(e.target.value)}
+              <input type="date" value={dateAcquisition} onChange={e => setDateAcquisition(e.target.value)}
                 className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary" />
             </div>
             <div>
-              <label className="text-[10px] text-text-muted block mb-1">Valeur d'origine</label>
-              <input type="number" step="0.01" value={valeur || ''} onChange={e => setValeur(parseFloat(e.target.value) || 0)}
+              <label className="text-[10px] text-text-muted block mb-1">Base amortissable</label>
+              <input type="number" step="0.01" value={baseAmortissable || ''} onChange={e => setBaseAmortissable(parseFloat(e.target.value) || 0)}
                 className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary" />
             </div>
             <div>
@@ -171,14 +253,24 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
                 {[1, 3, 5, 7, 10].map(d => <option key={d} value={d}>{d} ans</option>)}
               </select>
             </div>
+
+            {/* Mode — readonly lock en création + édition (legacy degressif affiché en readonly) */}
             <div>
-              <label className="text-[10px] text-text-muted block mb-1">Méthode</label>
-              <select value={methode} onChange={e => setMethode(e.target.value as 'lineaire' | 'degressif')}
-                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary">
-                <option value="lineaire">Linéaire</option>
-                <option value="degressif">Dégressif</option>
-              </select>
+              <label className="text-[10px] text-text-muted block mb-1">Mode</label>
+              <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-lg border border-border">
+                <span className="text-sm font-medium text-text">
+                  {mode === 'degressif' ? 'Dégressif (legacy)' : 'Linéaire'}
+                </span>
+                <button
+                  type="button"
+                  title="Le dégressif est réservé à la comptabilité d'engagement (option formelle formulaire 2036). Non applicable en BNC régime recettes."
+                  className="ml-auto text-text-muted hover:text-text"
+                >
+                  <Info size={14} />
+                </button>
+              </div>
             </div>
+
             <div>
               <label className="text-[10px] text-text-muted block mb-1">Mise en service</label>
               <input type="date" value={dateMes} onChange={e => setDateMes(e.target.value)}
@@ -188,11 +280,152 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
 
           {/* Usage pro slider */}
           <div>
-            <label className="text-[10px] text-text-muted block mb-1">Usage professionnel : {quotePart}%</label>
-            <input type="range" min={0} max={100} step={5} value={quotePart}
-              onChange={e => setQuotePart(parseInt(e.target.value))}
+            <label className="text-[10px] text-text-muted block mb-1">Usage professionnel : {quotePartPro}%</label>
+            <input type="range" min={0} max={100} step={5} value={quotePartPro}
+              onChange={e => setQuotePartPro(parseInt(e.target.value))}
               className="w-full accent-primary" />
           </div>
+
+          {/* Section Reprise d'exercice antérieur (visible uniquement en création) */}
+          {reprisAllowed && (
+            <div className="pt-4 border-t border-border">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isReprise}
+                  onChange={(e) => {
+                    setIsReprise(e.target.checked)
+                    if (!e.target.checked) {
+                      setAmortAnterieurs(0)
+                      setVncOuverture(0)
+                      setBackfillManuallyEdited(false)
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-sm font-medium text-text">Reprise d'une immobilisation existante</span>
+                <span className="text-xs text-text-muted">(achat antérieur à NeuronXcompta)</span>
+              </label>
+
+              {isReprise && (
+                <div className="mt-3 pl-6 space-y-3">
+                  {/* Exercice d'entrée */}
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">
+                      Exercice d'entrée dans NeuronX
+                    </label>
+                    <select
+                      value={exerciceEntree}
+                      onChange={(e) => {
+                        setExerciceEntree(parseInt(e.target.value))
+                        setBackfillManuallyEdited(false)
+                      }}
+                      className="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-surface text-text focus:outline-none focus:border-primary"
+                    >
+                      {Array.from({ length: 10 }, (_, i) => {
+                        const y = new Date().getFullYear() - 5 + i
+                        const yAcq = parseInt(dateAcquisition?.slice(0, 4) || '0')
+                        if (y <= yAcq) return null
+                        return <option key={y} value={y}>{y}</option>
+                      })}
+                    </select>
+                    {dateAcquisition && (
+                      <p className="text-[11px] text-text-muted mt-1">
+                        Acquisition : {dateAcquisition.slice(0, 4)} · {exerciceEntree - parseInt(dateAcquisition.slice(0, 4))} exercice(s) antérieur(s)
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Cumul amortissements antérieurs */}
+                  <div>
+                    <label className="text-xs text-text-muted mb-1 flex items-center gap-1">
+                      Cumul amortissements antérieurs
+                      {computeBackfill.isPending && <Loader2 size={10} className="animate-spin" />}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={amortAnterieurs}
+                        onChange={(e) => {
+                          setAmortAnterieurs(parseFloat(e.target.value) || 0)
+                          setBackfillManuallyEdited(true)
+                        }}
+                        className="flex-1 px-3 py-1.5 text-sm border border-border rounded-md bg-surface text-text focus:outline-none focus:border-primary tabular-nums"
+                      />
+                      <span className="text-sm text-text-muted">€</span>
+                    </div>
+                  </div>
+
+                  {/* VNC ouverture */}
+                  <div>
+                    <label className="text-xs text-text-muted block mb-1">
+                      VNC d'ouverture {exerciceEntree}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={vncOuverture}
+                        onChange={(e) => {
+                          setVncOuverture(parseFloat(e.target.value) || 0)
+                          setBackfillManuallyEdited(true)
+                        }}
+                        className="flex-1 px-3 py-1.5 text-sm border border-border rounded-md bg-surface text-text focus:outline-none focus:border-primary tabular-nums"
+                      />
+                      <span className="text-sm text-text-muted">€</span>
+                    </div>
+                  </div>
+
+                  {/* Bouton recalcul manuel */}
+                  {backfillManuallyEdited && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBackfillManuallyEdited(false)
+                      }}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <RefreshCw size={10} /> Recalculer depuis la durée légale
+                    </button>
+                  )}
+
+                  {/* Validation temps réel */}
+                  <div className={cn(
+                    'text-xs px-3 py-2 rounded-md flex items-start gap-2 border',
+                    incoherenceBackfill
+                      ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  )}>
+                    {incoherenceBackfill ? (
+                      <>
+                        <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                        <span>
+                          Incohérence : {formatEuro(amortAnterieurs)} + {formatEuro(vncOuverture)} ={' '}
+                          {formatEuro(amortAnterieurs + vncOuverture)} ≠ base {formatEuro(baseAmortissable)}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={12} className="shrink-0 mt-0.5" />
+                        <span>Cohérence validée · base = antérieurs + VNC ouverture</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="text-xs bg-blue-500/10 border border-blue-500/20 rounded-md p-2.5 flex items-start gap-2 text-blue-400">
+                    <Info size={12} className="shrink-0 mt-0.5" />
+                    <p>
+                      NeuronXcompta ne produira aucune dotation pour les exercices antérieurs
+                      à {exerciceEntree}. Les {formatEuro(amortAnterieurs)} cumulés sont hors scope
+                      fiscal NeuronX (supposés déjà passés par votre ancien comptable).
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Vehicle section */}
           {poste === 'vehicule' && (
@@ -210,8 +443,8 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
             </div>
           )}
 
-          {/* Realtime tableau preview */}
-          {tableau.length > 0 && (
+          {/* Realtime tableau preview — désactivé si reprise (le tableau sera calculé côté backend avec backfill) */}
+          {!isReprise && tableau.length > 0 && (
             <div className="bg-surface rounded-lg border border-border p-4">
               <h4 className="text-xs font-semibold text-text mb-2">Aperçu tableau d'amortissement</h4>
               <table className="w-full text-[10px]">
@@ -219,7 +452,7 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
                   <tr className="text-text-muted border-b border-border">
                     <th className="text-left py-1">Exercice</th>
                     <th className="text-right py-1">Dot. brute</th>
-                    <th className="text-right py-1">Déduc. ({quotePart}%)</th>
+                    <th className="text-right py-1">Déduc. ({quotePartPro}%)</th>
                     <th className="text-right py-1">Cumul</th>
                     <th className="text-right py-1">VNC</th>
                   </tr>
@@ -250,7 +483,7 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
         {/* Footer */}
         <div className="px-5 py-4 border-t border-border flex justify-end gap-2 shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">Annuler</button>
-          <button onClick={handleSubmit} disabled={isPending || !libelle || !dateAcq || valeur <= 0}
+          <button onClick={handleSubmit} disabled={isPending || !canSave}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 disabled:opacity-50">
             {isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             {isCandidate ? "Confirmer l'immobilisation" : isEdit ? 'Enregistrer' : 'Créer'}

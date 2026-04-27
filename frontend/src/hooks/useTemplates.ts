@@ -12,6 +12,7 @@ import type {
   OpsWithoutJustificatifResponse,
   GedTemplateItem,
   GedTemplateDetail,
+  TemplateUpdatePayload,
 } from '@/types'
 
 // ─── Queries ───
@@ -116,7 +117,7 @@ export function useCreateTemplateFromBlank() {
 export function useUpdateTemplate() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Omit<JustificatifTemplate, 'id' | 'created_at' | 'created_from' | 'usage_count'> }) =>
+    mutationFn: ({ id, data }: { id: string; data: TemplateUpdatePayload }) =>
       api.put(`/templates/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['templates'] })

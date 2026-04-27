@@ -49,7 +49,6 @@ export default function TaskCard({ task, onEdit, onDelete, onDismiss, isDragOver
   return (
     <div
       ref={isDragOverlay ? undefined : setNodeRef}
-      style={isDragOverlay ? undefined : style}
       {...(isDragOverlay ? {} : attributes)}
       {...(isDragOverlay ? {} : listeners)}
       className={cn(

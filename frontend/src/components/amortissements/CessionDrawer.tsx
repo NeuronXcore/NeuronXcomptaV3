@@ -47,7 +47,7 @@ export default function CessionDrawer({ immobilisation, isOpen, onClose }: Cessi
         isOpen ? 'translate-x-0' : 'translate-x-full'
       )}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h2 className="text-sm font-semibold text-text">Sortie d'actif — {immobilisation.libelle}</h2>
+          <h2 className="text-sm font-semibold text-text">Sortie d'actif — {immobilisation.designation}</h2>
           <button onClick={onClose} className="p-1 text-text-muted hover:text-text"><X size={18} /></button>
         </div>
 

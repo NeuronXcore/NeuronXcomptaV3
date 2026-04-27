@@ -9,6 +9,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
+import DotationsVirtualDrawer from './DotationsVirtualDrawer'
 
 interface Props {
   isOpen: boolean
@@ -18,6 +19,10 @@ interface Props {
   quarter: number | null
   month: number | null
 }
+
+// La ligne virtuelle "Dotations aux amortissements" est unique et synthétique
+// (injectée par le backend avec is_virtual=true). Détection par nom suffit.
+const VIRTUAL_DOTATIONS_NAME = 'Dotations aux amortissements'
 
 // Badge de nature fiscale (miroir backend _nature_of_category)
 function NatureBadge({ category }: { category: string | null }) {
@@ -67,8 +72,14 @@ export default function CategoryDetailDrawer({
   quarter,
   month,
 }: Props) {
+  // Branchement vers le drawer spécialisé pour la ligne virtuelle dotations.
+  // Sur année complète (pas de filtre mois/trimestre) — sinon retombe sur le drawer standard.
+  const isVirtualDotation =
+    category === VIRTUAL_DOTATIONS_NAME && year != null && quarter == null && month == null
+
   const { data, isLoading, refetch } = useCategoryDetail(
-    isOpen ? category : null,
+    // Gate la query pour éviter un appel inutile quand on délègue au drawer virtuel.
+    !isVirtualDotation && isOpen ? category : null,
     year,
     quarter,
     month,
@@ -111,6 +122,11 @@ export default function CategoryDetailDrawer({
       label: MOIS_FR[mIdx]?.slice(0, 3) || m.month,
     }
   })
+
+  // Délégation au drawer virtuel — placée après les hooks pour respecter Rules of Hooks.
+  if (isVirtualDotation) {
+    return <DotationsVirtualDrawer year={year} isOpen={isOpen} onClose={onClose} />
+  }
 
   return (
     <>
@@ -195,10 +211,10 @@ export default function CategoryDetailDrawer({
                       )}
                     >
                       <Zap size={10} />
-                      {batchMutation.isPending ? 'Calcul...' : data.total_csg_non_deductible > 0 ? 'Recalculer' : 'Calculer tout'}
+                      {batchMutation.isPending ? 'Calcul...' : (data.total_csg_non_deductible ?? 0) > 0 ? 'Recalculer' : 'Calculer tout'}
                     </button>
                   </div>
-                  {data.total_csg_non_deductible > 0 ? (
+                  {(data.total_csg_non_deductible ?? 0) > 0 ? (
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between">
                         <span className="text-text-muted">Cotisations brutes</span>
@@ -206,11 +222,11 @@ export default function CategoryDetailDrawer({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-text-muted">├── Part déductible BNC</span>
-                        <span className="font-mono text-emerald-400">{formatCurrency(data.total_deductible)}</span>
+                        <span className="font-mono text-emerald-400">{formatCurrency(data.total_deductible ?? 0)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-text-muted">└── CSG/CRDS non déductible</span>
-                        <span className="font-mono text-red-400">{formatCurrency(data.total_csg_non_deductible)}</span>
+                        <span className="font-mono text-red-400">{formatCurrency((data.total_csg_non_deductible ?? 0))}</span>
                       </div>
                       <div className="pt-1.5 border-t border-amber-500/10 text-[10px] text-text-muted">
                         La part non déductible (CSG 2,4% + CRDS 0,5%) est exclue du calcul BNC.
@@ -276,7 +292,7 @@ export default function CategoryDetailDrawer({
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                         <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
                         <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} width={60} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-                        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                        <Tooltip contentStyle={tooltipStyle} formatter={(v) => formatCurrency(Number(v))} />
                         <Bar dataKey="debit" name="Débit" fill="#ef4444" radius={[2, 2, 0, 0]} />
                         <Bar dataKey="credit" name="Crédit" fill="#22c55e" radius={[2, 2, 0, 0]} />
                       </BarChart>
@@ -307,9 +323,9 @@ export default function CategoryDetailDrawer({
                           {op.sous_categorie}
                         </span>
                       )}
-                      {op.csg_non_deductible > 0 && (
+                      {(op.csg_non_deductible ?? 0) > 0 && (
                         <span className="text-[9px] px-1.5 py-0.5 bg-red-500/10 text-red-400 rounded shrink-0" title="CSG/CRDS non déductible">
-                          {formatCurrency(op.csg_non_deductible)} nd
+                          {formatCurrency(op.csg_non_deductible ?? 0)} nd
                         </span>
                       )}
                       <span className={cn(

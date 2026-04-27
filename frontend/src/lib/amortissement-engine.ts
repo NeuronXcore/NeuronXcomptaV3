@@ -8,26 +8,26 @@ const COEFFICIENTS_DEGRESSIF: Record<number, number> = {
 const r2 = (x: number) => Math.round(x * 100) / 100
 
 export interface CalcAmortissementParams {
-  valeur_origine: number
+  base_amortissable: number
   duree: number
-  methode: 'lineaire' | 'degressif'
+  mode: 'lineaire' | 'degressif'
   date_mise_en_service: string  // YYYY-MM-DD
   quote_part_pro: number        // 0-100
   plafond_fiscal?: number | null
 }
 
 export function calcTableauAmortissement(params: CalcAmortissementParams): LigneAmortissement[] {
-  const { valeur_origine, duree, methode, date_mise_en_service, quote_part_pro, plafond_fiscal } = params
-  if (!date_mise_en_service || valeur_origine <= 0 || duree <= 0) return []
+  const { base_amortissable, duree, mode, date_mise_en_service, quote_part_pro, plafond_fiscal } = params
+  if (!date_mise_en_service || base_amortissable <= 0 || duree <= 0) return []
 
-  const base = plafond_fiscal ? Math.min(valeur_origine, plafond_fiscal) : valeur_origine
+  const base = plafond_fiscal ? Math.min(base_amortissable, plafond_fiscal) : base_amortissable
   const parts = date_mise_en_service.split('-')
   if (parts.length !== 3) return []
   const yearStart = parseInt(parts[0])
   const monthStart = parseInt(parts[1])
   const dayStart = parseInt(parts[2])
 
-  if (methode === 'degressif') {
+  if (mode === 'degressif') {
     return calcDegressif(base, duree, yearStart, monthStart, quote_part_pro)
   }
   return calcLineaire(base, duree, yearStart, monthStart, dayStart, quote_part_pro)

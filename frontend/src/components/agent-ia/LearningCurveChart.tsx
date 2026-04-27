@@ -63,8 +63,8 @@ export default function LearningCurveChart({ learningCurve }: LearningCurveChart
                   fontSize: '12px',
                   color: '#e2e8f0',
                 }}
-                formatter={(value: number, name: string) => [`${value}%`, name]}
-                labelFormatter={(label: string) => `Session: ${label}`}
+                formatter={(value, name) => [`${value}%`, String(name)]}
+                labelFormatter={(label) => `Session: ${String(label)}`}
               />
               <Legend
                 wrapperStyle={{ fontSize: '11px', color: '#94a3b8' }}

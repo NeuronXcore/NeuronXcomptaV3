@@ -632,6 +632,7 @@ export interface ExtractedFields {
     type: string
     confidence: number
     suggested_source: string
+    coordinates?: FieldCoordinates | null
   }>
 }
 
@@ -1315,44 +1316,56 @@ export interface OperationSourceRef {
 
 export interface Immobilisation {
   id: string
-  libelle: string
+  designation: string
   date_acquisition: string
-  valeur_origine: number
-  duree_amortissement: number
-  methode: 'lineaire' | 'degressif'
-  poste_comptable: string
-  date_mise_en_service: string | null
-  date_sortie: string | null
-  motif_sortie: string | null
-  prix_cession: number | null
+  base_amortissable: number
+  duree: number
+  mode: string
   quote_part_pro: number
-  plafond_fiscal: number | null
-  co2_classe: string | null
-  operation_source: OperationSourceRef | null
-  justificatif_id: string | null
-  ged_doc_id: string | null
-  created_at: string
-  statut: 'en_cours' | 'amorti' | 'sorti'
-  notes: string | null
+  poste: string | null
+  statut: string
+  date_sortie?: string | null
+  prix_cession?: number | null
+  motif_sortie?: string | null
+  plafond_fiscal?: number | null
+  co2_classe?: string | null
+  // Reprise d'exercice antérieur
+  exercice_entree_neuronx: number | null
+  amortissements_anterieurs: number
+  vnc_ouverture: number | null
+  // Tracking
+  operation_source?: OperationSourceRef | null
+  justificatif_id?: string | null
+  ged_doc_id?: string | null
+  date_mise_en_service?: string | null
+  notes?: string | null
+  created_at?: string | null
+  // Calculés au runtime côté backend
   avancement_pct?: number
   vnc_actuelle?: number
   tableau?: LigneAmortissement[]
 }
 
 export interface ImmobilisationCreate {
-  libelle: string
+  designation: string
   date_acquisition: string
-  valeur_origine: number
-  duree_amortissement: number
-  methode?: string
-  poste_comptable: string
-  date_mise_en_service?: string | null
+  base_amortissable: number
+  duree: number
+  mode?: string
   quote_part_pro?: number
+  poste?: string | null
+  // Véhicule
   plafond_fiscal?: number | null
   co2_classe?: string | null
+  // Reprise
+  exercice_entree_neuronx?: number | null
+  amortissements_anterieurs?: number
+  vnc_ouverture?: number | null
+  // Tracking
   operation_source?: OperationSourceRef | null
   justificatif_id?: string | null
   ged_doc_id?: string | null
+  date_mise_en_service?: string | null
   notes?: string | null
 }
 
@@ -1365,6 +1378,9 @@ export interface LigneAmortissement {
   dotation_deductible: number
   amortissements_cumules: number
   vnc: number
+  is_backfill?: boolean
+  libelle?: string | null
+  vnc_debut?: number | null
 }
 
 export interface AmortissementCandidate {
@@ -1384,7 +1400,7 @@ export interface AmortissementKpis {
   nb_candidates: number
   dotation_exercice: number
   total_vnc: number
-  total_valeur_origine: number
+  total_base_amortissable: number
   postes: Array<{ poste: string; nb: number; vnc: number; dotation: number }>
 }
 
@@ -1394,8 +1410,8 @@ export interface DotationsExercice {
   total_dotations_deductibles: number
   detail: Array<{
     immo_id: string
-    libelle: string
-    poste_comptable: string
+    designation: string
+    poste: string
     dotation_brute: number
     dotation_deductible: number
     vnc: number
@@ -1403,12 +1419,10 @@ export interface DotationsExercice {
 }
 
 export interface AmortissementConfig {
-  seuil_immobilisation: number
+  seuil: number
   durees_par_defaut: Record<string, number>
-  methode_par_defaut: string
-  categories_immobilisables: string[]
   sous_categories_exclues: string[]
-  exercice_cloture: string
+  coefficient_degressif?: Record<number, number>
 }
 
 export interface CessionResult {
@@ -1417,6 +1431,58 @@ export interface CessionResult {
   moins_value: number | null
   duree_detention_mois: number
   regime: 'court_terme' | 'long_terme'
+}
+
+// ─── Amortissements — virtual detail + backfill (Prompt A2) ───
+
+export interface DotationImmoRow {
+  immobilisation_id: string
+  designation: string
+  date_acquisition: string
+  mode: string
+  duree: number
+  base_amortissable: number
+  vnc_debut: number
+  dotation_brute: number
+  quote_part_pro: number
+  dotation_deductible: number
+  vnc_fin: number
+  statut: 'en_cours' | 'complement' | 'derniere' | 'cedee'
+  poste: string | null
+  is_reprise: boolean
+  exercice_entree_neuronx: number | null
+}
+
+export interface AmortissementVirtualDetail {
+  year: number
+  total_brute: number
+  total_deductible: number
+  nb_immos_actives: number
+  immos: DotationImmoRow[]
+}
+
+export interface DotationRef {
+  filename: string
+  index: number
+  year: number
+}
+
+export interface BackfillComputeRequest {
+  date_acquisition: string
+  base_amortissable: number
+  duree: number
+  exercice_entree_neuronx: number
+  quote_part_pro?: number
+}
+
+export interface BackfillComputeResponse {
+  amortissements_anterieurs_theorique: number
+  vnc_ouverture_theorique: number
+  detail_exercices_anterieurs: Array<{
+    exercice: number
+    dotation: number
+    vnc_fin: number
+  }>
 }
 
 // ============================================================
@@ -1525,7 +1591,7 @@ export interface PipelineStep {
 
 export interface PipelineMetric {
   label: string
-  value: string | number
+  value: string | number | undefined
   total?: number
   variant?: 'default' | 'success' | 'warning' | 'danger'
 }
@@ -1585,7 +1651,7 @@ export interface TaskUpdate {
 
 // --- Charges Forfaitaires ---
 
-export type TypeForfait = 'blanchissage' | 'vehicule'
+export type TypeForfait = 'blanchissage' | 'vehicule' | 'repas'
 export type ModeBlanchissage = 'domicile' | 'pressing'
 
 export interface ArticleBlanchissage {

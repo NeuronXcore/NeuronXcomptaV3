@@ -4,7 +4,8 @@ import toast from 'react-hot-toast'
 import type {
   Immobilisation, ImmobilisationCreate, AmortissementKpis,
   DotationsExercice, AmortissementCandidate, AmortissementConfig,
-  CessionResult,
+  CessionResult, AmortissementVirtualDetail, DotationRef,
+  BackfillComputeRequest, BackfillComputeResponse,
 } from '@/types'
 
 // ─── Queries ───
@@ -154,5 +155,27 @@ export function useSaveAmortissementConfig() {
       qc.invalidateQueries({ queryKey: ['amortissement-candidates'] })
       toast.success('Configuration sauvegardée')
     },
+  })
+}
+
+// ─── Prompt A2 — virtual-detail / dotation-ref / compute-backfill ───
+
+export function useDotationVirtualDetail(year: number) {
+  return useQuery<AmortissementVirtualDetail>({
+    queryKey: ['amortissements', 'virtual-detail', year],
+    queryFn: () => api.get(`/amortissements/virtual-detail?year=${year}`),
+  })
+}
+
+export function useDotationRef(year: number) {
+  return useQuery<DotationRef | null>({
+    queryKey: ['amortissements', 'dotation-ref', year],
+    queryFn: () => api.get(`/amortissements/dotation-ref/${year}`),
+  })
+}
+
+export function useComputeBackfill() {
+  return useMutation<BackfillComputeResponse, Error, BackfillComputeRequest>({
+    mutationFn: (req) => api.post('/amortissements/compute-backfill', req),
   })
 }

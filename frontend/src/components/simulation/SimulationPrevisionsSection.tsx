@@ -124,7 +124,7 @@ export default function SimulationPrevisionsSection({ year }: Props) {
             <ComposedChart data={chartData}>
               <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
               <YAxis tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={(v) => formatCurrency(Number(v))} />
               <Legend />
               {separationIndex > 0 && (
                 <ReferenceLine
@@ -162,7 +162,7 @@ export default function SimulationPrevisionsSection({ year }: Props) {
             }))}>
               <XAxis dataKey="label" />
               <YAxis domain={[0, 'auto']} />
-              <Tooltip formatter={(v: number) => `Coeff: ${v.toFixed(2)}`} />
+              <Tooltip formatter={(v) => `Coeff: ${Number(v).toFixed(2)}`} />
               <Bar dataKey="coeff" name="Coefficient saisonnier" radius={[4, 4, 0, 0]}>
                 {historique.profil_saisonnier.map((p, i) => (
                   <rect

@@ -90,7 +90,7 @@ export default function GedTemplateDetailDrawer({
         vendor_aliases: draftAliases,
         category: draftCategory,
         sous_categorie: draftSousCat,
-        source_justificatif: fullTemplate.source_justificatif || null,
+        source_justificatif: fullTemplate.source_justificatif || undefined,
         fields: fullTemplate.fields,
       },
     }, {
