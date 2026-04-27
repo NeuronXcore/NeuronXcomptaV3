@@ -437,6 +437,58 @@ def _clean_filename_for_display(filename: str) -> str:
     return name or filename
 
 
+def _resolve_single_period(documents: list[DocumentRef]) -> Optional[tuple[int, int]]:
+    """Si tous les docs ont une même période (mois précis), retourne (year, month).
+
+    Multi-périodes ou aucune période détectable → None.
+    """
+    periods_set: set[tuple[int, int]] = set()
+    has_anonymous = False
+    for d in documents:
+        m = re.search(r"(\d{4})[-_](\d{2})", d.filename)
+        if m:
+            year = int(m.group(1))
+            month = int(m.group(2))
+            if 1 <= month <= 12:
+                periods_set.add((year, month))
+                continue
+        # Essayer de parser le nom de mois directement
+        matched = False
+        for i, mois in enumerate(MOIS_FR):
+            if mois.lower() in d.filename.lower():
+                ym = re.search(r"(\d{4})", d.filename)
+                if ym:
+                    periods_set.add((int(ym.group(1)), i + 1))
+                    matched = True
+                    break
+        if not matched:
+            has_anonymous = True
+    if len(periods_set) == 1 and not has_anonymous:
+        return next(iter(periods_set))
+    return None
+
+
+def _check_envoi_notes_block(documents: list[DocumentRef]) -> tuple[Optional[str], Optional[str]]:
+    """Retourne (period_label, notes) si une seule période détectée et notes non vides.
+
+    Sinon (None, None). Évite l'injection en multi-périodes (l'utilisateur peut
+    le faire à la main si pertinent).
+    """
+    single = _resolve_single_period(documents)
+    if not single:
+        return None, None
+    try:
+        from backend.services import check_envoi_service
+        year, month = single
+        notes = check_envoi_service.get_notes_for_email(year, month)
+    except Exception:
+        return None, None
+    if not notes or not notes.strip():
+        return None, None
+    period_label = f"{MOIS_FR[month - 1].capitalize()} {year}"
+    return period_label, notes
+
+
 def generate_email_body_plain(documents: list[DocumentRef], nom: Optional[str] = None) -> str:
     """Génère le corps automatique plain text (fallback pour clients sans HTML)."""
     by_type: dict[str, list[DocumentRef]] = {}
@@ -461,6 +513,13 @@ def generate_email_body_plain(documents: list[DocumentRef], nom: Optional[str] =
         for d in docs:
             display = _clean_filename_for_display(d.filename)
             lines.append(f"  - {display}")
+        lines.append("")
+
+    # Injection notes Check d'envoi (mono-période uniquement)
+    period_label, notes = _check_envoi_notes_block(documents)
+    if period_label and notes:
+        lines.append(f"Notes pour {period_label}")
+        lines.append(notes)
         lines.append("")
 
     signature = nom or "Dr"
@@ -668,11 +727,27 @@ def generate_email_html(
     logo_main_src = _logo_src(LOGO_PATH, "logo_main", for_preview)
     logo_mark_src = _logo_src(LOGO_MARK_PATH, "logo_mark", for_preview)
 
+    # Notes Check d'envoi (mono-période uniquement)
+    notes_section = ""
+    period_label, notes = _check_envoi_notes_block(documents)
+    if period_label and notes:
+        notes_html = notes.replace("\n", "<br>")
+        notes_section = (
+            f'<tr><td style="padding: 0 28px 16px;">'
+            f'<p style="margin: 0 0 8px; font-size: 13px; font-weight: 500; color: #534AB7;">'
+            f'Notes pour {period_label}</p>'
+            f'<div style="font-size: 13px; color: #333333; line-height: 1.6; '
+            f'background-color: #f8f8f8; padding: 12px 16px; border-radius: 6px; '
+            f'border-left: 3px solid #534AB7;">{notes_html}</div>'
+            f'</td></tr>'
+        )
+
     template = _load_email_template()
     return template.format(
         titre_bandeau=titre_bandeau,
         introduction=introduction,
         arborescence_block=arborescence_block,
+        notes_section=notes_section,
         signature=signature,
         current_year=current_year,
         logo_main_src=logo_main_src,

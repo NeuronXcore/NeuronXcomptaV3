@@ -25,6 +25,7 @@ import PrevisionnelPage from '@/components/previsionnel/PrevisionnelPage'
 import TasksPage from '@/components/tasks/TasksPage'
 import SnapshotsPage from '@/components/snapshots/SnapshotsPage'
 import ChargesForfaitairesPage from '@/components/charges-forfaitaires/ChargesForfaitairesPage'
+import CheckEnvoiPage from '@/components/check-envoi/CheckEnvoiPage'
 import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 import LiasseScpDrawer from '@/components/liasse/LiasseScpDrawer'
 import GlobalImmobilisationDrawer from '@/components/amortissements/GlobalImmobilisationDrawer'
@@ -61,7 +62,8 @@ export default function App() {
     />
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/" element={<PipelinePage />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/import" element={<ImportPage />} />
         <Route path="/editor" element={<EditorPage />} />
@@ -77,6 +79,7 @@ export default function App() {
         <Route path="/ocr" element={<OcrPage />} />
         <Route path="/amortissements" element={<AmortissementsPage />} />
         <Route path="/charges-forfaitaires" element={<ChargesForfaitairesPage />} />
+        <Route path="/check-envoi" element={<CheckEnvoiPage />} />
         <Route path="/simulation" element={<SimulationPage />} />
         <Route path="/previsionnel" element={<PrevisionnelPage />} />
         <Route path="/ged" element={<GedPage />} />

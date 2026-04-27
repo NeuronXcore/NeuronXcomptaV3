@@ -5,7 +5,7 @@ import {
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
   Boxes, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
-  Send, Receipt, Camera,
+  Send, Receipt, Camera, ClipboardCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -19,6 +19,7 @@ import { useEmailHistory } from '@/hooks/useEmail'
 import { useJustificatifStats } from '@/hooks/useJustificatifs'
 import { useGedStats } from '@/hooks/useGed'
 import SidebarLogo from './SidebarLogo'
+import CheckEnvoiBadge from './CheckEnvoiBadge'
 
 const NAV_SECTIONS = [
   {
@@ -50,10 +51,11 @@ const NAV_SECTIONS = [
   {
     label: 'Clôture',
     items: [
-      { to: '/export', label: 'Export Comptable', icon: PackageCheck },
       { to: '/cloture', label: 'Clôture', icon: CalendarCheck },
       { to: '/amortissements', label: 'Amortissements', icon: Landmark },
       { to: '/charges-forfaitaires', label: 'Charges forfaitaires', icon: Receipt },
+      { to: '/export', label: 'Export Comptable', icon: PackageCheck },
+      { to: '/check-envoi', label: "Check d'envoi", icon: ClipboardCheck },
     ],
   },
   {
@@ -139,8 +141,7 @@ export default function Sidebar() {
         {/* Pipeline - standalone item above sections */}
         <div className="pb-2 mb-1 border-b border-border">
           <NavLink
-            to="/"
-            end
+            to="/pipeline"
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-4 py-2.5 mx-3 rounded-lg text-sm font-semibold transition-all',
@@ -253,6 +254,7 @@ export default function Sidebar() {
                     {gedDocsCount}
                   </span>
                 )}
+                {to === '/check-envoi' && <CheckEnvoiBadge />}
               </NavLink>
             ))}
           </div>

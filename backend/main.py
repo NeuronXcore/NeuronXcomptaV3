@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
 from backend.core.shutdown import shutdown_event
-from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots, liasse_scp
+from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots, liasse_scp, check_envoi
 from backend.services.sandbox_service import (
     scan_existing_sandbox_arrivals,
     seed_recent_events_from_disk,
@@ -78,6 +78,44 @@ async def _previsionnel_background_loop():
 
 _prev_task = None
 _sandbox_auto_task = None
+_check_envoi_task = None
+
+
+# Background task — recalcul quotidien des reminders Check d'envoi
+async def _check_envoi_reminder_loop():
+    """Recalcule les niveaux de reminder Check d'envoi toutes les heures.
+
+    - Pour chaque (year, month) entre N-1 mois et N+0, calcule le `level`
+      via `_compute_level()` et met à jour `data/check_envoi/reminders.json`.
+    - Supprime les entrées des instances désormais validées.
+
+    Sleep coopératif via shutdown_event (cf. CLAUDE.md, contrat strict).
+    """
+    # Sleep de démarrage — sortable si shutdown avant les 60s
+    try:
+        await asyncio.wait_for(shutdown_event.wait(), timeout=60)
+        return
+    except asyncio.TimeoutError:
+        pass
+
+    while not shutdown_event.is_set():
+        try:
+            from backend.services import check_envoi_service
+            written = check_envoi_service.daily_recompute_reminders()
+            if written:
+                logging.getLogger(__name__).info(
+                    "Check d'envoi reminders : %d entrée(s) mise(s) à jour", written
+                )
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                f"Check envoi reminder loop error: {e}"
+            )
+        # Sleep interrompable : 1h
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=3600)
+            break
+        except asyncio.TimeoutError:
+            pass
 
 
 def _seed_dotations_amortissements_category() -> None:
@@ -272,7 +310,7 @@ def _migrate_repas_to_repas_pro() -> None:
 # Lifespan — démarrage/arrêt du sandbox watchdog + previsionnel
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _prev_task
+    global _prev_task, _check_envoi_task
     # Seed arrivals in-memory depuis sandbox/ AVANT de démarrer le watchdog
     # (préserve les mtime originaux, évite qu'ils soient écrasés par datetime.now()
     # si `_process_file` tombe sur ces mêmes fichiers pendant process_existing_files).
@@ -363,6 +401,8 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning("EasyOCR preload: %s", e)
     # Demarrer la tache previsionnel en arriere-plan
     _prev_task = asyncio.create_task(_previsionnel_background_loop())
+    # Démarrer la loop check d'envoi reminders (1h)
+    _check_envoi_task = asyncio.create_task(_check_envoi_reminder_loop())
     # Démarrer la loop auto-processor sandbox (no-op si sandbox_auto_mode=False)
     global _sandbox_auto_task
     try:
@@ -385,7 +425,7 @@ async def lifespan(app: FastAPI):
         log.warning("stop_sandbox_watchdog error: %s", e)
 
     # 3. Cancel + await tasks asyncio avec timeout global de 1.5s
-    tasks = [t for t in (_prev_task, _sandbox_auto_task) if t is not None]
+    tasks = [t for t in (_prev_task, _sandbox_auto_task, _check_envoi_task) if t is not None]
     for t in tasks:
         t.cancel()
     if tasks:
@@ -451,6 +491,7 @@ app.include_router(email.router)
 app.include_router(charges_forfaitaires.router)
 app.include_router(snapshots.router)
 app.include_router(liasse_scp.router)
+app.include_router(check_envoi.router)
 
 
 @app.get("/")

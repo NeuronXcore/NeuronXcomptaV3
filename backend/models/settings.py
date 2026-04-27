@@ -41,6 +41,13 @@ class AppSettings(BaseModel):
     # On : auto-processor loop traite les fichiers arrivés depuis > delay.
     sandbox_auto_mode: bool = False
     sandbox_auto_delay_seconds: int = 30
+    # Check d'envoi — offsets en jours après fin de période avant déclenchement reminder.
+    # N1 = niveau 1 (informatif), N2 = niveau 2 (insistant), N3 = niveau 3 (retard).
+    check_envoi_reminder_n1_offset: int = 10
+    check_envoi_reminder_n2_offset: int = 15
+    check_envoi_reminder_n3_offset: int = 20
+    # ISO date YYYY-MM-DD : pendant cette fenêtre, _compute_level retourne None (pas de reminder).
+    check_envoi_vacances_jusquau: Optional[str] = None
 
 
 class DiskSpaceInfo(BaseModel):

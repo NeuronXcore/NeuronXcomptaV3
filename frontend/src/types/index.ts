@@ -1815,3 +1815,48 @@ export interface VehiculeGenere {
   km_sup: number | null
   km_totaux: number | null
 }
+
+// ─── Check d'envoi ───
+
+export type CheckSource = 'auto' | 'manual'
+export type CheckStatus = 'auto_ok' | 'auto_warning' | 'manual_ok' | 'blocking' | 'pending'
+export type CheckPeriod = 'month' | 'year'
+
+export interface CheckEnvoiItem {
+  key: string
+  label: string
+  source: CheckSource
+  status: CheckStatus
+  detail: string | null
+  comment: string | null
+  requires_comment: boolean
+  last_evaluated_at: string | null
+}
+
+export interface CheckEnvoiSection {
+  key: string
+  label: string
+  items: CheckEnvoiItem[]
+}
+
+export interface CheckEnvoiInstance {
+  period: CheckPeriod
+  year: number
+  month: number | null
+  sections: CheckEnvoiSection[]
+  validated_at: string | null
+  validated_by: string
+  ready_for_send: boolean
+  counts: { ok: number; warning: number; blocking: number; pending: number }
+}
+
+export interface CheckCoverage {
+  [key: string]: boolean
+}
+
+export interface CheckReminderState {
+  should_show: boolean
+  level?: 1 | 2 | 3
+  period_key?: string
+  message?: string
+}

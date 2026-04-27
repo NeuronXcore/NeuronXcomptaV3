@@ -210,7 +210,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | **SAISIE** | Importation, Édition, Catégories, OCR |
 | **TRAITEMENT** | Justificatifs, Compte d'attente |
 | **ANALYSE** | Tableau de bord, Prévisionnel, Compta Analytique, Rapports, Simulation BNC |
-| **CLÔTURE** | Export Comptable, Clôture, Amortissements, Charges forfaitaires |
+| **CLÔTURE** | Clôture, Amortissements, Charges forfaitaires, Export Comptable, Check d'envoi |
 | **DOCUMENTS** | Bibliothèque (GED) |
 | **OUTILS** | Tâches, Snapshots, Agent IA, Paramètres |
 
@@ -243,13 +243,16 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 | charges_forfaitaires | `/api/charges-forfaitaires` | POST /calculer/blanchissage, POST /generer, GET /generes?year=, DELETE /supprimer/vehicule?year=, DELETE /supprimer/{type_forfait}?year=, GET /config?year=, PUT /config?year=, POST /calculer/vehicule, POST /appliquer/vehicule, POST /regenerer-pdf/vehicule?year=, GET /vehicule/genere?year= |
 | settings | `/api/settings` | GET, PUT, GET /disk-space, GET /data-stats, GET /system-info, POST /restart (dev only) |
 | snapshots | `/api/snapshots` | GET /, GET /{id}, GET /{id}/operations (auto-repair des refs cassées via hash), POST /, PATCH /{id}, DELETE /{id} |
+| check_envoi | `/api/check-envoi` | GET /{year}/{period} (period ∈ month/year, ?month= si month), GET /{year}/coverage, PATCH /{year}/{period}/items/{item_key} (body `{comment?, manual_ok?}`), POST /{year}/{period}/validate (400 si !ready_for_send), POST /{year}/{period}/unvalidate, GET /notes/{year}/{month}, GET /reminders/state, POST /reminders/snooze, POST /reminders/dismiss |
 
 ## Frontend Routes
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/` | PipelinePage | Pipeline comptable interactif — **stepper 7 étapes** (Import → Catég → Justif → **Verrouillage** → Lettrage → Vérification → Clôture), progression globale pondérée, sélecteur mois/année, widget « Scans en attente » **collapsed par défaut** |
+| `/` | *(redirige vers `/dashboard`)* | Page d'accueil — Dashboard. Pipeline migré vers `/pipeline` |
+| `/pipeline` | PipelinePage | Pipeline comptable interactif — **stepper 7 étapes** (Import → Catég → Justif → **Verrouillage** → Lettrage → Vérification → Clôture), progression globale pondérée, sélecteur mois/année, widget « Scans en attente » **collapsed par défaut** |
 | `/dashboard` | DashboardPage | **Cockpit exercice comptable V2** : sélecteur année, jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports), 4 cartes KPI avec sparkline BNC et delta N-1, grille 12 mois cliquables avec 6 badges d'état + expansion (montants + actions contextuelles), alertes pondérées triées par impact, échéances fiscales (URSSAF/CARMF/ODM), bar chart recettes vs dépenses (Recharts), feed activité récente |
+| `/check-envoi` | CheckEnvoiPage | **Check d'envoi** : rituel pré-vol récurrent (mensuel + annuel) avant l'envoi du dossier au comptable. Toggle Mois/Année, 8 sections accordéon par vue (×2 = 16 sections, ~36 items), 4 statuts (`auto_ok`/`auto_warning`/`manual_ok`/`blocking`/`pending`), commentaires libres injectés dans le mail. Items auto recalculés à chaque GET, items manuels persistés. Compte d'attente : un sous-item bloquant par op sans commentaire (hash md5 12 chars). Bouton flottant « Préparer l'envoi → » → drawer Email. Badge sidebar coloré selon reminder N1/N2/N3. |
 | `/import` | ImportPage | PDF drag-drop import |
 | `/editor` | EditorPage | Inline editing, **auto-catégorisation IA au chargement** (vides), bouton "Recatégoriser IA" (tout), **sélecteur année → mois en cascade** avec option **"Toute l'année"** (lecture seule), **filtres catégorie + sous-catégorie** en cascade, **option "Non catégorisées"** (`?filter=uncategorized` depuis Pipeline), colonnes: Justificatif (trombone), Important (étoile), À revoir (triangle), Pointée (cercle vert) — **checkboxes modernes** (boutons toggle 22px avec icône/couleur), **toutes les colonnes badge triables**, PDF preview |
 | `/categories` | CategoriesPage | 4-tab category management |

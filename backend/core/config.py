@@ -54,6 +54,10 @@ PREV_SETTINGS_FILE = PREVISIONNEL_DIR / "settings.json"
 # Liasse fiscale SCP — déclaration 2035 annuelle
 LIASSE_SCP_DIR = DATA_DIR / "liasse_scp"
 
+# Check d'envoi — rituel pré-vol récurrent
+CHECK_ENVOI_DIR = DATA_DIR / "check_envoi"
+CHECK_ENVOI_REMINDERS_FILE = CHECK_ENVOI_DIR / "reminders.json"
+
 # Templates justificatifs
 TEMPLATES_DIR = DATA_DIR / "templates"
 TEMPLATES_FILE = TEMPLATES_DIR / "justificatifs_templates.json"
@@ -160,6 +164,7 @@ def ensure_directories():
         TEMPLATES_DIR,
         PREVISIONNEL_DIR,
         LIASSE_SCP_DIR,
+        CHECK_ENVOI_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
