@@ -1762,32 +1762,6 @@
       "renamed_from": "boulanger_20250831_1099.00.pdf",
       "categorie": "perso"
     },
-    "data/justificatifs/en_attente/boulanger_20250917_698.00.pdf": {
-      "doc_id": "data/justificatifs/en_attente/boulanger_20250917_698.00.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-07T19:31:08.778661",
-      "original_name": "boulanger_20250917_698.00.pdf",
-      "ocr_file": "data/justificatifs/en_attente/boulanger_20250917_698.00.ocr.json",
-      "fournisseur": "Boulanger",
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": 3
-      },
-      "montant": 698.0,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "filename": "boulanger_20250917_698.00.pdf",
-      "renamed_from": "boulanger_20250917_698.00.pdf",
-      "categorie": "perso"
-    },
     "data/justificatifs/en_attente/boulanger_20251022_449.99.pdf": {
       "doc_id": "data/justificatifs/en_attente/boulanger_20251022_449.99.pdf",
       "type": "justificatif",
@@ -2489,56 +2463,6 @@
       "statut_justificatif": "en_attente",
       "filename": "openai_20251016_24.00.pdf",
       "renamed_from": "openai_20251016_24.pdf"
-    },
-    "data/justificatifs/en_attente/openai_20251114_24.00.pdf": {
-      "doc_id": "data/justificatifs/en_attente/openai_20251114_24.00.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-07T20:59:23.691288",
-      "original_name": "openai_20251114_24.pdf",
-      "ocr_file": "data/justificatifs/en_attente/openai_20251114_24.ocr.json",
-      "fournisseur": "Openai",
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": 4
-      },
-      "montant": 24.0,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "filename": "openai_20251114_24.00.pdf",
-      "renamed_from": "openai_20251114_24.pdf"
-    },
-    "data/justificatifs/en_attente/openai_20251116_24.00.pdf": {
-      "doc_id": "data/justificatifs/en_attente/openai_20251116_24.00.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-07T20:59:23.691288",
-      "original_name": "openai_20251116_24.pdf",
-      "ocr_file": "data/justificatifs/en_attente/openai_20251116_24.ocr.json",
-      "fournisseur": "Openai",
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": 4
-      },
-      "montant": 24.0,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "filename": "openai_20251116_24.00.pdf",
-      "renamed_from": "openai_20251116_24.pdf"
     },
     "data/justificatifs/en_attente/openai_20260116_24.00.pdf": {
       "doc_id": "data/justificatifs/en_attente/openai_20260116_24.00.pdf",
@@ -5671,30 +5595,6 @@
       "categorie": "Matériel",
       "sous_categorie": "Informatique"
     },
-    "data/justificatifs/en_attente/boulanger_20251130_699.00.pdf": {
-      "doc_id": "data/justificatifs/en_attente/boulanger_20251130_699.00.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "boulanger_20251130_699.00.pdf",
-      "ocr_file": "data/justificatifs/en_attente/boulanger_20251130_699.00.ocr.json",
-      "fournisseur": "Boulanger",
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": 4
-      },
-      "montant": 699.0,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "categorie": "perso"
-    },
     "data/justificatifs/en_attente/clinique-pont-de-chaumes_20250324_126.24.pdf": {
       "doc_id": "data/justificatifs/en_attente/clinique-pont-de-chaumes_20250324_126.24.pdf",
       "type": "justificatif",
@@ -5715,29 +5615,6 @@
         "quarter": 1
       },
       "montant": 126.24,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
-    "data/justificatifs/en_attente/contabo-gmbh_20240227_11.40.pdf": {
-      "doc_id": "data/justificatifs/en_attente/contabo-gmbh_20240227_11.40.pdf",
-      "type": "justificatif",
-      "year": 2024,
-      "month": 2,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-14T11:32:59.674601",
-      "original_name": "contabo-gmbh_20240227_11.40.pdf",
-      "ocr_file": "data/justificatifs/en_attente/contabo-gmbh_20240227_11.40.ocr.json",
-      "fournisseur": "Contabo Gmbh",
-      "period": {
-        "year": 2024,
-        "month": 2,
-        "quarter": 1
-      },
-      "montant": 11.4,
       "is_reconstitue": false,
       "statut_justificatif": "en_attente"
     },
@@ -13684,29 +13561,6 @@
         "quarter": 1
       }
     },
-    "data/justificatifs/en_attente/amazon_20250206_180.07.pdf": {
-      "doc_id": "data/justificatifs/en_attente/amazon_20250206_180.07.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 2,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-18T17:14:47.832551",
-      "original_name": "amazon_20250206_180.07.pdf",
-      "ocr_file": "data/justificatifs/en_attente/amazon_20250206_180.07.ocr.json",
-      "fournisseur": "Amazon",
-      "period": {
-        "year": 2025,
-        "month": 2,
-        "quarter": 1
-      },
-      "montant": 180.07,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/traites/amazon_20250217_85.49.pdf": {
       "doc_id": "data/justificatifs/traites/amazon_20250217_85.49.pdf",
       "type": "justificatif",
@@ -16346,64 +16200,6 @@
         "ventilation_index": null
       }
     },
-    "data/reports/rapport_honoraires_2025_20260419_194644.pdf": {
-      "doc_id": "data/reports/rapport_honoraires_2025_20260419_194644.pdf",
-      "type": "rapport",
-      "filename": "rapport_honoraires_2025_20260419_194644.pdf",
-      "year": 2025,
-      "month": null,
-      "poste_comptable": null,
-      "categorie": "Honoraires",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-19T19:46:44.538054",
-      "original_name": "rapport_honoraires_2025_20260419_194644.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": null,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Honoraires — 2025",
-        "description": null,
-        "filters": {
-          "categories": [
-            "Honoraires"
-          ],
-          "subcategories": [
-            "Bloc",
-            "Optam"
-          ],
-          "date_from": null,
-          "date_to": null,
-          "year": 2025,
-          "quarter": null,
-          "month": null,
-          "type": null,
-          "source": null,
-          "important_only": false,
-          "min_amount": null,
-          "max_amount": null
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-19T19:46:44.538054",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
     "data/reports/rapport_remplacant_honoraires_2025_20260419_194917.pdf": {
       "doc_id": "data/reports/rapport_remplacant_honoraires_2025_20260419_194917.pdf",
       "type": "rapport",
@@ -17883,59 +17679,6 @@
         "ventilation_index": null
       }
     },
-    "data/reports/rapport_rapport_2025_20260427_105632.pdf": {
-      "doc_id": "data/reports/rapport_rapport_2025_20260427_105632.pdf",
-      "type": "rapport",
-      "filename": "rapport_rapport_2025_20260427_105632.pdf",
-      "year": 2025,
-      "month": null,
-      "poste_comptable": null,
-      "categorie": null,
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-27T10:56:32.287295",
-      "original_name": "rapport_rapport_2025_20260427_105632.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": null,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": "amortissements_dotations",
-        "title": "Rapport — 2025",
-        "description": null,
-        "filters": {
-          "categories": null,
-          "subcategories": null,
-          "date_from": null,
-          "date_to": null,
-          "year": 2025,
-          "quarter": null,
-          "month": null,
-          "type": null,
-          "source": null,
-          "important_only": false,
-          "min_amount": null,
-          "max_amount": null
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-27T10:56:32.287295",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
     "data/justificatifs/traites/cursor_20250511_20.00.pdf": {
       "doc_id": "data/justificatifs/traites/cursor_20250511_20.00.pdf",
       "type": "justificatif",
@@ -18933,6 +18676,372 @@
       "operation_ref": {
         "file": "operations_20260413_185156_06d72e06.json",
         "index": 14,
+        "ventilation_index": null
+      }
+    },
+    "data/reports/rapport_urssaf_2025_20260427_213051.pdf": {
+      "doc_id": "data/reports/rapport_urssaf_2025_20260427_213051.pdf",
+      "type": "rapport",
+      "filename": "rapport_urssaf_2025_20260427_213051.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "URSSAF",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T21:30:51.934700",
+      "original_name": "rapport_urssaf_2025_20260427_213051.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "URSSAF — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "URSSAF"
+          ],
+          "subcategories": null,
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-27T21:30:51.934700",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_abonnements_2025_20260427_213512.pdf": {
+      "doc_id": "data/reports/rapport_abonnements_2025_20260427_213512.pdf",
+      "type": "rapport",
+      "filename": "rapport_abonnements_2025_20260427_213512.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Abonnements",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T21:35:12.547347",
+      "original_name": "rapport_abonnements_2025_20260427_213512.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Abonnements — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Abonnements"
+          ],
+          "subcategories": null,
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-27T21:35:12.547347",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_honoraires_2025_20260427_215453.pdf": {
+      "doc_id": "data/reports/rapport_honoraires_2025_20260427_215453.pdf",
+      "type": "rapport",
+      "filename": "rapport_honoraires_2025_20260427_215453.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Honoraires",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T21:54:54.024937",
+      "original_name": "rapport_honoraires_2025_20260427_215453.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Honoraires — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Honoraires"
+          ],
+          "subcategories": [
+            "Bloc",
+            "Optam"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-27T21:54:54.024937",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/justificatifs/traites/boulanger_20251130_699.00.pdf": {
+      "doc_id": "data/justificatifs/traites/boulanger_20251130_699.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "boulanger_20251130_699.00.pdf",
+      "ocr_file": "data/justificatifs/traites/boulanger_20251130_699.00.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "montant": 119.99,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Matériel",
+      "sous_categorie": "",
+      "date_operation": "2025-12-02",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 17,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/openai_20251114_24.00.pdf": {
+      "doc_id": "data/justificatifs/traites/openai_20251114_24.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-07T20:59:23.691288",
+      "original_name": "openai_20251114_24.pdf",
+      "ocr_file": "data/justificatifs/traites/openai_20251114_24.00.ocr.json",
+      "fournisseur": "Openai",
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "montant": 22.23,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "filename": "openai_20251114_24.00.pdf",
+      "renamed_from": "openai_20251114_24.pdf",
+      "categorie": "Abonnements",
+      "sous_categorie": "",
+      "date_operation": "2025-11-14",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 41,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/openai_20251116_24.00.pdf": {
+      "doc_id": "data/justificatifs/traites/openai_20251116_24.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-07T20:59:23.691288",
+      "original_name": "openai_20251116_24.pdf",
+      "ocr_file": "data/justificatifs/traites/openai_20251116_24.00.ocr.json",
+      "fournisseur": "Openai",
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "montant": 22.17,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "filename": "openai_20251116_24.00.pdf",
+      "renamed_from": "openai_20251116_24.pdf",
+      "categorie": "Abonnements",
+      "sous_categorie": "",
+      "date_operation": "2025-11-16",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 56,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/contabo-gmbh_20240227_11.40.pdf": {
+      "doc_id": "data/justificatifs/traites/contabo-gmbh_20240227_11.40.pdf",
+      "type": "justificatif",
+      "year": 2024,
+      "month": 2,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-14T11:32:59.674601",
+      "original_name": "contabo-gmbh_20240227_11.40.pdf",
+      "ocr_file": "data/justificatifs/traites/contabo-gmbh_20240227_11.40.ocr.json",
+      "fournisseur": "Contabo GmbH",
+      "period": {
+        "year": 2024,
+        "month": 2,
+        "quarter": 1
+      },
+      "montant": 18.6,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Autres",
+      "sous_categorie": "",
+      "date_operation": "2024-02-27",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185203_c0bdd60a.json",
+        "index": 31,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/boulanger_20250917_698.00.pdf": {
+      "doc_id": "data/justificatifs/traites/boulanger_20250917_698.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-07T19:31:08.778661",
+      "original_name": "boulanger_20250917_698.00.pdf",
+      "ocr_file": "data/justificatifs/traites/boulanger_20250917_698.00.ocr.json",
+      "fournisseur": "Boulanger",
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "montant": 16.49,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "filename": "boulanger_20250917_698.00.pdf",
+      "renamed_from": "boulanger_20250917_698.00.pdf",
+      "categorie": "Matériel",
+      "sous_categorie": "",
+      "date_operation": "2025-09-16",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 40,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/amazon_20250206_180.07.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250206_180.07.pdf",
+      "type": "justificatif",
+      "year": 2026,
+      "month": 1,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-18T17:14:47.832551",
+      "original_name": "amazon_20250206_180.07.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250206_180.07.ocr.json",
+      "fournisseur": "Amazon",
+      "period": {
+        "year": 2026,
+        "month": 1,
+        "quarter": 1
+      },
+      "montant": 15.95,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Matériel",
+      "sous_categorie": "Informatique",
+      "date_operation": "2026-01-20",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_20260413_185157_18aef1a3.json",
+        "index": 46,
         "ventilation_index": null
       }
     }
