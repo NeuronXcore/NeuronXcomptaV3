@@ -97,8 +97,8 @@
   },
   {
     "id": "3c929f93",
-    "title": "Clôturer Juillet 2025 (lettrage 51%, justificatifs 59%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 51%, taux justificatifs 59%.",
+    "title": "Clôturer Juillet 2025 (lettrage 51%, justificatifs 61%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 51%, taux justificatifs 61%.",
     "status": "todo",
     "priority": "normale",
     "source": "auto",
@@ -113,8 +113,8 @@
   },
   {
     "id": "a7fbcb97",
-    "title": "Clôturer Août 2025 (lettrage 55%, justificatifs 39%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 55%, taux justificatifs 39%.",
+    "title": "Clôturer Août 2025 (lettrage 55%, justificatifs 43%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 55%, taux justificatifs 43%.",
     "status": "todo",
     "priority": "normale",
     "source": "auto",
@@ -129,8 +129,8 @@
   },
   {
     "id": "81d4bbca",
-    "title": "Clôturer Septembre 2025 (lettrage 38%, justificatifs 43%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 38%, taux justificatifs 43%.",
+    "title": "Clôturer Septembre 2025 (lettrage 38%, justificatifs 47%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 38%, taux justificatifs 47%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -145,8 +145,8 @@
   },
   {
     "id": "11a2a26b",
-    "title": "Clôturer Octobre 2025 (lettrage 45%, justificatifs 46%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 45%, taux justificatifs 46%.",
+    "title": "Clôturer Octobre 2025 (lettrage 45%, justificatifs 48%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 45%, taux justificatifs 48%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -161,10 +161,10 @@
   },
   {
     "id": "91ed8e32",
-    "title": "Clôturer Novembre 2025 (lettrage 29%, justificatifs 34%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 29%, taux justificatifs 34%.",
+    "title": "Clôturer Novembre 2025 (lettrage 29%, justificatifs 51%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 29%, taux justificatifs 51%.",
     "status": "todo",
-    "priority": "haute",
+    "priority": "normale",
     "source": "auto",
     "year": 2025,
     "auto_key": "cloture:2025-11",
@@ -177,8 +177,8 @@
   },
   {
     "id": "b8c394f6",
-    "title": "Clôturer Décembre 2025 (lettrage 35%, justificatifs 40%)",
-    "description": "Mois partiellement clôturé. Taux lettrage 35%, taux justificatifs 40%.",
+    "title": "Clôturer Décembre 2025 (lettrage 43%, justificatifs 42%)",
+    "description": "Mois partiellement clôturé. Taux lettrage 43%, taux justificatifs 42%.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -193,8 +193,8 @@
   },
   {
     "id": "20a081b0",
-    "title": "Traiter 209 alertes en compte d'attente",
-    "description": "209 opérations en compte d'attente nécessitent une résolution.",
+    "title": "Traiter 188 alertes en compte d'attente",
+    "description": "188 opérations en compte d'attente nécessitent une résolution.",
     "status": "todo",
     "priority": "haute",
     "source": "auto",
@@ -721,8 +721,8 @@
   },
   {
     "id": "3c20ac8d",
-    "title": "Rapprocher 149 justificatifs en attente",
-    "description": "149 justificatifs PDF en attente de rapprochement bancaire.",
+    "title": "Rapprocher 133 justificatifs en attente",
+    "description": "133 justificatifs PDF en attente de rapprochement bancaire.",
     "status": "in_progress",
     "priority": "haute",
     "source": "auto",
@@ -1073,26 +1073,6 @@
       "nb_immos": 2,
       "total_deductible": 890.46,
       "action_url": "/amortissements?tab=dotation&year=2025"
-    }
-  },
-  {
-    "id": "e015e2ed",
-    "title": "Réentraîner le modèle IA",
-    "description": "13 correction(s) depuis le dernier entraînement · 0j sans entraînement",
-    "status": "todo",
-    "priority": "normale",
-    "source": "auto",
-    "year": 2025,
-    "auto_key": "ml_retrain",
-    "due_date": null,
-    "dismissed": false,
-    "created_at": "2026-04-27T21:06:33.239181",
-    "completed_at": null,
-    "order": 0,
-    "metadata": {
-      "corrections_count": 13,
-      "days_since_training": 0,
-      "action_url": "/agent-ai"
     }
   }
 ]

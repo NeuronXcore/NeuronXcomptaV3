@@ -19044,6 +19044,161 @@
         "index": 46,
         "ventilation_index": null
       }
+    },
+    "data/justificatifs/traites/justificatif_20260427_220407_11f3823458_invoice.pdf": {
+      "doc_id": "data/justificatifs/traites/justificatif_20260427_220407_11f3823458_invoice.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 7,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T22:22:27.920404",
+      "original_name": "justificatif_20260427_220407_11f3823458_invoice.pdf",
+      "ocr_file": "data/justificatifs/traites/justificatif_20260427_220407_11f3823458_invoice.ocr.json",
+      "categorie": "Abonnements",
+      "sous_categorie": null,
+      "date_operation": "2025-07-25",
+      "montant": 9.67,
+      "operation_ref": {
+        "file": "operations_merged_202507_20260414_234739.json",
+        "index": 62,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 7,
+        "quarter": 3
+      },
+      "fournisseur": "Justificatif",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/justificatif_20260427_220407_15e7ee7d28_invoice.pdf": {
+      "doc_id": "data/justificatifs/traites/justificatif_20260427_220407_15e7ee7d28_invoice.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 9,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T22:22:27.920404",
+      "original_name": "justificatif_20260427_220407_15e7ee7d28_invoice.pdf",
+      "ocr_file": "data/justificatifs/traites/justificatif_20260427_220407_15e7ee7d28_invoice.ocr.json",
+      "categorie": "Abonnements",
+      "sous_categorie": null,
+      "date_operation": "2025-09-25",
+      "montant": 9.67,
+      "operation_ref": {
+        "file": "operations_merged_202509_20260414_234739.json",
+        "index": 79,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 9,
+        "quarter": 3
+      },
+      "fournisseur": "Justificatif",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/justificatif_20260427_220407_16b3c21004_invoice.pdf": {
+      "doc_id": "data/justificatifs/traites/justificatif_20260427_220407_16b3c21004_invoice.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T22:22:27.920404",
+      "original_name": "justificatif_20260427_220407_16b3c21004_invoice.pdf",
+      "ocr_file": "data/justificatifs/traites/justificatif_20260427_220407_16b3c21004_invoice.ocr.json",
+      "categorie": "Abonnements",
+      "sous_categorie": null,
+      "date_operation": "2025-10-25",
+      "montant": 9.76,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 68,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "fournisseur": "Justificatif",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/justificatif_20260427_220407_186ae7324_invoice.pdf": {
+      "doc_id": "data/justificatifs/traites/justificatif_20260427_220407_186ae7324_invoice.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T22:22:27.920404",
+      "original_name": "justificatif_20260427_220407_186ae7324_invoice.pdf",
+      "ocr_file": "data/justificatifs/traites/justificatif_20260427_220407_186ae7324_invoice.ocr.json",
+      "categorie": "Abonnements",
+      "sous_categorie": null,
+      "date_operation": "2025-11-25",
+      "montant": 9.84,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 93,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Justificatif",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/justificatif_20260427_220407_8fccaf972_invoice.pdf": {
+      "doc_id": "data/justificatifs/traites/justificatif_20260427_220407_8fccaf972_invoice.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 8,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T22:22:27.920404",
+      "original_name": "justificatif_20260427_220407_8fccaf972_invoice.pdf",
+      "ocr_file": "data/justificatifs/traites/justificatif_20260427_220407_8fccaf972_invoice.ocr.json",
+      "categorie": "Abonnements",
+      "sous_categorie": null,
+      "date_operation": "2025-08-25",
+      "montant": 9.78,
+      "operation_ref": {
+        "file": "operations_merged_202508_20260414_234739.json",
+        "index": 55,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 8,
+        "quarter": 3
+      },
+      "fournisseur": "Justificatif",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
     }
   }
 }

@@ -1,6 +1,11 @@
 {
   "01": {
     "validated_at": "2026-04-27T22:13:12.739361",
-    "validated_by": "user"
+    "validated_by": "user",
+    "items": {
+      "avant_envoi.snapshot_pre_envoi_cree": {
+        "manual_ok": true
+      }
+    }
   }
 }

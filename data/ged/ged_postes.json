@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "exercice": 2026,
+  "exercice": 2025,
   "postes": [
     {
       "id": "loyer-cabinet",
@@ -23,7 +23,7 @@
     {
       "id": "vehicule",
       "label": "Véhicule (carburant, entretien, leasing)",
-      "deductible_pct": 51.0,
+      "deductible_pct": 51,
       "categories_associees": [
         "Transport",
         "Véhicule"
@@ -34,7 +34,7 @@
     {
       "id": "telephone",
       "label": "Téléphone mobile",
-      "deductible_pct": 60,
+      "deductible_pct": 100,
       "categories_associees": [
         "Téléphone",
         "Télécommunications"
@@ -45,7 +45,7 @@
     {
       "id": "internet-domicile",
       "label": "Internet domicile",
-      "deductible_pct": 20,
+      "deductible_pct": 100,
       "categories_associees": [
         "Internet"
       ],
