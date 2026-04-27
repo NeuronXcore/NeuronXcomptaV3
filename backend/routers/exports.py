@@ -31,6 +31,7 @@ class GenerateMonthRequest(BaseModel):
     format: str = "pdf"
     report_filenames: Optional[List[str]] = None
     include_compte_attente: bool = True
+    include_amortissements: bool = True
 
 
 class GenerateBatchRequest(BaseModel):
@@ -97,6 +98,7 @@ async def generate_month_export(request: GenerateMonthRequest):
             fmt=request.format,
             report_filenames=request.report_filenames,
             include_compte_attente=request.include_compte_attente,
+            include_amortissements=request.include_amortissements,
         )
         return result
     except ValueError as e:

@@ -8,6 +8,39 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-27) — Prompt B1 : Amortissements backend écritures (OD + PDF + GED + task + ZIP)
+
+**Matérialisation comptable de la dotation aux amortissements**, pattern strict `charges_forfaitaires_service` (blanchissage / repas / véhicule). L'OD au 31/12 passe la dotation déductible en charge fiscale, avec PDF rapport ReportLab + entrée GED + nettoyage idempotent.
+
+- **Nouveau service** [`backend/services/amortissement_report_service.py`](backend/services/amortissement_report_service.py) : `generate_dotation_pdf(year, output_path) -> Path`. ReportLab A4 portrait : logo `logo_lockup_light_400.png`, titre `État des amortissements — Exercice {year}`, tableau registre 9 colonnes (`Désignation / Acquis le / Durée / Base / VNC début / Dotation / Q-part / VNC fin / Poste`) + ligne TOTAL violet `#EEEDFE`, récapitulatif (dotation brute / déductible / nb immos), référence légale art. 39-1-2° CGI / PCG 214-13. Helpers internes `_fr_euro` (1 234,56 €) et `_format_date_fr` (15/03/2024).
+
+- **4 fonctions publiques** ajoutées dans [`backend/services/amortissement_service.py`](backend/services/amortissement_service.py:929) :
+  - **`generer_dotation_ecriture(year)`** — OD 31/12 + PDF + GED. Idempotent : si OD existante (même fichier OU autre fichier post split/merge), supprime + cleanup PDF + GED avant de recréer. OD : `Catégorie: "Dotations aux amortissements"`, `source: "amortissement"`, `locked: true`, `lettre: true`, `type_operation: "OD"`, `Lien justificatif: "reports/{pdf_filename}"`, commentaire `Dotation amortissements exercice {year} — {N} immo(s) — art. 39-1-2° CGI`. Format filename PDF : `amortissements_{YYYY}1231_{int(montant)}.pdf` dans `data/reports/`. Retourne `{status, year, filename, index, pdf_filename, ged_doc_id, montant_deductible, nb_immos}`. Lève `ValueError` si `nb_immos_actives == 0`.
+  - **`supprimer_dotation_ecriture(year)`** — Nettoie OD + PDF disque + entrée GED. Retourne `{status: "deleted"|"not_found", year, filename?, index?, pdf_removed?}`.
+  - **`regenerer_pdf_dotation(year)`** — Pattern véhicule, regénère uniquement le PDF (l'OD reste en place) + invalide la thumbnail GED via `delete_thumbnail_for_doc_id(doc_id)`. Lève `ValueError` si OD absente. Utile quand le tableau d'amortissement change sans qu'on veuille re-supprimer/re-créer l'OD.
+  - **`get_candidate_detail(filename, index)`** — Retourne `{operation, filename, index, justificatif: {filename, ocr_data}|null, ocr_prefill: {designation, date_acquisition, base_amortissable}}` pour `ImmobilisationDrawer` (Prompt B2). Préfill OCR prioritaire (supplier+best_date+best_amount), fallback sur les valeurs de l'op bancaire.
+  - Helpers privés : `_find_or_create_december_file(year)` (scan du mois dominant des dates, fallback sur `operation_service.create_empty_file(year, 12)`), `_register_dotation_ged_entry(...)` (pattern direct `load_metadata`/`save_metadata` comme `charges_forfaitaires_service`, pas `register_rapport`), `_remove_dotation_ged_entry(pdf_filename)` (best-effort, log warning sur échec).
+
+- **5 endpoints ajoutés** dans [`backend/routers/amortissements.py`](backend/routers/amortissements.py:81) (sous `/api/amortissements/`) :
+  - `POST /generer-dotation?year=X` (400 si pas d'immo)
+  - `DELETE /supprimer-dotation?year=X` (idempotent)
+  - `POST /regenerer-pdf-dotation?year=X` (404 si OD absente)
+  - `GET /candidate-detail?filename=X&index=N` (préfill OCR pour Prompt B2)
+  - `GET /dotation-genere?year=X` (métadonnées OD ou `null` — pattern véhicule pour brancher l'UI Prompt B2)
+
+- **Bug fix `find_dotation_operation`** — l'ancienne implémentation filtrait par regex sur le filename (`f"{year}12"` ou `f"_{year}12_"`) ce qui ratait les fichiers post-merge contenant des dates multi-années (ex. `operations_merged_202512_*.json` contenant des ops 2025-11/12 ET 2026-03/12). Corrigé pour scanner le contenu réel : `op.source == "amortissement"` ET `op.Date.startswith(f"{year}-12-")`. Robuste aux fichiers merged/split.
+
+- **7ᵉ détection `dotation_manquante`** dans [`backend/services/task_service.py`](backend/services/task_service.py:158) (insérée avant `ml_retrain` qui passe en 6ᵉ). Déclenche si `(today.year > year OR (today.year == year AND today.month >= 12))` ET `find_dotation_operation(year) is None` ET `nb_immos_actives > 0`. `auto_key: "dotation_manquante_{year}"`, `priority: HIGH`, `metadata: {nb_immos, total_deductible, action_url: "/amortissements?tab=dotation&year={year}"}`. Idempotente via dedup `auto_key` du router : disparaît au prochain refresh dès que l'OD est générée.
+
+- **Section `Amortissements/` dans l'export ZIP** ([`backend/services/export_service.py`](backend/services/export_service.py:996)) :
+  - Helper `_add_amortissements_to_zip(zf, year, prefix="")` ajoute (a) le PDF du rapport OD si l'OD a été générée, (b) `registre_immobilisations_{year}.pdf` régénéré à la volée si l'OD est absente, (c) `registre_immobilisations_{year}.csv` (BOM UTF-8, séparateur `;`, virgule décimale, CRLF — Excel FR). No-op si `nb_immos_actives == 0`.
+  - Helper `_generate_registre_amortissement_csv(detail)` : 11 colonnes `Désignation;Acquis le;Mode;Durée;Base;VNC début;Dotation brute;Quote-part;Dotation déductible;VNC fin;Poste` + ligne TOTAL.
+  - Toggle `include_amortissements: bool = True` sur `GenerateMonthRequest` ([routers/exports.py](backend/routers/exports.py:33)) + `generate_single_export()` — section ajoutée uniquement pour `month == 12` (l'OD est au 31/12). `generate_batch_export()` ajoute la section au root du ZIP si décembre est dans `months[]`. `generate_export()` legacy (`/generate`) **non touché**.
+
+- **Modèle `Operation`** ([models/operation.py:38](backend/models/operation.py:38)) — `source: Optional[str] = None` accepte déjà `"amortissement"` (commentaire confirmé), pas de migration nécessaire.
+
+**Tests end-to-end OK sur 2026** (2 immos, 713 € déductible) : cycle `generer → find → 2ᵉ generer (idempotence : 1 seule OD) → regenerer_pdf → supprimer (OD + PDF + GED nettoyés)` fonctionne. Helper ZIP produit `Amortissements/amortissements_20261231_713.pdf` (17 729 octets) + `registre_immobilisations_2026.csv` (355 octets, ligne TOTAL `;;;;;;713,00;;713,00;;`). Task auto `dotation_manquante_2025` détectée HIGH.
+
 ### Added (2026-04-27) — Prompt A2 : Amortissements frontend fiscal (reprise + ligne virtuelle)
 
 - **Migration types `Immobilisation`/`ImmobilisationCreate`** vers les nouveaux noms backend (Prompt A1) : `libelle → designation`, `valeur_origine → base_amortissable`, `duree_amortissement → duree`, `methode → mode`, `poste_comptable → poste`. Ajout des 3 champs reprise (`exercice_entree_neuronx?`, `amortissements_anterieurs`, `vnc_ouverture?`). `LigneAmortissement` enrichi de `is_backfill?`, `libelle?`, `vnc_debut?`. `AmortissementConfig` aligné sur le modèle Pydantic minimaliste (`seuil`, `sous_categories_exclues`, `durees_par_defaut`, `coefficient_degressif`). Moteur TS [`lib/amortissement-engine.ts`](frontend/src/lib/amortissement-engine.ts) : `CalcAmortissementParams` utilise `base_amortissable` + `mode` (au lieu de `valeur_origine` + `methode`).

@@ -646,7 +646,11 @@ def get_projections(years: int = 5) -> list[dict]:
 # ─── Détail virtuel + référence OD ───
 
 def find_dotation_operation(year: int) -> Optional[dict]:
-    """Scanne les ops du mois 12 pour trouver l'OD dotation (Prompt B).
+    """Scanne les ops pour trouver l'OD dotation `year` (Prompt B).
+
+    Match strict : `op.source == "amortissement"` ET `op.Date.startswith(f"{year}-12-")`.
+    Scanne tous les fichiers JSON (pas de filtre par filename) pour gérer le cas
+    des fichiers merged/split contenant des dates multi-années.
 
     Retourne `{filename, index, year}` ou `None`.
     """
@@ -654,16 +658,9 @@ def find_dotation_operation(year: int) -> Optional[dict]:
     ops_dir = Path(IMPORTS_OPERATIONS_DIR)
     if not ops_dir.exists():
         return None
-    # Pattern année + mois 12 dans le filename
-    candidates: list[Path] = []
-    for path in ops_dir.glob("*.json"):
-        name = path.name
-        # patterns acceptés : *YYYY12*, *_YYYYMM_*, etc.
-        if f"{year}12" in name or f"_{year}12_" in name:
-            candidates.append(path)
-        # fallback : ouvrir et tester le mois dominant si nécessaire (coûteux, on évite)
 
-    for path in candidates:
+    date_prefix = f"{year}-12-"
+    for path in ops_dir.glob("operations_*.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
@@ -671,7 +668,12 @@ def find_dotation_operation(year: int) -> Optional[dict]:
         if not isinstance(data, list):
             continue
         for idx, op in enumerate(data):
-            if op.get("source") == "amortissement":
+            if not isinstance(op, dict):
+                continue
+            if op.get("source") != "amortissement":
+                continue
+            date_op = op.get("Date", "") or ""
+            if isinstance(date_op, str) and date_op.startswith(date_prefix):
                 return {"filename": path.name, "index": idx, "year": year}
     return None
 
@@ -924,3 +926,411 @@ def get_kpis(year: Optional[int] = None) -> dict:
 # Alias rétrocompat — l'ancien nom était utilisé par le router
 def calc_tableau_amortissement(immo: dict) -> list[dict]:
     return compute_tableau(immo)
+
+
+# ─── OD dotation 31/12 (Prompt B1) ───
+
+def _find_or_create_december_file(year: int) -> str:
+    """Trouve un fichier d'opérations contenant des dates de décembre `year`,
+    sinon crée un fichier vide via `operation_service.create_empty_file(year, 12)`.
+
+    Pattern miroir de `charges_forfaitaires_service._find_or_create_december_file`.
+    Scanne le mois dominant (pas le filename) car les fichiers d'imports portent
+    un timestamp et pas YYYYMM.
+    """
+    from backend.core.config import IMPORTS_OPERATIONS_DIR
+    from backend.services import operation_service
+
+    best_file: Optional[str] = None
+    for f in sorted(IMPORTS_OPERATIONS_DIR.glob("operations_*.json")):
+        try:
+            ops = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(ops, list) or not ops:
+            continue
+        months: dict[int, int] = {}
+        for op in ops:
+            date_str = (op or {}).get("Date", "")
+            if isinstance(date_str, str) and date_str.startswith(f"{year}-"):
+                try:
+                    month = int(date_str.split("-")[1])
+                    months[month] = months.get(month, 0) + 1
+                except (ValueError, IndexError):
+                    continue
+        if months:
+            dominant = max(months, key=lambda m: months[m])
+            if dominant == 12:
+                return f.name
+            best_file = f.name  # fallback : dernier fichier de l'année
+
+    if best_file:
+        return best_file
+
+    # Aucun fichier existant : on crée un fichier mensuel vide
+    return operation_service.create_empty_file(year, 12)
+
+
+def generer_dotation_ecriture(year: int) -> dict:
+    """Génère l'OD dotation 31/12 + PDF + GED. Idempotent (regénère si existe).
+
+    Pattern strict charges_forfaitaires : trouve/crée le fichier décembre, supprime
+    l'OD existante avant de recréer (déduplication), génère le PDF dans REPORTS_DIR,
+    enregistre dans la GED comme `type: "rapport"` avec `report_type: "amortissement"`.
+    """
+    from backend.core.config import IMPORTS_OPERATIONS_DIR, REPORTS_DIR
+    from backend.services import operation_service
+    from backend.services.amortissement_report_service import generate_dotation_pdf
+
+    detail = get_virtual_detail(year)
+    if detail.nb_immos_actives == 0:
+        raise ValueError(f"Aucune immobilisation active pour l'exercice {year}")
+
+    # 1. Localiser ou créer le fichier décembre de l'année
+    december_file = _find_or_create_december_file(year)
+
+    # 2. Si OD existante → supprimer avant de recréer (déduplication)
+    existing_ref = find_dotation_operation(year)
+    if existing_ref and existing_ref["filename"] == december_file:
+        ops = operation_service.load_operations(december_file)
+        if 0 <= existing_ref["index"] < len(ops):
+            old_pdf = ops[existing_ref["index"]].get("Lien justificatif")
+            del ops[existing_ref["index"]]
+            operation_service.save_operations(ops, filename=december_file)
+            # Retire l'ancien PDF + GED si présent
+            if old_pdf:
+                old_basename = Path(old_pdf).name
+                old_path = REPORTS_DIR / old_basename
+                old_path.unlink(missing_ok=True)
+                _remove_dotation_ged_entry(old_basename)
+    elif existing_ref:
+        # OD trouvée dans un autre fichier (cas rare : split/merge a déplacé) — supprimer aussi
+        ops_other = operation_service.load_operations(existing_ref["filename"])
+        if 0 <= existing_ref["index"] < len(ops_other):
+            old_pdf = ops_other[existing_ref["index"]].get("Lien justificatif")
+            del ops_other[existing_ref["index"]]
+            operation_service.save_operations(ops_other, filename=existing_ref["filename"])
+            if old_pdf:
+                old_basename = Path(old_pdf).name
+                (REPORTS_DIR / old_basename).unlink(missing_ok=True)
+                _remove_dotation_ged_entry(old_basename)
+
+    # 3. Générer le PDF
+    montant_int = int(round(detail.total_deductible))
+    pdf_filename = f"amortissements_{year}1231_{montant_int}.pdf"
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    pdf_path = REPORTS_DIR / pdf_filename
+    generate_dotation_pdf(year, pdf_path)
+
+    # 4. Construire l'OD et l'append au fichier décembre
+    od = {
+        "Date": f"{year}-12-31",
+        "Libellé": f"Dotation aux amortissements {year}",
+        "Débit": round(detail.total_deductible, 2),
+        "Crédit": 0.0,
+        "Catégorie": "Dotations aux amortissements",
+        "Sous-catégorie": "",
+        "Justificatif": True,
+        "Lien justificatif": f"reports/{pdf_filename}",
+        "Important": False,
+        "A_revoir": False,
+        "Commentaire": (
+            f"Dotation amortissements exercice {year} — "
+            f"{detail.nb_immos_actives} immo(s) — "
+            f"art. 39-1-2° CGI"
+        ),
+        "lettre": True,
+        "locked": True,
+        "locked_at": datetime.now().isoformat(),
+        "source": "amortissement",
+        "type_operation": "OD",
+    }
+    ops = operation_service.load_operations(december_file)
+    ops.append(od)
+    op_index = len(ops) - 1
+    operation_service.save_operations(ops, filename=december_file)
+
+    # 5. Enregistrer le rapport dans la GED (pattern direct metadata, comme charges_forfaitaires)
+    ged_doc_id = _register_dotation_ged_entry(
+        pdf_filename=pdf_filename,
+        year=year,
+        montant_deductible=detail.total_deductible,
+        nb_immos=detail.nb_immos_actives,
+        op_file=december_file,
+        op_index=op_index,
+    )
+
+    return {
+        "status": "generated",
+        "year": year,
+        "filename": december_file,
+        "index": op_index,
+        "pdf_filename": pdf_filename,
+        "ged_doc_id": ged_doc_id,
+        "montant_deductible": detail.total_deductible,
+        "nb_immos": detail.nb_immos_actives,
+    }
+
+
+def supprimer_dotation_ecriture(year: int) -> dict:
+    """Supprime OD + PDF + entrée GED. Retourne `{status: deleted|not_found, ...}`."""
+    from backend.core.config import REPORTS_DIR
+    from backend.services import operation_service
+
+    ref = find_dotation_operation(year)
+    if not ref:
+        return {"status": "not_found", "year": year}
+
+    ops = operation_service.load_operations(ref["filename"])
+    if not (0 <= ref["index"] < len(ops)):
+        return {"status": "not_found", "year": year}
+
+    pdf_lien = ops[ref["index"]].get("Lien justificatif")
+    pdf_filename = Path(pdf_lien).name if pdf_lien else None
+
+    del ops[ref["index"]]
+    operation_service.save_operations(ops, filename=ref["filename"])
+
+    pdf_removed = False
+    if pdf_filename:
+        pdf_path = REPORTS_DIR / pdf_filename
+        if pdf_path.exists():
+            pdf_path.unlink()
+            pdf_removed = True
+        _remove_dotation_ged_entry(pdf_filename)
+
+    return {
+        "status": "deleted",
+        "year": year,
+        "filename": ref["filename"],
+        "index": ref["index"],
+        "pdf_removed": pdf_removed,
+    }
+
+
+def regenerer_pdf_dotation(year: int) -> dict:
+    """Regénère uniquement le PDF (l'OD reste en place). Pattern véhicule.
+
+    Utile quand le tableau d'amortissement change (modif d'une immo) sans qu'on
+    veuille re-supprimer/re-créer l'OD. Met à jour le PDF disque + invalide le
+    thumbnail GED.
+    """
+    from backend.core.config import REPORTS_DIR
+    from backend.services import operation_service
+    from backend.services.amortissement_report_service import generate_dotation_pdf
+
+    ref = find_dotation_operation(year)
+    if not ref:
+        raise ValueError(f"OD dotation {year} introuvable — générer d'abord")
+
+    ops = operation_service.load_operations(ref["filename"])
+    if not (0 <= ref["index"] < len(ops)):
+        raise ValueError(f"OD dotation {year} index hors limites")
+
+    pdf_lien = ops[ref["index"]].get("Lien justificatif")
+    pdf_filename = Path(pdf_lien).name if pdf_lien else None
+    if not pdf_filename:
+        raise ValueError(f"OD dotation {year} sans Lien justificatif — supprimer puis regénérer")
+
+    pdf_path = REPORTS_DIR / pdf_filename
+    generate_dotation_pdf(year, pdf_path)
+
+    # Invalide la thumbnail GED (PDF a changé sur disque)
+    try:
+        from backend.services import ged_service
+        doc_id = f"data/reports/{pdf_filename}"
+        ged_service.delete_thumbnail_for_doc_id(doc_id)
+    except Exception as e:
+        logger.warning("Invalidation thumbnail dotation %s échouée: %s", pdf_filename, e)
+
+    return {
+        "status": "regenerated",
+        "year": year,
+        "pdf_filename": pdf_filename,
+        "filename": ref["filename"],
+        "index": ref["index"],
+    }
+
+
+def get_candidate_detail(filename: str, index: int) -> dict:
+    """Retourne `op + justificatif + ocr_prefill` pour `ImmobilisationDrawer` (Prompt B2).
+
+    Préfill OCR prioritaire (supplier+date+best_amount), fallback sur les valeurs
+    de l'op bancaire si OCR absent ou incomplet.
+    """
+    from backend.services import (
+        justificatif_service,
+        ocr_service,
+        operation_service,
+    )
+
+    ops = operation_service.load_operations(filename)
+    if not (0 <= index < len(ops)):
+        raise ValueError(f"Index {index} hors limites pour {filename}")
+
+    op = ops[index]
+    lien = op.get("Lien justificatif", "") or ""
+    justif_filename = Path(lien).name if lien else None
+
+    # Préfill défaut depuis l'op
+    debit_val = op.get("Débit") or 0
+    try:
+        debit_abs = abs(float(debit_val))
+    except (ValueError, TypeError):
+        debit_abs = 0.0
+    ocr_prefill: dict = {
+        "designation": op.get("Libellé", "") or "",
+        "date_acquisition": op.get("Date", "") or "",
+        "base_amortissable": debit_abs,
+    }
+
+    justificatif = None
+    if justif_filename:
+        justif_path = justificatif_service.get_justificatif_path(justif_filename)
+        if justif_path:
+            ocr_data: dict = {}
+            cache_path = ocr_service._find_ocr_cache_file(justif_filename)
+            if cache_path and cache_path.exists():
+                try:
+                    ocr_data = json.loads(cache_path.read_text(encoding="utf-8"))
+                except Exception:
+                    ocr_data = {}
+
+            justificatif = {
+                "filename": justif_filename,
+                "ocr_data": ocr_data,
+            }
+
+            # Préfill prioritaire depuis OCR (top-level OU extracted_data selon shape)
+            extracted = ocr_data.get("extracted_data") or {}
+            supplier = ocr_data.get("supplier") or extracted.get("supplier")
+            best_date = ocr_data.get("best_date") or extracted.get("best_date")
+            best_amount = ocr_data.get("best_amount") or extracted.get("best_amount")
+
+            if supplier:
+                libelle = op.get("Libellé", "") or ""
+                ocr_prefill["designation"] = (
+                    f"{supplier} — {libelle}" if libelle else supplier
+                )
+            if best_date:
+                ocr_prefill["date_acquisition"] = best_date
+            if best_amount:
+                try:
+                    ocr_prefill["base_amortissable"] = float(best_amount)
+                except (ValueError, TypeError):
+                    pass
+
+    return {
+        "operation": op,
+        "filename": filename,
+        "index": index,
+        "justificatif": justificatif,
+        "ocr_prefill": ocr_prefill,
+    }
+
+
+# ─── Helpers GED dotation (pattern direct metadata, miroir charges_forfaitaires) ───
+
+def _register_dotation_ged_entry(
+    pdf_filename: str,
+    year: int,
+    montant_deductible: float,
+    nb_immos: int,
+    op_file: str,
+    op_index: int,
+) -> str:
+    """Enregistre le PDF dotation dans la GED comme `type: "rapport"`.
+
+    `report_type: "amortissement"` (pour filtrage GED `?type=rapport&report_type=amortissement`)
+    et `source_module: "amortissements"` (pour navigation retour vers `/amortissements`).
+    """
+    from backend.core.config import BASE_DIR, REPORTS_DIR
+    from backend.services.ged_service import load_metadata, save_metadata
+
+    src_path = REPORTS_DIR / pdf_filename
+    try:
+        doc_id = str(src_path.relative_to(BASE_DIR))
+    except ValueError:
+        doc_id = str(src_path)
+
+    metadata = load_metadata()
+    docs = metadata.get("documents", {})
+    now = datetime.now().isoformat()
+
+    docs[doc_id] = {
+        "doc_id": doc_id,
+        "type": "rapport",
+        "filename": pdf_filename,
+        "year": year,
+        "month": 12,
+        "poste_comptable": None,
+        "categorie": "Dotations aux amortissements",
+        "sous_categorie": None,
+        "montant_brut": None,
+        "deductible_pct_override": None,
+        "tags": [],
+        "notes": "",
+        "added_at": now,
+        "original_name": pdf_filename,
+        "ocr_file": None,
+        "fournisseur": None,
+        "date_document": f"{year}-12-31",
+        "date_operation": f"{year}-12-31",
+        "period": {"year": year, "month": 12, "quarter": 4},
+        "montant": montant_deductible,
+        "ventilation_index": None,
+        "is_reconstitue": False,
+        "operation_ref": f"{op_file}:{op_index}",
+        "source_module": "amortissements",
+        "rapport_meta": {
+            "template_id": None,
+            "report_type": "amortissement",
+            "title": f"État des amortissements {year}",
+            "description": (
+                f"Dotation déductible {montant_deductible:.2f} € — "
+                f"{nb_immos} immo(s) active(s) — art. 39-1-2° CGI"
+            ),
+            "filters": {
+                "year": year,
+                "month": 12,
+                "report_type": "amortissement",
+            },
+            "format": "pdf",
+            "favorite": False,
+            "generated_at": now,
+            "can_regenerate": True,
+            "can_compare": False,
+        },
+    }
+
+    metadata["documents"] = docs
+    save_metadata(metadata)
+    logger.info("GED dotation amortissement enregistré: %s", doc_id)
+    return doc_id
+
+
+def _remove_dotation_ged_entry(pdf_filename: str) -> None:
+    """Supprime du metadata GED toutes les entrées matchant `pdf_filename`.
+
+    Best-effort : log un warning sans lever en cas d'échec (la suppression du PDF
+    disque reste faite indépendamment).
+    """
+    from backend.services.ged_service import load_metadata, save_metadata
+
+    try:
+        metadata = load_metadata()
+        docs = metadata.get("documents", {})
+        to_remove = [
+            doc_id for doc_id, doc in docs.items()
+            if doc.get("filename") == pdf_filename
+            or doc.get("original_name") == pdf_filename
+            or Path(doc_id).name == pdf_filename
+        ]
+        for doc_id in to_remove:
+            docs.pop(doc_id, None)
+            logger.info("GED dotation supprimée: %s", doc_id)
+        if to_remove:
+            metadata["documents"] = docs
+            save_metadata(metadata)
+    except Exception as e:
+        logger.warning("Suppression GED dotation %s échouée: %s", pdf_filename, e)

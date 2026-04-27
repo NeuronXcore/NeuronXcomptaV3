@@ -485,6 +485,7 @@ def generate_single_export(
     fmt: str,
     report_filenames: Optional[List[str]] = None,
     include_compte_attente: bool = True,
+    include_amortissements: bool = True,
 ) -> dict:
     """
     Genere un export ZIP pour un mois donne.
@@ -642,6 +643,14 @@ def generate_single_export(
             except Exception as e:
                 logger.warning("Impossible de generer le compte d'attente: %s", e)
 
+        # ── Amortissements (uniquement export de décembre — l'OD dotation est au 31/12) ──
+        if include_amortissements and month == 12:
+            try:
+                added = _add_amortissements_to_zip(zf, year, prefix="")
+                files_included.extend(added)
+            except Exception as e:
+                logger.warning("Impossible d'ajouter la section Amortissements: %s", e)
+
     _log_export(year, month, fmt, zip_name, title, nb_ops)
 
     return {
@@ -731,6 +740,13 @@ def generate_batch_export(year: int, months: list, fmt: str) -> dict:
 
             except Exception as e:
                 logger.warning("Batch export skip month %d: %s", m, e)
+
+        # Section Amortissements/ annuelle au root du ZIP (si décembre est dans le batch)
+        if 12 in months:
+            try:
+                _add_amortissements_to_zip(zf, year, prefix="")
+            except Exception as e:
+                logger.warning("Batch : section Amortissements skip: %s", e)
 
     return {
         "zip_filename": zip_name,
@@ -1951,3 +1967,119 @@ def _format_size(size_bytes: int) -> str:
         return f"{size_bytes / 1024:.0f} Ko"
     else:
         return f"{size_bytes / (1024 * 1024):.1f} Mo"
+
+
+# ─── Amortissements (Prompt B1) ───
+
+def _add_amortissements_to_zip(zf: zipfile.ZipFile, year: int, prefix: str = "") -> list[dict]:
+    """Ajoute la section `Amortissements/` au ZIP comptable.
+
+    Contenu :
+      - `Amortissements/{rapport_OD.pdf}` si l'OD dotation a été générée (lien justif)
+      - `Amortissements/registre_immobilisations_{year}.pdf` (régénéré si l'OD est absente)
+      - `Amortissements/registre_immobilisations_{year}.csv` (toujours, BOM UTF-8 pour Excel FR)
+
+    No-op si aucune immobilisation contributive sur l'exercice.
+    `prefix` permet de préfixer les chemins (ex. en batch : `prefix="Annee_2026/"`).
+    Retourne la liste des fichiers ajoutés pour `files_included`.
+    """
+    from backend.core.config import REPORTS_DIR
+    from backend.services import amortissement_service
+    from backend.services.amortissement_report_service import generate_dotation_pdf
+
+    added: list[dict] = []
+
+    detail = amortissement_service.get_virtual_detail(year)
+    if detail.nb_immos_actives == 0:
+        return added
+
+    base_dir = f"{prefix}Amortissements" if prefix else "Amortissements"
+
+    # 1. Rapport OD dotation (si générée)
+    ref = amortissement_service.find_dotation_operation(year)
+    od_pdf_added = False
+    if ref:
+        try:
+            ops = operation_service.load_operations(ref["filename"])
+            if 0 <= ref["index"] < len(ops):
+                lien = ops[ref["index"]].get("Lien justificatif", "") or ""
+                pdf_name = Path(lien).name if lien else None
+                if pdf_name:
+                    pdf_path = REPORTS_DIR / pdf_name
+                    if pdf_path.exists():
+                        arc_name = f"{base_dir}/{pdf_name}"
+                        zf.write(str(pdf_path), arcname=arc_name)
+                        added.append({"name": arc_name, "type": "amortissement_od"})
+                        od_pdf_added = True
+        except Exception as e:
+            logger.warning("Section Amortissements : OD PDF skip: %s", e)
+
+    # 2. Registre PDF (généré à la volée si OD absente)
+    if not od_pdf_added:
+        try:
+            import tempfile
+            tmp_dir = Path(tempfile.gettempdir())
+            tmp_path = tmp_dir / f"registre_immobilisations_{year}.pdf"
+            generate_dotation_pdf(year, tmp_path)
+            arc_name = f"{base_dir}/registre_immobilisations_{year}.pdf"
+            zf.write(str(tmp_path), arcname=arc_name)
+            added.append({"name": arc_name, "type": "amortissement_registre_pdf"})
+            tmp_path.unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("Section Amortissements : registre PDF skip: %s", e)
+
+    # 3. CSV registre (consommation comptable, séparateur ; + BOM Excel FR)
+    try:
+        csv_content = _generate_registre_amortissement_csv(detail)
+        arc_csv = f"{base_dir}/registre_immobilisations_{year}.csv"
+        zf.writestr(arc_csv, csv_content.encode("utf-8-sig"))
+        added.append({"name": arc_csv, "type": "amortissement_registre_csv"})
+    except Exception as e:
+        logger.warning("Section Amortissements : registre CSV skip: %s", e)
+
+    return added
+
+
+def _generate_registre_amortissement_csv(detail) -> str:
+    """CSV registre — séparateur `;`, virgule décimale, CRLF + BOM (Excel FR).
+
+    Colonnes : Désignation, Acquis le, Mode, Durée, Base, VNC début, Dotation brute,
+    Quote-part, Dotation déductible, VNC fin, Poste.
+    """
+    def _fr(n: float) -> str:
+        return f"{n:.2f}".replace(".", ",")
+
+    def _date_fr(iso: str) -> str:
+        if not iso or len(iso) < 10:
+            return iso or ""
+        return f"{iso[8:10]}/{iso[5:7]}/{iso[0:4]}"
+
+    lines: list[str] = [
+        "Désignation;Acquis le;Mode;Durée;Base;VNC début;Dotation brute;"
+        "Quote-part;Dotation déductible;VNC fin;Poste"
+    ]
+    for immo in detail.immos:
+        lines.append(";".join([
+            (immo.designation or "").replace(";", ","),
+            _date_fr(immo.date_acquisition),
+            immo.mode,
+            f"{immo.duree}",
+            _fr(immo.base_amortissable),
+            _fr(immo.vnc_debut),
+            _fr(immo.dotation_brute),
+            f"{immo.quote_part_pro:.0f}",
+            _fr(immo.dotation_deductible),
+            _fr(immo.vnc_fin),
+            (immo.poste or "").replace(";", ","),
+        ]))
+
+    # Ligne TOTAL
+    lines.append(";".join([
+        "TOTAL", "", "", "", "", "",
+        _fr(detail.total_brute),
+        "",
+        _fr(detail.total_deductible),
+        "", "",
+    ]))
+
+    return "\r\n".join(lines) + "\r\n"

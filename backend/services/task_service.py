@@ -155,6 +155,40 @@ def generate_auto_tasks(year: int) -> List[Task]:
     except Exception as e:
         logger.warning("Erreur scan alertes: %s", e)
 
+    # 7. OD dotation aux amortissements à générer — déclenche si l'exercice est clos
+    #    (today.month >= 12 sur l'année en cours OU year < current_year) ET aucune OD
+    #    dotation n'a été créée ET il y a au moins une immo contributive.
+    try:
+        year_is_past = current_year > year or (current_year == year and current_month >= 12)
+        if year_is_past:
+            from backend.services import amortissement_service
+
+            already_generated = amortissement_service.find_dotation_operation(year)
+            if not already_generated:
+                detail = amortissement_service.get_virtual_detail(year)
+                if detail.nb_immos_actives > 0:
+                    tasks.append(
+                        Task(
+                            title=f"Générer la dotation aux amortissements {year}",
+                            description=(
+                                f"{detail.nb_immos_actives} immo(s) active(s) · "
+                                f"dotation déductible {detail.total_deductible:.2f} €"
+                            ),
+                            status=TaskStatus.todo,
+                            priority=TaskPriority.haute,
+                            source=TaskSource.auto,
+                            year=year,
+                            auto_key=f"dotation_manquante_{year}",
+                            metadata={
+                                "nb_immos": detail.nb_immos_actives,
+                                "total_deductible": detail.total_deductible,
+                                "action_url": f"/amortissements?tab=dotation&year={year}",
+                            },
+                        )
+                    )
+    except Exception as e:
+        logger.warning("Erreur scan dotation_manquante: %s", e)
+
     # 6. Modèle ML à réentraîner — si corrections manuelles cumulées depuis
     #    le dernier entraînement dépassent les seuils configurés dans Settings.
     try:

@@ -1646,6 +1646,84 @@ Configuration : seuil, durées par défaut, catégories éligibles, sous-catégo
 ### `PUT /config`
 Sauvegarder la configuration. Body : `AmortissementConfig`.
 
+### `GET /virtual-detail?year=2026`
+Détail des dotations annuelles par immobilisation contributive (Prompt A2).
+
+**Réponse :** `AmortissementVirtualDetail` — `{year, total_brute, total_deductible, nb_immos_actives, immos: DotationImmoRow[]}`. Trié par `dotation_deductible` desc.
+
+### `GET /dotation-ref/{year}`
+Trouve l'OD dotation existante pour l'exercice. Scanne le contenu réel des opérations (`source == "amortissement"` ET `Date.startswith(f"{year}-12-")`).
+
+**Réponse :** `{filename, index, year}` ou `null`.
+
+### `POST /compute-backfill`
+Calcule la suggestion `amortissements_anterieurs_theorique` + `vnc_ouverture_theorique` pour une reprise d'immobilisation existante (linéaire pur, pro rata temporis année 1). Body : `BackfillComputeRequest` (`date_acquisition`, `base_amortissable`, `duree`, `exercice_entree_neuronx`, `quote_part_pro`).
+
+### `POST /generer-dotation?year=2026` (Prompt B1)
+Génère l'OD dotation 31/12 + PDF rapport ReportLab + entrée GED. Idempotent : si OD existante, supprime + cleanup PDF/GED avant de recréer.
+
+**Réponse :**
+```json
+{
+  "status": "generated",
+  "year": 2026,
+  "filename": "operations_xxx.json",
+  "index": 92,
+  "pdf_filename": "amortissements_20261231_713.pdf",
+  "ged_doc_id": "data/reports/amortissements_20261231_713.pdf",
+  "montant_deductible": 713.0,
+  "nb_immos": 2
+}
+```
+
+**Erreur 400** si `nb_immos_actives == 0`.
+
+### `DELETE /supprimer-dotation?year=2026` (Prompt B1)
+Supprime OD + PDF disque + entrée GED. Idempotent.
+
+**Réponse :** `{status: "deleted"|"not_found", year, filename?, index?, pdf_removed?}`
+
+### `POST /regenerer-pdf-dotation?year=2026` (Prompt B1)
+Regénère uniquement le PDF (l'OD reste en place) + invalide la thumbnail GED. Pattern véhicule.
+
+**Erreur 404** si l'OD n'existe pas.
+
+### `GET /candidate-detail?filename=X&index=N` (Prompt B1)
+Retourne `op + justif + préfill OCR` pour `ImmobilisationDrawer` (Prompt B2).
+
+**Réponse :**
+```json
+{
+  "operation": { "Date": "...", "Libellé": "...", "Débit": 1500, ... },
+  "filename": "operations_xxx.json",
+  "index": 5,
+  "justificatif": { "filename": "fournisseur_20260315_1500.00.pdf", "ocr_data": {...} },
+  "ocr_prefill": {
+    "designation": "Apple Store — DELL XPS 15",
+    "date_acquisition": "2026-03-15",
+    "base_amortissable": 1500.0
+  }
+}
+```
+
+Préfill OCR prioritaire (supplier+best_date+best_amount), fallback sur les valeurs de l'op bancaire si OCR absent ou incomplet. `justificatif` est `null` si l'op n'a pas de `Lien justificatif`.
+
+### `GET /dotation-genere?year=2026` (Prompt B1)
+Métadonnées de l'OD si générée, sinon `null` (pattern véhicule pour brancher l'UI).
+
+**Réponse :**
+```json
+{
+  "year": 2026,
+  "pdf_filename": "amortissements_20261231_713.pdf",
+  "ged_doc_id": "data/reports/amortissements_20261231_713.pdf",
+  "montant": 713.0,
+  "filename": "operations_xxx.json",
+  "index": 92,
+  "date": "2026-12-31"
+}
+```
+
 ---
 
 ## Settings (`/api/settings`)

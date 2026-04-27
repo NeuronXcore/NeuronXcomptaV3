@@ -78,6 +78,75 @@ async def compute_backfill(req: BackfillComputeRequest):
     return amortissement_service.compute_backfill_suggestion(req)
 
 
+@router.post("/generer-dotation")
+async def post_generer_dotation(year: int = Query(...)):
+    """Génère l'OD dotation amortissements 31/12 + PDF + GED. Idempotent."""
+    try:
+        return amortissement_service.generer_dotation_ecriture(year)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/supprimer-dotation")
+async def delete_supprimer_dotation(year: int = Query(...)):
+    """Supprime l'OD dotation + PDF + GED. Idempotent."""
+    return amortissement_service.supprimer_dotation_ecriture(year)
+
+
+@router.post("/regenerer-pdf-dotation")
+async def post_regenerer_pdf_dotation(year: int = Query(...)):
+    """Regénère uniquement le PDF (l'OD reste en place). Pattern véhicule."""
+    try:
+        return amortissement_service.regenerer_pdf_dotation(year)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.get("/candidate-detail")
+async def get_candidate_detail(
+    filename: str = Query(...),
+    index: int = Query(...),
+):
+    """Retourne op + justif + préfill OCR pour `ImmobilisationDrawer` (Prompt B2)."""
+    try:
+        return amortissement_service.get_candidate_detail(filename, index)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/dotation-genere")
+async def get_dotation_genere(year: int = Query(...)):
+    """Métadonnées de l'OD dotation si générée, sinon `null` (pattern véhicule)."""
+    from backend.services import operation_service
+
+    ref = amortissement_service.find_dotation_operation(year)
+    if not ref:
+        return None
+    try:
+        ops = operation_service.load_operations(ref["filename"])
+    except FileNotFoundError:
+        return None
+    if not (0 <= ref["index"] < len(ops)):
+        return None
+    op = ops[ref["index"]]
+    pdf_lien = op.get("Lien justificatif", "") or ""
+    pdf_filename = pdf_lien.split("/")[-1] if pdf_lien else None
+    debit = op.get("Débit", 0) or 0
+    try:
+        montant = abs(float(debit))
+    except (ValueError, TypeError):
+        montant = 0.0
+    return {
+        "year": year,
+        "pdf_filename": pdf_filename,
+        "ged_doc_id": f"data/reports/{pdf_filename}" if pdf_filename else None,
+        "montant": montant,
+        "filename": ref["filename"],
+        "index": ref["index"],
+        "date": op.get("Date", ""),
+    }
+
+
 @router.get("/tableau/{immo_id}")
 async def get_tableau(immo_id: str):
     immo = amortissement_service.get_immobilisation(immo_id)
