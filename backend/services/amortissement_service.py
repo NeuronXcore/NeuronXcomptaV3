@@ -1,6 +1,15 @@
 """
 Service des dotations aux amortissements.
 Registre des immobilisations, moteur de calcul, détection candidates.
+
+Convention : `Catégorie == "Matériel"` strict pour la détection des candidates.
+Mode `lineaire` only — le dégressif est interdit en BNC régime recettes (la branche
+`_compute_tableau_degressif` est conservée pour lecture immos legacy).
+
+Reprise d'exercice antérieur : champs `exercice_entree_neuronx`, `amortissements_anterieurs`,
+`vnc_ouverture` sur `Immobilisation`. Le moteur branche sur `_compute_tableau_with_backfill`
+quand `exercice_entree_neuronx is not None` — la ligne récap `is_backfill=True` est exclue
+du BNC.
 """
 from __future__ import annotations
 
@@ -13,9 +22,13 @@ from typing import Optional
 
 from backend.core.config import (
     AMORTISSEMENTS_DIR, SEUIL_IMMOBILISATION,
-    CATEGORIES_IMMOBILISABLES, SOUS_CATEGORIES_EXCLUES_IMMO,
+    SOUS_CATEGORIES_EXCLUES_IMMO,
     DUREES_AMORTISSEMENT_DEFAUT, PLAFONDS_VEHICULE,
     COEFFICIENTS_DEGRESSIF, ensure_directories,
+)
+from backend.models.amortissement import (
+    BackfillComputeRequest,
+    BackfillComputeResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,12 +65,10 @@ def _load_config() -> dict:
         except Exception:
             pass
     return {
-        "seuil_immobilisation": SEUIL_IMMOBILISATION,
+        "seuil": float(SEUIL_IMMOBILISATION),
         "durees_par_defaut": dict(DUREES_AMORTISSEMENT_DEFAUT),
-        "methode_par_defaut": "lineaire",
-        "categories_immobilisables": list(CATEGORIES_IMMOBILISABLES),
         "sous_categories_exclues": list(SOUS_CATEGORIES_EXCLUES_IMMO),
-        "exercice_cloture": "12-31",
+        "coefficient_degressif": dict(COEFFICIENTS_DEGRESSIF),
     }
 
 
@@ -78,17 +89,19 @@ def get_all_immobilisations(
     if statut:
         immos = [i for i in immos if i.get("statut") == statut]
     if poste:
-        immos = [i for i in immos if i.get("poste_comptable") == poste]
+        immos = [i for i in immos if i.get("poste") == poste]
     if year:
         immos = [i for i in immos if i.get("date_acquisition", "").startswith(str(year))]
 
     # Enrich with computed fields
     for i in immos:
-        tableau = calc_tableau_amortissement(i)
-        cumul = sum(l["dotation_brute"] for l in tableau)
-        vo = i.get("valeur_origine", 0)
-        i["avancement_pct"] = round(cumul / vo * 100, 1) if vo > 0 else 0
-        i["vnc_actuelle"] = round(vo - cumul, 2)
+        tableau = compute_tableau(i)
+        cumul = sum(l["dotation_brute"] for l in tableau if not l.get("is_backfill"))
+        base = i.get("base_amortissable", 0)
+        # Pour les immos avec reprise : dotations antérieures + dotations NeuronX
+        cumul_total = cumul + float(i.get("amortissements_anterieurs", 0) or 0)
+        i["avancement_pct"] = round(cumul_total / base * 100, 1) if base > 0 else 0
+        i["vnc_actuelle"] = round(base - cumul_total, 2)
 
     return immos
 
@@ -97,34 +110,66 @@ def get_immobilisation(immo_id: str) -> Optional[dict]:
     immos = _load_immobilisations()
     for i in immos:
         if i["id"] == immo_id:
-            i["tableau"] = calc_tableau_amortissement(i)
-            cumul = sum(l["dotation_brute"] for l in i["tableau"])
-            vo = i.get("valeur_origine", 0)
-            i["avancement_pct"] = round(cumul / vo * 100, 1) if vo > 0 else 0
-            i["vnc_actuelle"] = round(vo - cumul, 2)
+            i["tableau"] = compute_tableau(i)
+            cumul = sum(l["dotation_brute"] for l in i["tableau"] if not l.get("is_backfill"))
+            base = i.get("base_amortissable", 0)
+            cumul_total = cumul + float(i.get("amortissements_anterieurs", 0) or 0)
+            i["avancement_pct"] = round(cumul_total / base * 100, 1) if base > 0 else 0
+            i["vnc_actuelle"] = round(base - cumul_total, 2)
             return i
     return None
 
 
 def create_immobilisation(data: dict) -> dict:
+    """Création d'immobilisation. Force mode='lineaire' (BNC régime recettes interdit le dégressif).
+    Valide la cohérence du backfill : amortissements_anterieurs + vnc_ouverture == base_amortissable
+    (tolérance 1 €).
+    """
     immos = _load_immobilisations()
+
+    # Force lineaire — le dégressif est interdit en BNC régime recettes
+    if data.get("mode") and data["mode"] != "lineaire":
+        logger.info(f"create_immobilisation: mode '{data['mode']}' forcé en 'lineaire'")
+        data["mode"] = "lineaire"
+
+    # Validation cohérence backfill (double sécurité par-dessus Pydantic)
+    base = float(data.get("base_amortissable", 0) or 0)
+    exercice_entree = data.get("exercice_entree_neuronx")
+    if exercice_entree is not None:
+        amort_ant = float(data.get("amortissements_anterieurs", 0) or 0)
+        vnc_ouv = data.get("vnc_ouverture")
+        if vnc_ouv is None:
+            raise ValueError("vnc_ouverture requise en mode reprise")
+        vnc_ouv = float(vnc_ouv)
+        if amort_ant < 0:
+            raise ValueError("amortissements_anterieurs ne peut pas être négatif")
+        expected = amort_ant + vnc_ouv
+        if abs(expected - base) > 1.0:
+            raise ValueError(
+                f"Incohérence : amortissements_anterieurs ({amort_ant}) "
+                f"+ vnc_ouverture ({vnc_ouv}) = {expected} ≠ "
+                f"base_amortissable ({base})"
+            )
 
     immo_id = f"immo_{datetime.now().strftime('%Y%m%d')}_{uuid.uuid4().hex[:4]}"
     immo = {
         "id": immo_id,
-        "libelle": data["libelle"],
+        "designation": data["designation"],
         "date_acquisition": data["date_acquisition"],
-        "valeur_origine": data["valeur_origine"],
-        "duree_amortissement": data["duree_amortissement"],
-        "methode": data.get("methode", "lineaire"),
-        "poste_comptable": data["poste_comptable"],
+        "base_amortissable": base,
+        "duree": data["duree"],
+        "mode": "lineaire",
+        "poste": data.get("poste"),
         "date_mise_en_service": data.get("date_mise_en_service") or data["date_acquisition"],
         "date_sortie": None,
         "motif_sortie": None,
         "prix_cession": None,
-        "quote_part_pro": data.get("quote_part_pro", 100),
+        "quote_part_pro": float(data.get("quote_part_pro", 100.0)),
         "plafond_fiscal": data.get("plafond_fiscal"),
         "co2_classe": data.get("co2_classe"),
+        "exercice_entree_neuronx": exercice_entree,
+        "amortissements_anterieurs": float(data.get("amortissements_anterieurs", 0.0) or 0.0),
+        "vnc_ouverture": float(data["vnc_ouverture"]) if data.get("vnc_ouverture") is not None else None,
         "operation_source": data.get("operation_source"),
         "justificatif_id": data.get("justificatif_id"),
         "ged_doc_id": data.get("ged_doc_id"),
@@ -134,13 +179,13 @@ def create_immobilisation(data: dict) -> dict:
     }
 
     # Default plafond for vehicles
-    if immo["poste_comptable"] == "vehicule" and immo["plafond_fiscal"] is None:
+    if immo["poste"] == "vehicule" and immo["plafond_fiscal"] is None:
         immo["plafond_fiscal"] = 18300
 
     immos.append(immo)
     _save_immobilisations(immos)
 
-    immo["tableau"] = calc_tableau_amortissement(immo)
+    immo["tableau"] = compute_tableau(immo)
     return immo
 
 
@@ -154,8 +199,9 @@ def update_immobilisation(immo_id: str, data: dict) -> Optional[dict]:
             # Auto-update statut
             if i.get("date_sortie"):
                 i["statut"] = "sorti"
-            tableau = calc_tableau_amortissement(i)
-            if tableau and tableau[-1]["vnc"] <= 0:
+            tableau = compute_tableau(i)
+            non_backfill = [l for l in tableau if not l.get("is_backfill")]
+            if non_backfill and non_backfill[-1]["vnc"] <= 0:
                 if i["statut"] == "en_cours":
                     i["statut"] = "amorti"
             _save_immobilisations(immos)
@@ -176,20 +222,33 @@ def delete_immobilisation(immo_id: str) -> bool:
 
 # ─── Moteur de calcul ───
 
-def calc_tableau_amortissement(immo: dict) -> list[dict]:
-    """Calcule le tableau d'amortissement complet."""
-    vo = immo.get("valeur_origine", 0)
-    duree = immo.get("duree_amortissement", 5)
-    methode = immo.get("methode", "lineaire")
+def compute_tableau(immo: dict) -> list[dict]:
+    """Tableau d'amortissement complet. Branche sur standard ou backfill.
+
+    Si `exercice_entree_neuronx` défini, retourne :
+      - 1 ligne récap `is_backfill=True` (cumul exercices antérieurs, dotation_deductible=0)
+      - Les exercices NeuronX calculés à partir de `vnc_ouverture` sur les jours restants
+    Sinon, comportement standard depuis `date_acquisition`.
+    """
+    if immo.get("exercice_entree_neuronx") is None:
+        return _compute_tableau_standard(immo)
+    return _compute_tableau_with_backfill(immo)
+
+
+def _compute_tableau_standard(immo: dict) -> list[dict]:
+    """Tableau d'amortissement classique depuis la date de mise en service."""
+    base_amortissable = immo.get("base_amortissable", 0)
+    duree = immo.get("duree", 5)
+    mode = immo.get("mode", "lineaire")
     dms = immo.get("date_mise_en_service") or immo.get("date_acquisition")
-    qp = immo.get("quote_part_pro", 100)
+    qp = float(immo.get("quote_part_pro", 100.0))
     plafond = immo.get("plafond_fiscal")
     date_sortie = immo.get("date_sortie")
 
-    if not dms or vo <= 0 or duree <= 0:
+    if not dms or base_amortissable <= 0 or duree <= 0:
         return []
 
-    base = min(vo, plafond) if plafond else vo
+    base = min(base_amortissable, plafond) if plafond else base_amortissable
 
     try:
         dms_date = datetime.strptime(dms, "%Y-%m-%d").date()
@@ -203,15 +262,18 @@ def calc_tableau_amortissement(immo: dict) -> list[dict]:
         except ValueError:
             pass
 
-    if methode == "degressif":
-        return _calc_degressif(base, duree, dms_date, qp, sortie_date)
-    else:
-        return _calc_lineaire(base, duree, dms_date, qp, sortie_date)
+    # Mode dégressif conservé pour lecture immos legacy uniquement
+    if mode == "degressif":
+        return _compute_tableau_degressif(base, duree, dms_date, qp, sortie_date)
+    return _compute_tableau_lineaire(base, duree, dms_date, qp, sortie_date)
 
 
-def _calc_lineaire(base: float, duree: int, dms: date, qp: int, sortie: Optional[date]) -> list[dict]:
+def _compute_tableau_lineaire(
+    base: float, duree: int, dms: date, qp: float, sortie: Optional[date]
+) -> list[dict]:
+    """Linéaire avec pro-rata année 1 (jours base 360) et complément dernière année."""
     annuite = base / duree
-    tableau = []
+    tableau: list[dict] = []
     cumul = 0.0
     year_start = dms.year
 
@@ -222,7 +284,6 @@ def _calc_lineaire(base: float, duree: int, dms: date, qp: int, sortie: Optional
             break
 
         if i == 0:
-            # Pro rata year 1
             jour_restant = (date(dms.year, 12, 31) - dms).days + 1
             jours = min(jour_restant, 360)
             dotation = round(annuite * jours / 360, 2)
@@ -255,6 +316,8 @@ def _calc_lineaire(base: float, duree: int, dms: date, qp: int, sortie: Optional
             "dotation_deductible": deductible,
             "amortissements_cumules": cumul,
             "vnc": max(vnc, 0),
+            "vnc_debut": round(base - (cumul - dotation), 2),
+            "is_backfill": False,
         })
 
         if vnc <= 0:
@@ -263,10 +326,17 @@ def _calc_lineaire(base: float, duree: int, dms: date, qp: int, sortie: Optional
     return tableau
 
 
-def _calc_degressif(base: float, duree: int, dms: date, qp: int, sortie: Optional[date]) -> list[dict]:
+def _compute_tableau_degressif(
+    base: float, duree: int, dms: date, qp: float, sortie: Optional[date]
+) -> list[dict]:
+    """Dégressif legacy — conservé pour lecture immos historiques uniquement.
+
+    La création force désormais `mode=lineaire`. Cette branche reste accessible mais
+    devient mort-code après migration des immos legacy.
+    """
     coeff = COEFFICIENTS_DEGRESSIF.get(duree, 2.25)
     taux = (1 / duree) * coeff
-    tableau = []
+    tableau: list[dict] = []
     vnc = base
     cumul = 0.0
     year_start = dms.year
@@ -283,26 +353,20 @@ def _calc_degressif(base: float, duree: int, dms: date, qp: int, sortie: Optiona
         if nb_annees_restantes <= 0:
             break
 
-        # Dotation dégressive
         dot_degressive = round(vnc * taux, 2)
-        # Dotation linéaire sur le restant
         dot_lineaire = round(vnc / nb_annees_restantes, 2)
-
         dotation = max(dot_degressive, dot_lineaire)
 
         if i == 0:
-            # Pro rata mois année 1
             mois_restants = 12 - dms.month + 1
             dotation = round(dotation * mois_restants / 12, 2)
             jours = mois_restants * 30
         else:
             jours = 360
 
-        # Cap to remaining
         if dotation > vnc:
             dotation = round(vnc, 2)
 
-        # Sortie pro rata
         if sortie and exercice == sortie.year:
             jour_sortie = (sortie - date(exercice, 1, 1)).days + 1
             dotation = round(dotation * jour_sortie / 360, 2)
@@ -320,6 +384,8 @@ def _calc_degressif(base: float, duree: int, dms: date, qp: int, sortie: Optiona
             "dotation_deductible": deductible,
             "amortissements_cumules": cumul,
             "vnc": max(vnc, 0),
+            "vnc_debut": round(base - (cumul - dotation), 2),
+            "is_backfill": False,
         })
 
         if vnc <= 0:
@@ -328,24 +394,226 @@ def _calc_degressif(base: float, duree: int, dms: date, qp: int, sortie: Optiona
     return tableau
 
 
+def _compute_tableau_with_backfill(immo: dict) -> list[dict]:
+    """Tableau reprise : ligne récap antérieur (non déductible) + exercices NeuronX.
+
+    La ligne `is_backfill=True` (exercice = year_entree-1, dotation_deductible=0) figure dans
+    le tableau pour traçabilité mais est exclue par `get_dotations()` du BNC.
+    Les exercices NeuronX amortissent linéairement depuis `vnc_ouverture` sur les jours
+    restants (base 360, convention française).
+    """
+    date_acq_str = immo.get("date_acquisition", "")
+    if not date_acq_str or len(date_acq_str) < 4:
+        return []
+    try:
+        year_acq = int(date_acq_str[:4])
+    except ValueError:
+        return []
+
+    year_entree = int(immo["exercice_entree_neuronx"])
+    base = float(immo.get("base_amortissable", 0))
+    duree = int(immo.get("duree", 5))
+    qp = float(immo.get("quote_part_pro", 100.0))
+    amort_anterieurs = float(immo.get("amortissements_anterieurs", 0) or 0)
+    vnc_ouverture = float(immo.get("vnc_ouverture") or 0)
+
+    sortie_date: Optional[date] = None
+    if immo.get("date_sortie"):
+        try:
+            sortie_date = datetime.strptime(immo["date_sortie"], "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    nb_annees_anterieures = year_entree - year_acq
+
+    lignes: list[dict] = []
+
+    # 1. Ligne récap "Exercices antérieurs" — exclue du BNC
+    lignes.append({
+        "exercice": year_entree - 1,
+        "jours": 0,
+        "base_amortissable": base,
+        "dotation_brute": amort_anterieurs,
+        "quote_part_pro": qp,
+        "dotation_deductible": 0.0,  # ← exclu du BNC NeuronX
+        "amortissements_cumules": amort_anterieurs,
+        "vnc": vnc_ouverture,
+        "vnc_debut": base,
+        "is_backfill": True,
+        "libelle": f"Cumul {nb_annees_anterieures} exercice(s) antérieur(s) — hors NeuronX",
+    })
+
+    # 2. Exercices NeuronX — amortissement linéaire de vnc_ouverture sur jours restants
+    jours_total = duree * 360
+    jours_consommes = _jours_depuis_acquisition_jusqu_a_fin_exercice(
+        date_acq_str, year_entree - 1
+    )
+    jours_restants = jours_total - jours_consommes
+
+    if jours_restants <= 0:
+        # Edge : immo déjà totalement amortie avant entrée NeuronX
+        lignes.append({
+            "exercice": year_entree,
+            "jours": 0,
+            "base_amortissable": base,
+            "dotation_brute": 0.0,
+            "quote_part_pro": qp,
+            "dotation_deductible": 0.0,
+            "amortissements_cumules": amort_anterieurs,
+            "vnc": vnc_ouverture,
+            "vnc_debut": vnc_ouverture,
+            "is_backfill": False,
+            "libelle": "Immobilisation totalement amortie avant entrée NeuronX",
+        })
+        return lignes
+
+    taux_quotidien = vnc_ouverture / jours_restants if jours_restants > 0 else 0
+    vnc_courante = vnc_ouverture
+    exercice_courant = year_entree
+    jours_cumules = 0
+    cumul_neuronx = 0.0
+
+    while vnc_courante > 0.01 and jours_cumules < jours_restants:
+        jours_exercice = min(360, jours_restants - jours_cumules)
+        dotation_brute = round(taux_quotidien * jours_exercice, 2)
+
+        # Complément dernière année
+        if jours_cumules + jours_exercice >= jours_restants:
+            dotation_brute = round(vnc_courante, 2)
+
+        # Sortie pro rata sur l'exercice de cession
+        if sortie_date and exercice_courant == sortie_date.year:
+            jour_sortie = (sortie_date - date(exercice_courant, 1, 1)).days + 1
+            dotation_brute = round(dotation_brute * jour_sortie / 360, 2)
+
+        dotation_deductible = round(dotation_brute * qp / 100, 2)
+        vnc_fin = round(vnc_courante - dotation_brute, 2)
+        cumul_neuronx = round(cumul_neuronx + dotation_brute, 2)
+
+        lignes.append({
+            "exercice": exercice_courant,
+            "jours": jours_exercice,
+            "base_amortissable": base,
+            "dotation_brute": dotation_brute,
+            "quote_part_pro": qp,
+            "dotation_deductible": dotation_deductible,
+            "amortissements_cumules": amort_anterieurs + cumul_neuronx,
+            "vnc": max(0.0, vnc_fin),
+            "vnc_debut": vnc_courante,
+            "is_backfill": False,
+            "libelle": f"Exercice {exercice_courant}",
+        })
+
+        if sortie_date and exercice_courant >= sortie_date.year:
+            break
+
+        vnc_courante = max(0.0, vnc_fin)
+        jours_cumules += jours_exercice
+        exercice_courant += 1
+
+    return lignes
+
+
+def _jours_depuis_acquisition_jusqu_a_fin_exercice(
+    date_acquisition: str, exercice_fin: int
+) -> int:
+    """Jours cumulés base 360 entre date_acquisition (inclus) et 31/12/exercice_fin (inclus)."""
+    try:
+        d_acq = datetime.strptime(date_acquisition, "%Y-%m-%d").date()
+    except ValueError:
+        return 0
+
+    if exercice_fin < d_acq.year:
+        return 0
+
+    # Année d'acquisition : pro rata du jour d'achat à la fin d'année
+    fin_annee_acq = date(d_acq.year, 12, 31)
+    jours_an1 = _jours_base_360(d_acq, fin_annee_acq)
+
+    nb_annees_pleines = exercice_fin - d_acq.year
+    return jours_an1 + max(0, nb_annees_pleines) * 360
+
+
+def _jours_base_360(d1: date, d2: date) -> int:
+    """Convention comptable française base 360 : (Y2-Y1)*360 + (M2-M1)*30 + (D2-D1)."""
+    if d2 < d1:
+        return 0
+    mois = (d2.year - d1.year) * 12 + (d2.month - d1.month)
+    jours_reste = d2.day - d1.day
+    return mois * 30 + jours_reste
+
+
+# ─── Suggestion backfill ───
+
+def compute_backfill_suggestion(req: BackfillComputeRequest) -> BackfillComputeResponse:
+    """Suggère amortissements_anterieurs + vnc_ouverture théoriques (linéaire pur,
+    pro rata temporis année 1). Éditables côté UI si valeurs réelles différentes.
+    """
+    immo_temp = {
+        "id": "temp",
+        "designation": "temp",
+        "date_acquisition": req.date_acquisition,
+        "base_amortissable": req.base_amortissable,
+        "duree": req.duree,
+        "mode": "lineaire",
+        "quote_part_pro": req.quote_part_pro,
+        "date_mise_en_service": req.date_acquisition,
+    }
+
+    tableau = _compute_tableau_standard(immo_temp)
+
+    detail_anterieurs: list[dict] = []
+    cumul = 0.0
+    vnc_finale = req.base_amortissable
+
+    for ligne in tableau:
+        if ligne["exercice"] >= req.exercice_entree_neuronx:
+            break
+        cumul += ligne["dotation_brute"]
+        vnc_finale = ligne["vnc"]
+        detail_anterieurs.append({
+            "exercice": ligne["exercice"],
+            "dotation": ligne["dotation_brute"],
+            "vnc_fin": ligne["vnc"],
+        })
+
+    return BackfillComputeResponse(
+        amortissements_anterieurs_theorique=round(cumul, 2),
+        vnc_ouverture_theorique=round(vnc_finale, 2),
+        detail_exercices_anterieurs=detail_anterieurs,
+    )
+
+
 # ─── Dotations exercice ───
 
-def get_dotations_exercice(year: int) -> dict:
+def get_dotations(year: int) -> dict:
+    """Dotations annuelles pour un exercice. Filtre les lignes is_backfill (non déductibles).
+
+    Retourne `total_brute`, `total_deductible`, `details` — strictement les exercices NeuronX.
+    """
     immos = _load_immobilisations()
-    detail = []
+    detail: list[dict] = []
     total_brut = 0.0
     total_deduc = 0.0
 
     for immo in immos:
         if immo.get("statut") == "sorti":
-            continue
-        tableau = calc_tableau_amortissement(immo)
+            # On agrège quand même la dotation de l'année si la cession est postérieure ou égale
+            sortie_str = immo.get("date_sortie", "")
+            if sortie_str and sortie_str[:4] < str(year):
+                continue
+        tableau = compute_tableau(immo)
         for ligne in tableau:
+            if ligne.get("is_backfill"):
+                continue  # exclu du BNC
             if ligne["exercice"] == year:
                 detail.append({
                     "immo_id": immo["id"],
-                    "libelle": immo["libelle"],
-                    "poste_comptable": immo["poste_comptable"],
+                    "immobilisation_id": immo["id"],
+                    "designation": immo.get("designation", ""),
+                    "libelle": immo.get("designation", ""),  # alias compat frontend
+                    "poste": immo.get("poste", ""),
+                    "poste_comptable": immo.get("poste", ""),  # alias compat frontend
                     "dotation_brute": ligne["dotation_brute"],
                     "dotation_deductible": ligne["dotation_deductible"],
                     "vnc": ligne["vnc"],
@@ -356,35 +624,151 @@ def get_dotations_exercice(year: int) -> dict:
 
     return {
         "year": year,
+        "total_brute": round(total_brut, 2),
+        "total_deductible": round(total_deduc, 2),
+        # Aliases pour compatibilité frontend existant
         "total_dotations_brutes": round(total_brut, 2),
         "total_dotations_deductibles": round(total_deduc, 2),
         "detail": detail,
     }
 
 
+# Alias historique pour rétrocompat (router/services existants)
+def get_dotations_exercice(year: int) -> dict:
+    return get_dotations(year)
+
+
 def get_projections(years: int = 5) -> list[dict]:
     current_year = datetime.now().year
-    return [get_dotations_exercice(current_year + i) for i in range(years)]
+    return [get_dotations(current_year + i) for i in range(years)]
+
+
+# ─── Détail virtuel + référence OD ───
+
+def find_dotation_operation(year: int) -> Optional[dict]:
+    """Scanne les ops du mois 12 pour trouver l'OD dotation (Prompt B).
+
+    Retourne `{filename, index, year}` ou `None`.
+    """
+    from backend.core.config import IMPORTS_OPERATIONS_DIR
+    ops_dir = Path(IMPORTS_OPERATIONS_DIR)
+    if not ops_dir.exists():
+        return None
+    # Pattern année + mois 12 dans le filename
+    candidates: list[Path] = []
+    for path in ops_dir.glob("*.json"):
+        name = path.name
+        # patterns acceptés : *YYYY12*, *_YYYYMM_*, etc.
+        if f"{year}12" in name or f"_{year}12_" in name:
+            candidates.append(path)
+        # fallback : ouvrir et tester le mois dominant si nécessaire (coûteux, on évite)
+
+    for path in candidates:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, list):
+            continue
+        for idx, op in enumerate(data):
+            if op.get("source") == "amortissement":
+                return {"filename": path.name, "index": idx, "year": year}
+    return None
+
+
+def _compute_statut(immo: dict, ligne: dict, tableau: list[dict]) -> str:
+    """Statut d'une ligne pour un exercice : en_cours | complement | derniere | cedee."""
+    if immo.get("statut") == "sorti":
+        return "cedee"
+    if ligne.get("vnc", 0) <= 0.01:
+        return "derniere"
+    lignes_actives = [l for l in tableau if not l.get("is_backfill")]
+    duree = int(immo.get("duree", 5))
+    if lignes_actives and ligne == lignes_actives[-1] and len(lignes_actives) > duree:
+        return "complement"
+    return "en_cours"
+
+
+def get_virtual_detail(year: int):
+    """Détail virtuel des dotations annuelles : liste triée par dotation_deductible desc.
+
+    Retourne un `AmortissementVirtualDetail` (modèle Pydantic).
+    """
+    from backend.models.amortissement import (
+        AmortissementVirtualDetail,
+        DotationImmoRow,
+    )
+
+    dotations = get_dotations(year)
+    rows: list[DotationImmoRow] = []
+
+    for det in dotations["detail"]:
+        immo = get_immobilisation(det["immobilisation_id"])
+        if not immo:
+            continue
+        tableau = compute_tableau(immo)
+        ligne = next(
+            (
+                l for l in tableau
+                if l["exercice"] == year and not l.get("is_backfill")
+            ),
+            None,
+        )
+        if not ligne:
+            continue
+        rows.append(DotationImmoRow(
+            immobilisation_id=immo["id"],
+            designation=immo.get("designation", ""),
+            date_acquisition=immo.get("date_acquisition", ""),
+            mode=immo.get("mode", "lineaire"),
+            duree=int(immo.get("duree", 5)),
+            base_amortissable=float(immo.get("base_amortissable", 0)),
+            vnc_debut=float(ligne.get("vnc_debut") or ligne.get("base_amortissable", 0)),
+            dotation_brute=float(ligne.get("dotation_brute", 0)),
+            quote_part_pro=float(immo.get("quote_part_pro", 100.0)),
+            dotation_deductible=float(ligne.get("dotation_deductible", 0)),
+            vnc_fin=float(ligne.get("vnc", 0)),
+            statut=_compute_statut(immo, ligne, tableau),
+            poste=immo.get("poste"),
+            is_reprise=immo.get("exercice_entree_neuronx") is not None,
+            exercice_entree_neuronx=immo.get("exercice_entree_neuronx"),
+        ))
+
+    rows.sort(key=lambda r: -r.dotation_deductible)
+    return AmortissementVirtualDetail(
+        year=year,
+        total_brute=float(dotations["total_brute"]),
+        total_deductible=float(dotations["total_deductible"]),
+        nb_immos_actives=len(rows),
+        immos=rows,
+    )
 
 
 # ─── Candidates ───
 
 def detect_candidates(operations: list[dict], filename: str) -> list[dict]:
+    """Détection candidates : strict `Catégorie == "Matériel"`.
+
+    Le seuil et les sous-catégories exclues restent configurables.
+    """
     config = _load_config()
-    seuil = config.get("seuil_immobilisation", SEUIL_IMMOBILISATION)
-    cats = config.get("categories_immobilisables", CATEGORIES_IMMOBILISABLES)
+    seuil = float(config.get("seuil", SEUIL_IMMOBILISATION))
     excl = config.get("sous_categories_exclues", SOUS_CATEGORIES_EXCLUES_IMMO)
 
-    candidates = []
+    candidates: list[dict] = []
     for idx, op in enumerate(operations):
-        debit = op.get("Débit", 0)
-        if debit <= seuil:
-            continue
-        cat = op.get("Catégorie", "")
-        if cat not in cats:
+        # Strict : uniquement Matériel
+        if op.get("Catégorie") != "Matériel":
             continue
         scat = op.get("Sous-catégorie", "")
         if scat in excl:
+            continue
+        debit = op.get("Débit", 0) or 0
+        try:
+            debit_f = abs(float(debit))
+        except (ValueError, TypeError):
+            debit_f = 0.0
+        if debit_f < seuil:
             continue
         if op.get("immobilisation_id"):
             continue
@@ -396,9 +780,9 @@ def detect_candidates(operations: list[dict], filename: str) -> list[dict]:
             "index": idx,
             "date": op.get("Date", ""),
             "libelle": op.get("Libellé", ""),
-            "categorie": cat,
+            "categorie": op.get("Catégorie", ""),
             "sous_categorie": scat,
-            "debit": debit,
+            "debit": debit_f,
         })
 
     return candidates
@@ -407,7 +791,7 @@ def detect_candidates(operations: list[dict], filename: str) -> list[dict]:
 def get_all_candidates() -> list[dict]:
     from backend.services.operation_service import list_operation_files, load_operations
     files = list_operation_files()
-    all_candidates = []
+    all_candidates: list[dict] = []
     for f in files:
         try:
             ops = load_operations(f["filename"])
@@ -435,11 +819,11 @@ def link_operation_to_immobilisation(filename: str, index: int, immo_id: str) ->
     if 0 <= index < len(ops):
         ops[index]["immobilisation_id"] = immo_id
         ops[index]["immobilisation_candidate"] = False
-        # Get immo poste for category
+        # Catégorie "Immobilisations" exclue de charges_pro via EXCLUDED_FROM_CHARGES_PRO
         immo = get_immobilisation(immo_id)
         if immo:
             ops[index]["Catégorie"] = "Immobilisations"
-            ops[index]["Sous-catégorie"] = immo.get("poste_comptable", "")
+            ops[index]["Sous-catégorie"] = immo.get("poste", "")
         save_operations(ops, filename)
         return ops[index]
     raise ValueError(f"Index {index} invalide pour {filename}")
@@ -452,16 +836,20 @@ def calculer_cession(immo_id: str, date_sortie_str: str, prix_cession: float) ->
     if not immo:
         raise ValueError(f"Immobilisation non trouvée: {immo_id}")
 
-    # Temporarily set sortie date for calculation
     immo_copy = dict(immo)
     immo_copy["date_sortie"] = date_sortie_str
-    tableau = calc_tableau_amortissement(immo_copy)
+    tableau = compute_tableau(immo_copy)
 
-    vnc_sortie = tableau[-1]["vnc"] if tableau else immo["valeur_origine"]
+    # Dernière ligne non-backfill = état au moment de la cession
+    non_backfill = [l for l in tableau if not l.get("is_backfill")]
+    if non_backfill:
+        vnc_sortie = non_backfill[-1]["vnc"]
+    else:
+        vnc_sortie = float(immo.get("base_amortissable", 0))
+
     pv = prix_cession - vnc_sortie if prix_cession > vnc_sortie else None
     mv = vnc_sortie - prix_cession if vnc_sortie > prix_cession else None
 
-    # Duration
     try:
         d_acq = datetime.strptime(immo["date_acquisition"], "%Y-%m-%d")
         d_sort = datetime.strptime(date_sortie_str, "%Y-%m-%d")
@@ -493,30 +881,30 @@ def get_kpis(year: Optional[int] = None) -> dict:
 
     candidates = get_all_candidates()
 
-    dotations = get_dotations_exercice(year)
+    dotations = get_dotations(year)
     total_vnc = 0.0
-    total_vo = 0.0
+    total_base = 0.0
 
     postes_map: dict[str, dict] = {}
     for immo in immos:
         if immo.get("statut") != "en_cours":
             continue
-        vo = immo.get("valeur_origine", 0)
-        total_vo += vo
-        tableau = calc_tableau_amortissement(immo)
-        cumul = sum(l["dotation_brute"] for l in tableau)
-        vnc = vo - cumul
+        base = float(immo.get("base_amortissable", 0))
+        total_base += base
+        tableau = compute_tableau(immo)
+        cumul = sum(l["dotation_brute"] for l in tableau if not l.get("is_backfill"))
+        cumul_total = cumul + float(immo.get("amortissements_anterieurs", 0) or 0)
+        vnc = base - cumul_total
         total_vnc += vnc
 
-        p = immo.get("poste_comptable", "autre")
+        p = immo.get("poste", "autre")
         if p not in postes_map:
-            postes_map[p] = {"poste": p, "nb": 0, "vnc": 0, "dotation": 0}
+            postes_map[p] = {"poste": p, "nb": 0, "vnc": 0.0, "dotation": 0.0}
         postes_map[p]["nb"] += 1
         postes_map[p]["vnc"] += vnc
 
-    # Add dotation per poste
     for d in dotations.get("detail", []):
-        p = d.get("poste_comptable", "autre")
+        p = d.get("poste", "autre")
         if p in postes_map:
             postes_map[p]["dotation"] += d["dotation_deductible"]
 
@@ -525,8 +913,14 @@ def get_kpis(year: Optional[int] = None) -> dict:
         "nb_amorties": nb_amorties,
         "nb_sorties": nb_sorties,
         "nb_candidates": len(candidates),
-        "dotation_exercice": dotations["total_dotations_deductibles"],
+        "dotation_exercice": dotations["total_deductible"],
         "total_vnc": round(total_vnc, 2),
-        "total_valeur_origine": round(total_vo, 2),
+        "total_valeur_origine": round(total_base, 2),
+        "total_base_amortissable": round(total_base, 2),
         "postes": sorted(postes_map.values(), key=lambda x: x["vnc"], reverse=True),
     }
+
+
+# Alias rétrocompat — l'ancien nom était utilisé par le router
+def calc_tableau_amortissement(immo: dict) -> list[dict]:
+    return compute_tableau(immo)

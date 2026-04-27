@@ -5,7 +5,13 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
-from backend.models.amortissement import ImmobilisationCreate, ImmobilisationUpdate
+from backend.models.amortissement import (
+    AmortissementVirtualDetail,
+    BackfillComputeRequest,
+    BackfillComputeResponse,
+    ImmobilisationCreate,
+    ImmobilisationUpdate,
+)
 from backend.services import amortissement_service
 
 router = APIRouter(prefix="/api/amortissements", tags=["amortissements"])
@@ -43,7 +49,7 @@ async def save_config(config: dict):
 
 @router.get("/dotations/{year}")
 async def get_dotations(year: int):
-    return amortissement_service.get_dotations_exercice(year)
+    return amortissement_service.get_dotations(year)
 
 
 @router.get("/projections")
@@ -51,12 +57,33 @@ async def get_projections(years: int = Query(5)):
     return amortissement_service.get_projections(years)
 
 
+@router.get("/virtual-detail", response_model=AmortissementVirtualDetail)
+async def get_virtual_detail(year: int = Query(...)):
+    """Détail des dotations annuelles pour le `DotationsVirtualDrawer` (Prompt A2)."""
+    return amortissement_service.get_virtual_detail(year)
+
+
+@router.get("/dotation-ref/{year}")
+async def get_dotation_ref(year: int):
+    """Trouve l'OD dotation dans les opérations de décembre (Prompt B). Retourne null si absent."""
+    return amortissement_service.find_dotation_operation(year)
+
+
+@router.post("/compute-backfill", response_model=BackfillComputeResponse)
+async def compute_backfill(req: BackfillComputeRequest):
+    """Calcule la suggestion d'amortissements antérieurs + VNC d'ouverture pour une reprise.
+
+    Linéaire pur, pro rata temporis année 1. Éditable côté UI si valeurs réelles différentes.
+    """
+    return amortissement_service.compute_backfill_suggestion(req)
+
+
 @router.get("/tableau/{immo_id}")
 async def get_tableau(immo_id: str):
     immo = amortissement_service.get_immobilisation(immo_id)
     if not immo:
         raise HTTPException(404, "Immobilisation non trouvée")
-    return amortissement_service.calc_tableau_amortissement(immo)
+    return amortissement_service.compute_tableau(immo)
 
 
 @router.get("/{immo_id}")
@@ -69,7 +96,10 @@ async def get_immobilisation(immo_id: str):
 
 @router.post("/")
 async def create_immobilisation(data: ImmobilisationCreate):
-    return amortissement_service.create_immobilisation(data.model_dump())
+    try:
+        return amortissement_service.create_immobilisation(data.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @router.patch("/{immo_id}")
@@ -97,16 +127,22 @@ async def ignore_candidate(body: dict):
 
 @router.post("/candidates/immobiliser")
 async def immobiliser_candidate(data: ImmobilisationCreate):
-    immo = amortissement_service.create_immobilisation(data.model_dump())
+    try:
+        immo = amortissement_service.create_immobilisation(data.model_dump())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     if data.operation_source:
         try:
-            amortissement_service.link_operation_to_immobilisation(
-                data.operation_source.file, data.operation_source.index, immo["id"]
-            )
+            src = data.operation_source
+            file_ref = src.get("file") if isinstance(src, dict) else getattr(src, "file", None)
+            index_ref = src.get("index") if isinstance(src, dict) else getattr(src, "index", None)
+            if file_ref is not None and index_ref is not None:
+                amortissement_service.link_operation_to_immobilisation(
+                    file_ref, int(index_ref), immo["id"]
+                )
         except Exception as e:
-            logger_msg = f"Lien opération échoué: {e}"
             import logging
-            logging.getLogger(__name__).warning(logger_msg)
+            logging.getLogger(__name__).warning(f"Lien opération échoué: {e}")
     return immo
 
 
