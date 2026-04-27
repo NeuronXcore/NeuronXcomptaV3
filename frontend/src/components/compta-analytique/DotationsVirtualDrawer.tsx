@@ -1,7 +1,8 @@
-import { X, TrendingDown, Info, ArrowRight, Loader2, Landmark } from 'lucide-react'
+import { X, TrendingDown, Info, ArrowRight, Loader2, Landmark, ExternalLink } from 'lucide-react'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useDotationVirtualDetail } from '@/hooks/useAmortissements'
+import { useDotationVirtualDetail, useDotationRef } from '@/hooks/useAmortissements'
+import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import type { DotationImmoRow } from '@/types'
@@ -15,7 +16,9 @@ interface Props {
 export default function DotationsVirtualDrawer({ year, isOpen, onClose }: Props) {
   const navigate = useNavigate()
   const setYear = useFiscalYearStore((s) => s.setYear)
+  const openImmoDrawer = useImmobilisationDrawerStore((s) => s.open)
   const { data: detail, isLoading } = useDotationVirtualDetail(year)
+  const { data: dotationRef } = useDotationRef(year)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -90,7 +93,11 @@ export default function DotationsVirtualDrawer({ year, isOpen, onClose }: Props)
                   Immobilisations contributives
                 </p>
                 {detail.immos.map((immo) => (
-                  <ImmoCard key={immo.immobilisation_id} immo={immo} />
+                  <ImmoCard
+                    key={immo.immobilisation_id}
+                    immo={immo}
+                    onClick={() => openImmoDrawer(immo.immobilisation_id)}
+                  />
                 ))}
               </div>
             </>
@@ -99,19 +106,32 @@ export default function DotationsVirtualDrawer({ year, isOpen, onClose }: Props)
 
         {/* Footer */}
         {detail && detail.nb_immos_actives > 0 && (
-          <div className="px-5 py-3 bg-background border-t border-border flex items-center justify-between shrink-0">
+          <div className="px-5 py-3 bg-background border-t border-border flex items-center justify-between gap-3 shrink-0">
             <p className="text-xs text-text-muted">
               {detail.nb_immos_actives} immos · total déductible{' '}
               <span className="font-medium text-primary">
                 {formatCurrency(detail.total_deductible)}
               </span>
             </p>
-            <button
-              onClick={goToRegister}
-              className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-surface flex items-center gap-1 text-text"
-            >
-              Voir le registre <ArrowRight size={12} />
-            </button>
+            <div className="flex items-center gap-2">
+              {dotationRef && (
+                <button
+                  onClick={() => navigate(
+                    `/editor?file=${encodeURIComponent(dotationRef.filename)}&highlight=${dotationRef.index}&from=visualization`
+                  )}
+                  className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-surface flex items-center gap-1 text-text"
+                  title={`OD enregistrée dans ${dotationRef.filename}`}
+                >
+                  Voir l'OD <ExternalLink size={11} />
+                </button>
+              )}
+              <button
+                onClick={goToRegister}
+                className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-surface flex items-center gap-1 text-text"
+              >
+                Voir le registre <ArrowRight size={12} />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -151,7 +171,7 @@ function Stat({ label, value, warning, success }: { label: string; value: string
   )
 }
 
-function ImmoCard({ immo }: { immo: DotationImmoRow }) {
+function ImmoCard({ immo, onClick }: { immo: DotationImmoRow; onClick?: () => void }) {
   const STATUT_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
     en_cours: { label: 'en cours', bg: '#EAF3DE', text: '#27500A' },
     complement: { label: 'complément', bg: '#FAEEDA', text: '#633806' },
@@ -163,7 +183,17 @@ function ImmoCard({ immo }: { immo: DotationImmoRow }) {
   const isPartialQuotePart = immo.quote_part_pro < 100
 
   return (
-    <div className="bg-surface border border-border rounded-md p-3 mb-2">
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } } : undefined}
+      title={onClick ? 'Voir la fiche immobilisation' : undefined}
+      className={cn(
+        'bg-surface border border-border rounded-md p-3 mb-2',
+        onClick && 'cursor-pointer hover:border-primary/40 hover:bg-surface-hover transition-colors',
+      )}
+    >
       <div className="flex justify-between items-start gap-3 mb-2.5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">

@@ -1,14 +1,19 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   X, Landmark, Save, Loader2, Info, AlertTriangle, CheckCircle2, RefreshCw,
+  ArrowRight, Expand, FileText, Link2,
 } from 'lucide-react'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { calcTableauAmortissement } from '@/lib/amortissement-engine'
 import {
   useCreateImmobilisation, useUpdateImmobilisation, useImmobiliserCandidate,
-  useComputeBackfill,
+  useComputeBackfill, useCandidateDetail,
 } from '@/hooks/useAmortissements'
 import { useGedPostes } from '@/hooks/useGed'
+import PdfThumbnail from '@/components/shared/PdfThumbnail'
+import PreviewSubDrawer from '@/components/ocr/PreviewSubDrawer'
+import ManualAssociationDrawer, { type TargetedOp } from '@/components/justificatifs/ManualAssociationDrawer'
 import type { Immobilisation, AmortissementCandidate, LigneAmortissement, ImmobilisationCreate } from '@/types'
 
 interface ImmobilisationDrawerProps {
@@ -16,6 +21,12 @@ interface ImmobilisationDrawerProps {
   onClose: () => void
   immobilisation?: Immobilisation | null
   candidate?: AmortissementCandidate | null
+  /**
+   * Mode lecture seule : tous les inputs disabled, footer = bouton Fermer uniquement.
+   * Utilisé par `GlobalImmobilisationDrawer` pour ouvrir une immo en lecture
+   * depuis un badge cliquable dans Editor/Justif/Alertes.
+   */
+  readonly?: boolean
 }
 
 const PLAFONDS_VEHICULE = [
@@ -27,12 +38,23 @@ const PLAFONDS_VEHICULE = [
 
 const formatEuro = (n: number) => formatCurrency(n)
 
-export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, candidate }: ImmobilisationDrawerProps) {
+export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, candidate, readonly = false }: ImmobilisationDrawerProps) {
+  const navigate = useNavigate()
   const { data: postesConfig } = useGedPostes()
   const createMutation = useCreateImmobilisation()
   const updateMutation = useUpdateImmobilisation()
   const immobiliserMutation = useImmobiliserCandidate()
   const computeBackfill = useComputeBackfill()
+
+  // Détail candidate (op source + justificatif + préfill OCR) — Prompt B2
+  const { data: candidateDetail } = useCandidateDetail(
+    candidate?.filename ?? null,
+    candidate?.index ?? null,
+  )
+
+  // Sous-drawer preview justif + drawer association manuelle ciblée
+  const [showJustifSubDrawer, setShowJustifSubDrawer] = useState(false)
+  const [showManualAssoc, setShowManualAssoc] = useState(false)
 
   const isEdit = !!immobilisation
   const isCandidate = !!candidate
@@ -108,12 +130,42 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
     }
   }, [immobilisation?.id, candidate?.index, isOpen])
 
-  // Close on escape
+  // Close on escape (mais Esc ferme uniquement le sub-drawer s'il est ouvert)
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (showJustifSubDrawer) {
+        setShowJustifSubDrawer(false)
+        e.stopPropagation()
+        return
+      }
+      if (showManualAssoc) {
+        setShowManualAssoc(false)
+        e.stopPropagation()
+        return
+      }
+      onClose()
+    }
     if (isOpen) window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, showJustifSubDrawer, showManualAssoc])
+
+  // Préfill OCR quand candidate détail arrive — n'override que les champs vides
+  useEffect(() => {
+    if (!candidateDetail?.ocr_prefill || !isCandidate) return
+    const prefill = candidateDetail.ocr_prefill
+    setDesignation((d) => d || prefill.designation || '')
+    setDateAcquisition((d) => d || prefill.date_acquisition || '')
+    setBaseAmortissable((b) => b || prefill.base_amortissable || 0)
+  }, [candidateDetail?.ocr_prefill, isCandidate])
+
+  // Reset sub-drawers quand le drawer principal se ferme ou change d'item
+  useEffect(() => {
+    if (!isOpen) {
+      setShowJustifSubDrawer(false)
+      setShowManualAssoc(false)
+    }
+  }, [isOpen, candidate?.index])
 
   // Calcul backfill auto avec debounce 400ms (sauf si édité manuellement)
   useEffect(() => {
@@ -221,7 +273,77 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {readonly && (
+            <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-md flex items-start gap-2 text-xs text-blue-400">
+              <Info size={12} className="shrink-0 mt-0.5" />
+              <span>Lecture seule — éditez cette immobilisation depuis la page Amortissements.</span>
+            </div>
+          )}
+
+          {/* Section Opération source (mode candidate uniquement) — Prompt B2 */}
+          {isCandidate && candidate && candidateDetail && (
+            <div className="space-y-3 pb-4 border-b border-border">
+              <p className="text-[10px] text-text-muted uppercase tracking-wide font-medium">
+                Opération source
+              </p>
+
+              {/* Carte op readonly */}
+              <div className="bg-surface rounded-md p-3 border border-border">
+                <div className="flex justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text truncate">
+                      {candidateDetail.operation['Libellé']}
+                    </p>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {formatDate(candidateDetail.operation['Date'] || '')}
+                      {' · '}{candidateDetail.operation['Catégorie'] ?? '—'}
+                      {candidateDetail.operation['Sous-catégorie'] && ` / ${candidateDetail.operation['Sous-catégorie']}`}
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium tabular-nums text-red-400 shrink-0">
+                    −{formatCurrency(Math.abs(Number(candidateDetail.operation['Débit'] ?? 0)))}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(
+                    `/editor?file=${encodeURIComponent(candidate.filename)}&highlight=${candidate.index}&from=amortissements`
+                  )}
+                  className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  Voir dans l'éditeur <ArrowRight size={10} />
+                </button>
+              </div>
+
+              {/* Bloc justificatif */}
+              {candidateDetail.justificatif ? (
+                <JustificatifPreviewBlock
+                  filename={candidateDetail.justificatif.filename}
+                  ocrData={candidateDetail.justificatif.ocr_data}
+                  onExpand={() => setShowJustifSubDrawer(true)}
+                />
+              ) : (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 flex items-start gap-2.5">
+                  <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-amber-400 mb-1.5">
+                      Aucun justificatif associé à cette opération
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualAssoc(true)}
+                      className="text-xs text-amber-300 underline hover:text-amber-100 flex items-center gap-1"
+                    >
+                      <Link2 size={10} /> Associer un justificatif
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Form */}
+          <fieldset disabled={readonly} className="contents">
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="text-[10px] text-text-muted block mb-1">Désignation</label>
@@ -478,18 +600,109 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
               className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary resize-none" />
           </div>
+          </fieldset>
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-border flex justify-end gap-2 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">Annuler</button>
-          <button onClick={handleSubmit} disabled={isPending || !canSave}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 disabled:opacity-50">
-            {isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {isCandidate ? "Confirmer l'immobilisation" : isEdit ? 'Enregistrer' : 'Créer'}
-          </button>
+        <div className="px-5 py-4 border-t border-border shrink-0">
+          {/* Warning ambre non bloquant si candidate sans justif */}
+          {isCandidate && candidateDetail && !candidateDetail.justificatif && !readonly && (
+            <p className="text-xs text-amber-400 mb-3 flex items-start gap-1.5">
+              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+              Création sans justificatif associé — à régulariser ensuite via la page Justificatifs.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            {readonly ? (
+              <button onClick={onClose} className="px-4 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover text-text">Fermer</button>
+            ) : (
+              <>
+                <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">Annuler</button>
+                <button onClick={handleSubmit} disabled={isPending || !canSave}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 disabled:opacity-50">
+                  {isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  {isCandidate ? "Confirmer l'immobilisation" : isEdit ? 'Enregistrer' : 'Créer'}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Sous-drawer preview justificatif (z-index 60 pour s'empiler par-dessus le drawer principal z-50) */}
+      {candidateDetail?.justificatif && (
+        <PreviewSubDrawer
+          filename={showJustifSubDrawer ? candidateDetail.justificatif.filename : null}
+          mainDrawerOpen={isOpen && showJustifSubDrawer}
+          mainDrawerWidth={650}
+          width={700}
+          zIndex={60}
+          onClose={() => setShowJustifSubDrawer(false)}
+        />
+      )}
+
+      {/* Drawer association manuelle (mode ciblé sur l'op candidate) */}
+      {isCandidate && candidate && (
+        <ManualAssociationDrawer
+          open={showManualAssoc}
+          onClose={() => setShowManualAssoc(false)}
+          year={parseInt((candidate.date || '').slice(0, 4)) || new Date().getFullYear()}
+          month={parseInt((candidate.date || '').slice(5, 7)) || null}
+          targetedOps={[{
+            filename: candidate.filename,
+            index: candidate.index,
+            libelle: candidate.libelle,
+            date: candidate.date,
+            montant: Math.abs(candidate.debit ?? 0),
+            categorie: candidate.categorie,
+            sousCategorie: candidate.sous_categorie,
+          } as TargetedOp]}
+        />
+      )}
     </>
+  )
+}
+
+// ─── Sous-composant : preview thumbnail + métadonnées OCR ───
+
+function JustificatifPreviewBlock({ filename, ocrData, onExpand }: {
+  filename: string
+  ocrData: Record<string, any>
+  onExpand: () => void
+}) {
+  const supplier = ocrData?.supplier || ocrData?.extracted_data?.supplier
+  const bestAmount = ocrData?.best_amount || ocrData?.extracted_data?.best_amount
+  return (
+    <div className="flex items-center gap-3 p-3 bg-surface border border-border rounded-md">
+      <button
+        type="button"
+        onClick={onExpand}
+        className="relative group rounded border border-border overflow-hidden shrink-0"
+        style={{ width: 80, height: 100 }}
+        title="Agrandir"
+      >
+        <PdfThumbnail
+          justificatifFilename={filename}
+          className="w-full h-full object-cover"
+          iconSize={28}
+          lazy={false}
+        />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <Expand size={16} className="text-white" />
+        </div>
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-text truncate flex items-center gap-1">
+          <FileText size={10} className="text-text-muted" />
+          {filename}
+        </p>
+        {supplier && (
+          <p className="text-xs text-text-muted mt-0.5 truncate">{supplier}</p>
+        )}
+        {bestAmount != null && (
+          <p className="text-xs text-text-muted">{formatCurrency(Number(bestAmount))}</p>
+        )}
+      </div>
+    </div>
   )
 }
