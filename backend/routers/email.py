@@ -9,7 +9,10 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.core.config import SETTINGS_FILE
-from backend.models.email import EmailPreviewRequest, EmailSendRequest, EmailSendResponse, EmailTestResponse, EmailHistoryEntry
+from backend.models.email import (
+    EmailHistoryEntry, EmailPreviewRequest, EmailSendRequest, EmailSendResponse,
+    EmailTestResponse, ManualPrep, ManualPrepRequest,
+)
 from backend.services import email_service, email_history_service
 
 router = APIRouter(prefix="/api/email", tags=["email"])
@@ -113,3 +116,73 @@ async def get_history(
 async def get_coverage(year: int):
     """Retourne la couverture d'envoi par mois pour une année."""
     return email_history_service.get_send_coverage(year)
+
+
+# ─── Mode envoi manuel ─────────────────────────────────────────────────────
+
+
+@router.post("/prepare-manual", response_model=ManualPrep)
+async def prepare_manual(req: ManualPrepRequest):
+    """Génère un ZIP persistant pour envoi manuel + retourne objet/corps pré-remplis."""
+    if not req.documents:
+        raise HTTPException(status_code=400, detail="Aucun document sélectionné")
+    if not req.destinataires:
+        raise HTTPException(status_code=400, detail="Aucun destinataire renseigné")
+    try:
+        return email_service.prepare_manual_zip(req)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur préparation : {e}")
+
+
+@router.get("/manual-zips", response_model=list[ManualPrep])
+async def list_manual_zips():
+    """Liste les ZIPs préparés non encore envoyés (auto-purge des entrées orphelines)."""
+    return email_service.list_manual_zips()
+
+
+# Routes statiques (cleanup, stats) déclarées AVANT les paramétriques /{zip_id}
+# pour éviter toute ambiguïté de matching FastAPI.
+@router.post("/manual-zips/cleanup")
+async def cleanup_manual_zips(max_age_days: int = Query(30, ge=0)):
+    """Supprime les ZIPs non envoyés > max_age_days (0 = tout supprimer)."""
+    removed = email_service.cleanup_old_manual_zips(max_age_days=max_age_days)
+    return {"removed": removed, "max_age_days": max_age_days}
+
+
+@router.get("/manual-zips/stats")
+async def get_manual_zips_stats():
+    """Retourne les métriques d'usage des ZIPs préparés (pour Paramètres > Stockage)."""
+    return email_service.get_manual_zips_stats()
+
+
+@router.post("/manual-zips/{zip_id}/open-native")
+async def open_manual_zip(zip_id: str):
+    """Ouvre le Finder sur le ZIP préparé (révèle le fichier)."""
+    try:
+        email_service.open_manual_zip_in_finder(zip_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"status": "opened"}
+
+
+@router.post("/manual-zips/{zip_id}/mark-sent", response_model=EmailHistoryEntry)
+async def mark_manual_sent(zip_id: str):
+    """Marque le ZIP comme envoyé manuellement et journalise dans email_history.json."""
+    try:
+        return email_service.mark_manual_zip_sent(zip_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/manual-zips/{zip_id}")
+async def delete_manual_zip(zip_id: str):
+    """Supprime le ZIP physique et son entrée dans l'index."""
+    try:
+        email_service.delete_manual_zip(zip_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"status": "deleted"}

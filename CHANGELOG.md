@@ -8,6 +8,48 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-27) — Mode Envoi Manuel (drawer Envoi Comptable)
+
+Fallback drawer SMTP : quand Gmail bloque le ZIP (`UnsolicitedMessageError`, anti-spam, taille), un nouveau bouton secondaire « Préparer envoi manuel » génère le ZIP sur disque, copie le corps du mail dans le presse-papier, ouvre Finder sur le fichier et lance `mailto:` avec l'objet pré-rempli. Le comptable n'accède jamais au LAN — l'utilisateur joint lui-même le ZIP depuis son client mail. Indépendance totale du SMTP : aucun app password Gmail requis pour le mode manuel.
+
+- **Backend**
+  - **Modèles** [`backend/models/email.py`](backend/models/email.py) — `EmailMode = Literal["smtp", "manual"]`, nouveaux `ManualPrep` (id court via `secrets.token_urlsafe(8)`, `zip_filename`, `zip_path`, `taille_mo`, `contenu_tree`, `documents`, `objet`, `corps_plain`, `destinataires`, `prepared_at`, `sent`) + `ManualPrepRequest`. Champ `mode: EmailMode = "smtp"` ajouté à `EmailHistoryEntry` (rétrocompat : entrées historiques sans champ → traitées comme `smtp`).
+  - **Service** [`backend/services/email_service.py`](backend/services/email_service.py) — répertoire persistant `MANUAL_ZIPS_DIR = data/exports/manual/` + index `_index.json` (écriture atomique via `tempfile.mkstemp` + `os.replace`). Fonctions :
+    - `prepare_manual_zip(req)` — résout les chemins via `_resolve_document_path` (réutilise le résolveur SMTP), crée le ZIP via `_create_manual_zip` (réutilise `TYPE_FOLDER_MAP` pour grouper exports/rapports/releves/justificatifs/documents/), génère objet/corps via `generate_email_subject` + `generate_email_body_plain` si non fournis, indexe l'entrée. Filename : `Documents_Comptables_{YYYY-MM}_{YYYY-MM-DD_HH-MM}.zip` (période détectée via `_resolve_single_period` partagée avec le module Check d'envoi) ou `Documents_Comptables_{YYYY-MM-DD_HH-MM}.zip` si multi-périodes. Anti-collision incrémentale `_2`/`_3`.
+    - `list_manual_zips()` — filtre `sent=False`, vérifie existence physique du ZIP, auto-purge silencieuse des entrées orphelines, tri `prepared_at` desc.
+    - `get_manual_zip(zip_id)` / `delete_manual_zip(zip_id)` — lookup + suppression PDF physique + entrée index.
+    - `open_manual_zip_in_finder(zip_id)` — `subprocess.Popen(["open", "-R", zip_path])` (révèle dans Finder, ne déballe pas).
+    - `mark_manual_zip_sent(zip_id)` — crée `EmailHistoryEntry { mode: "manual", success: true }` via `email_history_service.log_send`, **supprime le ZIP physique** (libère le disque, mail déjà parti) tout en gardant l'entrée d'index `sent=True` comme piste d'audit (`sent_count` reste exact).
+    - `cleanup_old_manual_zips(max_age_days=30)` — supprime ZIPs `sent=False` dont `prepared_at < now - max_age_days`. `max_age_days=0` purge tout (utilisé par bouton « Vider »).
+    - `get_manual_zips_stats()` — `{pending_count, pending_size_bytes, pending_size_mo, sent_count}` pour le compteur Settings.
+    - Helper `ensure_manual_dirs()` exposé pour le boot.
+  - **Router** [`backend/routers/email.py`](backend/routers/email.py) — 7 endpoints sous `/api/email` : `POST /prepare-manual` (400 si liste vide), `GET /manual-zips`, **`POST /manual-zips/cleanup?max_age_days=`** (déclaré AVANT `/{zip_id}` pour éviter ambiguïté FastAPI), **`GET /manual-zips/stats`** (idem), `POST /manual-zips/{id}/open-native`, `POST /manual-zips/{id}/mark-sent`, `DELETE /manual-zips/{id}`.
+  - **Coverage** [`backend/services/email_history_service.py:63`](backend/services/email_history_service.py:63) — `get_send_coverage(year)` filtre désormais `mode in ("smtp", "manual")` ET `success=True` : un mois marqué envoyé manuellement compte exactement comme un envoi SMTP réussi pour la couverture mensuelle. Mode absent (legacy) → traité comme `smtp` pour rétrocompat.
+  - **Lifespan** [`backend/main.py`](backend/main.py) — appel `email_service.ensure_manual_dirs()` au boot (idempotent) + nouvelle boucle asyncio `_manual_zips_cleanup_loop()` qui appelle `cleanup_old_manual_zips(30)` toutes les 24h. **Pattern coopératif strict via `shutdown_event`** (cf. CLAUDE.md, `await asyncio.wait_for(shutdown_event.wait(), timeout=N)`, **jamais** `while True: await asyncio.sleep(N)` nu) — pas d'APScheduler, alignement avec les 3 autres loops du projet (`_previsionnel_*`, `_check_envoi_*`, `_sandbox_auto_*`). Délai de démarrage 5min puis tick 24h, ajoutée au cancel batch shutdown.
+
+- **Frontend**
+  - **Types** [`frontend/src/types/index.ts`](frontend/src/types/index.ts) — `EmailMode`, `ManualPrep`, `ManualPrepRequest`, `ManualZipsStats`, champ `mode?: EmailMode` sur `EmailHistoryEntry`.
+  - **Hooks** [`frontend/src/hooks/useEmail.ts`](frontend/src/hooks/useEmail.ts) — 7 hooks TanStack : `useManualZips`, `useManualZipsStats`, `usePrepareManual`, `useOpenManualInFinder`, `useMarkManualSent`, `useDeleteManualZip`, `useCleanupManualZips`. Invalidations correctes : `email-manual-zips`, `email-manual-zips-stats`, `email-history` (sur mark-sent qui crée une entrée historique).
+  - **Composants** :
+    - [`frontend/src/components/email/ManualSendButton.tsx`](frontend/src/components/email/ManualSendButton.tsx) — bouton secondaire pleine largeur (icône `FolderDown`, fond `bg-surface-hover`). Au clic : (1) validation docs/destinataires non vides, (2) `prepareManual.mutateAsync`, (3) `navigator.clipboard.writeText(corps_plain)` (échec silencieux si permission refusée), (4) `openInFinder.mutateAsync(id)`, (5) `window.location.href = mailto:dest?subject=...` (objet uniquement, le corps **ne passe PAS dans `?body=` car limite ~2000 chars + encodage capricieux dans Gmail web — toujours via clipboard**), (6) toast multi-ligne 6s « ✓ ZIP ouvert dans Finder · ✓ Corps du mail copié · Colle-le dans le brouillon (⌘V) ».
+    - [`frontend/src/components/email/ManualZipCard.tsx`](frontend/src/components/email/ManualZipCard.tsx) — carte avec 4 actions : `[📂 Finder]` `[📋 Recopier]` (re-copie clipboard + ré-ouvre `mailto:` si l'utilisateur a fermé son brouillon par erreur) `[✓ Envoyé]` (vert emerald) `[🗑]` (avec `window.confirm`). Date relative via `formatDistanceToNow` de `date-fns` avec locale `fr` (« il y a 2h »).
+  - **Drawer** [`frontend/src/components/email/SendToAccountantDrawer.tsx`](frontend/src/components/email/SendToAccountantDrawer.tsx) — section ajoutée dans la colonne droite après le size gauge : séparateur `border-t` + label `Si l'envoi automatique échoue :` + `<ManualSendButton>` (passe `documents`/`destinataires`/`objet`/`corps` depuis l'état du drawer, désactivé si vide). Section repliable `<details>` « ZIPs préparés (N) » avec liste de `ManualZipCard` (rendue uniquement si `manualZips.length > 0`, defaultOpen=false).
+  - **Settings > Stockage** [`frontend/src/components/settings/SettingsPage.tsx`](frontend/src/components/settings/SettingsPage.tsx) — nouveau composant `ManualZipsStorageSection` après `JustificatifsIntegritySection` : compteur live « N ZIP en attente d'envoi » + taille disque + bouton « Vider les ZIPs préparés » (icône `Trash2` rouge danger) qui appelle `useCleanupManualZips(0)` après `window.confirm`. Bouton désactivé si pending=0.
+
+- **Anti-patterns évités** :
+  - ❌ Mélanger la logique manuelle dans `send_email()` : tout passe par `prepare_manual_zip()` séparé.
+  - ❌ Réutiliser le ZIP créé par `send_email()` (temporaire et supprimé) : le mode manuel a son propre dossier persistant `data/exports/manual/`.
+  - ❌ Mettre le corps dans `mailto:?body=...` : limite ~2000 chars + encodage capricieux dans Gmail web. **Toujours** passer par le clipboard.
+  - ❌ `useRef` ou `useEffect` pour déclencher le mailto : `window.location.href` directement dans le `onSuccess` de la mutation.
+
+- **Déviations assumées par rapport au prompt initial** :
+  - `ManualPrep` enrichi de `documents: list[DocumentRef]` (le spec l'omettait — nécessaire pour reconstruire `EmailHistoryEntry` lors du `mark-sent` sans reverse-lookup fragile depuis `contenu_tree`).
+  - APScheduler remplacé par `asyncio.create_task` coopératif (pattern interne strict, cf. les 3 autres loops du projet).
+  - Endpoint `GET /manual-zips/stats` ajouté (non spécifié) pour le compteur Settings (évite de fetcher la liste complète + parser côté client).
+  - `mark-sent` supprime le ZIP physique (spec implicite : carte disparaît + disque libéré) — l'entrée d'index reste pour `sent_count` et l'audit.
+
+---
+
 ### Added (2026-04-27) — Module Check d'envoi (rituel pré-vol récurrent avant envoi comptable)
 
 Nouveau module `/check-envoi` qui matérialise le rituel de pré-vol mensuel/annuel avant l'envoi du dossier au comptable. Audite l'état de l'app via les services existants (zéro nouvelle source de vérité), permet d'ajouter des commentaires libres injectés ensuite dans le mail, et signale via badge sidebar les mois clôturés non encore validés (niveaux N1 J+10 / N2 J+15 / N3 J+20). **Décision UX : sidebar uniquement** — pas de toast intrusif, pas de bannière sticky dans le drawer Email, pas de widget Dashboard. **Page d'accueil** `/` migrée de Pipeline → Dashboard ; Pipeline reste accessible via `/pipeline`.

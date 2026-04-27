@@ -6,9 +6,11 @@ import {
 import { cn, MOIS_FR } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
-import { useAvailableDocuments, useEmailPreview, useSendEmail, useEmailHistory } from '@/hooks/useEmail'
+import { useAvailableDocuments, useEmailPreview, useSendEmail, useEmailHistory, useManualZips } from '@/hooks/useEmail'
 import { useSettings } from '@/hooks/useApi'
 import EmailChipsInput from '@/components/common/EmailChipsInput'
+import ManualSendButton from '@/components/email/ManualSendButton'
+import ManualZipCard from '@/components/email/ManualZipCard'
 import type { DocumentRef, DocumentInfo, DocumentType, EmailHistoryEntry } from '@/types'
 
 const TYPE_CONFIG: { key: DocumentType; label: string; icon: typeof Archive }[] = [
@@ -25,6 +27,7 @@ export default function SendToAccountantDrawer() {
   const { isOpen, preselected, defaultFilter, defaultSubject, close } = useSendDrawerStore()
   const { data: settings } = useSettings()
   const { data: allDocuments, isLoading: docsLoading } = useAvailableDocuments()
+  const { data: manualZips = [] } = useManualZips()
   const previewMutation = useEmailPreview()
   const sendMutation = useSendEmail()
 
@@ -580,6 +583,33 @@ export default function SendToAccountantDrawer() {
                 />
               </div>
             </div>
+
+            {/* Mode envoi manuel — fallback si Gmail bloque le ZIP */}
+            <div className="border-t border-border my-4 pt-4">
+              <div className="text-xs text-text-muted mb-2">Si l'envoi automatique échoue :</div>
+              <ManualSendButton
+                documents={selectedDocs}
+                destinataires={destinataires}
+                objet={objet}
+                corps={corps}
+                disabled={selected.size === 0 || destinataires.length === 0}
+              />
+            </div>
+
+            {/* Liste des ZIPs préparés (si présents) */}
+            {manualZips.length > 0 && (
+              <details className="bg-background border border-border rounded-lg group">
+                <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-text-muted hover:text-text flex items-center justify-between list-none">
+                  <span>ZIPs préparés ({manualZips.length})</span>
+                  <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-3 pb-3 pt-1 space-y-2">
+                  {manualZips.map(zip => (
+                    <ManualZipCard key={zip.id} zip={zip} />
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
 
           {/* Footer right */}

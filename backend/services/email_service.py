@@ -1,13 +1,15 @@
 """Service d'envoi d'emails pour les documents comptables."""
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
+import secrets
 import smtplib
 import tempfile
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
@@ -20,9 +22,12 @@ from backend.core.config import (
     EXPORTS_DIR, REPORTS_DIR, RAPPORTS_DIR,
     IMPORTS_RELEVES_DIR,
     JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR,
-    GED_DIR, ASSETS_DIR,
+    GED_DIR, ASSETS_DIR, SETTINGS_FILE,
 )
-from backend.models.email import DocumentRef, DocumentInfo, EmailSendResponse, EmailTestResponse
+from backend.models.email import (
+    DocumentRef, DocumentInfo, EmailHistoryEntry, EmailSendResponse, EmailTestResponse,
+    ManualPrep, ManualPrepRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -753,3 +758,310 @@ def generate_email_html(
         logo_main_src=logo_main_src,
         logo_mark_src=logo_mark_src,
     )
+
+
+# ─── Mode envoi manuel ─────────────────────────────────────────────────────
+# ZIPs persistants dans data/exports/manual/ + index JSON. L'utilisateur
+# joint lui-même le ZIP depuis son client mail (contournement filtres Gmail).
+
+MANUAL_ZIPS_DIR = EXPORTS_DIR / "manual"
+MANUAL_INDEX_PATH = MANUAL_ZIPS_DIR / "_index.json"
+FOLDER_TO_TYPE = {v: k for k, v in TYPE_FOLDER_MAP.items()}
+
+
+def ensure_manual_dirs() -> None:
+    MANUAL_ZIPS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _load_manual_settings() -> dict:
+    if not SETTINGS_FILE.exists():
+        return {}
+    try:
+        return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _load_manual_index() -> list[dict]:
+    ensure_manual_dirs()
+    if not MANUAL_INDEX_PATH.exists():
+        return []
+    try:
+        data = json.loads(MANUAL_INDEX_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if isinstance(data, dict):
+        zips = data.get("zips", [])
+        return zips if isinstance(zips, list) else []
+    if isinstance(data, list):
+        return data
+    return []
+
+
+def _save_manual_index(zips: list[dict]) -> None:
+    ensure_manual_dirs()
+    payload = {"version": 1, "zips": zips}
+    fd, tmp = tempfile.mkstemp(dir=str(MANUAL_ZIPS_DIR), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, str(MANUAL_INDEX_PATH))
+    except Exception:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def _build_manual_zip_filename(documents: list[DocumentRef], timestamp: datetime) -> str:
+    period = _resolve_single_period(documents)
+    ts = timestamp.strftime("%Y-%m-%d_%H-%M")
+    if period:
+        year, month = period
+        return f"Documents_Comptables_{year}-{month:02d}_{ts}.zip"
+    return f"Documents_Comptables_{ts}.zip"
+
+
+def _create_manual_zip(
+    documents: list[DocumentRef],
+    fichiers: list[Path],
+    zip_path: Path,
+) -> tuple[float, list[str]]:
+    contenu_tree: list[str] = []
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for doc, fpath in zip(documents, fichiers):
+            folder = TYPE_FOLDER_MAP.get(doc.type, "autres")
+            arcname = f"{folder}/{fpath.name}"
+            zf.write(str(fpath), arcname=arcname)
+            contenu_tree.append(arcname)
+    size_mo = round(zip_path.stat().st_size / (1024 * 1024), 2)
+    return size_mo, sorted(contenu_tree)
+
+
+def prepare_manual_zip(req: ManualPrepRequest) -> ManualPrep:
+    """Génère le ZIP en data/exports/manual/, indexe la metadata et retourne le ManualPrep.
+
+    L'objet et le corps sont auto-générés si non fournis. Aucun envoi SMTP.
+    """
+    ensure_manual_dirs()
+
+    fichiers: list[Path] = []
+    for doc in req.documents:
+        fpath = _resolve_document_path(doc)
+        if not fpath:
+            raise FileNotFoundError(f"Fichier introuvable : {doc.filename} (type: {doc.type})")
+        fichiers.append(fpath)
+
+    settings = _load_manual_settings()
+    nom = settings.get("email_default_nom")
+
+    timestamp = datetime.now()
+    base_name = _build_manual_zip_filename(req.documents, timestamp)
+    zip_path = MANUAL_ZIPS_DIR / base_name
+    counter = 1
+    while zip_path.exists():
+        zip_path = MANUAL_ZIPS_DIR / f"{Path(base_name).stem}_{counter}.zip"
+        counter += 1
+
+    taille_mo, contenu_tree = _create_manual_zip(req.documents, fichiers, zip_path)
+
+    objet = req.objet or generate_email_subject(req.documents, nom)
+    corps_plain = req.corps or generate_email_body_plain(req.documents, nom)
+
+    prep = ManualPrep(
+        id=secrets.token_urlsafe(8),
+        zip_filename=zip_path.name,
+        zip_path=str(zip_path.resolve()),
+        taille_mo=taille_mo,
+        contenu_tree=contenu_tree,
+        documents=list(req.documents),
+        objet=objet,
+        corps_plain=corps_plain,
+        destinataires=list(req.destinataires),
+        prepared_at=timestamp.isoformat(),
+        sent=False,
+    )
+
+    zips = _load_manual_index()
+    zips.append(prep.model_dump())
+    _save_manual_index(zips)
+
+    logger.info("Manual zip prepared: id=%s file=%s size=%.2fMo", prep.id, prep.zip_filename, taille_mo)
+    return prep
+
+
+def list_manual_zips() -> list[ManualPrep]:
+    """Retourne les ZIPs préparés non encore envoyés, triés par date desc.
+
+    Auto-purge silencieusement les entrées dont le ZIP physique a disparu.
+    """
+    raw = _load_manual_index()
+    result: list[ManualPrep] = []
+    kept: list[dict] = []
+    needs_rewrite = False
+    for entry in raw:
+        if entry.get("sent"):
+            kept.append(entry)
+            continue
+        zip_path = Path(entry.get("zip_path", ""))
+        if not zip_path.exists():
+            needs_rewrite = True
+            continue
+        try:
+            result.append(ManualPrep(**entry))
+            kept.append(entry)
+        except Exception:
+            logger.warning("Manual zip entry corrupted, dropping: %s", entry.get("id"))
+            needs_rewrite = True
+    if needs_rewrite:
+        _save_manual_index(kept)
+    result.sort(key=lambda p: p.prepared_at, reverse=True)
+    return result
+
+
+def get_manual_zip(zip_id: str) -> Optional[ManualPrep]:
+    for entry in _load_manual_index():
+        if entry.get("id") == zip_id:
+            try:
+                return ManualPrep(**entry)
+            except Exception:
+                return None
+    return None
+
+
+def open_manual_zip_in_finder(zip_id: str) -> None:
+    prep = get_manual_zip(zip_id)
+    if not prep:
+        raise FileNotFoundError(f"Manual zip not found: {zip_id}")
+    zip_path = Path(prep.zip_path)
+    if not zip_path.exists():
+        raise FileNotFoundError(f"ZIP physique absent : {zip_path}")
+    import subprocess
+    subprocess.Popen(["open", "-R", str(zip_path)])
+
+
+def mark_manual_zip_sent(zip_id: str) -> EmailHistoryEntry:
+    """Marque le ZIP comme envoyé manuellement et journalise dans email_history.json."""
+    raw = _load_manual_index()
+    target_idx = None
+    for i, entry in enumerate(raw):
+        if entry.get("id") == zip_id:
+            target_idx = i
+            break
+    if target_idx is None:
+        raise FileNotFoundError(f"Manual zip not found: {zip_id}")
+    if raw[target_idx].get("sent"):
+        raise ValueError(f"ZIP déjà marqué envoyé : {zip_id}")
+
+    try:
+        prep = ManualPrep(**raw[target_idx])
+    except Exception as e:
+        raise ValueError(f"Manual zip corrompu : {zip_id}") from e
+
+    history_entry = EmailHistoryEntry(
+        id=secrets.token_hex(4),
+        sent_at=datetime.now().isoformat(),
+        destinataires=prep.destinataires,
+        objet=prep.objet,
+        documents=prep.documents,
+        nb_documents=len(prep.documents),
+        taille_totale_mo=prep.taille_mo,
+        success=True,
+        error_message=None,
+        mode="manual",
+    )
+
+    from backend.services import email_history_service
+    email_history_service.log_send(history_entry)
+
+    raw[target_idx]["sent"] = True
+    # Le ZIP physique n'est plus nécessaire (mail envoyé) — on libère le disque
+    # mais on conserve l'entrée d'index comme piste d'audit (sent_count, history).
+    zip_path = Path(raw[target_idx].get("zip_path", ""))
+    try:
+        zip_path.unlink(missing_ok=True)
+    except Exception as e:
+        logger.warning("Failed to remove sent zip %s: %s", zip_path, e)
+    _save_manual_index(raw)
+
+    logger.info("Manual zip marked sent: id=%s history=%s", zip_id, history_entry.id)
+    return history_entry
+
+
+def delete_manual_zip(zip_id: str) -> None:
+    raw = _load_manual_index()
+    new_index: list[dict] = []
+    found = False
+    for entry in raw:
+        if entry.get("id") == zip_id:
+            found = True
+            zip_path = Path(entry.get("zip_path", ""))
+            try:
+                zip_path.unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning("Failed to remove manual zip %s: %s", zip_path, e)
+            continue
+        new_index.append(entry)
+    if not found:
+        raise FileNotFoundError(f"Manual zip not found: {zip_id}")
+    _save_manual_index(new_index)
+
+
+def cleanup_old_manual_zips(max_age_days: int = 30) -> int:
+    """Supprime les ZIPs non envoyés > max_age_days. Retourne le nombre supprimé.
+
+    `max_age_days=0` purge tous les ZIPs non envoyés (utilisé par "Vider" UI).
+    """
+    if max_age_days < 0:
+        return 0
+    cutoff = datetime.now() - timedelta(days=max_age_days)
+    raw = _load_manual_index()
+    removed = 0
+    kept: list[dict] = []
+    for entry in raw:
+        if entry.get("sent"):
+            kept.append(entry)
+            continue
+        try:
+            prepared = datetime.fromisoformat(entry.get("prepared_at", ""))
+        except Exception:
+            kept.append(entry)
+            continue
+        if prepared >= cutoff:
+            kept.append(entry)
+            continue
+        zip_path = Path(entry.get("zip_path", ""))
+        try:
+            zip_path.unlink(missing_ok=True)
+            removed += 1
+        except Exception as e:
+            logger.warning("Cleanup failed for %s: %s", zip_path, e)
+            kept.append(entry)
+    if removed > 0:
+        _save_manual_index(kept)
+        logger.info("Manual zips cleanup: %d removed (age > %d days)", removed, max_age_days)
+    return removed
+
+
+def get_manual_zips_stats() -> dict:
+    """Métriques d'usage pour la page Paramètres > Stockage."""
+    raw = _load_manual_index()
+    pending_count = 0
+    pending_size_bytes = 0
+    sent_count = 0
+    for entry in raw:
+        if entry.get("sent"):
+            sent_count += 1
+            continue
+        zip_path = Path(entry.get("zip_path", ""))
+        if zip_path.exists():
+            pending_count += 1
+            try:
+                pending_size_bytes += zip_path.stat().st_size
+            except Exception:
+                pass
+    return {
+        "pending_count": pending_count,
+        "pending_size_bytes": pending_size_bytes,
+        "pending_size_mo": round(pending_size_bytes / (1024 * 1024), 2),
+        "sent_count": sent_count,
+    }

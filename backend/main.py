@@ -79,6 +79,38 @@ async def _previsionnel_background_loop():
 _prev_task = None
 _sandbox_auto_task = None
 _check_envoi_task = None
+_manual_zips_cleanup_task = None
+
+
+# Background task — cleanup quotidien des ZIPs manuels non envoyés > 30j
+async def _manual_zips_cleanup_loop():
+    """Purge quotidienne des ZIPs manuels expirés (> 30 jours, non envoyés).
+
+    Sleep coopératif via shutdown_event. Délai initial 5min pour laisser le
+    backend démarrer proprement, puis tick 24h.
+    """
+    try:
+        await asyncio.wait_for(shutdown_event.wait(), timeout=300)
+        return
+    except asyncio.TimeoutError:
+        pass
+
+    while not shutdown_event.is_set():
+        try:
+            from backend.services import email_service
+            removed = email_service.cleanup_old_manual_zips(max_age_days=30)
+            if removed > 0:
+                logging.getLogger(__name__).info(
+                    "Manual zips cleanup: %d ZIP(s) supprimé(s) (>30j non envoyés)",
+                    removed,
+                )
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Manual zips cleanup error: {e}")
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=86400)
+            break
+        except asyncio.TimeoutError:
+            pass
 
 
 # Background task — recalcul quotidien des reminders Check d'envoi
@@ -399,17 +431,25 @@ async def lifespan(app: FastAPI):
         preload_reader_async()
     except Exception as e:
         logging.getLogger(__name__).warning("EasyOCR preload: %s", e)
+    # Créer data/exports/manual/ si absent (pour mode envoi manuel)
+    try:
+        from backend.services import email_service
+        email_service.ensure_manual_dirs()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"ensure_manual_dirs error: {e}")
     # Demarrer la tache previsionnel en arriere-plan
     _prev_task = asyncio.create_task(_previsionnel_background_loop())
     # Démarrer la loop check d'envoi reminders (1h)
     _check_envoi_task = asyncio.create_task(_check_envoi_reminder_loop())
     # Démarrer la loop auto-processor sandbox (no-op si sandbox_auto_mode=False)
-    global _sandbox_auto_task
+    global _sandbox_auto_task, _manual_zips_cleanup_task
     try:
         from backend.services.sandbox_auto_processor import auto_processor_loop
         _sandbox_auto_task = asyncio.create_task(auto_processor_loop())
     except Exception as e:
         logging.getLogger(__name__).warning("sandbox_auto_processor: %s", e)
+    # Démarrer la loop cleanup quotidien des ZIPs manuels (24h)
+    _manual_zips_cleanup_task = asyncio.create_task(_manual_zips_cleanup_loop())
     yield
 
     # === SHUTDOWN ===
@@ -425,7 +465,7 @@ async def lifespan(app: FastAPI):
         log.warning("stop_sandbox_watchdog error: %s", e)
 
     # 3. Cancel + await tasks asyncio avec timeout global de 1.5s
-    tasks = [t for t in (_prev_task, _sandbox_auto_task, _check_envoi_task) if t is not None]
+    tasks = [t for t in (_prev_task, _sandbox_auto_task, _check_envoi_task, _manual_zips_cleanup_task) if t is not None]
     for t in tasks:
         t.cancel()
     if tasks:

@@ -422,6 +422,8 @@ export interface EmailPreview {
   corps_html?: string
 }
 
+export type EmailMode = 'smtp' | 'manual'
+
 export interface EmailHistoryEntry {
   id: string
   sent_at: string
@@ -432,6 +434,35 @@ export interface EmailHistoryEntry {
   taille_totale_mo: number
   success: boolean
   error_message?: string
+  mode?: EmailMode
+}
+
+export interface ManualPrep {
+  id: string
+  zip_filename: string
+  zip_path: string
+  taille_mo: number
+  contenu_tree: string[]
+  documents: DocumentRef[]
+  objet: string
+  corps_plain: string
+  destinataires: string[]
+  prepared_at: string
+  sent: boolean
+}
+
+export interface ManualPrepRequest {
+  documents: DocumentRef[]
+  destinataires: string[]
+  objet?: string
+  corps?: string
+}
+
+export interface ManualZipsStats {
+  pending_count: number
+  pending_size_bytes: number
+  pending_size_mo: number
+  sent_count: number
 }
 
 export interface OCRSummary {

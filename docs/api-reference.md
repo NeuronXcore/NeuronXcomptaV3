@@ -1108,7 +1108,79 @@ Envoyer des documents par email. Zippe tous les documents en un seul ZIP, envoie
 Historique des envois email. **Query params :** `year` (optionnel), `limit` (défaut 50).
 
 ### `GET /coverage/{year}`
-Couverture d'envoi par mois pour une année : `{ 1: true, 2: false, ... }`.
+Couverture d'envoi par mois pour une année : `{ 1: true, 2: false, ... }`. Filtre désormais `mode in ("smtp", "manual")` ET `success=True` — un mois marqué envoyé manuellement compte exactement comme un envoi SMTP réussi (mode absent sur entrées legacy → traité comme `smtp` pour rétrocompat).
+
+### Mode envoi manuel — fallback Gmail
+
+Contournement quand SMTP Gmail bloque le ZIP (anti-spam, taille >25 Mo, `UnsolicitedMessageError`). Le ZIP est généré sur disque, le mail est pré-rempli (objet + corps dans le presse-papier + `mailto:`), et l'utilisateur joint lui-même le ZIP depuis son client mail. Aucune dépendance externe, aucune exposition réseau.
+
+**Stockage** : `data/exports/manual/` (ZIPs persistants) + `_index.json` (écriture atomique). Filename format : `Documents_Comptables_{YYYY-MM}_{YYYY-MM-DD_HH-MM}.zip` (période détectée par `_resolve_single_period` partagée avec le module Check d'envoi) ou `Documents_Comptables_{YYYY-MM-DD_HH-MM}.zip` si multi-périodes. Anti-collision incrémentale `_2`/`_3`.
+
+**ID** : `secrets.token_urlsafe(8)` (court, URL-safe).
+
+**Modèle `ManualPrep`** :
+```json
+{
+  "id": "fnAt0g0Uyco",
+  "zip_filename": "Documents_Comptables_2026-04-27_22-34.zip",
+  "zip_path": "/abs/path/data/exports/manual/Documents_Comptables_2026-04-27_22-34.zip",
+  "taille_mo": 0.01,
+  "contenu_tree": ["rapports/rapport_urssaf_2025_20260427_213051.pdf"],
+  "documents": [{"type": "rapport", "filename": "..."}],
+  "objet": "...",
+  "corps_plain": "...",
+  "destinataires": ["..."],
+  "prepared_at": "2026-04-27T22:34:45.379063",
+  "sent": false
+}
+```
+
+#### `POST /prepare-manual`
+Génère un ZIP persistant pour envoi manuel + retourne objet/corps auto-générés (si non fournis). **N'envoie aucun email**.
+
+**Body :** `ManualPrepRequest { documents: DocumentRef[], destinataires: string[], objet?: string, corps?: string }`
+
+**Réponse :** `ManualPrep` (cf. modèle ci-dessus).
+
+**Erreurs :** `400` si `documents` ou `destinataires` vide ; `404` si un fichier référencé est introuvable sur disque.
+
+#### `GET /manual-zips`
+Liste les ZIPs préparés non encore envoyés (filtre `sent=False`), tri `prepared_at` desc. Auto-purge silencieuse des entrées dont le ZIP physique a disparu.
+
+**Réponse :** `ManualPrep[]`.
+
+#### `POST /manual-zips/cleanup?max_age_days=`
+Supprime les ZIPs `sent=False` dont `prepared_at < now - max_age_days`. `max_age_days=0` purge tout (utilisé par bouton « Vider » Settings).
+
+**Note FastAPI** : route déclarée AVANT les paramétriques `/{zip_id}/...` pour éviter toute ambiguïté de matching.
+
+**Query :** `max_age_days: int = 30` (clamp `ge=0`).
+
+**Réponse :** `{ removed: number, max_age_days: number }`.
+
+#### `GET /manual-zips/stats`
+Métriques d'usage pour la page Paramètres > Stockage.
+
+**Réponse :** `{ pending_count, pending_size_bytes, pending_size_mo, sent_count }`.
+
+#### `POST /manual-zips/{zip_id}/open-native`
+Révèle le ZIP préparé dans Finder via `subprocess.Popen(["open", "-R", zip_path])`. macOS uniquement.
+
+**Erreurs :** `404` si l'ID est inconnu ou si le ZIP physique a disparu.
+
+#### `POST /manual-zips/{zip_id}/mark-sent`
+Marque le ZIP comme envoyé manuellement, journalise dans `email_history.json` avec `mode: "manual"` + `success: true`, **et supprime le ZIP physique** pour libérer le disque (l'entrée d'index reste avec `sent=True` comme piste d'audit). La carte disparaît de la liste « ZIPs préparés ».
+
+**Réponse :** `EmailHistoryEntry` (avec `mode: "manual"`).
+
+**Erreurs :** `404` si l'ID est inconnu ; `400` si déjà marqué envoyé.
+
+#### `DELETE /manual-zips/{zip_id}`
+Supprime le ZIP physique + son entrée d'index (à utiliser avant `mark-sent` si l'utilisateur abandonne la prépa).
+
+**Réponse :** `{ status: "deleted" }`.
+
+**Erreurs :** `404` si l'ID est inconnu.
 
 ---
 

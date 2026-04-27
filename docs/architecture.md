@@ -634,6 +634,77 @@ Store Zustand (sendDrawerStore) :
   → Points d'entrée : sidebar (sous Pipeline), ExportPage, GedPage
 ```
 
+### Mode Envoi Manuel (fallback Gmail)
+
+Quand SMTP Gmail bloque le ZIP (anti-spam, taille >25 Mo, `UnsolicitedMessageError`), le mode manuel persiste le ZIP sur disque, copie le corps du mail dans le presse-papier, ouvre Finder, et lance `mailto:` avec l'objet pré-rempli. L'utilisateur joint lui-même le ZIP depuis son client mail. Indépendance SMTP totale (aucun app password requis).
+
+```
+Préparation manuelle (prepare_manual_zip) :
+  1. Résoudre les chemins via _resolve_document_path (réutilise le résolveur SMTP)
+  2. Créer le ZIP PERSISTANT dans data/exports/manual/ :
+     Documents_Comptables_{YYYY-MM}_{YYYY-MM-DD_HH-MM}.zip
+       (période unique détectée via _resolve_single_period)
+     ou Documents_Comptables_{YYYY-MM-DD_HH-MM}.zip
+       (multi-périodes ou aucune période détectable)
+     ├── exports/, rapports/, releves/, justificatifs/, documents/
+     └── (anti-collision incrémentale _2 / _3)
+  3. Générer objet/corps via generate_email_subject + generate_email_body_plain
+     si non fournis dans le ManualPrepRequest
+  4. Indexer dans data/exports/manual/_index.json (écriture atomique :
+     tempfile.mkstemp + os.replace) :
+       { "version": 1, "zips": [ManualPrep] }
+  5. Retourner le ManualPrep complet (id court via secrets.token_urlsafe(8))
+
+Frontend (ManualSendButton.tsx) — au clic :
+  1. prepareManual.mutateAsync({ documents, destinataires, objet, corps })
+  2. navigator.clipboard.writeText(corps_plain)
+       (échec silencieux si permission refusée)
+  3. openInFinder.mutateAsync(id)
+       → POST /manual-zips/{id}/open-native
+       → backend subprocess.Popen(["open", "-R", zip_path]) (macOS)
+  4. window.location.href = mailto:dest?subject=...
+       OBJET UNIQUEMENT — JAMAIS dans ?body=
+       (limite ~2000 chars + encodage capricieux Gmail web)
+  5. toast multi-ligne 6s :
+       ✓ ZIP ouvert dans Finder
+       ✓ Corps du mail copié
+       Colle-le dans le brouillon (⌘V)
+
+Marquer envoyé (mark_manual_zip_sent) :
+  1. Charger ManualPrep depuis _index.json
+  2. Créer EmailHistoryEntry { mode: "manual", success: true }
+     via email_history_service.log_send
+  3. Set sent=True dans _index.json (entrée conservée comme audit)
+  4. Supprimer le ZIP physique (mail déjà parti, libère le disque)
+  5. Retourner l'EmailHistoryEntry créée
+
+Cleanup :
+  → cleanup_old_manual_zips(max_age_days=30) supprime ZIPs sent=False > Nj
+  → max_age_days=0 purge tout (bouton « Vider » Settings)
+  → Loop asyncio _manual_zips_cleanup_loop dans lifespan() (24h, coopératif
+    via shutdown_event — pattern strict, JAMAIS de while True: sleep nu)
+
+Coverage (get_send_coverage) :
+  → filtre désormais mode in ("smtp", "manual") ET success=True
+  → un envoi manuel marqué compte comme un SMTP réussi pour la couverture
+  → mode absent (legacy) → traité comme "smtp" (rétrocompat)
+
+Settings > Stockage (ManualZipsStorageSection) :
+  → useManualZipsStats() : pending_count, pending_size_mo, sent_count
+  → bouton « Vider les ZIPs préparés » → useCleanupManualZips(0)
+    après window.confirm
+
+Anti-patterns CRITIQUES :
+  ❌ Mélanger la logique manuelle dans send_email() : tout passe par
+     prepare_manual_zip() séparé.
+  ❌ Réutiliser le ZIP créé par send_email() (temporaire, supprimé après envoi) :
+     le mode manuel a son propre dossier persistant data/exports/manual/.
+  ❌ Mettre le corps dans mailto:?body=... : limite ~2000 chars + encodage
+     capricieux Gmail web. TOUJOURS via le clipboard.
+  ❌ useRef ou useEffect pour déclencher mailto : window.location.href
+     directement dans onSuccess de la mutation.
+```
+
 ### Checkboxes modernes et tri (EditorPage)
 
 ```
@@ -1512,6 +1583,10 @@ data/
 │   └── releves/                # Relevés bancaires originaux (PDF)
 │       └── pdf_HASH.pdf
 ├── exports/                    # Archives ZIP mensuelles
+│   ├── exports_history.json    # Historique des exports générés
+│   └── manual/                 # Mode envoi manuel — ZIPs persistants
+│       ├── _index.json         # Index ManualPrep (écriture atomique)
+│       └── Documents_Comptables_*.zip
 ├── reports/                    # Rapports générés (CSV/PDF/XLSX)
 ├── rapports/                   # Rapports legacy
 ├── justificatifs/

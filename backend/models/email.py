@@ -1,9 +1,12 @@
 """Modèles Pydantic pour l'envoi d'emails."""
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
+
+
+EmailMode = Literal["smtp", "manual"]
 
 
 class DocumentRef(BaseModel):
@@ -61,3 +64,27 @@ class EmailHistoryEntry(BaseModel):
     taille_totale_mo: float
     success: bool
     error_message: Optional[str] = None
+    mode: EmailMode = "smtp"
+
+
+class ManualPrep(BaseModel):
+    """Métadonnées d'un ZIP préparé pour envoi manuel."""
+    id: str
+    zip_filename: str
+    zip_path: str
+    taille_mo: float
+    contenu_tree: list[str]
+    documents: list[DocumentRef]
+    objet: str
+    corps_plain: str
+    destinataires: list[str]
+    prepared_at: str  # ISO 8601
+    sent: bool = False
+
+
+class ManualPrepRequest(BaseModel):
+    """Requête de préparation d'un envoi manuel (génère le ZIP, ne l'envoie pas)."""
+    documents: list[DocumentRef]
+    destinataires: list[str]
+    objet: Optional[str] = None
+    corps: Optional[str] = None

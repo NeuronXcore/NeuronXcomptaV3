@@ -18,7 +18,7 @@ import {
   Power, Inbox,
 } from 'lucide-react'
 import EmailChipsInput from '@/components/common/EmailChipsInput'
-import { useTestEmailConnection } from '@/hooks/useEmail'
+import { useTestEmailConnection, useManualZipsStats, useCleanupManualZips } from '@/hooks/useEmail'
 import toast from 'react-hot-toast'
 
 type Tab = 'general' | 'theme' | 'export' | 'justificatifs' | 'storage' | 'system' | 'email'
@@ -745,6 +745,9 @@ function StorageTab() {
       {/* Intégrité des liens justificatifs */}
       <JustificatifsIntegritySection />
 
+      {/* ZIPs préparés en attente (mode envoi manuel) */}
+      <ManualZipsStorageSection />
+
       {/* Operation files management — grouped by year */}
       <OperationFilesSection
         operationFiles={operationFiles}
@@ -977,6 +980,73 @@ function IntegrityMetric({
       <div className="text-2xl font-bold">{value}</div>
       <div className="text-[11px] text-text mt-0.5">{label}</div>
       <div className="text-[10px] text-text-muted">{hint}</div>
+    </div>
+  )
+}
+
+
+// ──── Manual ZIPs Storage Section ────
+
+function ManualZipsStorageSection() {
+  const { data: stats } = useManualZipsStats()
+  const cleanup = useCleanupManualZips()
+
+  const handleClear = async () => {
+    if (!stats || stats.pending_count === 0) return
+    const ok = window.confirm(
+      `Supprimer les ${stats.pending_count} ZIP(s) préparé(s) (${stats.pending_size_mo.toFixed(1)} Mo) ?`,
+    )
+    if (!ok) return
+    try {
+      const res = await cleanup.mutateAsync(0)
+      toast.success(`${res.removed} ZIP(s) supprimé(s)`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur cleanup')
+    }
+  }
+
+  const pending = stats?.pending_count ?? 0
+  const sizeMo = stats?.pending_size_mo ?? 0
+
+  return (
+    <div className="bg-surface rounded-2xl border border-border p-6">
+      <h3 className="font-semibold text-text flex items-center gap-2 mb-1">
+        <Archive size={18} />
+        ZIPs préparés (envoi manuel)
+      </h3>
+      <p className="text-xs text-text-muted mb-4">
+        ZIPs générés via « Préparer envoi manuel » dans le drawer d'envoi comptable.
+        Auto-purge des ZIPs non envoyés &gt; 30 jours par tâche quotidienne.
+      </p>
+
+      <div className="flex items-center justify-between bg-background rounded-xl p-3">
+        <div className="flex items-center gap-3">
+          <div className="text-2xl font-bold text-text tabular-nums">{pending}</div>
+          <div>
+            <p className="text-sm text-text">
+              ZIP{pending > 1 ? 's' : ''} en attente d'envoi
+            </p>
+            <p className="text-xs text-text-muted">
+              {sizeMo.toFixed(1)} Mo sur disque
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleClear}
+          disabled={pending === 0 || cleanup.isPending}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+            'bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-40 disabled:cursor-not-allowed',
+          )}
+        >
+          {cleanup.isPending ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Trash2 size={12} />
+          )}
+          Vider les ZIPs préparés
+        </button>
+      </div>
     </div>
   )
 }

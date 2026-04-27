@@ -61,12 +61,19 @@ def get_history(year: Optional[int] = None, limit: int = 50) -> list[dict]:
 
 
 def get_send_coverage(year: int) -> dict:
-    """Pour une année, retourne {mois: True/False} si un envoi contenant un export de ce mois existe."""
+    """Pour une année, retourne {mois: True/False} si un envoi contenant un export de ce mois existe.
+
+    Considère les envois SMTP (mode="smtp") ET manuels (mode="manual"). Mode absent
+    sur les anciennes entrées → traité comme "smtp" pour rétrocompat.
+    """
     history = _load_history()
     coverage: dict[int, bool] = {m: False for m in range(1, 13)}
 
     for entry in history:
         if not entry.get("success"):
+            continue
+        mode = entry.get("mode", "smtp")
+        if mode not in ("smtp", "manual"):
             continue
         for doc in entry.get("documents", []):
             if doc.get("type") == "export":
