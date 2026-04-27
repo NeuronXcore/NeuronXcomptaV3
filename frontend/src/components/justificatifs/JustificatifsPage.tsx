@@ -27,6 +27,10 @@ import {
 } from 'lucide-react'
 import { useRunAutoRapprochement } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
+import { useImmobilisations } from '@/hooks/useAmortissements'
+import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
+import ImmoBadge from '@/components/shared/ImmoBadge'
+import DotationBadge from '@/components/shared/DotationBadge'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import { Unlink, Paperclip, Trash2, Link2, Copy as FacsimileIcon } from 'lucide-react'
 import { LockCell } from '@/components/LockCell'
@@ -62,6 +66,14 @@ export default function JustificatifsPage() {
     lockSelectedCount, isAllLockSelected, isSomeLockSelected,
     lockSelectedAllLocked,
   } = useJustificatifsPage()
+
+  // Immo + dotation badges (cross-page navigation)
+  const { data: immosList } = useImmobilisations()
+  const immosMap = useMemo(
+    () => Object.fromEntries((immosList ?? []).map((i) => [i.id, i])),
+    [immosList],
+  )
+  const openImmoDrawer = useImmobilisationDrawerStore((s) => s.open)
 
   // Batch fac-similé
   const [batchOverviewOpen, setBatchOverviewOpen] = useState(false)
@@ -521,13 +533,13 @@ export default function JustificatifsPage() {
             )
           })()}
 
-          {/* Filtre Type d'opération (source : bancaire / note_de_frais) */}
+          {/* Filtre Type d'opération — Prompt B2 : 5 valeurs */}
           <select
             value={sourceFilter}
-            onChange={e => setSourceFilter(e.target.value as 'all' | 'bancaire' | 'note_de_frais')}
+            onChange={e => setSourceFilter(e.target.value as typeof sourceFilter)}
             className={cn(
               'bg-surface border rounded px-3 py-1.5 text-sm',
-              sourceFilter === 'note_de_frais'
+              sourceFilter !== 'all'
                 ? 'border-amber-500/50 text-amber-400'
                 : 'border-border text-text'
             )}
@@ -536,6 +548,8 @@ export default function JustificatifsPage() {
             <option value="all">Tous les types</option>
             <option value="bancaire">Opérations bancaires</option>
             <option value="note_de_frais">Notes de frais</option>
+            <option value="immobilisation">Immobilisations</option>
+            <option value="dotation">Dotations</option>
           </select>
 
           {/* Bouton reset filtres cat + source (visible uniquement si un filtre est actif) */}
@@ -856,23 +870,41 @@ export default function JustificatifsPage() {
                         </td>
                         <td className="px-2 py-1.5 max-w-[160px]" onClick={e => e.stopPropagation()}>
                           <div className="flex flex-col">
-                            {op.source === 'note_de_frais' && (
-                              <span
-                                style={{
-                                  display: 'inline-block',
-                                  fontSize: '10px',
-                                  fontWeight: 500,
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
-                                  background: '#FAEEDA',
-                                  color: '#854F0B',
-                                  marginBottom: '2px',
-                                  lineHeight: '16px',
-                                  alignSelf: 'flex-start',
-                                }}
-                              >
-                                Note de frais
-                              </span>
+                            {(op.source === 'note_de_frais' || op.immobilisation_id || op.source === 'amortissement') && (
+                              <div className="flex flex-wrap gap-1 mb-1">
+                                {op.source === 'note_de_frais' && (
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      fontSize: '10px',
+                                      fontWeight: 500,
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      background: '#FAEEDA',
+                                      color: '#854F0B',
+                                      lineHeight: '16px',
+                                      alignSelf: 'flex-start',
+                                    }}
+                                  >
+                                    Note de frais
+                                  </span>
+                                )}
+                                {op.immobilisation_id && (
+                                  <ImmoBadge
+                                    immobilisationId={op.immobilisation_id}
+                                    orphan={!immosMap[op.immobilisation_id]}
+                                    onClick={() => openImmoDrawer(op.immobilisation_id!)}
+                                  />
+                                )}
+                                {op.source === 'amortissement' && (
+                                  <DotationBadge
+                                    year={parseInt((op.Date || '').slice(0, 4)) || new Date().getFullYear()}
+                                    onClick={() => navigate(
+                                      `/visualization?year=${parseInt((op.Date || '').slice(0, 4)) || new Date().getFullYear()}&category=${encodeURIComponent('Dotations aux amortissements')}`
+                                    )}
+                                  />
+                                )}
+                              </div>
                             )}
                             <select
                               value={op['Catégorie'] ?? ''}

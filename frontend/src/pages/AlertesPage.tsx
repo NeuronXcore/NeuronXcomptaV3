@@ -1,7 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X, Download, FileText, FileSpreadsheet, Loader2, ChevronDown } from 'lucide-react'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
+import { useImmobilisations } from '@/hooks/useAmortissements'
+import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
+import ImmoBadge from '@/components/shared/ImmoBadge'
+import DotationBadge from '@/components/shared/DotationBadge'
 import toast from 'react-hot-toast'
 import {
   useReactTable,
@@ -17,7 +22,7 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import AlerteBadge from '@/components/AlerteBadge'
 import { useAlertesSummary, useAlertesFichier, useResolveAlerte, useRefreshAlertes, useExportCompteAttente, downloadCompteAttenteExport } from '@/hooks/useAlertes'
 import { useCategories } from '@/hooks/useApi'
-import { formatCurrency, formatDate, cn, MOIS_FR } from '@/lib/utils'
+import { formatCurrency, formatDate, cn, MOIS_FR, matchesOperationType, type OperationTypeFilter } from '@/lib/utils'
 import type { Operation, AlerteType } from '@/types'
 
 const ALERTE_PRIORITY: Record<AlerteType, number> = {
@@ -35,9 +40,16 @@ function alertePriority(op: Operation): number {
 }
 
 export default function AlertesPage() {
+  const navigate = useNavigate()
   const { data: summary, isLoading: isSummaryLoading } = useAlertesSummary()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const { selectedYear, setYear } = useFiscalYearStore()
+  const { data: immosList } = useImmobilisations()
+  const immosMap = useMemo(
+    () => Object.fromEntries((immosList ?? []).map((i) => [i.id, i])),
+    [immosList],
+  )
+  const openImmoDrawer = useImmobilisationDrawerStore((s) => s.open)
   const { data: operations, isLoading: isOpsLoading } = useAlertesFichier(selectedFile)
   const resolveMutation = useResolveAlerte()
   const refreshMutation = useRefreshAlertes()
@@ -48,6 +60,7 @@ export default function AlertesPage() {
   const exportMenuRef = useRef<HTMLDivElement>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('')
+  const [sourceFilter, setSourceFilter] = useState<OperationTypeFilter>('all')
   const { data: categoriesData } = useCategories()
 
   const hasAutoSelected = useRef(false)
@@ -131,8 +144,11 @@ export default function AlertesPage() {
     if (subcategoryFilter) {
       ops = ops.filter((op) => op['Sous-catégorie'] === subcategoryFilter)
     }
+    if (sourceFilter !== 'all') {
+      ops = ops.filter((op) => matchesOperationType(op, sourceFilter))
+    }
     return ops.sort((a, b) => alertePriority(a) - alertePriority(b))
-  }, [operations, categoryFilter, subcategoryFilter])
+  }, [operations, categoryFilter, subcategoryFilter, sourceFilter])
 
   const columns = useMemo<ColumnDef<Operation>[]>(() => [
     {
@@ -146,28 +162,51 @@ export default function AlertesPage() {
       header: 'Libellé',
       size: 300,
       cell: ({ row }) => {
-        const isNoteDeFrais = row.original.source === 'note_de_frais'
+        const op = row.original
+        const isNoteDeFrais = op.source === 'note_de_frais'
+        const immoId = op.immobilisation_id
+        const isDotation = op.source === 'amortissement'
+        const opYear = parseInt((op.Date || '').slice(0, 4)) || new Date().getFullYear()
+        const hasBadges = isNoteDeFrais || !!immoId || isDotation
         return (
           <div className="flex flex-col">
-            {isNoteDeFrais && (
-              <span
-                style={{
-                  display: 'inline-block',
-                  fontSize: '10px',
-                  fontWeight: 500,
-                  padding: '1px 6px',
-                  borderRadius: '4px',
-                  background: '#FAEEDA',
-                  color: '#854F0B',
-                  marginBottom: '2px',
-                  lineHeight: '16px',
-                  alignSelf: 'flex-start',
-                }}
-              >
-                Note de frais
-              </span>
+            {hasBadges && (
+              <div className="flex flex-wrap gap-1 mb-1">
+                {isNoteDeFrais && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: '#FAEEDA',
+                      color: '#854F0B',
+                      lineHeight: '16px',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    Note de frais
+                  </span>
+                )}
+                {immoId && (
+                  <ImmoBadge
+                    immobilisationId={immoId}
+                    orphan={!immosMap[immoId]}
+                    onClick={() => openImmoDrawer(immoId)}
+                  />
+                )}
+                {isDotation && (
+                  <DotationBadge
+                    year={opYear}
+                    onClick={() => navigate(
+                      `/visualization?year=${opYear}&category=${encodeURIComponent('Dotations aux amortissements')}`
+                    )}
+                  />
+                )}
+              </div>
             )}
-            <span>{row.original['Libellé']}</span>
+            <span>{op['Libellé']}</span>
           </div>
         )
       },
@@ -473,9 +512,25 @@ export default function AlertesPage() {
             ))}
           </select>
 
-          {(categoryFilter || subcategoryFilter) && (
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value as OperationTypeFilter)}
+            className={cn(
+              'bg-surface border rounded-lg px-3 py-2 text-sm min-w-[180px]',
+              sourceFilter !== 'all' ? 'border-amber-500/50 text-amber-400' : 'border-border text-text',
+            )}
+            title="Type d'opération"
+          >
+            <option value="all">Tous les types</option>
+            <option value="bancaire">Opérations bancaires</option>
+            <option value="note_de_frais">Notes de frais</option>
+            <option value="immobilisation">Immobilisations</option>
+            <option value="dotation">Dotations</option>
+          </select>
+
+          {(categoryFilter || subcategoryFilter || sourceFilter !== 'all') && (
             <button
-              onClick={() => { setCategoryFilter(''); setSubcategoryFilter('') }}
+              onClick={() => { setCategoryFilter(''); setSubcategoryFilter(''); setSourceFilter('all') }}
               className="flex items-center gap-1 px-2.5 py-2 text-xs text-text-muted hover:text-text rounded-lg hover:bg-surface transition-colors"
             >
               <X size={14} />

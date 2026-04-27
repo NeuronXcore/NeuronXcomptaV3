@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import {
   useReactTable,
@@ -18,7 +18,7 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown,
   CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown,
   AlertTriangle, Star, Paperclip, X, Download, RotateCcw, FileText,
-  CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban, Camera, Link2,
+  CheckCircle2, Circle, Scissors, Unlink, Users2, Expand, Ban, Camera, Link2, ArrowLeft,
 } from 'lucide-react'
 import { api } from '@/api/client'
 import toast from 'react-hot-toast'
@@ -40,13 +40,17 @@ import VentilationLines from '@/components/editor/VentilationLines'
 import UrssafSplitWidget, { isUrssafOp } from '@/components/editor/UrssafSplitWidget'
 import { ParticipantsCell } from '@/components/editor/ParticipantsCell'
 import { useOperationFiles, useOperations, useYearOperations, useSaveOperations, useCategorizeOperations, useHasPdf, useCreateEmptyMonth } from '@/hooks/useOperations'
+import { useImmobilisations } from '@/hooks/useAmortissements'
+import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
+import ImmoBadge from '@/components/shared/ImmoBadge'
+import DotationBadge from '@/components/shared/DotationBadge'
 import { useCategories, useSettings } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import { useLettrageStats, useToggleLettrage, useBulkLettrage } from '@/hooks/useLettrage'
 import { useHistoriqueBNC } from '@/hooks/useSimulation'
-import { formatCurrency, formatFileTitle, cn, MOIS_FR, isReconstitue } from '@/lib/utils'
+import { formatCurrency, formatFileTitle, cn, MOIS_FR, isReconstitue, matchesOperationType, type OperationTypeFilter } from '@/lib/utils'
 import AlerteBadge from '@/components/AlerteBadge'
 import type { Operation, CategoryRaw } from '@/types'
 
@@ -163,9 +167,16 @@ function CheckboxCell({
 
 export default function EditorPage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { data: files, isLoading: filesLoading } = useOperationFiles()
   const { data: categoriesData } = useCategories()
   const { data: appSettings } = useSettings()
+  const { data: immosList } = useImmobilisations()
+  const immosMap = useMemo(
+    () => Object.fromEntries((immosList ?? []).map((i) => [i.id, i])),
+    [immosList],
+  )
+  const openImmoDrawer = useImmobilisationDrawerStore((s) => s.open)
   const exemptions = appSettings?.justificatif_exemptions
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const { selectedYear, setYear } = useFiscalYearStore()
@@ -682,17 +693,15 @@ export default function EditorPage() {
 
   // TanStack Table columns
   const columns = useMemo<ColumnDef<Operation, unknown>[]>(() => [
-    // Hidden column for source filter (Type d'opération)
+    // Hidden column for source filter (Type d'opération) — étendu Prompt B2
     {
       id: 'source',
       accessorFn: (row) => row.source ?? '',
       enableSorting: false,
       enableHiding: true,
-      filterFn: (row, columnId, filterValue) => {
-        const val = (row.getValue<string>(columnId) || '').trim()
-        if (filterValue === 'note_de_frais') return val === 'note_de_frais'
-        if (filterValue === 'bancaire') return val === ''
-        return true
+      filterFn: (row, _columnId, filterValue) => {
+        if (!filterValue || filterValue === 'all') return true
+        return matchesOperationType(row.original as { source?: string; immobilisation_id?: string }, filterValue as OperationTypeFilter)
       },
       header: () => null,
       cell: () => null,
@@ -805,6 +814,11 @@ export default function EditorPage() {
         const cat = row.original['Catégorie'] || ''
         const color = categoryColors.get(cat)
         const isNoteDeFrais = row.original.source === 'note_de_frais'
+        const immoId = row.original.immobilisation_id
+        const isDotation = row.original.source === 'amortissement'
+        const opDate = row.original.Date || ''
+        const opYear = opDate ? parseInt(opDate.slice(0, 4)) : new Date().getFullYear()
+        const hasBadges = isNoteDeFrais || !!immoId || isDotation
         return (
           <div className="relative flex flex-col">
             {color && (
@@ -813,23 +827,41 @@ export default function EditorPage() {
                 style={{ backgroundColor: color }}
               />
             )}
-            {isNoteDeFrais && (
-              <span
-                style={{
-                  display: 'inline-block',
-                  fontSize: '10px',
-                  fontWeight: 500,
-                  padding: '1px 6px',
-                  borderRadius: '4px',
-                  background: '#FAEEDA',
-                  color: '#854F0B',
-                  marginBottom: '2px',
-                  lineHeight: '16px',
-                  alignSelf: 'flex-start',
-                }}
-              >
-                Note de frais
-              </span>
+            {hasBadges && (
+              <div className="flex flex-wrap gap-1 mb-1">
+                {isNoteDeFrais && (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: '#FAEEDA',
+                      color: '#854F0B',
+                      lineHeight: '16px',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    Note de frais
+                  </span>
+                )}
+                {immoId && (
+                  <ImmoBadge
+                    immobilisationId={immoId}
+                    orphan={!immosMap[immoId]}
+                    onClick={() => openImmoDrawer(immoId)}
+                  />
+                )}
+                {isDotation && (
+                  <DotationBadge
+                    year={opYear}
+                    onClick={() => navigate(
+                      `/visualization?year=${opYear}&category=${encodeURIComponent('Dotations aux amortissements')}`
+                    )}
+                  />
+                )}
+              </div>
             )}
             <EditableCell
               type="select"
@@ -1410,8 +1442,27 @@ export default function EditorPage() {
 
   if (filesLoading) return <LoadingSpinner text="Chargement des fichiers..." />
 
+  // Breadcrumb contextuel — Prompt B2 (?from=amortissements|visualization|ged)
+  const fromParam = searchParams.get('from')
+  const FROM_LABELS: Record<string, { label: string; route: string }> = {
+    amortissements: { label: 'Amortissements', route: '/amortissements' },
+    'compta-analytique': { label: 'Compta Analytique', route: '/visualization' },
+    visualization: { label: 'Compta Analytique', route: '/visualization' },
+    ged: { label: 'GED', route: '/ged' },
+  }
+  const fromInfo = fromParam ? FROM_LABELS[fromParam] : null
+
   return (
     <div className="flex flex-col h-full">
+      {fromInfo && (
+        <button
+          onClick={() => navigate(fromInfo.route)}
+          className="flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors mb-2 self-start"
+        >
+          <ArrowLeft size={14} />
+          Retour à {fromInfo.label}
+        </button>
+      )}
       <PageHeader
         title="Édition"
         description="Modifier et catégoriser vos opérations bancaires"
@@ -1939,6 +1990,8 @@ export default function EditorPage() {
               <option value="">Tous les types</option>
               <option value="bancaire">Opérations bancaires</option>
               <option value="note_de_frais">Notes de frais</option>
+              <option value="immobilisation">Immobilisations</option>
+              <option value="dotation">Dotations</option>
             </select>
           </div>
           <div>
