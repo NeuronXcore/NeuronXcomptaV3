@@ -27,6 +27,7 @@ import SnapshotsPage from '@/components/snapshots/SnapshotsPage'
 import ChargesForfaitairesPage from '@/components/charges-forfaitaires/ChargesForfaitairesPage'
 import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 import LiasseScpDrawer from '@/components/liasse/LiasseScpDrawer'
+import GlobalImmobilisationDrawer from '@/components/amortissements/GlobalImmobilisationDrawer'
 
 export default function App() {
   const { data: settings } = useSettings()
@@ -86,6 +87,7 @@ export default function App() {
     </Routes>
     <SendToAccountantDrawer />
     <LiasseScpDrawer />
+    <GlobalImmobilisationDrawer />
     </>
   )
 }
