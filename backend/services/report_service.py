@@ -1,6 +1,14 @@
 """
 Service pour la génération de rapports V2.
 Index JSON, templates, format EUR, déduplication, réconciliation.
+
+Templates « custom renderer » (Prompt B3) :
+  Un template peut porter les champs optionnels `category`, `formats`,
+  `filters_schema`, `renderer` (callable), `dedup_key_fn`, `title_builder`.
+  Quand `renderer` est présent, `generate_report()` délègue à `get_or_generate()`
+  qui dispatch sur le moteur custom au lieu de la pipeline ops bancaires standard.
+  Les templates amortissements consomment ce mécanisme pour partager un seul
+  point de génération entre l'UI Rapports V2, l'OD dotation et l'export ZIP.
 """
 from __future__ import annotations
 
@@ -27,6 +35,9 @@ from backend.services.operation_service import list_operation_files, load_operat
 logger = logging.getLogger(__name__)
 
 # ─── Templates prédéfinis ───
+#
+# Note: les champs `renderer`, `dedup_key_fn`, `title_builder` sont des callables
+# Python non-sérialisables. `get_templates()` les filtre avant exposition API.
 
 REPORT_TEMPLATES: list[dict] = [
     {
@@ -53,11 +64,123 @@ REPORT_TEMPLATES: list[dict] = [
         "format": "pdf",
         "filters": {"categories": ["Charges sociales"], "type": "debit"},
     },
+    {
+        "id": "amortissements_registre",
+        "label": "Registre des immobilisations",
+        "description": "État complet du registre (actives, amorties, sorties)",
+        "icon": "Package",
+        "category": "Amortissements",
+        "format": "pdf",
+        "formats": ["pdf", "csv", "xlsx"],
+        "filters": {"statut": "all", "poste": "all"},
+        "filters_schema": [
+            {"key": "year", "type": "int", "required": True},
+            {"key": "statut", "type": "select",
+             "options": ["all", "en_cours", "amorti", "sorti"], "default": "all"},
+            {"key": "poste", "type": "select", "options": "dynamic:postes", "default": "all"},
+        ],
+        # renderer / dedup_key_fn / title_builder injectés via _ensure_amortissements_renderers
+    },
+    {
+        "id": "amortissements_dotations",
+        "label": "Tableau des dotations",
+        "description": "Dotations de l'exercice par immobilisation",
+        "icon": "TrendingDown",
+        "category": "Amortissements",
+        "format": "pdf",
+        "formats": ["pdf", "csv", "xlsx"],
+        "filters": {"poste": "all"},
+        "filters_schema": [
+            {"key": "year", "type": "int", "required": True},
+            {"key": "poste", "type": "select", "options": "dynamic:postes", "default": "all"},
+        ],
+    },
 ]
+
+# Champs sérialisables pour exposition API frontend
+_TEMPLATE_PUBLIC_KEYS = {
+    "id", "label", "description", "icon", "format", "filters",
+    "category", "formats", "filters_schema",
+}
+
+
+def _amort_registre_dedup_key(filters: dict) -> str:
+    year = filters.get("year") or "all"
+    statut = filters.get("statut", "all") or "all"
+    poste = filters.get("poste", "all") or "all"
+    return f"amort_registre_{year}_{statut}_{poste}"
+
+
+def _amort_registre_title(filters: dict) -> str:
+    year = filters.get("year") or "—"
+    base = f"Registre immobilisations {year}"
+    statut = filters.get("statut", "all")
+    poste = filters.get("poste", "all")
+    if statut and statut != "all":
+        base += f" · {statut}"
+    if poste and poste != "all":
+        base += f" · poste {poste}"
+    return base
+
+
+def _amort_dotations_dedup_key(filters: dict) -> str:
+    year = filters.get("year") or "all"
+    poste = filters.get("poste", "all") or "all"
+    return f"amort_dotations_{year}_{poste}"
+
+
+def _amort_dotations_title(filters: dict) -> str:
+    year = filters.get("year") or "—"
+    base = f"Tableau dotations {year}"
+    poste = filters.get("poste", "all")
+    if poste and poste != "all":
+        base += f" · poste {poste}"
+    return base
+
+
+def _ensure_amortissements_renderers() -> None:
+    """Injecte renderer/dedup_key_fn/title_builder sur les templates amortissements.
+
+    Lazy pour éviter le cycle d'imports `report_service ↔ amortissement_report_service`.
+    Idempotent.
+    """
+    needs_injection = any(
+        t["id"] in ("amortissements_registre", "amortissements_dotations")
+        and "renderer" not in t
+        for t in REPORT_TEMPLATES
+    )
+    if not needs_injection:
+        return
+    from backend.services import amortissement_report_service
+    for t in REPORT_TEMPLATES:
+        if t["id"] == "amortissements_registre":
+            t["renderer"] = amortissement_report_service.render_registre
+            t["dedup_key_fn"] = _amort_registre_dedup_key
+            t["title_builder"] = _amort_registre_title
+        elif t["id"] == "amortissements_dotations":
+            t["renderer"] = amortissement_report_service.render_dotations
+            t["dedup_key_fn"] = _amort_dotations_dedup_key
+            t["title_builder"] = _amort_dotations_title
 
 
 def get_templates() -> list[dict]:
-    return REPORT_TEMPLATES
+    """Retourne les templates avec uniquement les champs sérialisables.
+
+    Les callables (`renderer`, `dedup_key_fn`, `title_builder`) sont strippés
+    pour permettre l'exposition JSON via `/api/reports/templates`.
+    """
+    return [
+        {k: v for k, v in t.items() if k in _TEMPLATE_PUBLIC_KEYS}
+        for t in REPORT_TEMPLATES
+    ]
+
+
+def _get_template_by_id(template_id: str) -> Optional[dict]:
+    _ensure_amortissements_renderers()
+    for t in REPORT_TEMPLATES:
+        if t["id"] == template_id:
+            return t
+    return None
 
 
 # ─── Index JSON ───
@@ -292,15 +415,161 @@ def _archive_report(old_path: Path, metadata: dict) -> None:
     archive_meta_path.write_text(json.dumps(archive_index, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def get_or_generate(
+    template_id: str,
+    filters: dict,
+    format: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+) -> dict:
+    """Retourne le rapport existant matchant la `dedup_key` + format, sinon le génère.
+
+    Élimine la duplication entre les 3 sources historiques (UI Rapports / OD dotation
+    / export ZIP) — cf. Prompt B3.
+
+    Pour les templates « custom renderer » (champ `renderer` présent), utilise
+    `dedup_key_fn(filters)` pour calculer une clé stable et `renderer(year, path,
+    format, filters)` pour générer. Pour les templates standards (BNC annuel,
+    Ventilation charges, etc.), délègue à `generate_report()` (legacy path).
+
+    Retourne le dict metadata du rapport (mêmes champs que `generate_report`),
+    avec `from_cache: True` quand un fichier existant a été réutilisé.
+    """
+    ensure_directories()
+    template = _get_template_by_id(template_id)
+    if not template:
+        raise ValueError(f"Template inconnu : {template_id}")
+
+    # Templates standards (sans renderer) → legacy path
+    if not template.get("renderer"):
+        return generate_report({
+            "template_id": template_id,
+            "filters": filters,
+            "format": format,
+            "title": title,
+            "description": description,
+        })
+
+    fmt = format
+    dedup_key_fn = template["dedup_key_fn"]
+    title_builder = template.get("title_builder", lambda f: template["label"])
+    title_str = title or title_builder(filters)
+    dedup_key_str = dedup_key_fn(filters)
+
+    # 1. Recherche d'un rapport existant matchant `dedup_key + format`
+    index = _load_index()
+    for existing in index["reports"]:
+        if (
+            existing.get("dedup_key") == dedup_key_str
+            and existing.get("format") == fmt
+        ):
+            existing_path = _find_report_path(existing["filename"])
+            if existing_path and existing_path.exists():
+                logger.info(
+                    "get_or_generate cache hit: %s (%s)",
+                    existing["filename"], dedup_key_str,
+                )
+                return {**existing, "replaced": None, "from_cache": True}
+
+    # 2. Pas de cache valide — archiver l'ancien si présent (même clé, fichier disparu)
+    replaced = None
+    for existing in list(index["reports"]):
+        if (
+            existing.get("dedup_key") == dedup_key_str
+            and existing.get("format") == fmt
+        ):
+            replaced = existing["filename"]
+            old_path = _find_report_path(replaced)
+            if old_path and old_path.exists():
+                _archive_report(old_path, existing)
+            index["reports"].remove(existing)
+
+    # 3. Construire le filename + générer
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    slug = _slugify(title_str)
+    ext_map = {"pdf": ".pdf", "csv": ".csv", "xlsx": ".xlsx", "excel": ".xlsx"}
+    ext = ext_map.get(fmt, f".{fmt}")
+    filename = f"rapport_{slug}_{timestamp}{ext}"
+    output_path = REPORTS_DIR / filename
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    year = filters.get("year")
+    template["renderer"](year=year, output_path=output_path, format=fmt, filters=filters)
+
+    stat = output_path.stat()
+    meta = {
+        "filename": filename,
+        "title": title_str,
+        "description": description,
+        "format": fmt,
+        "generated_at": datetime.now().isoformat(),
+        "filters": filters,
+        "template_id": template_id,
+        "dedup_key": dedup_key_str,
+        "nb_operations": 0,
+        "total_debit": 0,
+        "total_credit": 0,
+        "file_size": stat.st_size,
+        "file_size_human": _format_size(stat.st_size),
+        "year": year,
+        "quarter": None,
+        "month": filters.get("month"),
+    }
+    index["reports"].append(meta)
+    _save_index(index)
+
+    # 4. Enregistrement GED V2 (best-effort)
+    try:
+        from backend.services import ged_service
+        ged_service.register_rapport(
+            filename=filename,
+            path=str(output_path),
+            title=title_str,
+            description=description,
+            filters=filters,
+            format_type=fmt,
+            template_id=template_id,
+            replaced_filename=replaced,
+        )
+    except Exception as e:
+        logger.warning("Enregistrement GED rapport %s échoué: %s", filename, e)
+
+    logger.info(
+        "get_or_generate generated: %s (%s, format=%s, replaced=%s)",
+        filename, dedup_key_str, fmt, replaced,
+    )
+    return {**meta, "replaced": replaced, "from_cache": False}
+
+
 def generate_report(request: dict) -> dict:
-    """Génère un rapport V2 avec index, déduplication, format EUR."""
+    """Génère un rapport V2 avec index, déduplication, format EUR.
+
+    Si `template_id` correspond à un template avec `renderer` custom (amortissements),
+    délègue à `get_or_generate` qui dispatche sur le moteur dédié.
+    """
     ensure_directories()
 
     fmt = request.get("format", "pdf")
     filters = request.get("filters", {})
     template_id = request.get("template_id")
-    title = request.get("title") or _generate_title(filters, template_id)
+    title = request.get("title")
     description = request.get("description")
+
+    # Dispatch templates « custom renderer » (Prompt B3 — amortissements)
+    if template_id:
+        template = _get_template_by_id(template_id)
+        if template and template.get("renderer"):
+            return get_or_generate(
+                template_id=template_id,
+                filters=filters,
+                format=fmt,
+                title=title,
+                description=description,
+            )
+
+    # Legacy path (BNC annuel / Ventilation charges / Récap social / freeform)
+    if not title:
+        title = _generate_title(filters, template_id)
 
     # Load operations
     year = filters.get("year")

@@ -1974,18 +1974,20 @@ def _format_size(size_bytes: int) -> str:
 def _add_amortissements_to_zip(zf: zipfile.ZipFile, year: int, prefix: str = "") -> list[dict]:
     """Ajoute la section `Amortissements/` au ZIP comptable.
 
+    Prompt B3 : consomme `report_service.get_or_generate(...)` au lieu de générer
+    dans `/tmp/`. Les fichiers ZIP sont **strictement identiques** à ceux servis
+    via `/reports` et la GED — zéro duplication.
+
     Contenu :
-      - `Amortissements/{rapport_OD.pdf}` si l'OD dotation a été générée (lien justif)
-      - `Amortissements/registre_immobilisations_{year}.pdf` (régénéré si l'OD est absente)
-      - `Amortissements/registre_immobilisations_{year}.csv` (toujours, BOM UTF-8 pour Excel FR)
+      - `Amortissements/{registre.pdf}` (template `amortissements_registre`, statut=all)
+      - `Amortissements/{registre.csv}` (idem)
+      - `Amortissements/{dotations.pdf}` (template `amortissements_dotations`, poste=all)
 
     No-op si aucune immobilisation contributive sur l'exercice.
     `prefix` permet de préfixer les chemins (ex. en batch : `prefix="Annee_2026/"`).
     Retourne la liste des fichiers ajoutés pour `files_included`.
     """
-    from backend.core.config import REPORTS_DIR
-    from backend.services import amortissement_service
-    from backend.services.amortissement_report_service import generate_dotation_pdf
+    from backend.services import amortissement_service, report_service
 
     added: list[dict] = []
 
@@ -1995,91 +1997,48 @@ def _add_amortissements_to_zip(zf: zipfile.ZipFile, year: int, prefix: str = "")
 
     base_dir = f"{prefix}Amortissements" if prefix else "Amortissements"
 
-    # 1. Rapport OD dotation (si générée)
-    ref = amortissement_service.find_dotation_operation(year)
-    od_pdf_added = False
-    if ref:
+    def _add_template(template_id: str, filters: dict, fmt: str, type_label: str) -> None:
         try:
-            ops = operation_service.load_operations(ref["filename"])
-            if 0 <= ref["index"] < len(ops):
-                lien = ops[ref["index"]].get("Lien justificatif", "") or ""
-                pdf_name = Path(lien).name if lien else None
-                if pdf_name:
-                    pdf_path = REPORTS_DIR / pdf_name
-                    if pdf_path.exists():
-                        arc_name = f"{base_dir}/{pdf_name}"
-                        zf.write(str(pdf_path), arcname=arc_name)
-                        added.append({"name": arc_name, "type": "amortissement_od"})
-                        od_pdf_added = True
+            report = report_service.get_or_generate(
+                template_id=template_id,
+                filters=filters,
+                format=fmt,
+            )
+            src_path = report_service.get_report_path(report["filename"])
+            if not src_path or not src_path.exists():
+                logger.warning(
+                    "Section Amortissements : fichier introuvable post-génération %s",
+                    report["filename"],
+                )
+                return
+            arc_name = f"{base_dir}/{report['filename']}"
+            zf.write(str(src_path), arcname=arc_name)
+            added.append({"name": arc_name, "type": type_label})
         except Exception as e:
-            logger.warning("Section Amortissements : OD PDF skip: %s", e)
+            logger.warning("Section Amortissements : %s skip: %s", type_label, e)
 
-    # 2. Registre PDF (généré à la volée si OD absente)
-    if not od_pdf_added:
-        try:
-            import tempfile
-            tmp_dir = Path(tempfile.gettempdir())
-            tmp_path = tmp_dir / f"registre_immobilisations_{year}.pdf"
-            generate_dotation_pdf(year, tmp_path)
-            arc_name = f"{base_dir}/registre_immobilisations_{year}.pdf"
-            zf.write(str(tmp_path), arcname=arc_name)
-            added.append({"name": arc_name, "type": "amortissement_registre_pdf"})
-            tmp_path.unlink(missing_ok=True)
-        except Exception as e:
-            logger.warning("Section Amortissements : registre PDF skip: %s", e)
+    # 1. Registre PDF (statut=all, poste=all)
+    _add_template(
+        "amortissements_registre",
+        {"year": year, "statut": "all", "poste": "all"},
+        "pdf",
+        "amortissement_registre_pdf",
+    )
 
-    # 3. CSV registre (consommation comptable, séparateur ; + BOM Excel FR)
-    try:
-        csv_content = _generate_registre_amortissement_csv(detail)
-        arc_csv = f"{base_dir}/registre_immobilisations_{year}.csv"
-        zf.writestr(arc_csv, csv_content.encode("utf-8-sig"))
-        added.append({"name": arc_csv, "type": "amortissement_registre_csv"})
-    except Exception as e:
-        logger.warning("Section Amortissements : registre CSV skip: %s", e)
+    # 2. Registre CSV (statut=all, poste=all) — consommation comptable
+    _add_template(
+        "amortissements_registre",
+        {"year": year, "statut": "all", "poste": "all"},
+        "csv",
+        "amortissement_registre_csv",
+    )
+
+    # 3. Tableau dotations PDF (poste=all)
+    _add_template(
+        "amortissements_dotations",
+        {"year": year, "poste": "all"},
+        "pdf",
+        "amortissement_dotations_pdf",
+    )
 
     return added
-
-
-def _generate_registre_amortissement_csv(detail) -> str:
-    """CSV registre — séparateur `;`, virgule décimale, CRLF + BOM (Excel FR).
-
-    Colonnes : Désignation, Acquis le, Mode, Durée, Base, VNC début, Dotation brute,
-    Quote-part, Dotation déductible, VNC fin, Poste.
-    """
-    def _fr(n: float) -> str:
-        return f"{n:.2f}".replace(".", ",")
-
-    def _date_fr(iso: str) -> str:
-        if not iso or len(iso) < 10:
-            return iso or ""
-        return f"{iso[8:10]}/{iso[5:7]}/{iso[0:4]}"
-
-    lines: list[str] = [
-        "Désignation;Acquis le;Mode;Durée;Base;VNC début;Dotation brute;"
-        "Quote-part;Dotation déductible;VNC fin;Poste"
-    ]
-    for immo in detail.immos:
-        lines.append(";".join([
-            (immo.designation or "").replace(";", ","),
-            _date_fr(immo.date_acquisition),
-            immo.mode,
-            f"{immo.duree}",
-            _fr(immo.base_amortissable),
-            _fr(immo.vnc_debut),
-            _fr(immo.dotation_brute),
-            f"{immo.quote_part_pro:.0f}",
-            _fr(immo.dotation_deductible),
-            _fr(immo.vnc_fin),
-            (immo.poste or "").replace(";", ","),
-        ]))
-
-    # Ligne TOTAL
-    lines.append(";".join([
-        "TOTAL", "", "", "", "", "",
-        _fr(detail.total_brute),
-        "",
-        _fr(detail.total_deductible),
-        "", "",
-    ]))
-
-    return "\r\n".join(lines) + "\r\n"

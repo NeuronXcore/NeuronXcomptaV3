@@ -67,8 +67,9 @@ export default function ReportsPage() {
   const navigate = useNavigate()
   const { selectedYear, setYear } = useFiscalYearStore()
   const [filters, setFilters] = useState<ReportFiltersV2>({ year: selectedYear })
-  const [format, setFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf')
+  const [format, setFormat] = useState<'pdf' | 'csv' | 'excel' | 'xlsx'>('pdf')
   const [templateId, setTemplateId] = useState<string | undefined>()
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | undefined>()
   const [isBatchGenerating, setIsBatchGenerating] = useState(false)
   const [title, setTitle] = useState('')
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false)
@@ -221,8 +222,9 @@ export default function ReportsPage() {
       year: yr,
     })
     if (yr) setYear(yr)
-    setFormat(t.format as 'pdf' | 'csv' | 'excel')
+    setFormat(t.format as 'pdf' | 'csv' | 'excel' | 'xlsx')
     setTemplateId(t.id)
+    setSelectedTemplate(t)
     setTitleManuallyEdited(false)
   }
 
@@ -255,6 +257,7 @@ export default function ReportsPage() {
         title={title}
         autoTitle={autoTitle}
         onTitleChange={handleTitleChange}
+        selectedTemplate={selectedTemplate}
       />
     </div>
   )

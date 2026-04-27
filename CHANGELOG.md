@@ -8,6 +8,56 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-27) — Prompt B3 : Amortissements templates Rapports V2 (anti-duplication)
+
+**Unification des sources de rapports amortissements** via 2 nouveaux templates dans `report_service.REPORT_TEMPLATES` avec dédup stricte par filtres. L'OD dotation (B1), l'export ZIP et l'UI Rapports V2 convergent désormais pour consommer ces templates au lieu de regénérer en parallèle. Triple bénéfice : (a) zéro duplication (1 PDF, 1 entrée GED, 1 fichier disque par couple `(filters, format)`), (b) accès à un PDF/CSV/XLSX à la demande sans passer par l'OD, (c) format unifié OCR↔ZIP↔UI.
+
+- **Refactor [`backend/services/amortissement_report_service.py`](backend/services/amortissement_report_service.py)** : passe de « 1 fonction monolithique PDF » à « 2 renderers multi-format ». Nouvelles fonctions publiques :
+  - `render_registre(year, output_path, format, filters)` — registre complet (actives + amorties + sorties). Filtres : `year`, `statut` (all/en_cours/amorti/sorti), `poste` (all/<poste>). Dispatch sur `_render_registre_pdf/csv/xlsx`.
+  - `render_dotations(year, output_path, format, filters)` — tableau dotations exercice. Filtres : `year`, `poste`. Dispatch sur `_render_dotations_pdf/csv/xlsx`.
+  - **Colonne `Origine`** ajoutée dans les 6 sorties (`NeuronX` ou `Reprise {exercice_entree_neuronx}`) — badge ambre `#FAEEDA`/`#854F0B` pour les immos en reprise (style cohérent avec le badge frontend `Reprise {year}`).
+  - PDF : ReportLab paysage A4, logo, titre + sous-filtres, tableau coloré, ligne TOTAL violette `#EEEDFE`, référence légale art. 39-1-2° CGI / PCG 214-13.
+  - CSV : BOM UTF-8, séparateur `;`, virgule décimale, CRLF (Excel FR). 12 colonnes registre / 12 colonnes dotations + ligne TOTAL.
+  - XLSX : openpyxl avec header violet `#3C3489`, format `#,##0.00 €` sur colonnes monétaires, formules SUM en pied de tableau, freeze A2, auto-width, fill ambre sur cellule Origine pour les reprises.
+  - Tolérant `xlsx`↔`excel` (frontend envoie selon le contexte).
+  - **Backward compat B1** : `generate_dotation_pdf(year, output_path)` conservé comme wrapper vers `render_dotations(year, path, "pdf", {"poste": "all"})`.
+
+- **2 nouveaux templates** dans [`backend/services/report_service.py`](backend/services/report_service.py) `REPORT_TEMPLATES` (champs étendus optionnels : `category`, `formats`, `filters_schema`, `renderer`, `dedup_key_fn`, `title_builder`) :
+  - **`amortissements_registre`** (icône `Package`, catégorie `Amortissements`) — `dedup_key: amort_registre_{year}_{statut}_{poste}`.
+  - **`amortissements_dotations`** (icône `TrendingDown`, catégorie `Amortissements`) — `dedup_key: amort_dotations_{year}_{poste}`.
+  - `_ensure_amortissements_renderers()` injection lazy (au premier appel) pour éviter le cycle d'imports `report_service ↔ amortissement_report_service`. Idempotent.
+  - `get_templates()` filtre les callables (`renderer`/`dedup_key_fn`/`title_builder`) avant exposition API via whitelist `_TEMPLATE_PUBLIC_KEYS` — les 5 templates restent JSON-sérialisables pour `/api/reports/templates`.
+
+- **Helper `report_service.get_or_generate(template_id, filters, format, title?, description?)`** :
+  - Recherche un rapport existant via `dedup_key_fn(filters)` + format dans `reports_index.json`. Cache hit (fichier disque OK) → retourne `{from_cache: True, ...}` sans regénération.
+  - Cache miss → archive l'ancien (si présent), exécute `template["renderer"](year, output_path, format, filters)`, indexe avec `dedup_key`, register en GED via `ged_service.register_rapport`. Retourne `{from_cache: False, replaced: <ancien|null>, ...}`.
+  - `dedup_key` stocké dans chaque entrée `reports_index.json` aux côtés du `format` pour matching O(N).
+  - `generate_report()` dispatche automatiquement vers `get_or_generate` quand `template_id` correspond à un template avec `renderer` (pas d'infinite loop : le legacy path n'appelle jamais `get_or_generate` sur ses propres templates).
+  - Templates standards (BNC annuel, Ventilation charges, Récap social) restent inchangés (pas de `renderer` → legacy path).
+
+- **Convergence OD dotation → template** ([`amortissement_service.generer_dotation_ecriture`](backend/services/amortissement_service.py)) :
+  - Consomme désormais `report_service.get_or_generate(template_id="amortissements_dotations", filters={year, poste: "all"}, format="pdf")` au lieu d'appeler directement `generate_dotation_pdf()`.
+  - L'OD pointe vers `report.filename`. Après `get_or_generate` (qui register_rapport en GED standard), `_register_dotation_ged_entry()` est rappelé pour **enrichir** la metadata GED avec `operation_ref`, `source_module: "amortissements"` et `rapport_meta` (overwrite la version générique pour permettre la navigation `/amortissements?tab=dotation`).
+  - **`supprimer_dotation_ecriture(year)` PRÉSERVE désormais le PDF** (il vit sa vie dans Rapports V2). Retourne `{status, year, filename, index, pdf_preserved: True}`. Suppression seulement via la GED ou via régénération du template.
+  - **`regenerer_pdf_dotation(year)`** passe par `get_or_generate` (force-régen via suppression du fichier disque pour forcer une nouvelle archive), met à jour le `Lien justificatif` de l'OD si le filename change, invalide le thumbnail GED.
+
+- **Convergence export ZIP → templates** ([`export_service._add_amortissements_to_zip`](backend/services/export_service.py)) :
+  - Consomme `report_service.get_or_generate` au lieu de générer dans `/tmp/`. Section `Amortissements/` du ZIP contient désormais 3 fichiers **strictement identiques** à ceux servis via `/reports` et la GED : registre PDF (statut=all, poste=all), registre CSV, tableau dotations PDF (poste=all).
+  - Helper interne `_add_template(template_id, filters, fmt, type_label)` factorise la logique. Plus d'écriture dans `/tmp/`, plus de duplication.
+  - Helper legacy `_generate_registre_amortissement_csv` supprimé (le rendu CSV est maintenant fait par le renderer du template).
+
+- **Helper `amortissement_service.list_immobilisations_enriched(year)`** : retourne TOUTES les immos enrichies (`vnc_actuelle`, `avancement_pct`). Le param `year` est ignoré pour la liste (le registre couvre l'ensemble) et conservé pour la cohérence des templates Rapports V2. Wrapper de `get_all_immobilisations(statut=None, poste=None, year=None)`.
+
+- **UI Rapports V2** ([`ReportFilters.tsx`](frontend/src/components/reports/ReportFilters.tsx) + [`ReportsPage.tsx`](frontend/src/components/reports/ReportsPage.tsx)) :
+  - **Templates groupés par catégorie** : section `TEMPLATES RAPIDES` (standards) puis `TEMPLATES RAPIDES · AMORTISSEMENTS` (les 2 nouveaux). Ring primary autour du template card sélectionné.
+  - **Filtres conditionnels** : quand un template `category === 'Amortissements'` est sélectionné — (a) bloc « Filtres amortissements » (fond `bg-primary/5 border-primary/20`) avec dropdown Statut (Registre uniquement) + dropdown Poste (peuplé via `useGedPostes()`) + note dédup ; (b) filtres standards (catégories, sous-cat, type, montant min/max, source) **masqués** ; (c) bouton « Batch (12 mois) » **masqué** (rapport annuel) ; (d) format selector lit `template.formats` (PDF / CSV / **XLSX**) au lieu du défaut PDF/CSV/EXCEL.
+  - Types étendus : `ReportFiltersV2.statut?`, `ReportFiltersV2.poste?`, `ReportTemplate.category?` / `formats?` / `filters_schema?`, `ReportGenerateRequest.format` accepte désormais `'xlsx'`.
+
+**Tests end-to-end OK** :
+- 6/6 générations multi-format (registre × {pdf,csv,xlsx}, dotations × {pdf,csv,xlsx}) — fichiers 17.2 Ko PDF / 401 o CSV / 5.5 Ko XLSX.
+- Dédup vérifiée : cache hit (`from_cache: True`) sur mêmes filtres ; nouveau fichier sur filtres différents (statut=en_cours).
+- UI live : `POST /api/reports/generate → 200 OK` avec `template_id: "amortissements_dotations"`, `dedup_key: "amort_dotations_2025_all"`, second clic = pas de doublon dans l'index ni sur disque ni dans archives.
+
 ### Added (2026-04-27) — Prompt B1 : Amortissements backend écritures (OD + PDF + GED + task + ZIP)
 
 **Matérialisation comptable de la dotation aux amortissements**, pattern strict `charges_forfaitaires_service` (blanchissage / repas / véhicule). L'OD au 31/12 passe la dotation déductible en charge fiscale, avec PDF rapport ReportLab + entrée GED + nettoyage idempotent.

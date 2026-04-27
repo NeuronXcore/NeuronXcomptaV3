@@ -542,7 +542,18 @@ Compare le CA liasse avec les honoraires bancaires crédités de l'année (somme
 > **Note** : Les endpoints gallery, tree, pending, favorite, compare et update titre ont ete migres vers la GED V2 (`/api/ged`). Voir section GED ci-dessous.
 
 ### `GET /templates`
-3 templates predefinis (BNC annuel, Ventilation charges, Recapitulatif social).
+**5 templates** predefinis (3 standards + 2 amortissements). Les callables (`renderer`, `dedup_key_fn`, `title_builder`) sont strippés de la réponse via whitelist `_TEMPLATE_PUBLIC_KEYS` — JSON-sérialisable.
+
+**Standards** (sans renderer custom, pipeline ops bancaires) :
+- `bnc_annuel` — Récapitulatif annuel BNC (PDF)
+- `ventilation_charges` — Ventilation des charges (Excel)
+- `recapitulatif_social` — Récapitulatif social URSSAF/CARMF/ODM (PDF)
+
+**Amortissements** (catégorie `Amortissements`, renderer custom multi-format PDF/CSV/XLSX) :
+- `amortissements_registre` — Registre des immobilisations. Filtres : `year` (req), `statut` (all/en_cours/amorti/sorti), `poste` (all/<poste>). `dedup_key: amort_registre_{year}_{statut}_{poste}`.
+- `amortissements_dotations` — Tableau des dotations exercice. Filtres : `year` (req), `poste` (all/<poste>). `dedup_key: amort_dotations_{year}_{poste}`.
+
+Chaque entrée expose les champs étendus optionnels : `category`, `formats: ["pdf", "csv", "xlsx"]`, `filters_schema` (description des filtres pour génération UI dynamique).
 
 ### `POST /generate`
 Générer un rapport avec déduplication (même filtres+format = remplacement).
@@ -564,12 +575,37 @@ Générer un rapport avec déduplication (même filtres+format = remplacement).
 
 **Réponse :** inclut `replaced: "ancien_filename.pdf"` si déduplication.
 
-**Ventilation** : les opérations ventilées sont **éclatées en N sous-lignes** avant les filtres via `_explode_ventilations()`. Chaque sous-ligne apparaît dans le rapport avec :
+**Dispatch templates avec renderer custom (Prompt B3)** : si `template_id` correspond à un template avec renderer (ex. `amortissements_registre` ou `amortissements_dotations`), `generate_report()` délègue automatiquement à `get_or_generate()` qui :
+1. Calcule `dedup_key_str = template.dedup_key_fn(filters)` (ex: `amort_dotations_2026_all`).
+2. Cache hit (entrée d'index avec même `dedup_key + format`, fichier disque OK) → retourne `{from_cache: true, ...}` sans regénération.
+3. Cache miss → archive l'ancien (si même clé), exécute `template.renderer(year, output_path, format, filters)`, indexe avec `dedup_key`, register en GED.
+
+**Body amortissements** :
+```json
+{
+  "format": "pdf",
+  "filters": { "year": 2026, "statut": "all", "poste": "all" },
+  "template_id": "amortissements_registre"
+}
+```
+
+**Réponse amortissements** : champs additionnels `dedup_key: "amort_registre_2026_all_all"` et `from_cache: false|true`.
+
+**Ventilation** : les opérations ventilées sont **éclatées en N sous-lignes** avant les filtres via `_explode_ventilations()` (legacy path uniquement). Chaque sous-ligne apparaît dans le rapport avec :
 - Libellé suffixé `[V{i+1}/{N}]` (ex: `PRLVSEPAAMAZON... [V1/2]`)
 - Catégorie / sous-catégorie / montant / justificatif de la sous-ligne
 - Date / commentaire / flag Important hérités du parent
 
 La catégorie `"Ventilé"` n'apparaît jamais dans les rapports — les totaux sont correctement répartis par sous-catégorie. Appliqué aux formats **PDF et CSV** (Excel non modifié).
+
+### Helper interne `report_service.get_or_generate(template_id, filters, format, title?, description?)`
+
+Source unique de génération pour les templates avec renderer custom. Élimine la duplication entre 3 sources historiques :
+1. **UI Rapports V2** (`POST /api/reports/generate`)
+2. **OD dotation amortissements** (`amortissement_service.generer_dotation_ecriture(year)` → consomme `get_or_generate(template_id="amortissements_dotations", filters={year, poste: "all"}, format="pdf")`)
+3. **Export ZIP comptable** (`export_service._add_amortissements_to_zip` → consomme `get_or_generate` pour 3 fichiers : registre PDF, registre CSV, dotations PDF)
+
+Conséquence : 1 PDF, 1 entrée GED, 1 fichier disque par couple `(filters, format)` — quel que soit le point d'entrée. Suppression de l'OD dotation préserve le PDF du rapport (vit sa vie en GED V2).
 
 ### `POST /{filename}/regenerate`
 Re-génère un rapport existant (même titre/description, données actualisées).

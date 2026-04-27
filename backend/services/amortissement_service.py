@@ -120,6 +120,18 @@ def get_immobilisation(immo_id: str) -> Optional[dict]:
     return None
 
 
+def list_immobilisations_enriched(year: Optional[int] = None) -> list[dict]:
+    """Retourne TOUTES les immos enrichies (`vnc_actuelle`, `avancement_pct`).
+
+    Le paramètre `year` est ignoré pour la liste (le registre couvre l'ensemble des
+    immos quel que soit l'exercice de contexte) ; il est conservé dans la signature
+    pour la cohérence des templates Rapports V2 (`render_registre(year, ...)`).
+
+    Utilisé par `amortissement_report_service.render_registre()`.
+    """
+    return get_all_immobilisations(statut=None, poste=None, year=None)
+
+
 def create_immobilisation(data: dict) -> dict:
     """Création d'immobilisation. Force mode='lineaire' (BNC régime recettes interdit le dégressif).
     Valide la cohérence du backfill : amortissements_anterieurs + vnc_ouverture == base_amortissable
@@ -974,55 +986,42 @@ def _find_or_create_december_file(year: int) -> str:
 def generer_dotation_ecriture(year: int) -> dict:
     """Génère l'OD dotation 31/12 + PDF + GED. Idempotent (regénère si existe).
 
-    Pattern strict charges_forfaitaires : trouve/crée le fichier décembre, supprime
-    l'OD existante avant de recréer (déduplication), génère le PDF dans REPORTS_DIR,
-    enregistre dans la GED comme `type: "rapport"` avec `report_type: "amortissement"`.
+    Prompt B3 : le PDF est désormais produit par le template Rapports V2
+    `amortissements_dotations` via `report_service.get_or_generate(...)`. Cela
+    unifie la source du rapport entre l'OD, l'export ZIP, et l'UI Rapports V2.
+    Le `_register_dotation_ged_entry()` est rappelé après pour enrichir l'entrée
+    GED avec `operation_ref` + `source_module: "amortissements"` (le
+    `register_rapport` standard est plus générique).
     """
-    from backend.core.config import IMPORTS_OPERATIONS_DIR, REPORTS_DIR
-    from backend.services import operation_service
-    from backend.services.amortissement_report_service import generate_dotation_pdf
+    from backend.services import operation_service, report_service
 
     detail = get_virtual_detail(year)
     if detail.nb_immos_actives == 0:
         raise ValueError(f"Aucune immobilisation active pour l'exercice {year}")
 
-    # 1. Localiser ou créer le fichier décembre de l'année
+    # 1. Si OD existante → supprimer avant de recréer (dédup côté OD).
+    #    Le PDF est conservé : le template gère son propre cycle de vie via
+    #    dedup_key et écrasera le fichier si les filtres sont identiques.
+    existing_ref = find_dotation_operation(year)
+    if existing_ref:
+        ops_existing = operation_service.load_operations(existing_ref["filename"])
+        if 0 <= existing_ref["index"] < len(ops_existing):
+            del ops_existing[existing_ref["index"]]
+            operation_service.save_operations(ops_existing, filename=existing_ref["filename"])
+
+    # 2. Localiser ou créer le fichier décembre de l'année (après suppression de l'OD,
+    #    pour rester aligné si l'ancienne OD était dans un autre fichier)
     december_file = _find_or_create_december_file(year)
 
-    # 2. Si OD existante → supprimer avant de recréer (déduplication)
-    existing_ref = find_dotation_operation(year)
-    if existing_ref and existing_ref["filename"] == december_file:
-        ops = operation_service.load_operations(december_file)
-        if 0 <= existing_ref["index"] < len(ops):
-            old_pdf = ops[existing_ref["index"]].get("Lien justificatif")
-            del ops[existing_ref["index"]]
-            operation_service.save_operations(ops, filename=december_file)
-            # Retire l'ancien PDF + GED si présent
-            if old_pdf:
-                old_basename = Path(old_pdf).name
-                old_path = REPORTS_DIR / old_basename
-                old_path.unlink(missing_ok=True)
-                _remove_dotation_ged_entry(old_basename)
-    elif existing_ref:
-        # OD trouvée dans un autre fichier (cas rare : split/merge a déplacé) — supprimer aussi
-        ops_other = operation_service.load_operations(existing_ref["filename"])
-        if 0 <= existing_ref["index"] < len(ops_other):
-            old_pdf = ops_other[existing_ref["index"]].get("Lien justificatif")
-            del ops_other[existing_ref["index"]]
-            operation_service.save_operations(ops_other, filename=existing_ref["filename"])
-            if old_pdf:
-                old_basename = Path(old_pdf).name
-                (REPORTS_DIR / old_basename).unlink(missing_ok=True)
-                _remove_dotation_ged_entry(old_basename)
+    # 3. Génération (ou récupération via dédup) du rapport via le template
+    report = report_service.get_or_generate(
+        template_id="amortissements_dotations",
+        filters={"year": year, "poste": "all"},
+        format="pdf",
+    )
+    pdf_filename = report["filename"]
 
-    # 3. Générer le PDF
-    montant_int = int(round(detail.total_deductible))
-    pdf_filename = f"amortissements_{year}1231_{montant_int}.pdf"
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    pdf_path = REPORTS_DIR / pdf_filename
-    generate_dotation_pdf(year, pdf_path)
-
-    # 4. Construire l'OD et l'append au fichier décembre
+    # 4. Construire l'OD pointant vers ce rapport
     od = {
         "Date": f"{year}-12-31",
         "Libellé": f"Dotation aux amortissements {year}",
@@ -1050,7 +1049,9 @@ def generer_dotation_ecriture(year: int) -> dict:
     op_index = len(ops) - 1
     operation_service.save_operations(ops, filename=december_file)
 
-    # 5. Enregistrer le rapport dans la GED (pattern direct metadata, comme charges_forfaitaires)
+    # 5. Enrichir l'entrée GED du rapport avec operation_ref + source_module
+    #    (overwrite la metadata générique de register_rapport par la version riche
+    #    qui permet la navigation retour vers /amortissements depuis la GED)
     ged_doc_id = _register_dotation_ged_entry(
         pdf_filename=pdf_filename,
         year=year,
@@ -1069,12 +1070,20 @@ def generer_dotation_ecriture(year: int) -> dict:
         "ged_doc_id": ged_doc_id,
         "montant_deductible": detail.total_deductible,
         "nb_immos": detail.nb_immos_actives,
+        "from_cache": report.get("from_cache", False),
     }
 
 
 def supprimer_dotation_ecriture(year: int) -> dict:
-    """Supprime OD + PDF + entrée GED. Retourne `{status: deleted|not_found, ...}`."""
-    from backend.core.config import REPORTS_DIR
+    """Supprime l'OD mais PRÉSERVE le PDF du rapport (Prompt B3).
+
+    Le rapport vit désormais dans Rapports V2 (template `amortissements_dotations`)
+    et peut être consulté indépendamment de l'OD via `/ged?type=rapport`. Sa
+    suppression est réservée à l'utilisateur via la GED ou via la régénération
+    par le template (dédup côté `dedup_key`).
+
+    Retourne `{status: deleted|not_found, year, filename?, index?, pdf_preserved}`.
+    """
     from backend.services import operation_service
 
     ref = find_dotation_operation(year)
@@ -1085,39 +1094,27 @@ def supprimer_dotation_ecriture(year: int) -> dict:
     if not (0 <= ref["index"] < len(ops)):
         return {"status": "not_found", "year": year}
 
-    pdf_lien = ops[ref["index"]].get("Lien justificatif")
-    pdf_filename = Path(pdf_lien).name if pdf_lien else None
-
     del ops[ref["index"]]
     operation_service.save_operations(ops, filename=ref["filename"])
-
-    pdf_removed = False
-    if pdf_filename:
-        pdf_path = REPORTS_DIR / pdf_filename
-        if pdf_path.exists():
-            pdf_path.unlink()
-            pdf_removed = True
-        _remove_dotation_ged_entry(pdf_filename)
 
     return {
         "status": "deleted",
         "year": year,
         "filename": ref["filename"],
         "index": ref["index"],
-        "pdf_removed": pdf_removed,
+        "pdf_preserved": True,
     }
 
 
 def regenerer_pdf_dotation(year: int) -> dict:
-    """Regénère uniquement le PDF (l'OD reste en place). Pattern véhicule.
+    """Regénère uniquement le PDF via le template (l'OD reste en place).
 
-    Utile quand le tableau d'amortissement change (modif d'une immo) sans qu'on
-    veuille re-supprimer/re-créer l'OD. Met à jour le PDF disque + invalide le
-    thumbnail GED.
+    Prompt B3 : passe par `report_service.get_or_generate` qui gère la dédup —
+    si les filtres sont identiques, le fichier existant est écrasé in situ.
+    Le `Lien justificatif` de l'OD reste valide tant que le rapport conserve
+    son filename (via le `dedup_key`, le filename ne change que si on archive).
     """
-    from backend.core.config import REPORTS_DIR
-    from backend.services import operation_service
-    from backend.services.amortissement_report_service import generate_dotation_pdf
+    from backend.services import operation_service, report_service
 
     ref = find_dotation_operation(year)
     if not ref:
@@ -1127,13 +1124,40 @@ def regenerer_pdf_dotation(year: int) -> dict:
     if not (0 <= ref["index"] < len(ops)):
         raise ValueError(f"OD dotation {year} index hors limites")
 
-    pdf_lien = ops[ref["index"]].get("Lien justificatif")
-    pdf_filename = Path(pdf_lien).name if pdf_lien else None
-    if not pdf_filename:
-        raise ValueError(f"OD dotation {year} sans Lien justificatif — supprimer puis regénérer")
+    op = ops[ref["index"]]
+    pdf_lien = op.get("Lien justificatif")
+    old_pdf_basename = Path(pdf_lien).name if pdf_lien else None
 
-    pdf_path = REPORTS_DIR / pdf_filename
-    generate_dotation_pdf(year, pdf_path)
+    # Force-régen via dédup : on écrase l'entrée d'index existante en supprimant
+    # le fichier disque (l'archive est créée par get_or_generate).
+    from backend.core.config import REPORTS_DIR
+    if old_pdf_basename:
+        old_path = REPORTS_DIR / old_pdf_basename
+        if old_path.exists():
+            old_path.unlink()
+
+    report = report_service.get_or_generate(
+        template_id="amortissements_dotations",
+        filters={"year": year, "poste": "all"},
+        format="pdf",
+    )
+    pdf_filename = report["filename"]
+
+    # Mettre à jour le Lien justificatif si le filename a changé (timestamp)
+    if pdf_filename != old_pdf_basename:
+        op["Lien justificatif"] = f"reports/{pdf_filename}"
+        operation_service.save_operations(ops, filename=ref["filename"])
+
+    # Re-enrichir la metadata GED avec operation_ref
+    detail = get_virtual_detail(year)
+    _register_dotation_ged_entry(
+        pdf_filename=pdf_filename,
+        year=year,
+        montant_deductible=detail.total_deductible,
+        nb_immos=detail.nb_immos_actives,
+        op_file=ref["filename"],
+        op_index=ref["index"],
+    )
 
     # Invalide la thumbnail GED (PDF a changé sur disque)
     try:

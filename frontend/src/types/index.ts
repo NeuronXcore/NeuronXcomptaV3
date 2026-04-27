@@ -1008,10 +1008,13 @@ export interface ReportFiltersV2 {
   important_only?: boolean
   min_amount?: number
   max_amount?: number
+  // Amortissements (Prompt B3 — templates `amortissements_registre` / `amortissements_dotations`)
+  statut?: 'all' | 'en_cours' | 'amorti' | 'sorti'
+  poste?: string
 }
 
 export interface ReportGenerateRequest {
-  format: 'pdf' | 'csv' | 'excel'
+  format: 'pdf' | 'csv' | 'excel' | 'xlsx'
   title?: string
   description?: string
   filters: ReportFiltersV2
@@ -1046,6 +1049,16 @@ export interface ReportTemplate {
   icon: string
   format: string
   filters: ReportFiltersV2
+  // Prompt B3 — champs optionnels pour templates « custom renderer » (amortissements)
+  category?: string                       // ex: 'Amortissements' (groupage UI)
+  formats?: string[]                      // formats supportés (override `format`)
+  filters_schema?: Array<{
+    key: string
+    type: string                          // 'int' | 'select' | ...
+    required?: boolean
+    options?: string[] | string           // 'dynamic:postes' pour dropdown dynamique
+    default?: string | number
+  }>
 }
 
 export interface ReportTreeResponse {

@@ -1,15 +1,19 @@
-import { useMemo, useState } from 'react'
-import { FileText, PieChart, Shield, RotateCcw, Check, Minus, Loader2, Layers } from 'lucide-react'
+import { useMemo } from 'react'
+import {
+  FileText, PieChart, Shield, Package, TrendingDown,
+  RotateCcw, Check, Minus, Loader2, Layers,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCategories } from '@/hooks/useApi'
 import { useReportTemplates } from '@/hooks/useReports'
+import { useGedPostes } from '@/hooks/useGed'
 import type { ReportFiltersV2, ReportTemplate } from '@/types'
 
 interface ReportFiltersProps {
   filters: ReportFiltersV2
   onFiltersChange: (f: ReportFiltersV2) => void
-  format: 'pdf' | 'csv' | 'excel'
-  onFormatChange: (f: 'pdf' | 'csv' | 'excel') => void
+  format: 'pdf' | 'csv' | 'excel' | 'xlsx'
+  onFormatChange: (f: 'pdf' | 'csv' | 'excel' | 'xlsx') => void
   onGenerate: () => void
   onBatchGenerate?: () => void
   isGenerating: boolean
@@ -18,18 +22,57 @@ interface ReportFiltersProps {
   title?: string
   autoTitle?: string
   onTitleChange?: (t: string) => void
+  /** Template sélectionné — détermine si on affiche les filtres standards ou amortissements */
+  selectedTemplate?: ReportTemplate
 }
 
-const ICON_MAP: Record<string, typeof FileText> = { FileText, PieChart, Shield }
+const ICON_MAP: Record<string, typeof FileText> = {
+  FileText, PieChart, Shield, Package, TrendingDown,
+}
+
+const STATUT_LABELS: Record<string, string> = {
+  all: 'Tous',
+  en_cours: 'En cours',
+  amorti: 'Amortis',
+  sorti: 'Sortis',
+}
 
 export default function ReportFilters({
   filters, onFiltersChange, format, onFormatChange,
   onGenerate, onBatchGenerate, isGenerating, isBatchGenerating, onTemplateSelect,
-  title, autoTitle, onTitleChange,
+  title, autoTitle, onTitleChange, selectedTemplate,
 }: ReportFiltersProps) {
   const { data: categoriesData } = useCategories()
   const { data: templates } = useReportTemplates()
+  const { data: postesData } = useGedPostes()
   const categories = categoriesData?.categories ?? []
+
+  // Groupes de templates par catégorie (Standard / Amortissements / …)
+  const templateGroups = useMemo(() => {
+    const groups: Record<string, ReportTemplate[]> = { Standard: [] }
+    for (const t of templates ?? []) {
+      const cat = t.category || 'Standard'
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(t)
+    }
+    return groups
+  }, [templates])
+
+  const isAmortissementsTemplate = (selectedTemplate?.category === 'Amortissements')
+
+  // Liste des postes pour dropdown dynamique (`options: 'dynamic:postes'`)
+  const posteOptions = useMemo(() => {
+    const list = postesData?.postes?.map(p => p.id) ?? []
+    return ['all', ...list]
+  }, [postesData])
+
+  // Formats supportés par le template courant (sinon défaut PDF/CSV/Excel)
+  const supportedFormats: Array<'pdf' | 'csv' | 'excel' | 'xlsx'> = useMemo(() => {
+    if (selectedTemplate?.formats?.length) {
+      return selectedTemplate.formats as Array<'pdf' | 'csv' | 'excel' | 'xlsx'>
+    }
+    return ['pdf', 'csv', 'excel']
+  }, [selectedTemplate])
 
   const subcategories = useMemo(() => {
     if (!filters.categories?.length) return []
@@ -96,28 +139,42 @@ export default function ReportFilters({
 
   return (
     <div className="space-y-5">
-      {/* Templates */}
+      {/* Templates groupés par catégorie */}
       {templates && templates.length > 0 && (
-        <div>
-          <h4 className="text-xs font-semibold text-text-muted uppercase mb-2">Templates rapides</h4>
-          <div className="grid grid-cols-3 gap-2">
-            {templates.map(t => {
-              const Icon = ICON_MAP[t.icon] || FileText
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => onTemplateSelect(t)}
-                  className="flex items-center gap-3 p-3 rounded-lg border border-border bg-surface hover:border-primary/50 transition-colors text-left"
-                >
-                  <Icon size={18} className="text-primary shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium text-text">{t.label}</p>
-                    <p className="text-[10px] text-text-muted">{t.description}</p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+        <div className="space-y-3">
+          {Object.entries(templateGroups).map(([groupName, groupTemplates]) => (
+            groupTemplates.length === 0 ? null : (
+              <div key={groupName}>
+                <h4 className="text-xs font-semibold text-text-muted uppercase mb-2">
+                  Templates rapides{groupName !== 'Standard' && ` · ${groupName}`}
+                </h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {groupTemplates.map(t => {
+                    const Icon = ICON_MAP[t.icon] || FileText
+                    const isSelected = selectedTemplate?.id === t.id
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => onTemplateSelect(t)}
+                        className={cn(
+                          'flex items-center gap-3 p-3 rounded-lg border bg-surface transition-colors text-left',
+                          isSelected
+                            ? 'border-primary ring-1 ring-primary/30'
+                            : 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        <Icon size={18} className="text-primary shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-text">{t.label}</p>
+                          <p className="text-[10px] text-text-muted">{t.description}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          ))}
         </div>
       )}
 
@@ -180,8 +237,51 @@ export default function ReportFilters({
           </div>
         </div>
 
-        {/* Categories — Modern checkboxes */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Filtres spécifiques amortissements */}
+        {isAmortissementsTemplate && (
+          <div className="space-y-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-primary">
+              <Package size={12} />
+              Filtres amortissements
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {selectedTemplate?.id === 'amortissements_registre' && (
+                <div>
+                  <label className="text-[10px] text-text-muted block mb-1">Statut</label>
+                  <select
+                    value={filters.statut || 'all'}
+                    onChange={e => updateFilter('statut', e.target.value === 'all' ? undefined : e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+                  >
+                    {(['all', 'en_cours', 'amorti', 'sorti'] as const).map(s => (
+                      <option key={s} value={s}>{STATUT_LABELS[s]}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="text-[10px] text-text-muted block mb-1">Poste comptable</label>
+                <select
+                  value={filters.poste || 'all'}
+                  onChange={e => updateFilter('poste', e.target.value === 'all' ? undefined : e.target.value)}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+                >
+                  {posteOptions.map(p => (
+                    <option key={p} value={p}>
+                      {p === 'all' ? 'Tous les postes' : p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-[10px] text-text-muted italic">
+              Le rapport est dédupliqué par filtres : regénérer avec les mêmes paramètres met à jour le fichier existant.
+            </p>
+          </div>
+        )}
+
+        {/* Categories — Modern checkboxes (masqué pour templates amortissements) */}
+        {!isAmortissementsTemplate && (<div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-text-muted block mb-1.5">Catégories</label>
             <div className="bg-background border border-border rounded-lg p-1.5 space-y-0.5">
@@ -319,10 +419,10 @@ export default function ReportFilters({
               )}
             </div>
           </div>
-        </div>
+        </div>)}
 
-        {/* Type + Amount */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Type + Amount (masqué pour templates amortissements) */}
+        {!isAmortissementsTemplate && (<div className="grid grid-cols-3 gap-3">
           <div>
             <label className="text-[10px] text-text-muted block mb-1">Type</label>
             <div className="flex gap-1.5">
@@ -362,10 +462,10 @@ export default function ReportFilters({
               placeholder="∞"
             />
           </div>
-        </div>
+        </div>)}
 
-        {/* Source (type d'opération) */}
-        <div>
+        {/* Source (type d'opération) — masqué pour amortissements */}
+        {!isAmortissementsTemplate && (<div>
           <label className="text-[10px] text-text-muted block mb-1">Type d'opération</label>
           <div className="flex gap-1.5">
             {(['all', 'bancaire', 'note_de_frais'] as const).map(s => (
@@ -402,13 +502,13 @@ export default function ReportFilters({
               </button>
             ))}
           </div>
-        </div>
+        </div>)}
 
         {/* Format */}
         <div>
           <label className="text-[10px] text-text-muted block mb-1">Format de sortie</label>
           <div className="flex gap-2">
-            {(['pdf', 'csv', 'excel'] as const).map(f => (
+            {supportedFormats.map(f => (
               <button
                 key={f}
                 onClick={() => onFormatChange(f)}
@@ -431,7 +531,7 @@ export default function ReportFilters({
             <RotateCcw size={12} /> Réinitialiser
           </button>
           <div className="flex items-center gap-2">
-            {onBatchGenerate && (
+            {onBatchGenerate && !isAmortissementsTemplate && (
               <button
                 onClick={onBatchGenerate}
                 disabled={isGenerating || isBatchGenerating}

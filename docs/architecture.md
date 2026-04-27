@@ -1222,19 +1222,49 @@ Page Rapports (/reports) → ReportsPage (génération uniquement)
 ### Dotations aux Amortissements
 
 ```
-Page Amortissements (/amortissements) → AmortissementsPage (4 onglets)
-  ├─ Registre : tableau immobilisations avec avancement %, VNC, statut
-  ├─ Tableau annuel : dotations par exercice avec totaux
-  ├─ Synthèse par poste : VNC et dotations par poste comptable
-  └─ Candidates : opérations détectées (montant > seuil + catégorie éligible)
+Page Amortissements (/amortissements) → AmortissementsPage (5 onglets, badges Lucide)
+  ├─ Registre (List) : tableau immobilisations avec avancement %, VNC, statut, badge Reprise ambre
+  ├─ Tableau annuel (Calendar) : dotations par exercice avec totaux
+  ├─ Synthèse par poste (BarChart3) : VNC et dotations par poste comptable
+  ├─ Candidates (Sparkles) : opérations détectées (montant > seuil + Catégorie == "Matériel" strict)
+  └─ Dotation (Calculator) : génération OD 31/12 + PDF + GED (B1)
+       ├─ État saisie : 3 MetricCards (Brute / Déductible accent / Immos) + bandeau ref légale
+       │  + bandeau verrouillage + tableau récap immos contributives readonly
+       │  + bouton "Générer la dotation {year}" (toast brandé violet Sparkles)
+       └─ État généré : checklist 3✓ + 5 boutons (GED / Éditeur / Regénérer / Envoyer / Supprimer)
+          + PdfThumbnail 200×280 → PdfPreviewDrawer 700px
 
 Moteur de calcul (dupliqué Python + TypeScript) :
-  ├─ Linéaire : annuité = base / durée, pro rata année 1 (jours/360), complément dernière année
-  ├─ Dégressif : taux = (1/durée) × coeff, bascule linéaire quand linéaire > dégressif
+  ├─ Linéaire strict BNC : annuité = base / durée, pro rata année 1 (jours/360), complément dernière année
+  ├─ Dégressif : conservé en LECTURE SEULE pour immos legacy (interdit en BNC régime recettes)
   ├─ Plafonds véhicules : base plafonnée selon classe CO2 (30000/20300/18300/9900€)
-  └─ Quote-part pro : dotation_déductible = dotation_brute × quote_part_pro / 100
+  ├─ Quote-part pro : dotation_déductible = dotation_brute × quote_part_pro / 100
+  └─ Reprise d'exercice antérieur : 3 champs (exercice_entree_neuronx + amortissements_anterieurs + vnc_ouverture)
+       avec auto-suggestion via POST /amortissements/compute-backfill (linéaire pur, pro rata année 1)
+       — la ligne récap is_backfill=True est exclue du BNC
 
-Données : data/amortissements/immobilisations.json + config.json
+Flow OD dotation (Prompt B1 + B3) :
+  generer_dotation_ecriture(year)
+    ├─ get_virtual_detail(year) → liste immos contributives
+    ├─ find_dotation_operation(year) → suppression OD si existante (idempotent)
+    ├─ _find_or_create_december_file(year) → fichier ops décembre
+    ├─ report_service.get_or_generate(template_id="amortissements_dotations", filters={year, poste:"all"}, format="pdf")
+    │     → renderer = amortissement_report_service.render_dotations
+    │     → cache hit si dedup_key == "amort_dotations_{year}_all" déjà en index
+    ├─ append OD locked=True, source="amortissement", Lien justificatif=reports/{filename}
+    └─ _register_dotation_ged_entry(...) → enrichit metadata GED (operation_ref, source_module)
+
+Templates Rapports V2 amortissements (Prompt B3) :
+  report_service.REPORT_TEMPLATES :
+    ├─ amortissements_registre (icône Package, dedup_key=amort_registre_{year}_{statut}_{poste})
+    └─ amortissements_dotations (icône TrendingDown, dedup_key=amort_dotations_{year}_{poste})
+  Renderer multi-format : render_registre / render_dotations → PDF (paysage A4 + colonne Origine + badge ambre Reprise)
+                                                              + CSV (BOM UTF-8 + ; + virgule + CRLF Excel FR)
+                                                              + XLSX (header violet + format €+ formules SUM + freeze A2)
+  Convergence : OD + ZIP comptable + UI /reports consomment tous get_or_generate → 1 PDF/CSV/XLSX par couple (filters, format)
+
+Données : data/amortissements/{immobilisations.json, config.json}
+         + data/reports/rapport_*_{timestamp}.{pdf,csv,xlsx} (avec dedup_key dans reports_index.json)
 ```
 
 ### Charges Forfaitaires (blanchissage + repas + véhicule)
