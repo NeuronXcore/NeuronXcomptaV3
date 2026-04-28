@@ -95,6 +95,27 @@ REPORT_TEMPLATES: list[dict] = [
             {"key": "poste", "type": "select", "options": "dynamic:postes", "default": "all"},
         ],
     },
+    {
+        "id": "compte_attente_sans_justif",
+        "label": "Compte d'attente — sans justificatif",
+        "description": "Opérations en attente ou non catégorisées, filtrables par mois/cat/sous-cat/source",
+        "icon": "AlertTriangle",
+        "category": "Compte d'attente",
+        "format": "pdf",
+        "formats": ["pdf", "csv", "xlsx"],
+        "filters": {"scope": "sans_justif"},
+        "filters_schema": [
+            {"key": "year", "type": "int", "required": True},
+            {"key": "month", "type": "int", "required": False},
+            {"key": "scope", "type": "select",
+             "options": ["all", "sans_justif"], "default": "sans_justif"},
+            {"key": "categories", "type": "multi-select", "options": "dynamic:categories"},
+            {"key": "subcategories", "type": "multi-select", "options": "dynamic:subcategories"},
+            {"key": "source", "type": "select",
+             "options": ["all", "bancaire", "note_de_frais"], "default": "all"},
+        ],
+        # renderer / dedup_key_fn / title_builder injectés via _ensure_compte_attente_renderers
+    },
 ]
 
 # Champs sérialisables pour exposition API frontend
@@ -163,6 +184,65 @@ def _ensure_amortissements_renderers() -> None:
             t["title_builder"] = _amort_dotations_title
 
 
+def _compte_attente_dedup_key(filters: dict) -> str:
+    year = filters.get("year") or "all"
+    month = filters.get("month") or "all"
+    scope = (filters.get("scope") or "all").lower() or "all"
+    if filters.get("justificatif_present") is False and scope == "all":
+        scope = "sans_justif"
+    cats = filters.get("categories") or []
+    cats_part = "_".join(sorted(c.lower() for c in cats)) if cats else "all"
+    subcats = filters.get("subcategories") or []
+    subcats_part = "_".join(sorted(s.lower() for s in subcats)) if subcats else "all"
+    source = (filters.get("source") or "all").lower() or "all"
+    return f"compte_attente_{year}_{month}_{scope}_{cats_part}_{subcats_part}_{source}"
+
+
+def _compte_attente_title(filters: dict) -> str:
+    year = filters.get("year") or "—"
+    month = filters.get("month")
+    scope = (filters.get("scope") or "all").lower()
+    if filters.get("justificatif_present") is False and scope == "all":
+        scope = "sans_justif"
+
+    if month and 1 <= int(month) <= 12:
+        period = f"{MOIS_FR[int(month) - 1].capitalize()} {year}"
+    else:
+        period = str(year)
+
+    base = "Compte d'attente"
+    if scope == "sans_justif":
+        base = "Compte d'attente — sans justificatif"
+
+    cats = filters.get("categories") or []
+    if cats and 1 <= len(cats) <= 3:
+        base += f" · {', '.join(cats)}"
+    elif cats and len(cats) > 3:
+        base += f" · {', '.join(cats[:2])}… (+{len(cats) - 2})"
+    return f"{base} — {period}"
+
+
+def _ensure_compte_attente_renderers() -> None:
+    """Injecte renderer/dedup_key_fn/title_builder sur le template compte d'attente.
+
+    Lazy pour éviter le cycle d'imports
+    `report_service ↔ compte_attente_report_service`.
+    Idempotent.
+    """
+    needs_injection = any(
+        t["id"] == "compte_attente_sans_justif" and "renderer" not in t
+        for t in REPORT_TEMPLATES
+    )
+    if not needs_injection:
+        return
+    from backend.services import compte_attente_report_service
+    for t in REPORT_TEMPLATES:
+        if t["id"] == "compte_attente_sans_justif":
+            t["renderer"] = compte_attente_report_service.render_compte_attente
+            t["dedup_key_fn"] = _compte_attente_dedup_key
+            t["title_builder"] = _compte_attente_title
+
+
 def get_templates() -> list[dict]:
     """Retourne les templates avec uniquement les champs sérialisables.
 
@@ -177,6 +257,7 @@ def get_templates() -> list[dict]:
 
 def _get_template_by_id(template_id: str) -> Optional[dict]:
     _ensure_amortissements_renderers()
+    _ensure_compte_attente_renderers()
     for t in REPORT_TEMPLATES:
         if t["id"] == template_id:
             return t
@@ -634,11 +715,11 @@ def generate_report(request: dict) -> dict:
     filepath = REPORTS_DIR / filename
 
     if fmt == "csv":
-        _generate_csv_v2(filtered, filepath, title)
+        _generate_csv_v2(filtered, filepath, title, filters)
     elif fmt == "pdf":
         _generate_pdf_v2(filtered, filepath, title, filters)
     elif fmt == "excel":
-        _generate_excel_v2(filtered, filepath, title)
+        _generate_excel_v2(filtered, filepath, title, filters)
     else:
         raise ValueError(f"Format non supporté: {fmt}")
 
@@ -808,12 +889,62 @@ def _apply_filters(operations: list[dict], filters: dict) -> list[dict]:
         max_a = float(filters["max_amount"])
         result = [op for op in result if max(op.get("Débit", 0), op.get("Crédit", 0)) <= max_a]
 
+    # Justificatif present / absent — utilisé par le template "compte_attente_sans_justif"
+    # ainsi que par les rapports filtrant sur le scope justif. Aligné sur la règle d'unicité
+    # frontend (cf. CLAUDE.md > Pipeline ↔ Justificatifs) : présence = `Lien justificatif`
+    # non vide. Pour les ops ventilées éclatées, `_explode_ventilations` recopie déjà la
+    # bonne valeur dans chaque sous-ligne.
+    justif_present = filters.get("justificatif_present")
+    if justif_present is True:
+        result = [op for op in result if (op.get("Lien justificatif") or "").strip()]
+    elif justif_present is False:
+        result = [op for op in result if not (op.get("Lien justificatif") or "").strip()]
+
     return result
+
+
+# ─── Ventilation par sous-catégorie ───
+#
+# Helper partagé par les 3 générateurs (PDF / CSV / Excel). Agrège les ops par
+# `Catégorie → Sous-catégorie` avec compteurs + sommes débit/crédit. Utilisé
+# pour la section « Ventilation par sous-catégorie » qui s'affiche quand
+# au moins une opération a une sous-catégorie renseignée OU quand l'utilisateur
+# a explicitement sélectionné des sous-catégories dans les filtres (cf.
+# ReportFilters > Sous-catégories). Ordre stable : alphabétique.
+
+def _aggregate_by_cat_subcat(operations: list[dict]) -> dict:
+    """Retourne `{cat: {"subcats": {subcat: {debit, credit, count}}, "total_debit", "total_credit", "count"}}`."""
+    out: dict[str, dict] = {}
+    for op in operations:
+        cat = (op.get("Catégorie") or "Non catégorisé").strip() or "Non catégorisé"
+        subcat = (op.get("Sous-catégorie") or "").strip() or "(non précisée)"
+        debit = float(op.get("Débit", 0) or 0)
+        credit = float(op.get("Crédit", 0) or 0)
+        cat_entry = out.setdefault(cat, {"subcats": {}, "total_debit": 0.0, "total_credit": 0.0, "count": 0})
+        sub_entry = cat_entry["subcats"].setdefault(subcat, {"debit": 0.0, "credit": 0.0, "count": 0})
+        sub_entry["debit"] += debit
+        sub_entry["credit"] += credit
+        sub_entry["count"] += 1
+        cat_entry["total_debit"] += debit
+        cat_entry["total_credit"] += credit
+        cat_entry["count"] += 1
+    return out
+
+
+def _should_show_subcat_breakdown(operations: list[dict], filters: Optional[dict]) -> bool:
+    """Active la section ventilation sous-catégorie ssi :
+    - l'utilisateur a sélectionné des sous-catégories dans les filtres, OU
+    - au moins une opération a une sous-catégorie renseignée.
+    """
+    f = filters or {}
+    if f.get("subcategories"):
+        return True
+    return any((op.get("Sous-catégorie") or "").strip() for op in operations)
 
 
 # ─── CSV Generation ───
 
-def _generate_csv_v2(operations: list[dict], filepath: Path, title: str):
+def _generate_csv_v2(operations: list[dict], filepath: Path, title: str, filters: Optional[dict] = None):
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
         f.write("Date;Libellé;Catégorie;Sous-catégorie;Débit;Crédit;Justificatif;Commentaire\n")
         for op in operations:
@@ -832,6 +963,41 @@ def _generate_csv_v2(operations: list[dict], filepath: Path, title: str):
         total_c = sum(op.get("Crédit", 0) for op in operations)
         nb_just = sum(1 for op in operations if op.get("Lien justificatif"))
         f.write(f";TOTAUX;;;{total_d:.2f};{total_c:.2f};{nb_just}/{len(operations)};\n".replace(".", ","))
+
+        # ── Ventilation par sous-catégorie ──
+        if _should_show_subcat_breakdown(operations, filters):
+            f.write("\n")
+            f.write("Ventilation par sous-catégorie\n")
+            f.write("Catégorie;Sous-catégorie;Nb ops;Total Débit;Total Crédit;Solde\n")
+            agg = _aggregate_by_cat_subcat(operations)
+            grand_d = 0.0
+            grand_c = 0.0
+            grand_n = 0
+            for cat in sorted(agg.keys()):
+                cat_entry = agg[cat]
+                # Lignes sous-cat
+                for subcat in sorted(cat_entry["subcats"].keys()):
+                    s = cat_entry["subcats"][subcat]
+                    solde = s["credit"] - s["debit"]
+                    f.write(
+                        f"{cat};{subcat};{s['count']};"
+                        f"{s['debit']:.2f};{s['credit']:.2f};{solde:.2f}\n".replace(".", ",")
+                    )
+                # Sous-total catégorie
+                cat_solde = cat_entry["total_credit"] - cat_entry["total_debit"]
+                f.write(
+                    f"{cat};Sous-total {cat};{cat_entry['count']};"
+                    f"{cat_entry['total_debit']:.2f};{cat_entry['total_credit']:.2f};"
+                    f"{cat_solde:.2f}\n".replace(".", ",")
+                )
+                grand_d += cat_entry["total_debit"]
+                grand_c += cat_entry["total_credit"]
+                grand_n += cat_entry["count"]
+            grand_solde = grand_c - grand_d
+            f.write(
+                f";TOTAL GÉNÉRAL;{grand_n};"
+                f"{grand_d:.2f};{grand_c:.2f};{grand_solde:.2f}\n".replace(".", ",")
+            )
 
 
 # ─── PDF Generation ───
@@ -967,6 +1133,98 @@ def _generate_pdf_v2(operations: list[dict], filepath: Path, title: str, filters
             subtitle_style
         ))
 
+    # ── Section « Ventilation par sous-catégorie » ──
+    # Affichée si l'utilisateur a sélectionné des sous-cat dans les filtres OU si
+    # au moins une op a une sous-cat renseignée. Style miroir de la section
+    # « Ventilation par catégorie » des exports comptables (header bleu foncé,
+    # sous-total catégorie en bandeau, total général en bandeau noir).
+    if _should_show_subcat_breakdown(operations, filters):
+        elements.append(Spacer(1, 14))
+        section_title_style = ParagraphStyle(
+            "RSecTitle", parent=styles["Heading2"], fontSize=12,
+            textColor=PRIMARY, spaceAfter=4,
+        )
+        elements.append(Paragraph("Ventilation par sous-catégorie", section_title_style))
+
+        agg = _aggregate_by_cat_subcat(operations)
+        sub_headers = ["Catégorie", "Sous-catégorie", "Nb ops", "Total Débit", "Total Crédit", "Solde"]
+        sub_data: list[list] = [sub_headers]
+        # Index lignes pour styler sous-totaux et total général
+        sub_total_rows: list[int] = []
+        grand_d = 0.0
+        grand_c = 0.0
+        grand_n = 0
+        cur_row = 1
+        for cat in sorted(agg.keys()):
+            cat_entry = agg[cat]
+            for subcat in sorted(cat_entry["subcats"].keys()):
+                s = cat_entry["subcats"][subcat]
+                solde = s["credit"] - s["debit"]
+                sub_data.append([
+                    cat,
+                    subcat,
+                    str(s["count"]),
+                    _format_eur(s["debit"]) if s["debit"] else "—",
+                    _format_eur(s["credit"]) if s["credit"] else "—",
+                    _format_eur(solde) if solde else "—",
+                ])
+                cur_row += 1
+            # Sous-total catégorie
+            cat_solde = cat_entry["total_credit"] - cat_entry["total_debit"]
+            sub_data.append([
+                "",
+                f"Sous-total {cat}",
+                str(cat_entry["count"]),
+                _format_eur(cat_entry["total_debit"]),
+                _format_eur(cat_entry["total_credit"]),
+                _format_eur(cat_solde),
+            ])
+            sub_total_rows.append(cur_row)
+            cur_row += 1
+            grand_d += cat_entry["total_debit"]
+            grand_c += cat_entry["total_credit"]
+            grand_n += cat_entry["count"]
+        # Total général
+        grand_solde = grand_c - grand_d
+        sub_data.append([
+            "TOTAL GÉNÉRAL",
+            "",
+            str(grand_n),
+            _format_eur(grand_d),
+            _format_eur(grand_c),
+            _format_eur(grand_solde),
+        ])
+        grand_total_row = cur_row
+
+        sub_col_widths = [4.5 * cm, 6 * cm, 2 * cm, 3 * cm, 3 * cm, 3 * cm]
+        sub_table = Table(sub_data, colWidths=sub_col_widths, repeatRows=1)
+        sub_style: list = [
+            # Header (bleu foncé pour distinguer de la table principale violette)
+            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#1f4e79")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            # Body
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ("ALIGN", (2, 1), (-1, -1), "RIGHT"),
+            ("GRID", (0, 0), (-1, -1), 0.4, HexColor("#dddddd")),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]
+        # Sous-totaux en bandeau bleu clair
+        for r in sub_total_rows:
+            sub_style.append(("BACKGROUND", (0, r), (-1, r), HexColor("#dbe9f4")))
+            sub_style.append(("FONTNAME", (0, r), (-1, r), "Helvetica-Bold"))
+            sub_style.append(("LINEABOVE", (0, r), (-1, r), 0.6, HexColor("#1f4e79")))
+        # Total général en bandeau sombre
+        sub_style.append(("BACKGROUND", (0, grand_total_row), (-1, grand_total_row), HexColor("#1a1a1a")))
+        sub_style.append(("TEXTCOLOR", (0, grand_total_row), (-1, grand_total_row), colors.white))
+        sub_style.append(("FONTNAME", (0, grand_total_row), (-1, grand_total_row), "Helvetica-Bold"))
+        sub_style.append(("FONTSIZE", (0, grand_total_row), (-1, grand_total_row), 9))
+        sub_table.setStyle(TableStyle(sub_style))
+        elements.append(sub_table)
+
     doc.build(elements)
 
 
@@ -983,7 +1241,7 @@ def _describe_filters(filters: dict) -> str:
 
 # ─── Excel Generation ───
 
-def _generate_excel_v2(operations: list[dict], filepath: Path, title: str):
+def _generate_excel_v2(operations: list[dict], filepath: Path, title: str, filters: Optional[dict] = None):
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
@@ -1068,6 +1326,77 @@ def _generate_excel_v2(operations: list[dict], filepath: Path, title: str):
         for i, w in enumerate([25, 10, 15, 15, 15], 1):
             ws2.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
         ws2.freeze_panes = "A2"
+
+    # Sheet 3: Ventilation par sous-catégorie (cat → sous-cat avec sous-totaux)
+    if _should_show_subcat_breakdown(operations, filters):
+        ws3 = wb.create_sheet("Ventilation sous-cat")
+        ws3.append(["Catégorie", "Sous-catégorie", "Nb ops", "Total Débit", "Total Crédit", "Solde"])
+        # Header style — bleu foncé pour distinguer de l'onglet "Résumé" (violet)
+        header_blue_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        for cell in ws3[1]:
+            cell.font = header_font
+            cell.fill = header_blue_fill
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = border
+        agg = _aggregate_by_cat_subcat(operations)
+        sub_total_fill = PatternFill(start_color="DBE9F4", end_color="DBE9F4", fill_type="solid")
+        grand_total_fill = PatternFill(start_color="1A1A1A", end_color="1A1A1A", fill_type="solid")
+        grand_total_font = Font(bold=True, color="FFFFFF")
+        grand_d = 0.0
+        grand_c = 0.0
+        grand_n = 0
+        for cat in sorted(agg.keys()):
+            cat_entry = agg[cat]
+            for subcat in sorted(cat_entry["subcats"].keys()):
+                s = cat_entry["subcats"][subcat]
+                solde = s["credit"] - s["debit"]
+                ws3.append([cat, subcat, s["count"], s["debit"], s["credit"], solde])
+                # Format colonnes monétaires
+                row_idx = ws3.max_row
+                for ci in (4, 5, 6):
+                    c = ws3.cell(row=row_idx, column=ci)
+                    c.number_format = '#,##0.00 €'
+                    c.alignment = Alignment(horizontal="right")
+                    c.border = border
+                for ci in (1, 2, 3):
+                    ws3.cell(row=row_idx, column=ci).border = border
+            # Sous-total catégorie
+            cat_solde = cat_entry["total_credit"] - cat_entry["total_debit"]
+            ws3.append([
+                "",
+                f"Sous-total {cat}",
+                cat_entry["count"],
+                cat_entry["total_debit"],
+                cat_entry["total_credit"],
+                cat_solde,
+            ])
+            sub_row = ws3.max_row
+            for ci in range(1, 7):
+                c = ws3.cell(row=sub_row, column=ci)
+                c.fill = sub_total_fill
+                c.font = Font(bold=True)
+                c.border = border
+                if ci >= 4:
+                    c.number_format = '#,##0.00 €'
+                    c.alignment = Alignment(horizontal="right")
+            grand_d += cat_entry["total_debit"]
+            grand_c += cat_entry["total_credit"]
+            grand_n += cat_entry["count"]
+        # Total général en bandeau noir
+        grand_solde = grand_c - grand_d
+        ws3.append(["TOTAL GÉNÉRAL", "", grand_n, grand_d, grand_c, grand_solde])
+        grand_row = ws3.max_row
+        for ci in range(1, 7):
+            c = ws3.cell(row=grand_row, column=ci)
+            c.fill = grand_total_fill
+            c.font = grand_total_font
+            c.border = border
+            if ci >= 4:
+                c.number_format = '#,##0.00 €'
+                c.alignment = Alignment(horizontal="right")
+        for i, w in enumerate([22, 28, 10, 16, 16, 16], 1):
+            ws3.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+        ws3.freeze_panes = "A2"
 
     wb.save(str(filepath))
 

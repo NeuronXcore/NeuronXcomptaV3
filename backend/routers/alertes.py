@@ -22,7 +22,12 @@ router = APIRouter(prefix="/api/alertes", tags=["alertes"])
 
 @router.get("/summary")
 async def get_alertes_summary():
-    """Résumé global des alertes sur tous les fichiers."""
+    """Résumé global des alertes sur tous les fichiers.
+
+    Retourne aussi `par_fichier_par_type: {filename: {alerte_type: count}}`
+    pour permettre aux UIs (AlertesPage) d'afficher un badge par type d'alerte
+    par mois sans charger chaque fichier individuellement.
+    """
     ensure_directories()
 
     par_type = {
@@ -32,11 +37,17 @@ async def get_alertes_summary():
         "doublon_suspect": 0,
         "confiance_faible": 0,
     }
-    par_fichier = []
+    par_fichier: list[dict] = []
+    par_fichier_par_type: dict[str, dict[str, int]] = {}
     total_en_attente = 0
 
     if not IMPORTS_OPERATIONS_DIR.exists():
-        return {"total_en_attente": 0, "par_type": par_type, "par_fichier": []}
+        return {
+            "total_en_attente": 0,
+            "par_type": par_type,
+            "par_fichier": [],
+            "par_fichier_par_type": {},
+        }
 
     for f in sorted(IMPORTS_OPERATIONS_DIR.iterdir(), reverse=True):
         if f.suffix != ".json":
@@ -48,6 +59,7 @@ async def get_alertes_summary():
             continue
 
         nb_alertes = 0
+        local_par_type: dict[str, int] = {}
         for op in operations:
             alertes = op.get("alertes", []) or []
             if op.get("compte_attente"):
@@ -56,6 +68,7 @@ async def get_alertes_summary():
                 for a in alertes:
                     if a in par_type:
                         par_type[a] += 1
+                    local_par_type[a] = local_par_type.get(a, 0) + 1
 
         if nb_alertes > 0:
             entry: dict = {
@@ -79,6 +92,8 @@ async def get_alertes_summary():
             except Exception:
                 pass
             par_fichier.append(entry)
+            if local_par_type:
+                par_fichier_par_type[f.name] = local_par_type
 
     # Tri chronologique
     par_fichier.sort(key=lambda e: (e.get("year", 0), e.get("month", 0)))
@@ -87,6 +102,7 @@ async def get_alertes_summary():
         "total_en_attente": total_en_attente,
         "par_type": par_type,
         "par_fichier": par_fichier,
+        "par_fichier_par_type": par_fichier_par_type,
     }
 
 

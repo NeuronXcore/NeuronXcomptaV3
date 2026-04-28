@@ -1,12 +1,15 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
-import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X, Download, FileText, FileSpreadsheet, Loader2, ChevronDown } from 'lucide-react'
+import { RefreshCw, AlertTriangle, FileX, Tag, Copy, Eye, X, Download, FileText, FileSpreadsheet, Loader2, ChevronDown, Paperclip, Link2, ExternalLink } from 'lucide-react'
 import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import { useImmobilisations } from '@/hooks/useAmortissements'
 import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
 import ImmoBadge from '@/components/shared/ImmoBadge'
 import DotationBadge from '@/components/shared/DotationBadge'
+import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
+import ManualAssociationDrawer, { type TargetedOp } from '@/components/justificatifs/ManualAssociationDrawer'
 import toast from 'react-hot-toast'
 import {
   useReactTable,
@@ -41,6 +44,7 @@ function alertePriority(op: Operation): number {
 
 export default function AlertesPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: summary, isLoading: isSummaryLoading } = useAlertesSummary()
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const { selectedYear, setYear } = useFiscalYearStore()
@@ -61,7 +65,23 @@ export default function AlertesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('')
   const [subcategoryFilter, setSubcategoryFilter] = useState<string>('')
   const [sourceFilter, setSourceFilter] = useState<OperationTypeFilter>('all')
+  const [alerteTypeFilter, setAlerteTypeFilter] = useState<AlerteType | 'all'>('all')
   const { data: categoriesData } = useCategories()
+
+  // ── Drawers d'association
+  const [workflowDrawerOpen, setWorkflowDrawerOpen] = useState(false)
+  const [workflowInitialIndex, setWorkflowInitialIndex] = useState<number | null>(null)
+  const [manualDrawerOpen, setManualDrawerOpen] = useState(false)
+
+  // ── Multi-sélection (clé `filename:index`) — pour batch via ManualAssociationDrawer
+  const [selectedOps, setSelectedOps] = useState<Set<string>>(new Set())
+
+  const invalidateAlertesCaches = () => {
+    queryClient.invalidateQueries({ queryKey: ['alertes'] })
+    queryClient.invalidateQueries({ queryKey: ['alertes-summary'] })
+    queryClient.invalidateQueries({ queryKey: ['operations'] })
+    queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+  }
 
   const hasAutoSelected = useRef(false)
 
@@ -147,8 +167,178 @@ export default function AlertesPage() {
     if (sourceFilter !== 'all') {
       ops = ops.filter((op) => matchesOperationType(op, sourceFilter))
     }
+    if (alerteTypeFilter !== 'all') {
+      ops = ops.filter((op) => (op.alertes || []).includes(alerteTypeFilter))
+    }
     return ops.sort((a, b) => alertePriority(a) - alertePriority(b))
-  }, [operations, categoryFilter, subcategoryFilter, sourceFilter])
+  }, [operations, categoryFilter, subcategoryFilter, sourceFilter, alerteTypeFilter])
+
+  // ── Mois de référence (utilisé pour ManualAssociationDrawer + actions contextuelles)
+  const selectedMonth = useMemo(() => {
+    if (!selectedFile || !summary?.par_fichier) return null
+    const entry = summary.par_fichier.find(f => f.filename === selectedFile)
+    return entry?.month ?? null
+  }, [selectedFile, summary])
+
+  // ── Filtres actifs (pour bandeau stats + ligne TOTAL synthétique)
+  const filtersActive = useMemo(
+    () => Boolean(
+      categoryFilter || subcategoryFilter ||
+      sourceFilter !== 'all' || alerteTypeFilter !== 'all',
+    ),
+    [categoryFilter, subcategoryFilter, sourceFilter, alerteTypeFilter],
+  )
+
+  // ── Totaux des ops affichées (post-filtres) — pour ligne TOTAL sticky
+  const filteredTotals = useMemo(() => {
+    let totalDebit = 0
+    let totalCredit = 0
+    for (const op of sortedOps) {
+      totalDebit += Number(op['Débit'] || 0)
+      totalCredit += Number(op['Crédit'] || 0)
+    }
+    return {
+      count: sortedOps.length,
+      totalDebit,
+      totalCredit,
+      solde: totalCredit - totalDebit,
+    }
+  }, [sortedOps])
+
+  // ── Compteur « justif manquant » par fichier (pour badge mois 📎 N)
+  const justifMissingByFile = useMemo<Record<string, number>>(() => {
+    const map: Record<string, number> = {}
+    const breakdown = summary?.par_fichier_par_type
+    if (!breakdown) return map
+    for (const filename of Object.keys(breakdown)) {
+      const counts = breakdown[filename] || {}
+      const n = Number(counts.justificatif_manquant || 0)
+      if (n > 0) map[filename] = n
+    }
+    return map
+  }, [summary])
+
+  // ── Auto-clear de la sélection si filtres / fichier / année change
+  useEffect(() => {
+    setSelectedOps(new Set())
+  }, [selectedFile, categoryFilter, subcategoryFilter, sourceFilter, alerteTypeFilter])
+
+  // ── Reset alerte type filter quand on change de fichier
+  useEffect(() => {
+    setAlerteTypeFilter('all')
+  }, [selectedFile])
+
+  // ── Helpers sélection
+  const opKey = (op: Operation): string =>
+    `${selectedFile ?? ''}:${op._index ?? 0}`
+
+  const opIsLockable = (op: Operation): boolean =>
+    (op.alertes || []).includes('justificatif_manquant')
+
+  const lockableOpsInView = useMemo(
+    () => sortedOps.filter(opIsLockable),
+    [sortedOps],
+  )
+
+  const allLockableSelected = useMemo(() => {
+    if (lockableOpsInView.length === 0) return false
+    return lockableOpsInView.every((op) => selectedOps.has(opKey(op)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockableOpsInView, selectedOps, selectedFile])
+
+  const someLockableSelected = useMemo(() => {
+    if (selectedOps.size === 0) return false
+    return lockableOpsInView.some((op) => selectedOps.has(opKey(op)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockableOpsInView, selectedOps, selectedFile])
+
+  const toggleOpSelection = (op: Operation) => {
+    const key = opKey(op)
+    setSelectedOps((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const toggleAllLockableSelection = () => {
+    setSelectedOps((prev) => {
+      const next = new Set(prev)
+      if (allLockableSelected) {
+        for (const op of lockableOpsInView) next.delete(opKey(op))
+      } else {
+        for (const op of lockableOpsInView) next.add(opKey(op))
+      }
+      return next
+    })
+  }
+
+  // ── Construction targetedOps pour ManualAssociationDrawer (multi-sélection)
+  const manualTargetedOps = useMemo<TargetedOp[]>(() => {
+    if (!selectedFile) return []
+    const out: TargetedOp[] = []
+    for (const op of (operations || [])) {
+      if (!selectedOps.has(opKey(op))) continue
+      const debit = Number(op['Débit'] || 0)
+      const credit = Number(op['Crédit'] || 0)
+      const montant = debit > 0 ? debit : credit
+      if (montant <= 0) continue
+      out.push({
+        filename: selectedFile,
+        index: op._index ?? 0,
+        libelle: op['Libellé'] || '',
+        montant,
+        date: op.Date || '',
+        categorie: op['Catégorie'] || undefined,
+        sousCategorie: op['Sous-catégorie'] || undefined,
+      })
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operations, selectedOps, selectedFile])
+
+  // ── Ops enrichies pour RapprochementWorkflowDrawer (filename + originalIndex)
+  // Le drawer lit `_filename` + `_originalIndex` pour le PATCH backend.
+  type EnrichedOp = Operation & { _filename?: string; _originalIndex?: number }
+  const enrichedSortedOps = useMemo<EnrichedOp[]>(() => {
+    if (!selectedFile) return sortedOps as EnrichedOp[]
+    return sortedOps.map((op) => ({
+      ...op,
+      _filename: selectedFile,
+      _originalIndex: op._index ?? 0,
+    }))
+  }, [sortedOps, selectedFile])
+
+  const handleOpenWorkflow = (op: Operation) => {
+    if (!selectedFile) return
+    const idx = sortedOps.findIndex(
+      (o) => (o._index ?? -1) === (op._index ?? -2),
+    )
+    if (idx < 0) return
+    setWorkflowInitialIndex(idx)
+    setWorkflowDrawerOpen(true)
+  }
+
+  const handleRowClick = (op: Operation) => {
+    // Si l'op a une alerte « justificatif manquant », ouvrir le workflow d'association.
+    // Sinon, garder le comportement legacy (drawer détail / résolution).
+    if ((op.alertes || []).includes('justificatif_manquant')) {
+      handleOpenWorkflow(op)
+      return
+    }
+    setDrawerOp(op)
+  }
+
+  const handleOpenInJustificatifs = (op: Operation) => {
+    if (!selectedFile || op._index == null) return
+    const params = new URLSearchParams({
+      file: selectedFile,
+      highlight: String(op._index),
+      filter: 'sans',
+    })
+    navigate(`/justificatifs?${params.toString()}`)
+  }
 
   const columns = useMemo<ColumnDef<Operation>[]>(() => [
     {
@@ -304,13 +494,6 @@ export default function AlertesPage() {
     )
   }
 
-  // Mois sélectionné (pour le label dropdown)
-  const selectedMonth = useMemo(() => {
-    if (!selectedFile || !summary?.par_fichier) return null
-    const entry = summary.par_fichier.find(f => f.filename === selectedFile)
-    return entry?.month ?? null
-  }, [selectedFile, summary])
-
   const handleExport = (format: 'pdf' | 'csv', wholeYear: boolean) => {
     setShowExportMenu(false)
     const params = wholeYear
@@ -342,6 +525,28 @@ export default function AlertesPage() {
         description="Opérations nécessitant une action"
         actions={
           <div className="flex items-center gap-2">
+            {/* Bouton batch — visible seulement si selection multi */}
+            {selectedOps.size > 0 && (
+              <button
+                onClick={() => setManualDrawerOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-warning text-white rounded-lg hover:bg-warning/90"
+              >
+                <Link2 size={16} />
+                Associer en lot ({selectedOps.size})
+              </button>
+            )}
+
+            {/* Bouton Association manuelle (multi sans pré-sélection) */}
+            <button
+              onClick={() => setManualDrawerOpen(true)}
+              disabled={!selectedFile}
+              className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-text rounded-lg hover:bg-surface-hover disabled:opacity-50"
+              title="Association manuelle libre"
+            >
+              <Link2 size={16} />
+              Association manuelle
+            </button>
+
             {/* Export dropdown */}
             <div className="relative" ref={exportMenuRef}>
               <button
@@ -466,21 +671,39 @@ export default function AlertesPage() {
           {/* Month buttons */}
           {filesForYear.length > 0 && (
             <div className="flex gap-2 flex-wrap">
-              {filesForYear.map((f) => (
-                <button
-                  key={f.filename}
-                  onClick={() => setSelectedFile(f.filename)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-lg text-sm border transition-colors',
-                    selectedFile === f.filename
-                      ? 'bg-primary text-white border-primary'
-                      : 'bg-surface border-border text-text-muted hover:text-text hover:border-primary/50',
-                  )}
-                >
-                  {MOIS_FR[(f.month ?? 1) - 1]}
-                  <span className="ml-2 text-xs opacity-75">({f.nb_alertes})</span>
-                </button>
-              ))}
+              {filesForYear.map((f) => {
+                const justifMissing = justifMissingByFile[f.filename] || 0
+                const isActive = selectedFile === f.filename
+                return (
+                  <button
+                    key={f.filename}
+                    onClick={() => setSelectedFile(f.filename)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-sm border transition-colors flex items-center gap-2',
+                      isActive
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-surface border-border text-text-muted hover:text-text hover:border-primary/50',
+                    )}
+                  >
+                    <span>{MOIS_FR[(f.month ?? 1) - 1]}</span>
+                    <span className="text-xs opacity-75">({f.nb_alertes})</span>
+                    {justifMissing > 0 && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold border',
+                          isActive
+                            ? 'bg-white/20 border-white/30 text-white'
+                            : 'bg-orange-500/15 border-orange-500/30 text-orange-400',
+                        )}
+                        title={`${justifMissing} justificatif(s) manquant(s) ce mois`}
+                      >
+                        <Paperclip size={9} strokeWidth={2.5} />
+                        {justifMissing}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
@@ -528,9 +751,14 @@ export default function AlertesPage() {
             <option value="dotation">Dotations</option>
           </select>
 
-          {(categoryFilter || subcategoryFilter || sourceFilter !== 'all') && (
+          {(categoryFilter || subcategoryFilter || sourceFilter !== 'all' || alerteTypeFilter !== 'all') && (
             <button
-              onClick={() => { setCategoryFilter(''); setSubcategoryFilter(''); setSourceFilter('all') }}
+              onClick={() => {
+                setCategoryFilter('')
+                setSubcategoryFilter('')
+                setSourceFilter('all')
+                setAlerteTypeFilter('all')
+              }}
               className="flex items-center gap-1 px-2.5 py-2 text-xs text-text-muted hover:text-text rounded-lg hover:bg-surface transition-colors"
             >
               <X size={14} />
@@ -541,6 +769,57 @@ export default function AlertesPage() {
           <span className="text-xs text-text-muted ml-auto">
             {sortedOps.length} opération{sortedOps.length > 1 ? 's' : ''}
           </span>
+        </div>
+      )}
+
+      {/* Pills statistiques cliquables — filtres rapides par type d'alerte */}
+      {selectedFile && summary?.par_type && (operations || []).length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-text-muted uppercase tracking-wider mr-1">Filtrer par type :</span>
+          {([
+            { type: 'justificatif_manquant' as AlerteType, label: 'Justif manquant', icon: FileX, color: 'orange' },
+            { type: 'a_categoriser' as AlerteType, label: 'À catégoriser', icon: Tag, color: 'yellow' },
+            { type: 'montant_a_verifier' as AlerteType, label: 'Montant suspect', icon: AlertTriangle, color: 'red' },
+            { type: 'doublon_suspect' as AlerteType, label: 'Doublon', icon: Copy, color: 'purple' },
+            { type: 'confiance_faible' as AlerteType, label: 'Confiance faible', icon: AlertTriangle, color: 'blue' },
+          ]).map((pill) => {
+            const count = summary.par_type[pill.type] ?? 0
+            const isActive = alerteTypeFilter === pill.type
+            const Icon = pill.icon
+            const colorClasses: Record<string, { active: string; inactive: string; ring: string }> = {
+              orange: { active: 'bg-orange-500/25 text-orange-300 border-orange-500/50', inactive: 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/20', ring: 'ring-orange-400/50' },
+              yellow: { active: 'bg-yellow-500/25 text-yellow-300 border-yellow-500/50', inactive: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/20', ring: 'ring-yellow-400/50' },
+              red: { active: 'bg-red-500/25 text-red-300 border-red-500/50', inactive: 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20', ring: 'ring-red-400/50' },
+              purple: { active: 'bg-purple-500/25 text-purple-300 border-purple-500/50', inactive: 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20', ring: 'ring-purple-400/50' },
+              blue: { active: 'bg-blue-500/25 text-blue-300 border-blue-500/50', inactive: 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20', ring: 'ring-blue-400/50' },
+            }
+            const c = colorClasses[pill.color]
+            return (
+              <button
+                key={pill.type}
+                onClick={() => setAlerteTypeFilter(isActive ? 'all' : pill.type)}
+                disabled={count === 0}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
+                  isActive ? `${c.active} ring-2 ${c.ring}` : c.inactive,
+                  count === 0 && 'opacity-40 cursor-not-allowed',
+                )}
+                title={isActive ? 'Cliquez pour désactiver le filtre' : `Filtrer ${pill.label}`}
+              >
+                <Icon size={12} />
+                {pill.label}
+                <span className="font-bold">({count})</span>
+              </button>
+            )
+          })}
+          {alerteTypeFilter !== 'all' && (
+            <button
+              onClick={() => setAlerteTypeFilter('all')}
+              className="text-xs text-text-muted hover:text-text underline ml-1"
+            >
+              Tout voir
+            </button>
+          )}
         </div>
       )}
 
@@ -567,6 +846,38 @@ export default function AlertesPage() {
                 <thead>
                   {table.getHeaderGroups().map((headerGroup) => (
                     <tr key={headerGroup.id} className="border-b border-border">
+                      {/* Header checkbox tri-état Select All — uniquement si au moins une op lockable */}
+                      <th
+                        className="pl-3 pr-1 py-3 text-left"
+                        style={{ width: 36 }}
+                      >
+                        {lockableOpsInView.length > 0 && (
+                          <button
+                            onClick={toggleAllLockableSelection}
+                            className={cn(
+                              'w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-colors',
+                              allLockableSelected && 'bg-warning border-warning',
+                              !allLockableSelected && someLockableSelected && 'border-warning/60 bg-warning/30',
+                              !allLockableSelected && !someLockableSelected && 'border-border opacity-50 hover:opacity-100 hover:border-warning',
+                            )}
+                            title={
+                              allLockableSelected
+                                ? 'Tout désélectionner'
+                                : `Sélectionner les ${lockableOpsInView.length} opérations sans justificatif`
+                            }
+                            aria-label="Sélectionner tout"
+                          >
+                            {allLockableSelected && (
+                              <svg width={12} height={12} viewBox="0 0 12 12" fill="none">
+                                <path d="M2 6.5L4.5 9L10 3.5" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                            {!allLockableSelected && someLockableSelected && (
+                              <span className="block w-2 h-0.5 bg-warning rounded" />
+                            )}
+                          </button>
+                        )}
+                      </th>
                       {headerGroup.headers.map((header) => (
                         <th
                           key={header.id}
@@ -582,19 +893,84 @@ export default function AlertesPage() {
                   ))}
                 </thead>
                 <tbody>
-                  {table.getRowModel().rows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="border-b border-border/50 hover:bg-surface-hover cursor-pointer transition-colors"
-                      onClick={() => setDrawerOp(row.original)}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-4 py-3 text-sm text-text">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {table.getRowModel().rows.map((row) => {
+                    const op = row.original
+                    const isLockable = opIsLockable(op)
+                    const isSelected = selectedOps.has(opKey(op))
+                    return (
+                      <tr
+                        key={row.id}
+                        className={cn(
+                          'border-b border-border/50 hover:bg-surface-hover cursor-pointer transition-colors group',
+                          isSelected && 'bg-warning/10',
+                        )}
+                        onClick={() => handleRowClick(op)}
+                      >
+                        {/* Cellule checkbox — visible uniquement si lockable */}
+                        <td
+                          className="pl-3 pr-1 py-3 align-middle"
+                          style={{ width: 36 }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {isLockable ? (
+                            <button
+                              onClick={() => toggleOpSelection(op)}
+                              className={cn(
+                                'w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-colors',
+                                isSelected
+                                  ? 'bg-warning border-warning'
+                                  : 'border-border opacity-40 group-hover:opacity-100 hover:border-warning',
+                              )}
+                              aria-label={isSelected ? 'Désélectionner' : 'Sélectionner pour batch'}
+                              title={isSelected ? 'Désélectionner' : 'Sélectionner pour association en lot'}
+                            >
+                              {isSelected && (
+                                <svg width={12} height={12} viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6.5L4.5 9L10 3.5" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </button>
+                          ) : null}
                         </td>
-                      ))}
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-4 py-3 text-sm text-text">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                  {/* Ligne TOTAL synthétique — affichée si filtres actifs ET ops présentes */}
+                  {filtersActive && filteredTotals.count > 0 && (
+                    <tr className="sticky bottom-0 z-20 bg-gradient-to-r from-warning/30 via-warning/25 to-warning/30 border-y-2 border-warning shadow-[0_-2px_6px_rgba(0,0,0,0.2)]">
+                      <td className="pl-3 pr-1 py-3 border-l-4 border-warning"></td>
+                      <td className="px-4 py-3 text-sm font-bold text-text">
+                        <span className="text-warning mr-1.5">∑</span>
+                        <span className="uppercase tracking-wider text-xs">Total</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs italic text-text-muted">
+                        {filteredTotals.count} opération{filteredTotals.count > 1 ? 's' : ''}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-text font-semibold tabular-nums">
+                        {filteredTotals.totalDebit > 0 ? formatCurrency(filteredTotals.totalDebit) : ''}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-text font-semibold tabular-nums">
+                        {filteredTotals.totalCredit > 0 ? formatCurrency(filteredTotals.totalCredit) : ''}
+                      </td>
+                      <td className="px-4 py-3" colSpan={2}>
+                        <span
+                          className={cn(
+                            'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 tabular-nums',
+                            filteredTotals.solde >= 0
+                              ? 'bg-success/20 ring-success/40 text-success'
+                              : 'bg-danger/20 ring-danger/40 text-danger',
+                          )}
+                        >
+                          Solde {formatCurrency(filteredTotals.solde)}
+                        </span>
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -646,6 +1022,35 @@ export default function AlertesPage() {
                 </div>
               </div>
 
+              {/* Quick actions — navigation cross-page */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleOpenInJustificatifs(drawerOp)
+                    setDrawerOp(null)
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-surface border border-border text-text rounded-lg hover:bg-surface-hover w-full"
+                  title="Ouvrir cette opération dans la page Justificatifs"
+                >
+                  <ExternalLink size={14} />
+                  Ouvrir dans Justificatifs
+                </button>
+                {(drawerOp.alertes || []).includes('justificatif_manquant') && (
+                  <button
+                    onClick={() => {
+                      const op = drawerOp
+                      setDrawerOp(null)
+                      handleOpenWorkflow(op)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 whitespace-nowrap"
+                    title="Associer un justificatif à cette opération"
+                  >
+                    <Link2 size={14} />
+                    Associer
+                  </button>
+                )}
+              </div>
+
               {/* Active alerts */}
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-text">Alertes actives</h3>
@@ -692,6 +1097,32 @@ export default function AlertesPage() {
           </div>
         </>
       )}
+
+      {/* Drawer rapprochement workflow (mono-op, scoré) — au clic d'une ligne sans justif */}
+      <RapprochementWorkflowDrawer
+        isOpen={workflowDrawerOpen}
+        operations={enrichedSortedOps}
+        initialIndex={workflowInitialIndex ?? undefined}
+        fallbackFilename={selectedFile ?? undefined}
+        onClose={() => {
+          setWorkflowDrawerOpen(false)
+          setWorkflowInitialIndex(null)
+          invalidateAlertesCaches()
+        }}
+        onAttribution={() => invalidateAlertesCaches()}
+      />
+
+      {/* Drawer association manuelle (3 panneaux, filtres) — batch ou libre */}
+      <ManualAssociationDrawer
+        open={manualDrawerOpen}
+        onClose={() => {
+          setManualDrawerOpen(false)
+          invalidateAlertesCaches()
+        }}
+        year={selectedYear}
+        month={selectedMonth}
+        targetedOps={manualTargetedOps.length > 0 ? manualTargetedOps : undefined}
+      />
     </div>
   )
 }

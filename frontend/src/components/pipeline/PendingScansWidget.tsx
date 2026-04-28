@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   Paperclip, ChevronDown, ChevronRight, Loader2, Stamp,
-  FileText, Search, Wand2,
+  FileText, Search, Wand2, Eye, X, ExternalLink,
 } from 'lucide-react'
 import { cn, formatCurrency, isReconstitue, MOIS_FR } from '@/lib/utils'
 import { useJustificatifs, useJustificatifOperationSuggestions } from '@/hooks/useJustificatifs'
@@ -35,6 +35,79 @@ function extractYearMonth(filename: string): { year: number; month: number } | n
   return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) }
 }
 
+interface JustifPreviewLightboxProps {
+  filename: string
+  onClose: () => void
+}
+
+function JustifPreviewLightbox({ filename, onClose }: JustifPreviewLightboxProps) {
+  // Esc pour fermer
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  // PDF stream — endpoint backend résout auto en_attente/ vs traites/
+  const previewUrl = `/api/justificatifs/${encodeURIComponent(filename)}/preview`
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-border rounded-lg shadow-2xl flex flex-col w-[90vw] max-w-[1100px] h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText size={16} className="text-text-muted shrink-0" />
+            <span className="text-sm font-medium text-text truncate" title={filename}>
+              {filename}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 text-text-muted hover:text-text rounded-md hover:bg-surface-hover transition-colors"
+              title="Ouvrir dans un nouvel onglet"
+            >
+              <ExternalLink size={14} />
+            </a>
+            <button
+              onClick={onClose}
+              className="p-1.5 text-text-muted hover:text-text rounded-md hover:bg-surface-hover transition-colors"
+              title="Fermer (Esc)"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 bg-black/50">
+          <object
+            data={previewUrl}
+            type="application/pdf"
+            className="w-full h-full"
+            aria-label={`Aperçu de ${filename}`}
+          >
+            <div className="flex items-center justify-center h-full text-text-muted text-sm">
+              Le navigateur ne peut pas afficher ce PDF.{' '}
+              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-primary underline">
+                Ouvrir dans un onglet
+              </a>
+            </div>
+          </object>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface PendingScanCardProps {
   scan: JustificatifInfo
 }
@@ -42,6 +115,7 @@ interface PendingScanCardProps {
 function PendingScanCard({ scan }: PendingScanCardProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [previewOpen, setPreviewOpen] = useState(false)
   const { data: suggestions, isLoading: suggLoading } =
     useJustificatifOperationSuggestions(scan.filename)
   const associateMutation = useManualAssociate()
@@ -191,6 +265,14 @@ function PendingScanCard({ scan }: PendingScanCardProps) {
           <span className="text-xs text-text-muted italic">Aucun match</span>
         )}
         <button
+          onClick={() => setPreviewOpen(true)}
+          title="Voir le justificatif en grand"
+          aria-label="Voir le justificatif en grand"
+          className="p-1.5 text-text-muted hover:text-primary bg-surface hover:bg-surface-hover rounded-md transition-colors"
+        >
+          <Eye size={14} />
+        </button>
+        <button
           onClick={handleOpenManual}
           title="Traiter manuellement dans Justificatifs"
           className="p-1.5 text-text-muted hover:text-text bg-surface hover:bg-surface-hover rounded-md transition-colors"
@@ -198,6 +280,12 @@ function PendingScanCard({ scan }: PendingScanCardProps) {
           <Search size={14} />
         </button>
       </div>
+      {previewOpen && (
+        <JustifPreviewLightbox
+          filename={scan.filename}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </div>
   )
 }

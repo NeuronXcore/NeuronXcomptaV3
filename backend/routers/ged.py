@@ -42,6 +42,7 @@ async def list_documents(
     search: Optional[str] = Query(None),
     montant_min: Optional[float] = Query(None),
     montant_max: Optional[float] = Query(None),
+    statut_justificatif: Optional[str] = Query(None, description="en_attente | traite"),
     sort_by: str = Query("added_at"),
     sort_order: str = Query("desc"),
 ):
@@ -63,6 +64,7 @@ async def list_documents(
         search=search,
         montant_min=montant_min,
         montant_max=montant_max,
+        statut_justificatif=statut_justificatif,
         sort_by=sort_by,
         sort_order=sort_order,
     )

@@ -12,12 +12,23 @@ import { useSettings } from './useApi'
  * (CARMF, URSSAF, Honoraires, Perso par défaut — configurable dans Paramètres).
  */
 function isOpExemptByCategory(op: Operation, exemptions: JustificatifExemptions | undefined): boolean {
-  if (!exemptions) return false
   const cat = (op['Catégorie'] ?? '').trim()
   if (!cat) return false
-  if (exemptions.categories.includes(cat)) return true
+  // Règle métier : "perso" intrinsèquement exempt (BNC hors assiette).
+  // Aligné sur useJustificatifsPage.isOpExempt — règle d'unicité des compteurs.
+  const catLower = cat.toLowerCase()
+  if (catLower === 'perso') return true
+  if (!exemptions) return false
+  if (exemptions.categories.some(c => c.trim().toLowerCase() === catLower)) return true
   const sub = (op['Sous-catégorie'] ?? '').trim()
-  if (sub && exemptions.sous_categories[cat]?.includes(sub)) return true
+  if (sub) {
+    const subLower = sub.toLowerCase()
+    for (const [k, list] of Object.entries(exemptions.sous_categories)) {
+      if (k.trim().toLowerCase() === catLower) {
+        if ((list ?? []).some(s => s.trim().toLowerCase() === subLower)) return true
+      }
+    }
+  }
   return false
 }
 

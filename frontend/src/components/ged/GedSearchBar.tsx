@@ -100,7 +100,8 @@ function hasActiveFilters(f: GedFilters): boolean {
     f.year ||
     f.month ||
     f.quarter ||
-    f.favorite !== undefined
+    f.favorite !== undefined ||
+    f.statut_justificatif
   )
 }
 
@@ -112,7 +113,8 @@ function hasAdvancedFilters(f: GedFilters): boolean {
     f.fournisseur ||
     f.year ||
     f.month ||
-    f.quarter
+    f.quarter ||
+    f.statut_justificatif
   )
 }
 

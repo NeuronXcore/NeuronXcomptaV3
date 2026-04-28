@@ -9,6 +9,9 @@ export interface AlerteSummary {
   total_en_attente: number
   par_type: Record<AlerteType, number>
   par_fichier: { filename: string; nb_alertes: number; nb_operations: number; month?: number; year?: number }[]
+  // Breakdown par type d'alerte par fichier — permet le badge « 📎 N » sur les boutons mois
+  // sans charger chaque fichier individuellement.
+  par_fichier_par_type?: Record<string, Partial<Record<AlerteType, number>>>
 }
 
 export interface AlerteExportResponse {
@@ -1054,6 +1057,9 @@ export interface ReportFiltersV2 {
   // Amortissements (Prompt B3 — templates `amortissements_registre` / `amortissements_dotations`)
   statut?: 'all' | 'en_cours' | 'amorti' | 'sorti'
   poste?: string
+  // Compte d'attente (template `compte_attente_sans_justif`)
+  scope?: 'all' | 'sans_justif'
+  justificatif_present?: boolean
 }
 
 export interface ReportGenerateRequest {
@@ -1359,6 +1365,7 @@ export interface GedFilters {
   search?: string
   montant_min?: number
   montant_max?: number
+  statut_justificatif?: 'en_attente' | 'traite'
   sort_by?: string
   sort_order?: 'asc' | 'desc'
 }

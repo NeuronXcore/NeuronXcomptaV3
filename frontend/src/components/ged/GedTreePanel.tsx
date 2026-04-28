@@ -100,12 +100,19 @@ function deriveFiltersFromNode(nodeId: string, tab: TreeTab, nodeLabel?: string)
       if (parts.length === 2) return { type: 'releve', year: parseInt(parts[1]) }
     }
     if (nodeId === 'justificatifs') return { type: 'justificatif' }
-    if (nodeId === 'justificatifs-en-attente') return { type: 'justificatif' }
-    if (nodeId === 'justificatifs-traites') return { type: 'justificatif' }
+    if (nodeId === 'justificatifs-en-attente') return { type: 'justificatif', statut_justificatif: 'en_attente' }
+    if (nodeId === 'justificatifs-traites') return { type: 'justificatif', statut_justificatif: 'traite' }
+    // Justifs traités par year/month : `justificatif-date-{y}` ou `justificatif-date-{y}-{m}`
     if (nodeId.startsWith('justificatif-date-')) {
       const parts = nodeId.replace('justificatif-date-', '').split('-')
-      if (parts.length === 2) return { type: 'justificatif', year: parseInt(parts[0]), month: parseInt(parts[1]) }
-      if (parts.length === 1) return { type: 'justificatif', year: parseInt(parts[0]) }
+      if (parts.length === 2) return { type: 'justificatif', statut_justificatif: 'traite', year: parseInt(parts[0]), month: parseInt(parts[1]) }
+      if (parts.length === 1) return { type: 'justificatif', statut_justificatif: 'traite', year: parseInt(parts[0]) }
+    }
+    // Justifs en attente par year/month : `justificatif-attente-{y}` ou `justificatif-attente-{y}-{m}`
+    if (nodeId.startsWith('justificatif-attente-')) {
+      const parts = nodeId.replace('justificatif-attente-', '').split('-')
+      if (parts.length === 2) return { type: 'justificatif', statut_justificatif: 'en_attente', year: parseInt(parts[0]), month: parseInt(parts[1]) }
+      if (parts.length === 1) return { type: 'justificatif', statut_justificatif: 'en_attente', year: parseInt(parts[0]) }
     }
     if (nodeId === 'rapports') return { type: 'rapport' }
     if (nodeId.startsWith('rapport-')) {

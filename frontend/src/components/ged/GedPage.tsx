@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Upload, Settings2, RefreshCw, Grid3X3, List, GitCompare, Send, ArrowUp, ArrowDown } from 'lucide-react'
+import { Upload, Settings2, RefreshCw, Grid3X3, List, GitCompare, Send, ArrowUp, ArrowDown, X } from 'lucide-react'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
+import type { DocumentRef, DocumentType } from '@/types'
 import { cn } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
 import GedTreePanel, { type TreeTab } from './GedTreePanel'
@@ -39,6 +40,8 @@ export default function GedPage() {
   const [showUploadZone, setShowUploadZone] = useState(false)
   const [compareMode, setCompareMode] = useState(false)
   const [compareSelection, setCompareSelection] = useState<string[]>([])
+  // Sélection multi-docs pour envoi comptable (clé = doc_id, séparée de compareSelection)
+  const [sendSelection, setSendSelection] = useState<Set<string>>(new Set())
 
   // Templates axis state
   const [templatesFilter, setTemplatesFilter] = useState<'all' | 'blank' | 'scanned'>('all')
@@ -142,6 +145,62 @@ export default function GedPage() {
     )
   }
 
+  // Sélection envoi comptable
+  const toggleSendSelection = (docId: string) => {
+    setSendSelection(prev => {
+      const next = new Set(prev)
+      if (next.has(docId)) next.delete(docId)
+      else next.add(docId)
+      return next
+    })
+  }
+
+  const clearSendSelection = () => setSendSelection(new Set())
+
+  // Bulk select : coche/décoche toutes les cards visibles dans la grille/liste actuelle
+  const visibleDocIds = useMemo(() => (documents ?? []).map(d => d.doc_id), [documents])
+  const allVisibleSelected = visibleDocIds.length > 0 && visibleDocIds.every(id => sendSelection.has(id))
+  const someVisibleSelected = !allVisibleSelected && visibleDocIds.some(id => sendSelection.has(id))
+  const toggleAllVisibleSendSelection = () => {
+    setSendSelection(prev => {
+      const next = new Set(prev)
+      if (allVisibleSelected) {
+        for (const id of visibleDocIds) next.delete(id)
+      } else {
+        for (const id of visibleDocIds) next.add(id)
+      }
+      return next
+    })
+  }
+
+  // Mapping GED type → DocumentRef.type pour le SendToAccountantDrawer.
+  // Le drawer matche les preselected par `filename` (basename) ; on conserve donc le
+  // nom de fichier exact, et on mappe le type GED vers les types reconnus côté drawer.
+  const mapGedTypeToRef = (gedType: string): DocumentType => {
+    if (gedType === 'releve' || gedType === 'rapport' || gedType === 'justificatif') {
+      return gedType
+    }
+    return 'ged'  // document_libre, liasse_fiscale_scp, types custom → fallback générique
+  }
+
+  const handleOpenSendDrawer = () => {
+    if (sendSelection.size === 0) {
+      // Pas de sélection : ouvre le drawer en mode libre (pré-sélection auto par le drawer)
+      useSendDrawerStore.getState().open()
+      return
+    }
+    const docsById = new Map((documents ?? []).map(d => [d.doc_id, d]))
+    const preselected: DocumentRef[] = []
+    for (const docId of sendSelection) {
+      const doc = docsById.get(docId)
+      if (!doc) continue
+      const filename = doc.doc_id.split('/').pop() || ''
+      if (!filename) continue
+      preselected.push({ type: mapGedTypeToRef(doc.type), filename })
+    }
+    useSendDrawerStore.getState().open({ preselected })
+  }
+
   // Selected document for drawer
   const selectedDoc = useMemo(() => {
     if (!selectedDocId || !documents) return null
@@ -155,13 +214,34 @@ export default function GedPage() {
         description={`${stats?.total_documents ?? 0} documents · ${stats?.disk_size_human ?? ''}`}
         actions={
           <div className="flex items-center gap-2">
-            {/* Send to accountant */}
+            {/* Désélection — visible quand au moins 1 doc sélectionné */}
+            {sendSelection.size > 0 && (
+              <button
+                onClick={clearSendSelection}
+                className="flex items-center gap-1.5 px-2.5 py-2 bg-surface border border-border text-text-muted hover:text-text rounded-lg text-xs transition-colors"
+                title="Vider la sélection"
+              >
+                <X size={13} />
+                Désélectionner
+              </button>
+            )}
+            {/* Send to accountant — bouton dynamique avec compteur si sélection */}
             <button
-              onClick={() => useSendDrawerStore.getState().open()}
-              className="flex items-center gap-2 px-3 py-2 bg-surface border border-border text-text rounded-lg text-sm hover:bg-surface-hover transition-colors"
+              onClick={handleOpenSendDrawer}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
+                sendSelection.size > 0
+                  ? 'bg-primary text-white hover:bg-primary/90 border border-primary shadow-sm'
+                  : 'bg-surface border border-border text-text hover:bg-surface-hover',
+              )}
+              title={
+                sendSelection.size > 0
+                  ? `Envoyer ${sendSelection.size} document(s) sélectionné(s) au comptable`
+                  : 'Ouvrir le drawer envoi comptable'
+              }
             >
               <Send size={15} />
-              Envoyer
+              {sendSelection.size > 0 ? `Envoyer (${sendSelection.size})` : 'Envoyer'}
             </button>
             {/* Compare mode toggle */}
             <button
@@ -306,28 +386,78 @@ export default function GedPage() {
                 <p className="text-lg">Aucun document</p>
                 <p className="text-sm mt-1">Sélectionnez un dossier ou lancez un scan</p>
               </div>
-            ) : viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {documents.map(doc => (
-                  <GedDocumentCard
-                    key={doc.doc_id}
-                    document={doc}
-                    isSelected={compareSelection.includes(doc.doc_id)}
-                    onSelect={() => toggleCompareSelection(doc.doc_id)}
-                    onClick={() => setSelectedDocId(doc.doc_id)}
-                    compareMode={compareMode}
-                  />
-                ))}
-              </div>
             ) : (
-              <GedDocumentList
-                documents={documents}
-                postes={postes}
-                onSelect={setSelectedDocId}
-                sortBy={filters.sort_by}
-                sortOrder={filters.sort_order}
-                onSortChange={(sb, so) => setFilters(prev => ({ ...prev, sort_by: sb, sort_order: so }))}
-              />
+              <>
+                {/* Bandeau bulk : Tout sélectionner / N sélectionnés */}
+                <div className="flex items-center justify-between gap-3 mb-3 px-1">
+                  <button
+                    onClick={toggleAllVisibleSendSelection}
+                    className="flex items-center gap-2 text-xs text-text-muted hover:text-text transition-colors group"
+                    title={allVisibleSelected ? 'Tout désélectionner' : 'Sélectionner tous les documents visibles'}
+                  >
+                    <span
+                      className={cn(
+                        'w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-all duration-150 shrink-0',
+                        allVisibleSelected
+                          ? 'bg-primary border-transparent shadow-sm'
+                          : someVisibleSelected
+                            ? 'bg-primary/40 border-transparent shadow-sm'
+                            : 'bg-surface border-text-muted/30 group-hover:border-primary/50',
+                      )}
+                    >
+                      {allVisibleSelected && (
+                        <svg width={12} height={12} viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6.5L4.5 9L10 3.5" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                      {!allVisibleSelected && someVisibleSelected && (
+                        <span className="block w-2 h-0.5 bg-white rounded" />
+                      )}
+                    </span>
+                    {allVisibleSelected
+                      ? 'Tout désélectionner'
+                      : someVisibleSelected
+                        ? `Sélectionner les ${visibleDocIds.length - sendSelection.size} restants`
+                        : `Tout sélectionner (${visibleDocIds.length})`}
+                  </button>
+                  {sendSelection.size > 0 && (
+                    <span className="text-xs text-text-muted tabular-nums">
+                      <span className="text-primary font-semibold">{sendSelection.size}</span> sélectionné{sendSelection.size > 1 ? 's' : ''} · prêt{sendSelection.size > 1 ? 's' : ''} pour envoi
+                    </span>
+                  )}
+                </div>
+
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {documents.map(doc => (
+                      <GedDocumentCard
+                        key={doc.doc_id}
+                        document={doc}
+                        isSelected={compareSelection.includes(doc.doc_id)}
+                        onSelect={() => toggleCompareSelection(doc.doc_id)}
+                        onClick={() => setSelectedDocId(doc.doc_id)}
+                        compareMode={compareMode}
+                        isSendSelected={sendSelection.has(doc.doc_id)}
+                        onToggleSendSelection={() => toggleSendSelection(doc.doc_id)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <GedDocumentList
+                    documents={documents}
+                    postes={postes}
+                    onSelect={setSelectedDocId}
+                    sortBy={filters.sort_by}
+                    sortOrder={filters.sort_order}
+                    onSortChange={(sb, so) => setFilters(prev => ({ ...prev, sort_by: sb, sort_order: so }))}
+                    sendSelection={sendSelection}
+                    onToggleSendSelection={toggleSendSelection}
+                    onToggleAllSendSelection={toggleAllVisibleSendSelection}
+                    allVisibleSelected={allVisibleSelected}
+                    someVisibleSelected={someVisibleSelected}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

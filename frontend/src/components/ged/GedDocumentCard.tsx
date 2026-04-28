@@ -1,6 +1,6 @@
 import {
   FileText, Receipt, BarChart3, FolderOpen, Star, File, Landmark,
-  Link as LinkIcon, CheckCircle2, Lock, Building2, Tag, CalendarDays, Euro,
+  Link as LinkIcon, CheckCircle2, Lock, Building2, Tag, CalendarDays, Euro, Check,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDateShort } from '@/lib/utils'
 import type { GedDocument } from '@/types'
@@ -32,6 +32,9 @@ interface GedDocumentCardProps {
   onSelect: () => void
   onClick: () => void
   compareMode?: boolean
+  /** Sélection multi-docs pour envoi comptable (orthogonale au compareMode) */
+  isSendSelected?: boolean
+  onToggleSendSelection?: () => void
 }
 
 export default function GedDocumentCard({
@@ -40,6 +43,8 @@ export default function GedDocumentCard({
   onSelect,
   onClick,
   compareMode,
+  isSendSelected,
+  onToggleSendSelection,
 }: GedDocumentCardProps) {
   const Icon = TYPE_ICON[doc.type] || File
   const rm = doc.rapport_meta
@@ -73,13 +78,14 @@ export default function GedDocumentCard({
     <div
       className={cn(
         'group relative bg-surface border border-border rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:border-primary/30',
-        isSelected && 'ring-2 ring-primary border-primary'
+        isSelected && 'ring-2 ring-primary border-primary',
+        isSendSelected && 'ring-2 ring-primary/70 border-primary/70 bg-primary/5',
       )}
       onClick={onClick}
     >
       {/* Compare checkbox */}
       {compareMode && doc.type === 'rapport' && (
-        <div className="absolute top-2 left-2 z-10">
+        <div className="absolute top-2 left-2 z-20">
           <input
             type="checkbox"
             checked={isSelected}
@@ -87,6 +93,26 @@ export default function GedDocumentCard({
             className="w-4 h-4 accent-primary"
           />
         </div>
+      )}
+
+      {/* Send-selection checkbox — moderne, top-left de la card.
+          Toujours rendu (visible au hover, opaque quand cochée). Cohabite avec le compareMode :
+          si compareMode actif sur la card, on décale la send checkbox vers le bas. */}
+      {onToggleSendSelection && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleSendSelection() }}
+          className={cn(
+            'absolute z-20 w-[22px] h-[22px] rounded-md border-2 flex items-center justify-center transition-all duration-150 shadow-sm',
+            compareMode && doc.type === 'rapport' ? 'top-9 left-2' : 'top-2 left-2',
+            isSendSelected
+              ? 'bg-primary border-transparent opacity-100'
+              : 'bg-white/80 border-text-muted/50 opacity-0 group-hover:opacity-100 hover:border-primary backdrop-blur-sm',
+          )}
+          aria-label={isSendSelected ? 'Retirer de la sélection' : 'Ajouter à la sélection envoi'}
+          title={isSendSelected ? 'Retirer de la sélection envoi' : 'Sélectionner pour l\'envoi comptable'}
+        >
+          {isSendSelected && <Check size={14} className="text-white" strokeWidth={3} />}
+        </button>
       )}
 
       {/* Thumbnail area */}

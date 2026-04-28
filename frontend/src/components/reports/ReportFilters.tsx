@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import {
-  FileText, PieChart, Shield, Package, TrendingDown,
+  FileText, PieChart, Shield, Package, TrendingDown, AlertTriangle,
   RotateCcw, Check, Minus, Loader2, Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -27,7 +27,7 @@ interface ReportFiltersProps {
 }
 
 const ICON_MAP: Record<string, typeof FileText> = {
-  FileText, PieChart, Shield, Package, TrendingDown,
+  FileText, PieChart, Shield, Package, TrendingDown, AlertTriangle,
 }
 
 const STATUT_LABELS: Record<string, string> = {
@@ -59,6 +59,7 @@ export default function ReportFilters({
   }, [templates])
 
   const isAmortissementsTemplate = (selectedTemplate?.category === 'Amortissements')
+  const isCompteAttenteTemplate = (selectedTemplate?.category === "Compte d'attente")
 
   // Liste des postes pour dropdown dynamique (`options: 'dynamic:postes'`)
   const posteOptions = useMemo(() => {
@@ -236,6 +237,38 @@ export default function ReportFilters({
             </select>
           </div>
         </div>
+
+        {/* Filtres spécifiques compte d'attente */}
+        {isCompteAttenteTemplate && (
+          <div className="space-y-3 rounded-lg bg-amber-500/10 border border-amber-500/30 p-3">
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-amber-400">
+              <AlertTriangle size={12} />
+              Filtres compte d'attente
+            </div>
+            <div>
+              <label className="text-[10px] text-text-muted block mb-1">Scope</label>
+              <select
+                value={filters.scope || (filters.justificatif_present === false ? 'sans_justif' : 'all')}
+                onChange={(e) => {
+                  const v = e.target.value as 'all' | 'sans_justif'
+                  if (v === 'sans_justif') {
+                    onFiltersChange({ ...filters, scope: 'sans_justif', justificatif_present: false })
+                  } else {
+                    onFiltersChange({ ...filters, scope: undefined, justificatif_present: undefined })
+                  }
+                }}
+                className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+              >
+                <option value="all">Tous (compte d'attente complet)</option>
+                <option value="sans_justif">Sans justificatif uniquement</option>
+              </select>
+            </div>
+            <p className="text-[10px] text-text-muted italic">
+              Les filtres ci-dessous (catégories, type, montant, source) s'appliquent en plus du scope.
+              Le rapport est dédupliqué : regénérer avec les mêmes filtres met à jour le fichier existant.
+            </p>
+          </div>
+        )}
 
         {/* Filtres spécifiques amortissements */}
         {isAmortissementsTemplate && (

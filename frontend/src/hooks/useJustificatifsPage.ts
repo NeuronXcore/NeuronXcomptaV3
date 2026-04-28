@@ -7,12 +7,25 @@ import { isReconstitue, matchesOperationType, type OperationTypeFilter } from '@
 import type { Operation, OperationFile, JustificatifExemptions } from '@/types'
 
 function isOpExempt(op: Operation, exemptions: JustificatifExemptions | undefined): boolean {
-  if (!exemptions) return false
   const cat = (op['Catégorie'] ?? '').trim()
   if (!cat) return false
-  if (exemptions.categories.includes(cat)) return true
+  // Règle métier : "perso" (toute casse) est intrinsèquement exempt — BNC hors assiette,
+  // pas de justificatif requis. Indépendant de la config user.
+  const catLower = cat.toLowerCase()
+  if (catLower === 'perso') return true
+  if (!exemptions) return false
+  // Comparaison case-insensitive (résiste aux divergences "Perso"/"perso", "CARMF"/"carmf"…
+  // entre la config Settings et les valeurs réelles dans les opérations).
+  if (exemptions.categories.some(c => c.trim().toLowerCase() === catLower)) return true
   const sub = (op['Sous-catégorie'] ?? '').trim()
-  if (sub && exemptions.sous_categories[cat]?.includes(sub)) return true
+  if (sub) {
+    const subLower = sub.toLowerCase()
+    for (const [k, list] of Object.entries(exemptions.sous_categories)) {
+      if (k.trim().toLowerCase() === catLower) {
+        if ((list ?? []).some(s => s.trim().toLowerCase() === subLower)) return true
+      }
+    }
+  }
   return false
 }
 

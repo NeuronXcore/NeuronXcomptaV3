@@ -54,9 +54,24 @@ function isOpExempt(
   sub: string,
   exemptions: JustificatifExemptions | undefined,
 ): boolean {
-  if (!exemptions || !cat) return false
-  if (exemptions.categories.includes(cat)) return true
-  if (sub && exemptions.sous_categories[cat]?.includes(sub)) return true
+  if (!cat) return false
+  // Règle métier : "perso" (toute casse) est intrinsèquement exempt — BNC hors assiette,
+  // pas de justificatif requis. Indépendant de la config user. Source of truth alignée
+  // sur useJustificatifsPage.isOpExempt (règle d'unicité des compteurs).
+  const catLower = cat.toLowerCase()
+  if (catLower === 'perso') return true
+  if (!exemptions) return false
+  // Comparaisons case-insensitive — résiste aux divergences de casse entre la config
+  // Settings ("Perso", "CARMF") et les valeurs réelles ("perso", "carmf").
+  if (exemptions.categories.some(c => c.trim().toLowerCase() === catLower)) return true
+  if (sub) {
+    const subLower = sub.toLowerCase()
+    for (const [k, list] of Object.entries(exemptions.sous_categories)) {
+      if (k.trim().toLowerCase() === catLower) {
+        if ((list ?? []).some(s => s.trim().toLowerCase() === subLower)) return true
+      }
+    }
+  }
   return false
 }
 

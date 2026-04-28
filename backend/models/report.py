@@ -17,6 +17,14 @@ class ReportFilters(BaseModel):
     important_only: bool = False
     min_amount: Optional[float] = None
     max_amount: Optional[float] = None
+    # Compte d'attente / justificatif scope
+    justificatif_present: Optional[bool] = None  # None = ignoré, True = avec, False = sans
+    scope: Optional[str] = None         # "all" | "sans_justif" (template compte_attente_sans_justif)
+    # Amortissements (templates custom)
+    statut: Optional[str] = None        # "all" | "en_cours" | "amorti" | "sorti"
+    poste: Optional[str] = None         # "all" | <nom du poste>
+    # Champs libres passe-partout (template id "compte_attente_sans_justif" notamment)
+    report_type: Optional[str] = None
 
 
 class ReportGenerateRequest(BaseModel):

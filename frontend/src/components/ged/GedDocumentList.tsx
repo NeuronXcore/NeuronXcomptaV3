@@ -1,4 +1,4 @@
-import { Link as LinkIcon, CheckCircle2, Lock, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Link as LinkIcon, CheckCircle2, Lock, ArrowUp, ArrowDown, ArrowUpDown, Check } from 'lucide-react'
 import { cn, formatCurrency, formatDateShort } from '@/lib/utils'
 import type { GedDocument, PosteComptable } from '@/types'
 
@@ -11,6 +11,12 @@ interface GedDocumentListProps {
   sortOrder?: 'asc' | 'desc'
   /** Callback quand l'utilisateur clique un header : toggle asc/desc si même clé, sinon change clé et reset en desc. */
   onSortChange?: (sortBy: string, sortOrder: 'asc' | 'desc') => void
+  /** Sélection multi-docs pour envoi comptable. */
+  sendSelection?: Set<string>
+  onToggleSendSelection?: (docId: string) => void
+  onToggleAllSendSelection?: () => void
+  allVisibleSelected?: boolean
+  someVisibleSelected?: boolean
 }
 
 interface SortableHeaderProps {
@@ -90,14 +96,42 @@ export default function GedDocumentList({
   sortBy,
   sortOrder,
   onSortChange,
+  sendSelection,
+  onToggleSendSelection,
+  onToggleAllSendSelection,
+  allVisibleSelected,
+  someVisibleSelected,
 }: GedDocumentListProps) {
   const postesMap = Object.fromEntries(postes.map(p => [p.id, p]))
+  const showSendCol = !!onToggleSendSelection
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-surface border-b border-border text-xs">
+            {showSendCol && (
+              <th className="px-3 py-2 w-10 text-left">
+                <button
+                  onClick={onToggleAllSendSelection}
+                  className={cn(
+                    'w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-all duration-150 shrink-0',
+                    allVisibleSelected
+                      ? 'bg-primary border-transparent shadow-sm'
+                      : someVisibleSelected
+                        ? 'bg-primary/40 border-transparent shadow-sm'
+                        : 'bg-surface border-text-muted/30 hover:border-primary/50',
+                  )}
+                  title={allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+                  aria-label="Sélectionner tout"
+                >
+                  {allVisibleSelected && <Check size={12} className="text-white drop-shadow-sm" strokeWidth={3} />}
+                  {!allVisibleSelected && someVisibleSelected && (
+                    <span className="block w-2 h-0.5 bg-white rounded" />
+                  )}
+                </button>
+              </th>
+            )}
             <SortableHeader columnKey="original_name" currentKey={sortBy} currentOrder={sortOrder} onSortChange={onSortChange}>
               Nom
             </SortableHeader>
@@ -132,12 +166,36 @@ export default function GedDocumentList({
             const isLocked = !!doc.op_locked
             const displayDate = doc.date_document || doc.date_operation || doc.added_at
 
+            const isSendSelected = !!sendSelection?.has(doc.doc_id)
             return (
               <tr
                 key={doc.doc_id}
                 onClick={() => onSelect(doc.doc_id)}
-                className="border-b border-border hover:bg-surface-hover cursor-pointer transition-colors"
+                className={cn(
+                  'border-b border-border hover:bg-surface-hover cursor-pointer transition-colors group',
+                  isSendSelected && 'bg-primary/5',
+                )}
               >
+                {showSendCol && (
+                  <td
+                    className="px-3 py-2 align-middle"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => onToggleSendSelection?.(doc.doc_id)}
+                      className={cn(
+                        'w-[18px] h-[18px] rounded border-2 flex items-center justify-center transition-all duration-150 shrink-0',
+                        isSendSelected
+                          ? 'bg-primary border-transparent shadow-sm opacity-100'
+                          : 'bg-surface border-text-muted/30 opacity-40 group-hover:opacity-100 hover:border-primary',
+                      )}
+                      aria-label={isSendSelected ? 'Retirer de la sélection envoi' : 'Ajouter à la sélection envoi'}
+                      title={isSendSelected ? 'Retirer de la sélection envoi' : 'Sélectionner pour l\'envoi comptable'}
+                    >
+                      {isSendSelected && <Check size={12} className="text-white drop-shadow-sm" strokeWidth={3} />}
+                    </button>
+                  </td>
+                )}
                 <td className="px-3 py-2">
                   <p className="text-text truncate max-w-[250px]" title={name}>{name}</p>
                   {poste && (

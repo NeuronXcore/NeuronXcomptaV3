@@ -178,6 +178,26 @@ export default function EditorPage() {
   )
   const openImmoDrawer = useImmobilisationDrawerStore((s) => s.open)
   const exemptions = appSettings?.justificatif_exemptions
+
+  // Helper aligné sur useJustificatifsPage.isOpExempt (règle d'unicité des compteurs) :
+  // "perso" intrinsèquement exempt + comparaisons case-insensitive sur la config Settings.
+  const isCatExempt = useCallback((cat: string, sub: string): boolean => {
+    const catTrim = (cat || '').trim()
+    if (!catTrim) return false
+    const catLower = catTrim.toLowerCase()
+    if (catLower === 'perso') return true
+    if (!exemptions) return false
+    if (exemptions.categories.some(c => c.trim().toLowerCase() === catLower)) return true
+    const subLower = (sub || '').trim().toLowerCase()
+    if (subLower) {
+      for (const [k, list] of Object.entries(exemptions.sous_categories)) {
+        if (k.trim().toLowerCase() === catLower) {
+          if ((list ?? []).some(s => s.trim().toLowerCase() === subLower)) return true
+        }
+      }
+    }
+    return false
+  }, [exemptions])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const { selectedYear, setYear } = useFiscalYearStore()
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
@@ -962,11 +982,7 @@ export default function EditorPage() {
         if (filterValue === '__header_exempt__') {
           const cat = (op['Catégorie'] ?? '').trim()
           const sub = (op['Sous-catégorie'] ?? '').trim()
-          if (!cat || !exemptions) return false
-          return (
-            exemptions.categories.includes(cat) ||
-            (!!sub && (exemptions.sous_categories?.[cat] ?? []).includes(sub))
-          )
+          return isCatExempt(cat, sub)
         }
         if (filterValue === '__header_avec__' || filterValue === '__header_sans__') {
           const vlines = op.ventilation ?? []
@@ -979,11 +995,7 @@ export default function EditorPage() {
           if (hasJustif) return false
           const cat = (op['Catégorie'] ?? '').trim()
           const sub = (op['Sous-catégorie'] ?? '').trim()
-          const isExempt = !!cat && !!exemptions && (
-            exemptions.categories.includes(cat) ||
-            (!!sub && (exemptions.sous_categories?.[cat] ?? []).includes(sub))
-          )
-          return !isExempt
+          return !isCatExempt(cat, sub)
         }
         return true
       },

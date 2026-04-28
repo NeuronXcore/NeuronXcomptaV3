@@ -1075,34 +1075,60 @@ def _build_type_tree(docs: dict, postes_map: dict) -> list[dict]:
         "children": releves_children, "icon": "FileText",
     }
 
-    # Justificatifs: en attente / traités par année/mois
-    en_attente_count = 0
+    # Justificatifs: en attente / traités par année/mois.
+    # Source of truth = `get_all_referenced_justificatifs()` (basename référencé par au
+    # moins une op = traité). Plus robuste que parser `"en_attente" in doc_id` qui peut
+    # être stale après un déplacement physique en_attente/ ↔ traites/.
+    from backend.services.justificatif_service import get_all_referenced_justificatifs
+    referenced_set = get_all_referenced_justificatifs()
+
+    def _justif_year_month(d: dict) -> tuple[int, int]:
+        # Priorité : period.year/month (calculé via op liée), puis year/month top-level,
+        # puis fallback parsing du filename canonique `supplier_YYYYMMDD_amount.pdf`.
+        period = d.get("period") or {}
+        y = period.get("year") or d.get("year") or 0
+        m = period.get("month") or d.get("month") or 0
+        if not (y and m):
+            basename = Path(d.get("doc_id", "")).name
+            mo = re.match(r"[a-z0-9\-]+_(\d{4})(\d{2})\d{2}_", basename)
+            if mo:
+                y = y or int(mo.group(1))
+                m = m or int(mo.group(2))
+        return (int(y or 0), int(m or 0))
+
+    en_attente_by_year: dict[int, dict[int, int]] = {}
     traites_by_year: dict[int, dict[int, int]] = {}
     for d in docs.values():
         if d["type"] != "justificatif":
             continue
-        if "en_attente" in d.get("doc_id", ""):
-            en_attente_count += 1
-        else:
-            y = d.get("year") or 0
-            m = d.get("month") or 0
-            traites_by_year.setdefault(y, {})
-            traites_by_year[y][m] = traites_by_year[y].get(m, 0) + 1
+        basename = Path(d.get("doc_id", "")).name
+        is_traite = basename in referenced_set
+        y, m = _justif_year_month(d)
+        bucket = traites_by_year if is_traite else en_attente_by_year
+        bucket.setdefault(y, {})
+        bucket[y][m] = bucket[y].get(m, 0) + 1
 
-    traites_children = []
-    for y in sorted(traites_by_year.keys(), reverse=True):
-        month_children = []
-        for m in sorted(traites_by_year[y].keys()):
-            label = _month_label(m) if m > 0 else "Non daté"
-            month_children.append({"id": f"justificatif-date-{y}-{m}", "label": label, "count": traites_by_year[y][m], "children": []})
-        traites_children.append({"id": f"justificatif-date-{y}", "label": str(y) if y > 0 else "Non daté", "count": sum(traites_by_year[y].values()), "children": month_children})
+    def _build_year_month_children(by_year: dict[int, dict[int, int]], prefix: str) -> list[dict]:
+        out: list[dict] = []
+        for y in sorted(by_year.keys(), reverse=True):
+            month_children: list[dict] = []
+            for m in sorted(by_year[y].keys()):
+                label = _month_label(m) if m > 0 else "Non daté"
+                month_children.append({"id": f"{prefix}-{y}-{m}", "label": label, "count": by_year[y][m], "children": []})
+            out.append({"id": f"{prefix}-{y}", "label": str(y) if y > 0 else "Non daté", "count": sum(by_year[y].values()), "children": month_children})
+        return out
 
-    just_total = en_attente_count + sum(sum(m.values()) for m in traites_by_year.values())
+    traites_children = _build_year_month_children(traites_by_year, "justificatif-date")
+    en_attente_children = _build_year_month_children(en_attente_by_year, "justificatif-attente")
+
+    en_attente_count = sum(sum(m.values()) for m in en_attente_by_year.values())
+    traites_count = sum(sum(m.values()) for m in traites_by_year.values())
+    just_total = en_attente_count + traites_count
     justificatifs_node = {
         "id": "justificatifs", "label": "Justificatifs", "count": just_total, "icon": "Receipt",
         "children": [
-            {"id": "justificatifs-en-attente", "label": "En attente", "count": en_attente_count, "children": []},
-            {"id": "justificatifs-traites", "label": "Traités", "count": just_total - en_attente_count, "children": traites_children},
+            {"id": "justificatifs-en-attente", "label": "En attente", "count": en_attente_count, "children": en_attente_children},
+            {"id": "justificatifs-traites", "label": "Traités", "count": traites_count, "children": traites_children},
         ],
     }
 
@@ -1309,6 +1335,7 @@ def get_documents(
     search: Optional[str] = None,
     montant_min: Optional[float] = None,
     montant_max: Optional[float] = None,
+    statut_justificatif: Optional[str] = None,  # "en_attente" | "traite"
     sort_by: str = "added_at",
     sort_order: str = "desc",
 ) -> list[dict]:
@@ -1321,6 +1348,25 @@ def get_documents(
             docs = [d for d in docs if d["type"] not in _STANDARD_TYPES]
         else:
             docs = [d for d in docs if d["type"] == type_filter]
+
+    # Filtre statut justificatif (référencé par une op = traité, sinon = en attente).
+    # Source of truth = `justificatif_service.get_all_referenced_justificatifs()` (set
+    # des basename référencés par au moins une op, cache TTL 5s). Plus robuste que
+    # `"en_attente" in doc_id` qui peut être stale après un déplacement physique.
+    if statut_justificatif in ("en_attente", "traite"):
+        from backend.services.justificatif_service import get_all_referenced_justificatifs
+        referenced = get_all_referenced_justificatifs()
+
+        def _is_traite(d: dict) -> bool:
+            if d.get("type") != "justificatif":
+                return False
+            basename = Path(d.get("doc_id", "")).name
+            return basename in referenced
+
+        if statut_justificatif == "traite":
+            docs = [d for d in docs if d.get("type") != "justificatif" or _is_traite(d)]
+        else:  # en_attente
+            docs = [d for d in docs if d.get("type") != "justificatif" or not _is_traite(d)]
     if year:
         docs = [d for d in docs if d.get("year") == year or (d.get("period") or {}).get("year") == year]
     if month:

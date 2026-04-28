@@ -26,22 +26,39 @@ def _load_exemptions() -> dict:
 
 
 def is_justificatif_required(categorie: str, sous_categorie: str = "") -> bool:
-    """Retourne True si un justificatif est requis pour cette categorie/sous-categorie."""
-    if not categorie:
+    """Retourne True si un justificatif est requis pour cette categorie/sous-categorie.
+
+    Aligné sur la règle d'unicité des compteurs (cf. CLAUDE.md → Pipeline ↔ Justificatifs) :
+    - "perso" (toute casse) est intrinsèquement exempt — BNC hors assiette, pas de justif requis,
+      indépendamment de la config user.
+    - Les comparaisons sur la config Settings sont **case-insensitive** pour résister aux
+      divergences de casse ("Perso"/"perso", "CARMF"/"carmf", etc.).
+    """
+    cat = (categorie or "").strip()
+    if not cat:
         return True  # ops non categorisees : justificatif requis
 
-    exemptions = _load_exemptions()
-    exempt_cats = exemptions.get("categories", [])
-    exempt_subcats = exemptions.get("sous_categories", {})
-
-    # Categorie entiere exemptee
-    if categorie in exempt_cats:
+    cat_lower = cat.lower()
+    # Règle métier — perso toujours exempt
+    if cat_lower == "perso":
         return False
 
-    # Sous-categorie specifique exemptee
-    if categorie in exempt_subcats and sous_categorie:
-        if sous_categorie in exempt_subcats[categorie]:
-            return False
+    exemptions = _load_exemptions()
+    exempt_cats = exemptions.get("categories", []) or []
+    exempt_subcats = exemptions.get("sous_categories", {}) or {}
+
+    # Categorie entiere exemptee (case-insensitive)
+    if any((c or "").strip().lower() == cat_lower for c in exempt_cats):
+        return False
+
+    # Sous-categorie specifique exemptee (case-insensitive sur cat ET sous-cat)
+    sub = (sous_categorie or "").strip()
+    if sub:
+        sub_lower = sub.lower()
+        for k, sub_list in exempt_subcats.items():
+            if (k or "").strip().lower() == cat_lower:
+                if any((s or "").strip().lower() == sub_lower for s in (sub_list or [])):
+                    return False
 
     return True
 
