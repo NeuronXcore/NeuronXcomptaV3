@@ -854,5 +854,24 @@
     "taille_totale_mo": 0.15,
     "success": true,
     "error_message": null
+  },
+  {
+    "id": "69fef6b9",
+    "sent_at": "2026-04-28T06:00:32.017022",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Septembre PDF 20260418 184104",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Septembre_PDF_20260418_184104.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 2.58,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
   }
 ]

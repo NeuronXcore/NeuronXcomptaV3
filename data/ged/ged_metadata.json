@@ -2239,31 +2239,6 @@
       "filename": "openai_20250314_24.00.pdf",
       "renamed_from": "openai_20250314_24.pdf"
     },
-    "data/justificatifs/en_attente/openai_20250614_24.00.pdf": {
-      "doc_id": "data/justificatifs/en_attente/openai_20250614_24.00.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 6,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-07T20:59:23.691288",
-      "original_name": "openai_20250614_24.pdf",
-      "ocr_file": "data/justificatifs/en_attente/openai_20250614_24.ocr.json",
-      "fournisseur": "Openai",
-      "period": {
-        "year": 2025,
-        "month": 6,
-        "quarter": 2
-      },
-      "montant": 24.0,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "filename": "openai_20250614_24.00.pdf",
-      "renamed_from": "openai_20250614_24.pdf"
-    },
     "data/justificatifs/en_attente/openai_20250616_24.00.pdf": {
       "doc_id": "data/justificatifs/en_attente/openai_20250616_24.00.pdf",
       "type": "justificatif",
@@ -2513,31 +2488,6 @@
       "statut_justificatif": "en_attente",
       "filename": "openai_20260216_24.00.pdf",
       "renamed_from": "openai_20260216_24.pdf"
-    },
-    "data/justificatifs/en_attente/orange_20250103_29.55.pdf": {
-      "doc_id": "data/justificatifs/en_attente/orange_20250103_29.55.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 1,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-06T19:20:21.593171",
-      "original_name": "orange_20250103_29.55.pdf",
-      "ocr_file": "data/justificatifs/en_attente/orange_20250103_29.55.ocr.json",
-      "fournisseur": "Orange",
-      "period": {
-        "year": 2025,
-        "month": 1,
-        "quarter": 1
-      },
-      "montant": 29.55,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "filename": "orange_20250103_29.55.pdf",
-      "renamed_from": "orange_20250103_29.55.pdf"
     },
     "data/justificatifs/en_attente/orange_20250402_46.99.pdf": {
       "doc_id": "data/justificatifs/en_attente/orange_20250402_46.99.pdf",
@@ -12826,29 +12776,6 @@
         "ventilation_index": null
       }
     },
-    "data/justificatifs/en_attente/amazon_20250626_789.60.pdf": {
-      "doc_id": "data/justificatifs/en_attente/amazon_20250626_789.60.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 6,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-18T16:35:39.269215",
-      "original_name": "amazon_20250626_789.60.pdf",
-      "ocr_file": "data/justificatifs/en_attente/amazon_20250626_789.60.ocr.json",
-      "fournisseur": "Amazon",
-      "period": {
-        "year": 2025,
-        "month": 6,
-        "quarter": 2
-      },
-      "montant": 789.6,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente"
-    },
     "data/justificatifs/en_attente/amazon_20250715_315.27.pdf": {
       "doc_id": "data/justificatifs/en_attente/amazon_20250715_315.27.pdf",
       "type": "justificatif",
@@ -14993,53 +14920,6 @@
         "can_compare": true
       }
     },
-    "data/reports/compte_attente_mai.pdf": {
-      "doc_id": "data/reports/compte_attente_mai.pdf",
-      "type": "rapport",
-      "filename": "compte_attente_mai.pdf",
-      "year": 2025,
-      "month": 5,
-      "poste_comptable": null,
-      "categorie": "__compte_attente__",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-18T18:41:03.974506",
-      "original_name": "compte_attente_mai.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": 5,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Compte d'attente — Mai 2025",
-        "description": "23 opération(s) en attente",
-        "filters": {
-          "year": 2025,
-          "month": 5,
-          "report_type": "compte_attente",
-          "categories": [
-            "__compte_attente__"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-18T18:41:03.974506",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
     "data/reports/compte_attente_mai.csv": {
       "doc_id": "data/reports/compte_attente_mai.csv",
       "type": "rapport",
@@ -16198,63 +16078,6 @@
         "file": "operations_split_202501_20260414_233641.json",
         "index": 6,
         "ventilation_index": null
-      }
-    },
-    "data/reports/rapport_remplacant_honoraires_2025_20260419_194917.pdf": {
-      "doc_id": "data/reports/rapport_remplacant_honoraires_2025_20260419_194917.pdf",
-      "type": "rapport",
-      "filename": "rapport_remplacant_honoraires_2025_20260419_194917.pdf",
-      "year": 2025,
-      "month": null,
-      "poste_comptable": null,
-      "categorie": "Remplaçant",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-19T19:49:17.901201",
-      "original_name": "rapport_remplacant_honoraires_2025_20260419_194917.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": null,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Remplaçant · Honoraires — 2025",
-        "description": null,
-        "filters": {
-          "categories": [
-            "Remplaçant"
-          ],
-          "subcategories": [
-            "Honoraires"
-          ],
-          "date_from": null,
-          "date_to": null,
-          "year": 2025,
-          "quarter": null,
-          "month": null,
-          "type": null,
-          "source": null,
-          "important_only": false,
-          "min_amount": null,
-          "max_amount": null
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-19T19:49:17.901201",
-        "can_regenerate": true,
-        "can_compare": true
       }
     },
     "data/justificatifs/traites/amazon_20250204_55.98.pdf": {
@@ -18407,8 +18230,8 @@
       "montant": 2.5,
       "is_reconstitue": false,
       "statut_justificatif": "traite",
-      "categorie": "Autres",
-      "sous_categorie": "",
+      "categorie": "Véhicule",
+      "sous_categorie": "Péage",
       "date_operation": "2024-12-14",
       "ventilation_index": null,
       "operation_ref": {
@@ -18789,64 +18612,6 @@
         "can_compare": true
       }
     },
-    "data/reports/rapport_honoraires_2025_20260427_215453.pdf": {
-      "doc_id": "data/reports/rapport_honoraires_2025_20260427_215453.pdf",
-      "type": "rapport",
-      "filename": "rapport_honoraires_2025_20260427_215453.pdf",
-      "year": 2025,
-      "month": null,
-      "poste_comptable": null,
-      "categorie": "Honoraires",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-27T21:54:54.024937",
-      "original_name": "rapport_honoraires_2025_20260427_215453.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": null,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Honoraires — 2025",
-        "description": null,
-        "filters": {
-          "categories": [
-            "Honoraires"
-          ],
-          "subcategories": [
-            "Bloc",
-            "Optam"
-          ],
-          "date_from": null,
-          "date_to": null,
-          "year": 2025,
-          "quarter": null,
-          "month": null,
-          "type": null,
-          "source": null,
-          "important_only": false,
-          "min_amount": null,
-          "max_amount": null
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-27T21:54:54.024937",
-        "can_regenerate": true,
-        "can_compare": true
-      }
-    },
     "data/justificatifs/traites/boulanger_20251130_699.00.pdf": {
       "doc_id": "data/justificatifs/traites/boulanger_20251130_699.00.pdf",
       "type": "justificatif",
@@ -19199,6 +18964,635 @@
       "fournisseur": "Justificatif",
       "is_reconstitue": false,
       "statut_justificatif": "traite"
+    },
+    "data/reports/compte_attente_mai.pdf": {
+      "doc_id": "data/reports/compte_attente_mai.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_mai.pdf",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T22:52:21.860010",
+      "original_name": "compte_attente_mai.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Mai 2025",
+        "description": "10 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": 5,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-27T22:52:21.860010",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/compte_attente_2025.pdf": {
+      "doc_id": "data/reports/compte_attente_2025.pdf",
+      "type": "rapport",
+      "filename": "compte_attente_2025.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "__compte_attente__",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T22:53:14.766005",
+      "original_name": "compte_attente_2025.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Compte d'attente — Année 2025",
+        "description": "187 opération(s) en attente",
+        "filters": {
+          "year": 2025,
+          "month": null,
+          "report_type": "compte_attente",
+          "categories": [
+            "__compte_attente__"
+          ]
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-27T22:53:14.766005",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/justificatifs/traites/amazon_20250626_789.60.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20250626_789.60.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-18T16:35:39.269215",
+      "original_name": "amazon_20250626_789.60.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20250626_789.60.ocr.json",
+      "fournisseur": "Amazon",
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "montant": 789.6,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Immobilisations",
+      "sous_categorie": null,
+      "date_operation": "2025-06-26",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 66,
+        "ventilation_index": null
+      }
+    },
+    "data/reports/rapport_compte_dattente_sans_justificatif_mai_20_20260427_231520.pdf": {
+      "doc_id": "data/reports/rapport_compte_dattente_sans_justificatif_mai_20_20260427_231520.pdf",
+      "type": "rapport",
+      "filename": "rapport_compte_dattente_sans_justificatif_mai_20_20260427_231520.pdf",
+      "year": 2025,
+      "month": 5,
+      "poste_comptable": null,
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T23:15:20.534781",
+      "original_name": "rapport_compte_dattente_sans_justificatif_mai_20_20260427_231520.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": 5,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": "compte_attente_sans_justif",
+        "title": "Compte d'attente — sans justificatif — Mai 2025",
+        "description": null,
+        "filters": {
+          "categories": null,
+          "subcategories": null,
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": 5,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null,
+          "justificatif_present": false,
+          "scope": "sans_justif",
+          "statut": null,
+          "poste": null,
+          "report_type": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-27T23:15:20.534781",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_compte_dattente_sans_justificatif_materi_20260427_231547.csv": {
+      "doc_id": "data/reports/rapport_compte_dattente_sans_justificatif_materi_20260427_231547.csv",
+      "type": "rapport",
+      "filename": "rapport_compte_dattente_sans_justificatif_materi_20260427_231547.csv",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Matériel",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-27T23:15:47.792971",
+      "original_name": "rapport_compte_dattente_sans_justificatif_materi_20260427_231547.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": "compte_attente_sans_justif",
+        "title": "Compte d'attente — sans justificatif · Matériel — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Matériel"
+          ],
+          "subcategories": null,
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null,
+          "justificatif_present": false,
+          "scope": null,
+          "statut": null,
+          "poste": null,
+          "report_type": null
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-27T23:15:47.792971",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/justificatifs/traites/openai_20250614_24.00.pdf": {
+      "doc_id": "data/justificatifs/traites/openai_20250614_24.00.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 6,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-07T20:59:23.691288",
+      "original_name": "openai_20250614_24.pdf",
+      "ocr_file": "data/justificatifs/traites/openai_20250614_24.00.ocr.json",
+      "fournisseur": "Openai",
+      "period": {
+        "year": 2025,
+        "month": 6,
+        "quarter": 2
+      },
+      "montant": 22.39,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "filename": "openai_20250614_24.00.pdf",
+      "renamed_from": "openai_20250614_24.pdf",
+      "categorie": "Abonnements",
+      "sous_categorie": "",
+      "date_operation": "2025-06-16",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202506_20260414_234739.json",
+        "index": 35,
+        "ventilation_index": null
+      }
+    },
+    "data/justificatifs/traites/orange_20250103_29.55.pdf": {
+      "doc_id": "data/justificatifs/traites/orange_20250103_29.55.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 10,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-06T19:20:21.593171",
+      "original_name": "orange_20250103_29.55.pdf",
+      "ocr_file": "data/justificatifs/traites/orange_20250103_29.55.ocr.json",
+      "fournisseur": "Orange",
+      "period": {
+        "year": 2025,
+        "month": 10,
+        "quarter": 4
+      },
+      "montant": 10.39,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "filename": "orange_20250103_29.55.pdf",
+      "renamed_from": "orange_20250103_29.55.pdf",
+      "categorie": "Telephone-Internet",
+      "sous_categorie": "",
+      "date_operation": "2025-10-10",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202510_20260414_234739.json",
+        "index": 30,
+        "ventilation_index": null
+      }
+    },
+    "data/reports/rapport_honoraires_optam_2025_20260428_055829.pdf": {
+      "doc_id": "data/reports/rapport_honoraires_optam_2025_20260428_055829.pdf",
+      "type": "rapport",
+      "filename": "rapport_honoraires_optam_2025_20260428_055829.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Honoraires",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-28T05:58:29.750615",
+      "original_name": "rapport_honoraires_optam_2025_20260428_055829.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Honoraires · Optam — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Honoraires"
+          ],
+          "subcategories": [
+            "Optam"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null,
+          "justificatif_present": null,
+          "scope": null,
+          "statut": null,
+          "poste": null,
+          "report_type": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-28T05:58:29.750615",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_remplacant_honoraires_2025_20260428_055914.pdf": {
+      "doc_id": "data/reports/rapport_remplacant_honoraires_2025_20260428_055914.pdf",
+      "type": "rapport",
+      "filename": "rapport_remplacant_honoraires_2025_20260428_055914.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Remplaçant",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-28T05:59:15.020141",
+      "original_name": "rapport_remplacant_honoraires_2025_20260428_055914.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Remplaçant · Honoraires — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Remplaçant"
+          ],
+          "subcategories": [
+            "Honoraires"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": null,
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null,
+          "justificatif_present": null,
+          "scope": null,
+          "statut": null,
+          "poste": null,
+          "report_type": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-28T05:59:15.020141",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_vehicule_repas_pro_2025_20260428_062122.pdf": {
+      "doc_id": "data/reports/rapport_vehicule_repas_pro_2025_20260428_062122.pdf",
+      "type": "rapport",
+      "filename": "rapport_vehicule_repas_pro_2025_20260428_062122.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-28T06:21:22.132906",
+      "original_name": "rapport_vehicule_repas_pro_2025_20260428_062122.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Véhicule, Repas pro — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Véhicule",
+            "Repas pro"
+          ],
+          "subcategories": [
+            "Essence",
+            "Péage",
+            "Repas seul"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": "debit",
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null,
+          "justificatif_present": null,
+          "scope": null,
+          "statut": null,
+          "poste": null,
+          "report_type": null
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-28T06:21:22.132906",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_vehicule_2025_20260428_062128.csv": {
+      "doc_id": "data/reports/rapport_vehicule_2025_20260428_062128.csv",
+      "type": "rapport",
+      "filename": "rapport_vehicule_2025_20260428_062128.csv",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": "Véhicule",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-28T06:21:28.964923",
+      "original_name": "rapport_vehicule_2025_20260428_062128.csv",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Véhicule — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Véhicule"
+          ],
+          "subcategories": [
+            "Essence",
+            "Péage"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": "debit",
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null,
+          "justificatif_present": null,
+          "scope": null,
+          "statut": null,
+          "poste": null,
+          "report_type": null
+        },
+        "format": "csv",
+        "favorite": false,
+        "generated_at": "2026-04-28T06:21:28.964923",
+        "can_regenerate": true,
+        "can_compare": true
+      }
+    },
+    "data/reports/rapport_vehicule_repas_pro_2025_20260428_062141.xlsx": {
+      "doc_id": "data/reports/rapport_vehicule_repas_pro_2025_20260428_062141.xlsx",
+      "type": "rapport",
+      "filename": "rapport_vehicule_repas_pro_2025_20260428_062141.xlsx",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-28T06:21:41.545545",
+      "original_name": "rapport_vehicule_repas_pro_2025_20260428_062141.xlsx",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Véhicule, Repas pro — 2025",
+        "description": null,
+        "filters": {
+          "categories": [
+            "Véhicule",
+            "Repas pro"
+          ],
+          "subcategories": [
+            "Essence",
+            "Péage",
+            "Repas seul"
+          ],
+          "date_from": null,
+          "date_to": null,
+          "year": 2025,
+          "quarter": null,
+          "month": null,
+          "type": "debit",
+          "source": null,
+          "important_only": false,
+          "min_amount": null,
+          "max_amount": null,
+          "justificatif_present": null,
+          "scope": null,
+          "statut": null,
+          "poste": null,
+          "report_type": null
+        },
+        "format": "excel",
+        "favorite": false,
+        "generated_at": "2026-04-28T06:21:41.545545",
+        "can_regenerate": true,
+        "can_compare": true
+      }
     }
   }
 }
