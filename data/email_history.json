@@ -873,5 +873,195 @@
     "success": true,
     "error_message": null,
     "mode": "smtp"
+  },
+  {
+    "id": "754bc2cc",
+    "sent_at": "2026-04-28T09:55:28.239164",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com",
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr"
+    ],
+    "objet": "Documents comptables (38 fichiers)",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Septembre_PDF_20260418_184104.zip"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_vehicule_repas_pro_2025_20260428_062141.xlsx"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_vehicule_2025_20260428_062128.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_remplacant_honoraires_2025_20260428_055914.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_honoraires_optam_2025_20260428_055829.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_urssaf_2025_20260427_213051.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_compte_dattente_sans_justificatif_materi_20260427_231547.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_compte_dattente_sans_justificatif_mai_20_20260427_231520.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_abonnements_2025_20260427_213512.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_carmf_2025_20260417_224848.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "rapport_toutes_categories_2025_20260415_160916.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Septembre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Septembre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Octobre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Octobre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Novembre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Novembre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mars.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mars.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mai.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Mai.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juin.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juin.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juillet.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Juillet.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Janvier.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Janvier.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Février.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Février.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Décembre.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Décembre.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Avril.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Avril.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Août.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "Export_Comptable_2025_Août.csv"
+      },
+      {
+        "type": "rapport",
+        "filename": "repas_20251231_2643,30.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "quote_part_vehicule_2025.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "blanchissage_20251231_2367,40.pdf"
+      }
+    ],
+    "nb_documents": 38,
+    "taille_totale_mo": 2.99,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "884fb31e",
+    "sent_at": "2026-04-28T09:59:03.782476",
+    "destinataires": [
+      "docteur.andre.ceccoli@gmail.com",
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr"
+    ],
+    "objet": "Export Comptable 2025 Février PDF 20260428 095438",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Février_PDF_20260428_095438.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.23,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
   }
 ]
