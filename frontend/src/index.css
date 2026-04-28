@@ -227,3 +227,86 @@ tr.editor-row:focus-within {
   100% { transform: scale(1) translateY(0);       opacity: 1; }
 }
 .animate-victory-bounce { animation: victory-bounce 450ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* ──────────────────────────────────────────────────────────────────────
+   HomePage — chorégraphie d'entrée + aurora + pulse
+   ────────────────────────────────────────────────────────────────────── */
+
+@keyframes nx-fade {
+  to { opacity: 1; }
+}
+
+@keyframes nx-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nx-slide-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nx-home-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.013); }
+}
+
+/* L'animation `nx-draw-ring` part de la circonférence (251.33 = 2π × 40)
+ * et va vers `var(--ring-target)` injecté inline en CSS var. */
+@keyframes nx-draw-ring {
+  from { stroke-dashoffset: 251.33; }
+  to   { stroke-dashoffset: var(--ring-target, 0); }
+}
+
+@keyframes nx-aurora-1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(8%, 10%) scale(1.18); }
+}
+
+@keyframes nx-aurora-2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-9%, -8%) scale(1.22); }
+}
+
+@keyframes nx-aurora-3 {
+  0%   { transform: translate(0, 0) scale(0.95); }
+  100% { transform: translate(7%, -10%) scale(1.12); }
+}
+
+@keyframes nx-dot {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
+}
+
+@keyframes nx-logo-enter {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes nx-shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* Shimmer #2 — sens inverse (droite → gauche), joue après le shimmer #1.
+ * Couplé à un gradient à 255deg (mirror de 105deg) pour que la bande
+ * brillante slope dans l'autre sens, créant une vraie sensation de
+ * double balayage et non un simple aller-retour identique. */
+@keyframes nx-shimmer-back {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(-100%); }
+}
+
+/* Halo violet qui éclate au mount — expand + fade out, joue 1× */
+@keyframes nx-halo-burst {
+  0%   { opacity: 0;    transform: scale(0.55); }
+  35%  { opacity: 0.85; transform: scale(1.0); }
+  100% { opacity: 0;    transform: scale(1.45); }
+}
+
+/* Halo discret qui persiste en boucle après l'entrée — respiration lente.
+ * Démarre à t=1500ms avec animation-delay (cf. LogoLockup). */
+@keyframes nx-halo-breathe {
+  0%, 100% { opacity: 0.18; transform: scale(1); }
+  50%      { opacity: 0.34; transform: scale(1.05); }
+}

@@ -8,6 +8,53 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-28) — HomePage NeuronXcompta (vraie page d'accueil chaleureuse)
+
+Nouvelle page racine `/` qui répond à *« que dois-je faire maintenant ? »* — distincte du Dashboard rétrospectif et du Pipeline procédural. Aurora signature en arrière-plan, logo lockup avec chorégraphie spectaculaire (halo + double shimmer), `NextActionCard` qui calcule l'action prioritaire via 5 règles ordonnées, 3 PulseCards (mois en cours / prochaine échéance / alertes actives), 5 QuickActions vers les pages les plus utilisées. **Aucun nouvel endpoint backend** — tout vient des hooks existants. Le Pipeline migre vers `/pipeline`.
+
+- **Backend**
+  - **`backend/main.py`** — ajout `app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")` pour servir le logo `logo_lockup_dark_400.png` (déjà présent dans `backend/assets/`). Aucun nouvel endpoint applicatif.
+
+- **Frontend — composants nouveaux** ([`frontend/src/components/home/`](frontend/src/components/home/))
+  - **`HomePage.tsx`** — orchestre les sections, gère l'année via `useFiscalYearStore`. Layout : `position: relative; overflow: hidden` avec `AuroraBackground` z-0 et `<main>` z-10 (max-w-6xl).
+  - **`LogoLockup.tsx`** — logo 64px avec **chorégraphie 5 phases** : (1) `nx-logo-enter` 300ms (opacity + scale 0.96→1), (2) `nx-halo-burst` 1100ms à t=100ms (halo violet `radial-gradient` qui éclate derrière le logo, scale 0.55→1.45 + opacity peak 0.85), (3) `nx-shimmer` 1100ms à t=400ms (sweep diagonal blanc gauche→droite, gradient 105°), (4) `nx-shimmer-back` 900ms à t=1350ms (sweep miroir droite→gauche, gradient 255°), (5) `nx-halo-breathe` ∞ à t=1500ms (halo subtil qui respire opacity 0.18↔0.34 / scale 1↔1.05 sur 4500ms). Halos en `position: absolute` SOEURS du wrapper masqué (z-index 0, peuvent déborder de la silhouette) ; shimmers à l'intérieur du wrapper masqué (clippés à la silhouette via `mask-image`). Fallback texte stylisé `<onError>` si le PNG ne charge pas.
+  - **`AuroraBackground.tsx`** — 3 blobs `radial-gradient` à très faible opacité dérivant lentement (animations `nx-aurora-1/2/3` sur 24/28/32s alternate). Couleurs signature hardcodées (violet `rgba(127,119,221,0.32)` / emerald `rgba(93,202,165,0.20)` / amber `rgba(239,159,39,0.16)`). Pas de `filter: blur()` — la diffusion vient du gradient. `pointer-events: none` + `z-index: 0`.
+  - **`HeroBlock.tsx`** — greeting contextuel selon `Date.getHours()` (4 paliers : Bonne nuit / Bonjour / Bon après-midi / Bonsoir), date longue FR via `formatDateLong()` (32px), phrase rotative italique parmi 6 (cross-fade 350ms toutes les 4500ms via `setInterval` + cleanup). Phrase #4 utilise `new Date().getFullYear()` pour rester à jour.
+  - **`NextActionCard.tsx`** — card large avec border primary, icône Lucide à gauche (mapping `iconName: 'Clock' | 'Tags' | 'Paperclip' | 'CheckCircle2' | 'Sparkles'`), CTA `navigate(ctaPath)`. Animation `nx-slide-up` 450ms + `nx-home-pulse` infini scale 1↔1.013 (3.2s) qui démarre **après** l'entrée via `animation-delay: 2600ms`.
+  - **`PulseCard.tsx`** — composant générique avec 3 variants (`ring` | `value` | `dot`) discriminés par union typée. Variant `ring` : SVG 92×92 avec `r=40`, `stroke-width=6`, draw via `nx-draw-ring` 1300ms (`stroke-dashoffset` de 251.33 → `var(--ring-target)` injecté inline). Variant `value` : grand chiffre + sous-titre (ex. `J–N` + nom échéance). Variant `dot` : dot pulse `nx-dot` 2s + grand chiffre + libellé sévérité. Tous les compteurs via `useCountUp` (rAF, easing easeOutCubic, retourne toujours des entiers via `Math.round` — pas de glitch `71.99999`).
+  - **`QuickActions.tsx`** — 5 boutons en grid `1fr × 5` gap 10px (Importer/OCR/Éditeur/Justificatifs/Rapprocher), navigation directe via `useNavigate`. Stagger d'entrée 50ms entre chaque (t=1600 → 1800). Hover : `bg-primary/10`, `border-primary/30`, `translateY(-2px)`, icône `text-primary-light`.
+
+- **Frontend — hooks nouveaux** ([`frontend/src/hooks/`](frontend/src/hooks/))
+  - **`useCountUp.ts`** — compteur animé via `requestAnimationFrame` avec cleanup propre à l'unmount (clearTimeout + cancelAnimationFrame). Retourne toujours un entier (`Math.round`) pour éviter les glitchs float. Easing easeOutCubic. Props : `from?`, `to`, `duration?`, `delay?`, `enabled?`.
+  - **`useHomeData.ts`** — agrège les data des 3 PulseCards depuis `useAnnualStatus(year)` (taux mois courant) + `useEcheances(year, 'attendu')` (prochaine échéance triée par date) + `useAlertesSummary()` (count + sévérité). Helper `deriveSeverity()` calcule `'critique' | 'moyenne' | 'faible'` depuis `summary.par_type` (doublon/montant à vérifier → critique, ≥5 justif manquants ou à catégoriser → moyenne, sinon faible). Helper `daysUntil(dateStr)` pour le calcul `J–N`.
+  - **`useNextAction.ts`** — calcule la `NextActionData` via 5 règles ordonnées (premier match gagne) : (1) échéance fiscale ≤ 7j depuis `useEcheances` (statut 'attendu', `daysUntil(date_attendue) <= 7`), (2) > 5 ops sans catégorie depuis `useOperations(currentMonthFile)` filtré `Catégorie ∈ ['', 'Autres']`, (3) > 3 justificatifs orphelins depuis `useAnnualStatus.nb_justificatifs_total - nb_justificatifs_ok`, (4) mois N-1 ≥ 95% complétion ET non clôturé via `previousAnnualStatus` (gère le wrap décembre/janvier avec décrémentation année), (5) idle "Bel ouvrage / Tout est à jour" → `/pipeline`. Le fichier d'opérations du mois courant est résolu via `useOperationFiles().find(f => f.year === selectedYear && f.month === currentMonth)`.
+
+- **Frontend — types ajoutés** ([`frontend/src/types/index.ts`](frontend/src/types/index.ts))
+  - `NextActionKind = 'echeance' | 'uncategorized' | 'orphan_justif' | 'cloture_ready' | 'idle'`
+  - `NextActionData { kind, iconName, label, title, subtitle, ctaText, ctaPath }`
+  - `AlerteSeverity = 'faible' | 'moyenne' | 'critique'`
+  - `PulseCardData { monthLabel, monthCompletion, nextEcheanceDays, nextEcheanceName, alertesCount, alertesSeverity }`
+  - `HomeData { pulse, isLoading }`
+
+- **Frontend — utils ajoutés** ([`frontend/src/lib/utils.ts`](frontend/src/lib/utils.ts))
+  - `joursFr` — array `['dimanche', ..., 'samedi']` (index 0 = dimanche, cohérent avec `Date.getDay()`).
+  - `getGreeting(date?)` — 4 paliers selon `getHours()` : `<5h` Bonne nuit / `<12h` Bonjour / `<18h` Bon après-midi / `≥18h` Bonsoir.
+  - `formatDateLong(date?)` — retourne `"mardi 28 avril 2026"` (lowercase mois).
+
+- **Frontend — keyframes ajoutés** ([`frontend/src/index.css`](frontend/src/index.css))
+  - 11 keyframes `nx-*` : `nx-fade`, `nx-fade-up`, `nx-slide-up`, `nx-home-pulse`, `nx-draw-ring`, `nx-aurora-1/2/3`, `nx-dot`, `nx-logo-enter`, `nx-shimmer`, `nx-shimmer-back`, `nx-halo-burst`, `nx-halo-breathe`. Préfixe `nx-*` pour éviter collision avec les keyframes existants (`logo-breathe`, `electric-spark`, `scan-sweep`, etc.). `nx-draw-ring` utilise une CSS var `--ring-target` injectée inline sur le SVG path pour permettre la valeur cible dynamique selon `taux_global`.
+
+- **Frontend — wiring** ([`frontend/src/App.tsx`](frontend/src/App.tsx), [`Sidebar.tsx`](frontend/src/components/layout/Sidebar.tsx), [`AppLayout.tsx`](frontend/src/components/layout/AppLayout.tsx))
+  - `App.tsx` — route `/` rend désormais `<HomePage />` (au lieu du redirect vers `/dashboard`). `/pipeline` et `/dashboard` inchangés.
+  - `Sidebar.tsx` — nouvel item `Accueil` en TOUT premier hors-groupe (icône `Sparkles` violet, `<NavLink to="/" end>` pour ne pas matcher `/pipeline`). Pipeline et Envoi comptable restent juste après.
+  - `AppLayout.tsx` — `ROUTE_TITLES['/']` passe de `'Tableau de bord'` à `'Accueil'` → onglet navigateur affiche `Accueil · NeuronXcompta`.
+
+- **Vite proxy** ([`frontend/vite.config.ts`](frontend/vite.config.ts)) — ajout entrée `'/assets': { target: apiTarget, changeOrigin: true }` pour transmettre `/assets/*` du dev server (5173) vers le backend (8000).
+
+**Notes / suites** :
+- Le mount `/assets` côté FastAPI **collisionnera** avec `frontend/dist/assets/` au build prod (Vite output ses bundles JS/CSS dans `assets/` par défaut). À traiter au moment du déploiement prod : soit renommer le mount en `/static-assets/`, soit configurer Vite avec `build.assetsDir = '_app'`.
+- L'algo NextAction utilise `useFiscalYearStore.selectedYear` pour cohérence avec le reste de l'app (mais le mois reste toujours le mois courant calendaire). La phrase rotative #4 utilise explicitement `new Date().getFullYear()` comme spécifié dans le prompt source.
+
 ### Added (2026-04-27) — Mode Envoi Manuel (drawer Envoi Comptable)
 
 Fallback drawer SMTP : quand Gmail bloque le ZIP (`UnsolicitedMessageError`, anti-spam, taille), un nouveau bouton secondaire « Préparer envoi manuel » génère le ZIP sur disque, copie le corps du mail dans le presse-papier, ouvre Finder sur le fichier et lance `mailto:` avec l'objet pré-rempli. Le comptable n'accède jamais au LAN — l'utilisateur joint lui-même le ZIP depuis son client mail. Indépendance totale du SMTP : aucun app password Gmail requis pour le mode manuel.

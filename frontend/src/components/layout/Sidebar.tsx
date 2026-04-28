@@ -5,7 +5,7 @@ import {
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
   Boxes, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
-  Send, Receipt, Camera, ClipboardCheck,
+  Send, Receipt, Camera, ClipboardCheck, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -138,8 +138,23 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2">
-        {/* Pipeline - standalone item above sections */}
+        {/* Home + Pipeline + Envoi comptable - standalone items above sections */}
         <div className="pb-2 mb-1 border-b border-border">
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 px-4 py-2.5 mx-3 mb-1.5 rounded-lg text-sm font-medium transition-all',
+                isActive
+                  ? 'bg-primary/15 text-primary border border-primary/30'
+                  : 'text-text-muted hover:bg-white/5 hover:text-text border border-transparent'
+              )
+            }
+          >
+            <Sparkles size={18} />
+            <span className="flex-1">Accueil</span>
+          </NavLink>
           <NavLink
             to="/pipeline"
             className={({ isActive }) =>

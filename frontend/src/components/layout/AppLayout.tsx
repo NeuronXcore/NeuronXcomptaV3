@@ -12,7 +12,7 @@ const APP_NAME = 'NeuronXcompta'
 
 // Map route path → human label pour le titre d'onglet
 const ROUTE_TITLES: Record<string, string> = {
-  '/': 'Tableau de bord',
+  '/': 'Accueil',
   '/pipeline': 'Pipeline',
   '/dashboard': 'Tableau de bord',
   '/import': 'Importation',

@@ -28,6 +28,10 @@ export default defineConfig({
         target: wsTarget,
         ws: true,
       },
+      '/assets': {
+        target: apiTarget,
+        changeOrigin: true,
+      },
     },
   },
 })

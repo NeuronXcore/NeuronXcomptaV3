@@ -1,3 +1,32 @@
+// HomePage — types pour la page d'accueil chaleureuse
+export type NextActionKind = 'echeance' | 'uncategorized' | 'orphan_justif' | 'cloture_ready' | 'idle'
+
+export interface NextActionData {
+  kind: NextActionKind
+  iconName: string        // Clock | Tags | Paperclip | CheckCircle2 | Sparkles
+  label: string           // "À faire maintenant" ou "Bel ouvrage"
+  title: string
+  subtitle: string | null
+  ctaText: string
+  ctaPath: string
+}
+
+export type AlerteSeverity = 'faible' | 'moyenne' | 'critique'
+
+export interface PulseCardData {
+  monthLabel: string                       // "Avril 2026"
+  monthCompletion: number                  // 0-100, taux_global du mois courant
+  nextEcheanceDays: number | null          // null si aucune échéance proche
+  nextEcheanceName: string | null
+  alertesCount: number
+  alertesSeverity: AlerteSeverity
+}
+
+export interface HomeData {
+  pulse: PulseCardData
+  isLoading: boolean
+}
+
 export type AlerteType =
   | 'justificatif_manquant'
   | 'a_categoriser'

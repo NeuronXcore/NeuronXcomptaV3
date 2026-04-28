@@ -148,3 +148,34 @@ export function matchesOperationType(
     default: return true
   }
 }
+
+// Jours de la semaine en français — index 0 = dimanche (cohérent avec Date.getDay()).
+export const joursFr = [
+  'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi',
+] as const
+
+/**
+ * Salutation contextuelle selon l'heure :
+ * - 0h-5h → "Bonne nuit"
+ * - 5h-12h → "Bonjour"
+ * - 12h-18h → "Bon après-midi"
+ * - 18h-24h → "Bonsoir"
+ */
+export function getGreeting(date: Date = new Date()): string {
+  const h = date.getHours()
+  if (h < 5) return 'Bonne nuit'
+  if (h < 12) return 'Bonjour'
+  if (h < 18) return 'Bon après-midi'
+  return 'Bonsoir'
+}
+
+/**
+ * Date longue en français : "mardi 28 avril 2026".
+ */
+export function formatDateLong(date: Date = new Date()): string {
+  const d = date.getDay()
+  const j = date.getDate()
+  const m = date.getMonth()
+  const y = date.getFullYear()
+  return `${joursFr[d]} ${j} ${MOIS_FR[m].toLowerCase()} ${y}`
+}

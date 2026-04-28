@@ -158,16 +158,16 @@ neuronXcompta/
 │   └── services/               # Business logic (27 services, incl. ged_service.py, amortissement_service.py, fiscal_service.py, template_service.py, previsionnel_service.py, task_service.py, ml_monitoring_service.py, email_service.py, email_history_service.py, naming_service.py, rename_service.py, charges_forfaitaires_service.py, snapshot_service.py, aliases_service.py)
 ├── frontend/
 │   └── src/
-│       ├── App.tsx             # All 20 routes (Pipeline=/, Dashboard=/dashboard, Tasks=/tasks, Snapshots=/snapshots)
+│       ├── App.tsx             # All 21 routes (Home=/, Pipeline=/pipeline, Dashboard=/dashboard, Tasks=/tasks, Snapshots=/snapshots)
 │       ├── api/client.ts       # api.get/post/put/delete/upload/uploadMultiple
-│       ├── components/         # 70+ .tsx components (incl. components/ged/, components/amortissements/, components/reports/, components/tasks/, components/justificatifs/, components/email/, components/common/, components/charges-forfaitaires/)
-│       ├── hooks/              # 25 hook files (useApi, useOperations, useJustificatifs, useJustificatifsPage, useOcr, useExports, useRapprochement, useRapprochementWorkflow, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel, useTasks, useEmail, useChargesForfaitaires, useToggleLock, useBulkLock, useSnapshots)
+│       ├── components/         # 70+ .tsx components (incl. components/home/, components/ged/, components/amortissements/, components/reports/, components/tasks/, components/justificatifs/, components/email/, components/common/, components/charges-forfaitaires/)
+│       ├── hooks/              # 28 hook files (useApi, useOperations, useJustificatifs, useJustificatifsPage, useOcr, useExports, useRapprochement, useRapprochementWorkflow, useLettrage, useCloture, useSandbox, useAlertes, useGed, useReports, useAmortissements, useSimulation, usePipeline, useTemplates, usePrevisionnel, useTasks, useEmail, useChargesForfaitaires, useToggleLock, useBulkLock, useSnapshots, useHomeData, useNextAction, useCountUp)
 │       ├── stores/useFiscalYearStore.ts  # Zustand store — année globale persistée en localStorage
 │       ├── stores/sendDrawerStore.ts     # Zustand store — drawer envoi comptable (ouverture globale avec pré-sélection + defaultSubject)
 │       ├── lib/amortissement-engine.ts  # Moteur de calcul amortissement TypeScript (linéaire + dégressif)
 │       ├── lib/fiscal-engine.ts         # Moteur fiscal TypeScript (URSSAF, CARMF, IR, simulation multi-leviers)
 │       ├── types/index.ts      # All TypeScript interfaces
-│       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, formatFileTitle
+│       ├── lib/utils.ts        # cn, formatCurrency, formatDate, MOIS_FR, joursFr, getGreeting, formatDateLong, formatFileTitle
 │       └── index.css           # Tailwind @theme with custom colors
 ├── data/
 │   ├── imports/
@@ -208,11 +208,11 @@ neuronXcompta/
 
 ## Sidebar Navigation (Pipeline Comptable)
 
-La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6 groupes :
+La sidebar est organisée avec 3 items hors-groupe en tête (Accueil, Pipeline, Envoi comptable), suivis de 6 groupes :
 
 | Groupe | Pages |
 |--------|-------|
-| **—** | Pipeline (hors-groupe, en tête), Envoi comptable (bouton drawer, badge bleu) |
+| **—** | **Accueil** (hors-groupe, en tête, icône Sparkles violet), Pipeline (badge % global ambre), Envoi comptable (bouton drawer, badge bleu) |
 | **SAISIE** | Importation, Édition, Catégories, OCR |
 | **TRAITEMENT** | Justificatifs, Compte d'attente |
 | **ANALYSE** | Tableau de bord, Prévisionnel, Compta Analytique, Rapports, Simulation BNC |
@@ -255,7 +255,7 @@ La sidebar est organisée avec un item Pipeline hors-groupe en tête, suivi de 6
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/` | *(redirige vers `/dashboard`)* | Page d'accueil — Dashboard. Pipeline migré vers `/pipeline` |
+| `/` | HomePage | **Vraie page d'accueil chaleureuse** — répond à *« que dois-je faire maintenant ? »* (forward-looking, distinct du Dashboard rétrospectif et du Pipeline procédural). Aurora signature en arrière-plan (3 blobs `radial-gradient` dérivants, `pointer-events: none`), `LogoLockup` 64px avec **animation 5 phases** (logo-enter 300ms + halo-burst violet 1100ms + shimmer 1 gauche→droite 1100ms + shimmer 2 droite→gauche 900ms + halo-breathe ∞ subtil), `HeroBlock` (greeting contextuel selon l'heure / date longue FR `formatDateLong()` / phrase rotative crossfade 4.5s parmi 6), `NextActionCard` avec algo **5 règles ordonnées** (échéance ≤7j → uncategorized >5 → orphan justif >3 → cloture_ready N-1 ≥95% → idle "Bel ouvrage") propulsant vers la bonne page, **3 PulseCards** en grid (ring SVG mois en cours via `useCloture(year)`, value `J–N` prochaine échéance via `useEcheances`, dot animé alertes via `useAlertesSummary`), 5 `QuickActions` (Importer/OCR/Éditeur/Justificatifs/Rapprocher). **Aucun nouvel endpoint backend** — tout vient des hooks existants. Chorégraphie d'entrée orchestrée sur ~2.4s via 11 keyframes `nx-*` dans `index.css` (logo-enter, logo-shimmer, shimmer-back, halo-burst, halo-breathe, fade, fade-up, slide-up, home-pulse, draw-ring, dot, aurora-1/2/3) |
 | `/pipeline` | PipelinePage | Pipeline comptable interactif — **stepper 7 étapes** (Import → Catég → Justif → **Verrouillage** → Lettrage → Vérification → Clôture), progression globale pondérée, sélecteur mois/année, widget « Scans en attente » **collapsed par défaut** |
 | `/dashboard` | DashboardPage | **Cockpit exercice comptable V2** : sélecteur année, jauge segmentée 6 critères (relevés/catégorisation/lettrage/justificatifs/rapprochement/exports), 4 cartes KPI avec sparkline BNC et delta N-1, grille 12 mois cliquables avec 6 badges d'état + expansion (montants + actions contextuelles), alertes pondérées triées par impact, échéances fiscales (URSSAF/CARMF/ODM), bar chart recettes vs dépenses (Recharts), feed activité récente |
 | `/check-envoi` | CheckEnvoiPage | **Check d'envoi** : rituel pré-vol récurrent (mensuel + annuel) avant l'envoi du dossier au comptable. Toggle Mois/Année, 8 sections accordéon par vue (×2 = 16 sections, ~36 items), 4 statuts (`auto_ok`/`auto_warning`/`manual_ok`/`blocking`/`pending`), commentaires libres injectés dans le mail. Items auto recalculés à chaque GET, items manuels persistés. Compte d'attente : un sous-item bloquant par op sans commentaire (hash md5 12 chars). Bouton flottant « Préparer l'envoi → » → drawer Email. Badge sidebar coloré selon reminder N1/N2/N3. |

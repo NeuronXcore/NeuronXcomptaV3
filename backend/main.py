@@ -14,8 +14,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-from backend.core.config import APP_NAME, APP_VERSION, LOGS_DIR, ensure_directories, migrate_imports_directory
+from backend.core.config import APP_NAME, APP_VERSION, ASSETS_DIR, LOGS_DIR, ensure_directories, migrate_imports_directory
 from backend.core.shutdown import shutdown_event
 from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots, liasse_scp, check_envoi
 from backend.services.sandbox_service import (
@@ -532,6 +533,9 @@ app.include_router(charges_forfaitaires.router)
 app.include_router(snapshots.router)
 app.include_router(liasse_scp.router)
 app.include_router(check_envoi.router)
+
+# Servir les assets statiques (logos, images de marque) depuis backend/assets/
+app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
 
 @app.get("/")
