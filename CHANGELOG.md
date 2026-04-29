@@ -8,6 +8,14 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-04-29) — Bouton « Ouvrir avec Aperçu » dans les sub-drawers paperclip + lightbox du registre Amortissements
+
+Le `PreviewSubDrawer` standalone ouvert depuis la cellule paperclip du registre `AmortissementsPage` (et celui du drawer édition section « Opération source & justificatif ») n'affichait pas le bouton « Ouvrir avec Aperçu » macOS, contrairement à l'usage `EditorPage`. Idem pour la lightbox plein écran chaînée. Le composant `PreviewSubDrawer` n'affiche le bouton que si la prop `onOpenNative` est fournie ; je ne la passais pas.
+
+- **[`frontend/src/components/amortissements/AmortissementsPage.tsx`](frontend/src/components/amortissements/AmortissementsPage.tsx)** — `RegistreTab` branche désormais `onOpenNative={(name) => api.post('/justificatifs/{name}/open-native')}` sur le `PreviewSubDrawer` standalone (cellule paperclip) et `onOpenExternal` sur le `JustifPreviewLightbox`. Fallback `window.open(.../preview, '_blank')` si l'open-native échoue (justif en-attente non mappé, environnement non-macOS, etc.).
+- **[`frontend/src/components/amortissements/ImmobilisationDrawer.tsx`](frontend/src/components/amortissements/ImmobilisationDrawer.tsx)** — même branchement sur le `PreviewSubDrawer` ouvert depuis la section source (modes candidate + édition) et la lightbox associée.
+- Pattern miroir [`EditorPage`](frontend/src/components/editor/EditorPage.tsx:2762) qui sert de référence.
+
 ### Fixed (2026-04-29) — Drawer immobilisation : durée par défaut respecte la config utilisateur
 
 **Bug** : à l'ouverture du drawer « Nouvelle immobilisation » (clic + ou sur une opération candidate), la durée proposée était **toujours 5 ans en dur**, même si l'utilisateur avait configuré 3 ans pour la sous-catégorie « Informatique » dans `Config Amortissements > Durées par défaut`.
