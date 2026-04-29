@@ -181,9 +181,18 @@ async def update_immobilisation(immo_id: str, data: ImmobilisationUpdate):
 
 @router.delete("/{immo_id}")
 async def delete_immobilisation(immo_id: str):
-    if not amortissement_service.delete_immobilisation(immo_id):
+    """Supprime une immo + cascade les ops liées.
+
+    Retourne {status, immo_id, designation, ops_unlinked, affected_years}.
+    `ops_unlinked` contient les opérations bancaires déliées (cat remise à vide).
+    `affected_years` liste les exercices dont l'OD dotation peut devenir obsolète
+    — la UI affiche un toast informatif, l'utilisateur régénère manuellement
+    via l'onglet Dotation.
+    """
+    result = amortissement_service.delete_immobilisation(immo_id)
+    if result is None:
         raise HTTPException(404, "Immobilisation non trouvée")
-    return {"success": True}
+    return result
 
 
 @router.post("/candidates/ignore")

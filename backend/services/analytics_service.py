@@ -434,8 +434,10 @@ def get_category_detail(operations: list[dict], category: str) -> dict:
     else:
         monthly_evolution = []
 
-    # Last 50 operations
-    ops_sorted = cat_df.sort_values("Date", ascending=False).head(50)
+    # Last 50 operations en ordre chronologique pour le drawer (janvier → décembre).
+    # On garde DESC + head(50) pour sélectionner les 50 plus récentes, puis on
+    # ré-ordonne ASC pour l'affichage (UX naturelle pour analyse temporelle).
+    ops_sorted = cat_df.sort_values("Date", ascending=False).head(50).sort_values("Date", ascending=True)
     ops_list = []
     for _, row in ops_sorted.iterrows():
         op_entry: dict = {

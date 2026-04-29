@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
-from backend.services import operation_service, analytics_service, liasse_scp_service
+from backend.services import (
+    operation_service, analytics_service, liasse_scp_service,
+    category_snapshot_service,
+)
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -133,6 +136,52 @@ async def get_category_detail(
     """Détail d'une catégorie : sous-catégories, évolution, opérations."""
     all_ops = _load_all_ops(year, quarter, month)
     return analytics_service.get_category_detail(all_ops, category)
+
+
+@router.post("/category-detail/export-snapshot")
+async def export_category_snapshot(
+    image: UploadFile = File(...),
+    category: str = Form(...),
+    year: Optional[int] = Form(None),
+    month: Optional[int] = Form(None),
+    quarter: Optional[int] = Form(None),
+    title: Optional[str] = Form(None),
+):
+    """Wrap un PNG (capture du drawer client-side via html-to-image) dans un PDF A4
+    et l'enregistre comme rapport GED standard.
+
+    Body multipart :
+      - image: fichier PNG (du drawer CategoryDetailDrawer)
+      - category: nom de la catégorie capturée (ex. "Véhicule")
+      - year/month/quarter: période active du drawer (Optional)
+      - title: titre custom (Optional, défaut auto-généré)
+
+    Retourne : {filename, doc_id, title, period_label, size_bytes}
+    Note : pas de déduplication — chaque snapshot est conservé (timestamp dans le nom).
+    """
+    # Validation basique du content-type
+    if image.content_type and not image.content_type.startswith("image/"):
+        raise HTTPException(400, f"Type MIME invalide: {image.content_type}")
+    png_bytes = await image.read()
+    if not png_bytes or len(png_bytes) < 100:
+        raise HTTPException(400, "Image vide ou trop petite")
+    # Sanity-check magic bytes PNG (89 50 4E 47)
+    if not png_bytes.startswith(b"\x89PNG"):
+        raise HTTPException(400, "Format invalide : PNG attendu")
+
+    try:
+        return category_snapshot_service.export_category_snapshot(
+            png_bytes=png_bytes,
+            category=category,
+            year=year,
+            month=month,
+            quarter=quarter,
+            title=title,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Erreur génération snapshot: {e}")
 
 
 @router.get("/compare")

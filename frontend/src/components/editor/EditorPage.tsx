@@ -26,6 +26,7 @@ import ReconstituerButton from '@/components/ocr/ReconstituerButton'
 import { LockCell } from '@/components/LockCell'
 import { useBulkLock, type BulkLockItem } from '@/hooks/useBulkLock'
 import { BulkLockBar } from '@/components/BulkLockBar'
+import { BulkLettreBar } from '@/components/BulkLettreBar'
 import { Lock as LockIcon, LockOpen, Copy as FacsimileIcon } from 'lucide-react'
 import { SnapshotCreateModal } from '@/components/snapshots/SnapshotCreateModal'
 import { SnapshotsListDrawer } from '@/components/snapshots/SnapshotsListDrawer'
@@ -236,6 +237,8 @@ export default function EditorPage() {
 
   // Bulk-lock state (indépendant de rowSelection)
   const [lockSelectedOps, setLockSelectedOps] = useState<Set<string>>(new Set())
+  // Bulk-lettrage state (indépendant de rowSelection et de bulk-lock)
+  const [lettreSelectedOps, setLettreSelectedOps] = useState<Set<string>>(new Set())
 
   // Special filter from Pipeline navigation
   const [filterUncategorized, setFilterUncategorized] = useState(false)
@@ -316,16 +319,34 @@ export default function EditorPage() {
   }, [addMenuOpen])
 
   // ─── Bulk-lock helpers (indépendant de rowSelection TanStack) ───
-  const lockKeyFor = useCallback((op: Operation, rowIndex: number) => {
-    const filename = op._sourceFile ?? selectedFile ?? ''
-    const index = op._index ?? rowIndex
+  // En single-file mode on IGNORE op._sourceFile (artefact persisté legacy
+  // qui peut pointer vers un fichier mergé/disparu → 404 silencieux).
+  // Aligné sur le rendu de la cellule (line ~1116).
+  const lockKeyFor = useCallback((op: Operation, originalIndex: number) => {
+    const filename = allYearMode ? (op._sourceFile ?? selectedFile ?? '') : (selectedFile ?? '')
+    const index = allYearMode ? (op._index ?? originalIndex) : originalIndex
     return `${filename}:${index}`
-  }, [selectedFile])
+  }, [selectedFile, allYearMode])
 
   const lockableOps = useMemo(
     () => operations.filter(op => !!op.Justificatif && (op.ventilation?.length ?? 0) === 0),
     [operations]
   )
+
+  // Liste des clés bulk-lock cohérente avec les indices source.
+  // CRITIQUE : on itère `operations` (pas `lockableOps`) pour préserver l'index
+  // ORIGINAL de chaque op. lockableOps.map((op, i) => ...) donnait `i` = index
+  // filtré, ce qui décalait les clés dès qu'il y avait des ops non-lockables
+  // intercalées (ventilées, sans justif) → bulk envoyait les mauvais indices.
+  const lockableKeys = useMemo(() => {
+    const keys: string[] = []
+    operations.forEach((op, i) => {
+      if (!!op.Justificatif && (op.ventilation?.length ?? 0) === 0) {
+        keys.push(lockKeyFor(op, i))
+      }
+    })
+    return keys
+  }, [operations, lockKeyFor])
 
   // Compteurs live du header : se mettent à jour dès que `operations` change
   // (après save, undo, categorize, associate, unlock…). Pas de refetch requis.
@@ -378,20 +399,19 @@ export default function EditorPage() {
 
   const toggleAllLockSelection = useCallback(() => {
     setLockSelectedOps(prev => {
-      const keys = lockableOps.map((op, i) => lockKeyFor(op, i))
-      const allSelected = keys.length > 0 && keys.every(k => prev.has(k))
+      const allSelected = lockableKeys.length > 0 && lockableKeys.every(k => prev.has(k))
       if (allSelected) return new Set()
-      return new Set(keys)
+      return new Set(lockableKeys)
     })
-  }, [lockableOps, lockKeyFor])
+  }, [lockableKeys])
 
   const clearLockSelection = useCallback(() => setLockSelectedOps(new Set()), [])
 
   const lockSelectedCount = lockSelectedOps.size
-  const isAllLockSelected = lockableOps.length > 0 &&
-    lockableOps.every((op, i) => lockSelectedOps.has(lockKeyFor(op, i)))
+  const isAllLockSelected = lockableKeys.length > 0 &&
+    lockableKeys.every(k => lockSelectedOps.has(k))
   const isSomeLockSelected = !isAllLockSelected &&
-    lockableOps.some((op, i) => lockSelectedOps.has(lockKeyFor(op, i)))
+    lockableKeys.some(k => lockSelectedOps.has(k))
   const lockSelectedAllLocked = useMemo(() => {
     if (lockSelectedOps.size === 0) return false
     const selected = operations.filter((op, i) => lockSelectedOps.has(lockKeyFor(op, i)))
@@ -424,6 +444,97 @@ export default function EditorPage() {
       toast.error(targetLocked ? 'Échec du verrouillage en masse' : 'Échec du déverrouillage en masse')
     }
   }, [lockSelectedOps, lockSelectedAllLocked, bulkLockMutation, clearLockSelection])
+
+  // ─── Bulk-lettrage helpers (pattern miroir bulk-lock, palette emerald) ───
+  // Lettrage : seules les ops non-ventilées sont lettrables en bulk (le lettrage
+  // des ventilations est par sous-ligne, logique distincte cf. CLAUDE.md).
+  // Aligné sur le rendu de la cellule (cas 3) : ignore op._sourceFile en
+  // single-file (artefact stale qui peut pointer vers un fichier disparu).
+  const lettreKeyFor = useCallback((op: Operation, originalIndex: number) => {
+    const filename = allYearMode ? (op._sourceFile ?? selectedFile ?? '') : (selectedFile ?? '')
+    const index = allYearMode ? (op._index ?? originalIndex) : originalIndex
+    return `${filename}:${index}`
+  }, [selectedFile, allYearMode])
+
+  const lettrableOps = useMemo(
+    () => operations.filter(op => (op.ventilation?.length ?? 0) === 0),
+    [operations],
+  )
+
+  // Clés bulk-lettre cohérentes avec les indices source.
+  // Itération sur `operations` (pas `lettrableOps`) pour conserver l'index
+  // original — sinon les clés générées par select-all décalent dès qu'une
+  // ventilation s'intercale dans le tableau → bulk envoie de mauvais indices
+  // au backend (cause de l'erreur "Échec du pointage").
+  const lettrableKeys = useMemo(() => {
+    const keys: string[] = []
+    operations.forEach((op, i) => {
+      if ((op.ventilation?.length ?? 0) === 0) {
+        keys.push(lettreKeyFor(op, i))
+      }
+    })
+    return keys
+  }, [operations, lettreKeyFor])
+
+  const toggleLettreSelection = useCallback((key: string) => {
+    setLettreSelectedOps(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }, [])
+
+  const toggleAllLettreSelection = useCallback(() => {
+    setLettreSelectedOps(prev => {
+      const allSelected = lettrableKeys.length > 0 && lettrableKeys.every(k => prev.has(k))
+      if (allSelected) return new Set()
+      return new Set(lettrableKeys)
+    })
+  }, [lettrableKeys])
+
+  const clearLettreSelection = useCallback(() => setLettreSelectedOps(new Set()), [])
+
+  const lettreSelectedCount = lettreSelectedOps.size
+  const isAllLettreSelected = lettrableKeys.length > 0 &&
+    lettrableKeys.every(k => lettreSelectedOps.has(k))
+  const isSomeLettreSelected = !isAllLettreSelected &&
+    lettrableKeys.some(k => lettreSelectedOps.has(k))
+  const lettreSelectedAllLettrees = useMemo(() => {
+    if (lettreSelectedOps.size === 0) return false
+    // Construire un Map index → lettre pour vérifier l'état réel des ops sélectionnées
+    // (en utilisant les vraies clés source, pas un filter index-décalé).
+    let allLettrees = true
+    operations.forEach((op, i) => {
+      if (lettreSelectedOps.has(lettreKeyFor(op, i)) && !op.lettre) {
+        allLettrees = false
+      }
+    })
+    return allLettrees
+  }, [lettreSelectedOps, operations, lettreKeyFor])
+
+  // Reset sélection bulk-lettrage au changement de fichier ou de mode
+  useEffect(() => {
+    setLettreSelectedOps(new Set())
+  }, [selectedFile, allYearMode])
+
+  const handleBulkLettre = useCallback(async () => {
+    if (!selectedFile || lettreSelectedOps.size === 0) return
+    const targetLettre = !lettreSelectedAllLettrees
+    // Toutes les sélections sont dans selectedFile (allYearMode ne lettre pas en bulk)
+    const indices = Array.from(lettreSelectedOps)
+      .map(key => key.split(':'))
+      .filter(([f]) => f === selectedFile)
+      .map(([, idxStr]) => Number(idxStr))
+    if (indices.length === 0) return
+    const verb = targetLettre ? 'pointée' : 'dépointée'
+    try {
+      await bulkLettrageMutation.mutateAsync({ filename: selectedFile, indices, lettre: targetLettre })
+      toast.success(`${indices.length} opération${indices.length > 1 ? 's' : ''} ${verb}${indices.length > 1 ? 's' : ''}`)
+      clearLettreSelection()
+    } catch {
+      toast.error(targetLettre ? 'Échec du pointage en masse' : 'Échec du dépointage en masse')
+    }
+  }, [selectedFile, lettreSelectedOps, lettreSelectedAllLettrees, bulkLettrageMutation, clearLettreSelection])
 
   // Auto-select month/file from query param or last available for the store year
   useEffect(() => {
@@ -1199,31 +1310,115 @@ export default function EditorPage() {
       ),
       sortingFn: (a, b) => Number(a.original.A_revoir || 0) - Number(b.original.A_revoir || 0),
     },
-    // Lettrée
+    // Lettrée — toggle individuel + sélection bulk-lettrage (pattern miroir bulk-lock)
     {
       accessorKey: 'lettre',
-      header: () => <span title="Pointée" className="inline-flex"><CheckCircle2 size={14} className="mx-auto text-emerald-400" /></span>,
+      // Header tri-état : clic → sélectionne toutes les ops lettrables (non-ventilées).
+      // Masqué en year-wide (le bulk lettrage cible le fichier courant uniquement).
+      header: () => {
+        if (allYearMode || lettrableOps.length === 0) {
+          return <span title="Pointée" className="inline-flex"><CheckCircle2 size={14} className="mx-auto text-emerald-400" /></span>
+        }
+        return (
+          <button
+            onClick={(e) => {
+              // Le <th> parent a un onClick getToggleSortingHandler() qui se déclencherait sinon.
+              // On stop la propagation pour réserver le clic-bouton à la sélection bulk ;
+              // le tri reste accessible via la flèche de tri rendue à côté du bouton.
+              e.stopPropagation()
+              toggleAllLettreSelection()
+            }}
+            title={isAllLettreSelected
+              ? 'Tout désélectionner'
+              : `Sélectionner tout pour pointage en masse (${lettrableOps.length})`}
+            className={cn(
+              'w-7 h-7 rounded-full inline-flex items-center justify-center transition-all',
+              isAllLettreSelected
+                ? 'bg-emerald-500/20 text-emerald-400 ring-2 ring-emerald-500/60'
+                : isSomeLettreSelected
+                  ? 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/40'
+                  : 'text-emerald-400 hover:bg-emerald-500/10',
+            )}
+          >
+            <CheckCircle2 size={14} />
+          </button>
+        )
+      },
       size: 40,
       cell: ({ row }) => {
-        const isLettre = row.original.lettre || false
+        const op = row.original
+        const isLettre = op.lettre || false
+        const isVentilated = (op.ventilation?.length ?? 0) > 0
+        // En year-wide ou sur ventilée : toggle individuel uniquement (pas de bulk).
+        // Cellule classique compacte, sans hover-checkbox.
+        const filename = allYearMode ? (op._sourceFile ?? selectedFile ?? '') : (selectedFile ?? '')
+        const index = allYearMode ? (op._index ?? Number(row.id)) : Number(row.id)
+        const key = `${filename}:${index}`
+        const selectionActive = lettreSelectedCount > 0
+        const isChecked = lettreSelectedOps.has(key)
+        const canBulk = !isVentilated && !allYearMode && !!filename
+
+        // Cas 1 : non-bulkable (year-wide, ventilée) → toggle individuel uniquement
+        if (!canBulk) {
+          return (
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  if (filename) {
+                    toggleLettrageMutation.mutate({ filename, index })
+                  }
+                }}
+                disabled={!filename}
+                className={cn(
+                  'w-[22px] h-[22px] rounded-md flex items-center justify-center transition-all duration-150 border-2',
+                  isLettre
+                    ? 'bg-emerald-500 border-transparent shadow-md ring-1 ring-white/20'
+                    : 'bg-surface border-text-muted/30 hover:border-text-muted/60 hover:bg-surface-hover',
+                  !filename && 'opacity-40 cursor-not-allowed',
+                )}
+                title={isLettre ? 'Lettrée' : 'Non lettrée'}
+              >
+                {isLettre && <CheckCircle2 size={13} className="text-white drop-shadow-sm" />}
+              </button>
+            </div>
+          )
+        }
+        // Cas 2 : sélection active → checkbox 22px emerald
+        if (selectionActive) {
+          return (
+            <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => toggleLettreSelection(key)}
+                className={cn(
+                  'w-[22px] h-[22px] rounded border-2 inline-flex items-center justify-center transition-colors',
+                  isChecked ? 'bg-emerald-500 border-emerald-500' : 'border-border hover:border-emerald-500',
+                )}
+              >
+                {isChecked && <Check size={14} className="text-white" />}
+              </button>
+            </div>
+          )
+        }
+        // Cas 3 : repos → toggle Pointée + petite checkbox au hover
         return (
-          <div className="flex justify-center">
+          <div className="inline-flex items-center gap-1.5 justify-center" onClick={e => e.stopPropagation()}>
             <button
-              onClick={() => {
-                if (selectedFile) {
-                  toggleLettrageMutation.mutate({ filename: selectedFile, index: row.index })
-                }
-              }}
+              onClick={() => toggleLettrageMutation.mutate({ filename, index })}
               className={cn(
                 'w-[22px] h-[22px] rounded-md flex items-center justify-center transition-all duration-150 border-2',
                 isLettre
                   ? 'bg-emerald-500 border-transparent shadow-md ring-1 ring-white/20'
-                  : 'bg-surface border-text-muted/30 hover:border-text-muted/60 hover:bg-surface-hover'
+                  : 'bg-surface border-text-muted/30 hover:border-text-muted/60 hover:bg-surface-hover',
               )}
               title={isLettre ? 'Lettrée' : 'Non lettrée'}
             >
               {isLettre && <CheckCircle2 size={13} className="text-white drop-shadow-sm" />}
             </button>
+            <button
+              onClick={() => toggleLettreSelection(key)}
+              className="hidden group-hover:inline-flex w-[18px] h-[18px] rounded border-2 items-center justify-center transition-colors border-border/60 hover:border-emerald-500 hover:bg-emerald-500/10"
+              title="Sélectionner pour pointage en masse"
+            />
           </div>
         )
       },
@@ -2169,6 +2364,7 @@ export default function EditorPage() {
                           row.original.A_revoir ? 'border-l-2 border-l-danger' : '',
                           row.original.lettre ? 'opacity-60' : '',
                           lockSelectedOps.has(`${row.original._sourceFile ?? selectedFile ?? ''}:${row.original._index ?? row.index}`) && 'bg-warning/10',
+                          lettreSelectedOps.has(`${row.original._sourceFile ?? selectedFile ?? ''}:${row.original._index ?? row.index}`) && 'bg-emerald-500/10',
                         )}
                       >
                         {row.getVisibleCells().map(cell => {
@@ -2553,16 +2749,26 @@ export default function EditorPage() {
         operation={ventilationOpIndex !== null ? operations[ventilationOpIndex] : null}
       />
 
-      {/* Barre d'actions flottante bulk-lock (masquée en year-wide) */}
+      {/* Barres d'actions flottantes (masquées en year-wide) — empilées si les 2 actives */}
       {!allYearMode && (
-        <BulkLockBar
-          count={lockSelectedCount}
-          loading={bulkLockMutation.isPending}
-          shifted={false}
-          allLocked={lockSelectedAllLocked}
-          onLock={handleBulkLock}
-          onClose={clearLockSelection}
-        />
+        <>
+          <BulkLettreBar
+            count={lettreSelectedCount}
+            loading={bulkLettrageMutation.isPending}
+            shifted={false}
+            allLettrees={lettreSelectedAllLettrees}
+            onLettre={handleBulkLettre}
+            onClose={clearLettreSelection}
+          />
+          <BulkLockBar
+            count={lockSelectedCount}
+            loading={bulkLockMutation.isPending}
+            shifted={lettreSelectedCount > 0}
+            allLocked={lockSelectedAllLocked}
+            onLock={handleBulkLock}
+            onClose={clearLockSelection}
+          />
+        </>
       )}
 
       {/* Snapshots — modal création + drawers */}

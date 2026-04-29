@@ -93,14 +93,31 @@ export function useUpdateImmobilisation() {
   })
 }
 
+export interface DeleteImmobilisationResult {
+  status: 'deleted'
+  immo_id: string
+  designation: string
+  ops_unlinked: Array<{ filename: string; index: number; libelle: string; date: string }>
+  affected_years: number[]
+}
+
 export function useDeleteImmobilisation() {
   const qc = useQueryClient()
-  return useMutation({
+  return useMutation<DeleteImmobilisationResult, Error, string>({
     mutationFn: (id: string) => api.delete(`/amortissements/${id}`),
     onSuccess: () => {
+      // Cascade côté serveur : ops déliées + cat remise à vide → invalider tout ce
+      // qui dépend des ops + des dotations + des analytics. Le toast est délégué
+      // au composant appelant (riche : compte ops déliées + années OD impactées).
       qc.invalidateQueries({ queryKey: ['amortissements'] })
       qc.invalidateQueries({ queryKey: ['amortissement-kpis'] })
-      toast.success('Immobilisation supprimée')
+      qc.invalidateQueries({ queryKey: ['amortissement-candidates'] })
+      qc.invalidateQueries({ queryKey: ['operations'] })
+      qc.invalidateQueries({ queryKey: ['analytics'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['year-overview'] })
+      qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: ['alertes'] })
     },
   })
 }

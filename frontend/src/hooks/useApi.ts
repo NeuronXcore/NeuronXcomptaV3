@@ -225,3 +225,53 @@ export function useCategoryDetail(category: string | null, year?: number | null,
     enabled: !!category,
   })
 }
+
+export interface CategorySnapshotResult {
+  filename: string
+  doc_id: string | null
+  title: string
+  period_label: string
+  size_bytes: number
+}
+
+/**
+ * Mutation pour exporter un snapshot du drawer Compta Analytique en rapport GED.
+ * Le client capture le DOM en PNG via html-to-image, on envoie ici en multipart.
+ * Backend wrap le PNG dans un PDF A4 1-page et register dans la GED comme rapport.
+ */
+export function useExportCategorySnapshot() {
+  const qc = useQueryClient()
+  return useMutation<CategorySnapshotResult, Error, {
+    pngBlob: Blob
+    category: string
+    year?: number | null
+    month?: number | null
+    quarter?: number | null
+    title?: string
+  }>({
+    mutationFn: async ({ pngBlob, category, year, month, quarter, title }) => {
+      const fd = new FormData()
+      fd.append('image', pngBlob, 'snapshot.png')
+      fd.append('category', category)
+      if (year != null) fd.append('year', String(year))
+      if (month != null) fd.append('month', String(month))
+      if (quarter != null) fd.append('quarter', String(quarter))
+      if (title) fd.append('title', title)
+      const res = await fetch('/api/analytics/category-detail/export-snapshot', {
+        method: 'POST',
+        body: fd,
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }))
+        throw new Error(typeof err.detail === 'string' ? err.detail : `HTTP ${res.status}`)
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      // Le snapshot apparaît dans la GED comme rapport → invalider les caches GED
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['ged-stats'] })
+    },
+  })
+}

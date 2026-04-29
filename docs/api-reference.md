@@ -432,7 +432,7 @@ Détection d'anomalies par écart-type.
 - `month` (optional) : filtrer par mois (1-12)
 
 ### `GET /category-detail?category=Matériel`
-Détail d'une catégorie : sous-catégories, évolution mensuelle, dernières opérations.
+Détail d'une catégorie : sous-catégories, évolution mensuelle, opérations.
 
 **Paramètres :** `category` (required), `year`, `quarter`, `month` (optional)
 
@@ -454,6 +454,41 @@ Détail d'une catégorie : sous-catégories, évolution mensuelle, dernières op
   ]
 }
 ```
+
+**Tri des opérations** : double-sort `DESC.head(50).ASC` — on garde les 50 plus récentes du périmètre puis ré-ordonne chronologiquement (janvier en haut, décembre en bas) pour l'UX du `CategoryDetailDrawer` (analyse temporelle naturelle).
+
+### `POST /category-detail/export-snapshot`
+Wrap un PNG (capture du drawer client-side via `html-to-image`) dans un PDF A4 1-page et l'enregistre comme rapport GED standard. Permet de figer l'analyse d'une catégorie à un instant T (état des sous-cats, sous-totaux, ops filtrées, footer Total).
+
+**Body** (multipart/form-data) :
+- `image` (file, required) : PNG du drawer (magic bytes `\x89PNG` validés)
+- `category` (string, required) : nom de la catégorie capturée
+- `year` (int, optional)
+- `month` (int, optional)
+- `quarter` (int, optional)
+- `title` (string, optional) : défaut auto-généré `"Snapshot — {category} · {period_label}"`
+
+**Réponse :**
+```json
+{
+  "filename": "snapshot_vehicule_2025-05_20260428_184422.pdf",
+  "path": "/abs/path/to/data/reports/snapshot_*.pdf",
+  "doc_id": "data/reports/snapshot_*.pdf",
+  "title": "Snapshot — Véhicule · mai 2025",
+  "period_label": "mai 2025",
+  "size_bytes": 5305
+}
+```
+
+**Erreurs :**
+- `400` : content-type pas `image/*` / image vide ou < 100 octets / magic bytes PNG manquants / dimensions PNG invalides (0×0)
+- `500` : erreur ReportLab ou GED registration
+
+**Notes** :
+- Pas de déduplication — chaque snapshot conserve un timestamp dans son nom, l'utilisateur peut empiler plusieurs vues d'analyse en cours
+- Métadonnées GED enrichies : `type: "rapport"`, `categorie: {category}`, `rapport_meta.report_type: "snapshot_categorie"`, `rapport_meta.source_module: "compta-analytique"`, `rapport_meta.snapshot_period: {period_label}`
+- Le PDF contient : titre violet `#3C3489` + sous-ligne grise (date capture + module) + image PNG centrée scaled proportionnellement dans 170×240mm + footer minimal
+- L'OD dotation existante n'est PAS auto-régénérée si la catégorie était « Dotations aux amortissements »
 
 ### `GET /compare`
 Compare deux périodes avec KPIs BNC et ventilation par catégorie.
@@ -1312,17 +1347,21 @@ Le champ `score_detail` expose les 4 sous-scores (M/D/F/C) pour permettre au fro
 
 ## Lettrage (`/api/lettrage`)
 
+> ⚠️ **Ordre des routes critique** : la route statique `POST /{filename}/bulk` est déclarée **AVANT** la route dynamique `POST /{filename}/{index}` dans `backend/routers/lettrage.py`. Sans cet ordre, FastAPI matche le `{index}` dynamique en premier, tente de parser `"bulk"` comme `int` → 422 `int_parsing` silencieux (ressenti côté UI comme « Échec du pointage en masse »). Pattern miroir `email/manual-zips/cleanup`.
+
+### `POST /{filename}/bulk`
+Applique le lettrage sur plusieurs opérations en un seul `load_operations` + `save_operations`.
+
+**Body :** `{ "indices": [0, 1, 5, 12], "lettre": true }`
+
+**Réponse :** `{ "modified": 4, "lettre": true }`
+
+Indices hors-borne silencieusement skippés (pas d'erreur 400). `modified` reflète le nombre d'indices valides traités, pas le nombre de valeurs réellement changées (idempotent côté valeur).
+
 ### `POST /{filename}/{index}`
 Toggle le champ `lettre` (bool) d'une opération.
 
 **Réponse :** `{ "index": 5, "lettre": true }`
-
-### `POST /{filename}/bulk`
-Applique le lettrage sur plusieurs opérations.
-
-**Body :** `{ "indices": [0, 1, 5, 12], "lettre": true }`
-
-**Réponse :** `{ "count": 4, "lettre": true }`
 
 ### `GET /{filename}/stats`
 Statistiques de lettrage pour un fichier.
@@ -1714,7 +1753,29 @@ Créer une immobilisation. Body : `ImmobilisationCreate`.
 Modifier une immobilisation. Auto-update statut si date_sortie renseignée ou VNC = 0.
 
 ### `DELETE /{immo_id}`
-Supprimer une immobilisation du registre.
+Supprime une immobilisation **avec cascade** : retire l'entrée du registre + délie les opérations liées. Pour chaque op avec `immobilisation_id == immo_id`, on `pop` les champs `immobilisation_id` + `immobilisation_candidate`, et on vide `Catégorie`/`Sous-catégorie` UNIQUEMENT si `Catégorie == "Immobilisations"` (préservation des recategorisations manuelles).
+
+**Réponse :**
+```json
+{
+  "status": "deleted",
+  "immo_id": "immo_20260418_5e29",
+  "designation": "PRLVSEPAPAYPAL... 579,00",
+  "ops_unlinked": [
+    { "filename": "operations_merged_202505_*.json", "index": 46, "libelle": "...", "date": "2025-05-22" }
+  ],
+  "affected_years": [2025, 2026, 2027, 2028]
+}
+```
+
+**Erreurs :**
+- `404` : immobilisation introuvable
+
+**Effets de bord :**
+- `affected_years` liste les exercices dont l'OD dotation devient potentiellement obsolète. **L'OD n'est PAS auto-supprimée** (trop dangereux par effet de bord si d'autres immos actives sur la même année). La 7ᵉ task auto `dotation_manquante` réapparaîtra naturellement → user clique « Régénérer » dans l'onglet Dotation.
+- L'entrée du registre est retirée EN DERNIER (cohérence si crash en amont sur la cascade ops).
+
+⚠️ **Breaking change vs legacy** : retournait `{success: true}` avant, retourne désormais le dict d'audit ci-dessus.
 
 ### `GET /dotations/{year}`
 Dotations de l'exercice : total brut, total déductible, détail par immobilisation.

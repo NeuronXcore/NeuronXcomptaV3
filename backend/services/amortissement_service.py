@@ -222,14 +222,78 @@ def update_immobilisation(immo_id: str, data: dict) -> Optional[dict]:
     return None
 
 
-def delete_immobilisation(immo_id: str) -> bool:
+def delete_immobilisation(immo_id: str) -> Optional[dict]:
+    """Supprime une immo + cascade les ops liées.
+
+    Effets :
+    - Retire l'entrée du registre.
+    - Pour chaque op avec immobilisation_id == immo_id :
+        * pop immobilisation_id + immobilisation_candidate
+        * reset Catégorie="" et Sous-catégorie="" si Catégorie=="Immobilisations"
+          (l'op redevient catégorisable + détectable comme candidate)
+    - NE supprime PAS l'OD dotation (côté UI on signale via toast les
+      `affected_years` pour que l'utilisateur régénère manuellement).
+
+    Retourne None si immo non trouvée, sinon dict d'audit
+    {status, immo_id, designation, ops_unlinked, affected_years}.
+    """
+    from backend.services import operation_service
+
     immos = _load_immobilisations()
-    before = len(immos)
+    immo = next((i for i in immos if i["id"] == immo_id), None)
+    if not immo:
+        return None
+
+    # Années couvertes par l'immo (pour signal frontend OD potentiellement obsolète)
+    try:
+        affected_years = sorted({
+            line.get("exercice") for line in compute_tableau(immo)
+            if line.get("exercice") and not line.get("is_backfill")
+        })
+    except Exception:
+        affected_years = []
+
+    # Cascade ops : délier toutes les opérations qui pointaient vers cette immo
+    ops_unlinked: list[dict] = []
+    for f_meta in operation_service.list_operation_files():
+        filename = f_meta["filename"]
+        try:
+            ops = operation_service.load_operations(filename)
+        except Exception:
+            continue
+        changed = False
+        for idx, op in enumerate(ops):
+            if op.get("immobilisation_id") != immo_id:
+                continue
+            op.pop("immobilisation_id", None)
+            op.pop("immobilisation_candidate", None)
+            if op.get("Catégorie") == "Immobilisations":
+                op["Catégorie"] = ""
+                op["Sous-catégorie"] = ""
+            ops_unlinked.append({
+                "filename": filename,
+                "index": idx,
+                "libelle": op.get("Libellé", ""),
+                "date": op.get("Date", ""),
+            })
+            changed = True
+        if changed:
+            try:
+                operation_service.save_operations(ops, filename=filename)
+            except Exception as exc:  # pragma: no cover — defensive
+                logging.error("delete_immobilisation: save_operations failed for %s: %s", filename, exc)
+
+    # Retirer du registre EN DERNIER — si crash en amont, immo reste cohérente
     immos = [i for i in immos if i["id"] != immo_id]
-    if len(immos) < before:
-        _save_immobilisations(immos)
-        return True
-    return False
+    _save_immobilisations(immos)
+
+    return {
+        "status": "deleted",
+        "immo_id": immo_id,
+        "designation": immo.get("designation", ""),
+        "ops_unlinked": ops_unlinked,
+        "affected_years": affected_years,
+    }
 
 
 # ─── Moteur de calcul ───

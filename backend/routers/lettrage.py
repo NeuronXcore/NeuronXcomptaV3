@@ -24,6 +24,20 @@ async def lettrage_stats(filename: str):
         raise HTTPException(status_code=404, detail="Fichier non trouvé")
 
 
+# ⚠️ ORDRE IMPORTANT : la route statique /{filename}/bulk DOIT être déclarée
+# AVANT la route dynamique /{filename}/{index}. Sinon FastAPI matche la route
+# dynamique en premier, tente de parser "bulk" comme int → 422 silencieux.
+# Pattern miroir de /api/email/manual-zips/cleanup (cf. CLAUDE.md).
+@router.post("/{filename}/bulk")
+async def bulk_lettrage(filename: str, request: BulkLettrageRequest):
+    """Applique le lettrage en masse."""
+    try:
+        count = operation_service.bulk_lettrage(filename, request.indices, request.lettre)
+        return {"modified": count, "lettre": request.lettre}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Fichier non trouvé")
+
+
 @router.post("/{filename}/{index}")
 async def toggle_lettrage(filename: str, index: int):
     """Toggle le lettrage d'une opération."""
@@ -34,13 +48,3 @@ async def toggle_lettrage(filename: str, index: int):
         raise HTTPException(status_code=404, detail="Fichier non trouvé")
     except IndexError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/{filename}/bulk")
-async def bulk_lettrage(filename: str, request: BulkLettrageRequest):
-    """Applique le lettrage en masse."""
-    try:
-        count = operation_service.bulk_lettrage(filename, request.indices, request.lettre)
-        return {"modified": count, "lettre": request.lettre}
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Fichier non trouvé")

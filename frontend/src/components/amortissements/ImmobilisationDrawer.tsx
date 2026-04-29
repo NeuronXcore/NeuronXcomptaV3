@@ -1,14 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { showDeleteImmoConfirmToast } from '@/lib/deleteImmobilisationToast'
 import {
   X, Landmark, Save, Loader2, Info, AlertTriangle, CheckCircle2, RefreshCw,
-  ArrowRight, Expand, FileText, Link2,
+  ArrowRight, Expand, FileText, Link2, Trash2,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDate } from '@/lib/utils'
 import { calcTableauAmortissement } from '@/lib/amortissement-engine'
 import {
   useCreateImmobilisation, useUpdateImmobilisation, useImmobiliserCandidate,
-  useComputeBackfill, useCandidateDetail,
+  useComputeBackfill, useCandidateDetail, useDeleteImmobilisation,
 } from '@/hooks/useAmortissements'
 import { useGedPostes } from '@/hooks/useGed'
 import PdfThumbnail from '@/components/shared/PdfThumbnail'
@@ -44,6 +46,7 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
   const createMutation = useCreateImmobilisation()
   const updateMutation = useUpdateImmobilisation()
   const immobiliserMutation = useImmobiliserCandidate()
+  const deleteMutation = useDeleteImmobilisation()
   const computeBackfill = useComputeBackfill()
 
   // Détail candidate (op source + justificatif + préfill OCR) — Prompt B2
@@ -248,6 +251,36 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
 
   const isPending = createMutation.isPending || updateMutation.isPending || immobiliserMutation.isPending
   const canSave = !!designation && !!dateAcquisition && baseAmortissable > 0 && !incoherenceBackfill
+
+  // Suppression d'une immo existante : cascade les ops liées (clear immobilisation_id +
+  // vide Catégorie/Sous-catégorie). L'OD dotation n'est PAS auto-supprimée — la 7ᵉ task
+  // auto `dotation_manquante` réapparaîtra naturellement si l'OD existait.
+  const handleDelete = () => {
+    if (!immobilisation || readonly) return
+    const label = immobilisation.designation?.trim() || 'cette immobilisation'
+
+    showDeleteImmoConfirmToast(label, async () => {
+      try {
+        const result = await deleteMutation.mutateAsync(immobilisation.id)
+        const opsCount = result.ops_unlinked?.length ?? 0
+        const years = result.affected_years ?? []
+        let msg = 'Immobilisation supprimée'
+        if (opsCount > 0) {
+          msg += ` — ${opsCount} opération${opsCount > 1 ? 's' : ''} déliée${opsCount > 1 ? 's' : ''}`
+        }
+        toast.success(msg)
+        if (years.length > 0) {
+          toast(
+            `OD dotation potentiellement obsolète pour ${years.join(', ')} — régénère via l'onglet Dotation.`,
+            { icon: '⚠️', duration: 8000 },
+          )
+        }
+        onClose()
+      } catch (err) {
+        toast.error(`Erreur: ${err instanceof Error ? err.message : 'inconnue'}`)
+      }
+    })
+  }
 
   return (
     <>
@@ -612,17 +645,35 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
               Création sans justificatif associé — à régulariser ensuite via la page Justificatifs.
             </p>
           )}
-          <div className="flex justify-end gap-2">
+          <div className={cn(
+            "flex gap-2",
+            // Mode édition pure (pas candidate, pas readonly) : justify-between pour
+            // pousser Supprimer à gauche, Annuler/Enregistrer à droite.
+            isEdit && !isCandidate && !readonly ? "justify-between" : "justify-end",
+          )}>
             {readonly ? (
               <button onClick={onClose} className="px-4 py-2 text-sm bg-surface border border-border rounded-lg hover:bg-surface-hover text-text">Fermer</button>
             ) : (
               <>
-                <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">Annuler</button>
-                <button onClick={handleSubmit} disabled={isPending || !canSave}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 disabled:opacity-50">
-                  {isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  {isCandidate ? "Confirmer l'immobilisation" : isEdit ? 'Enregistrer' : 'Créer'}
-                </button>
+                {isEdit && !isCandidate && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleteMutation.isPending || isPending}
+                    className="flex items-center gap-2 px-4 py-2 text-sm bg-danger/10 text-danger border border-danger/30 rounded-lg hover:bg-danger/20 disabled:opacity-50"
+                    title="Supprimer cette immobilisation et délier l'opération associée"
+                  >
+                    {deleteMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Supprimer
+                  </button>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">Annuler</button>
+                  <button onClick={handleSubmit} disabled={isPending || !canSave || deleteMutation.isPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90 disabled:opacity-50">
+                    {isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    {isCandidate ? "Confirmer l'immobilisation" : isEdit ? 'Enregistrer' : 'Créer'}
+                  </button>
+                </div>
               </>
             )}
           </div>
