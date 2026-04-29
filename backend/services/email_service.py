@@ -263,11 +263,22 @@ TYPE_FOLDER_MAP = {
 IMMO_JUSTIFS_FOLDER = "Justificatifs_immobilisations"
 
 
+_AMORT_TEMPLATES = ("amortissements_registre", "amortissements_dotations")
+
+
 def _collect_linked_justifs(documents: list[DocumentRef]) -> set[str]:
     """Lit `rapport_meta.linked_justifs` de chaque rapport présent et agrège.
 
     Lecture seule de `data/ged/ged_metadata.json` — best-effort, log warning
     sur erreur sans crasher l'envoi.
+
+    **Fallback dynamique** : si un rapport amortissements (`amortissements_registre`
+    ou `amortissements_dotations`) a `linked_justifs=[]` figé dans sa metadata
+    (rapport legacy généré avant le fix Session 35.1, ou bug `"all"` historique),
+    on recalcule les justifs à la volée via `report_service.compute_linked_justifs`.
+    Cela garantit que les factures d'achat sont TOUJOURS jointes à l'envoi
+    quand un rapport amortissements est présent dans la sélection, indépendamment
+    de l'état du champ figé.
     """
     linked: set[str] = set()
     has_rapport = any(d.type == "rapport" for d in documents)
@@ -299,7 +310,35 @@ def _collect_linked_justifs(documents: list[DocumentRef]) -> set[str]:
         if not entry:
             continue
         rapport_meta = entry.get("rapport_meta") or {}
-        for fn in rapport_meta.get("linked_justifs") or []:
+        frozen = list(rapport_meta.get("linked_justifs") or [])
+
+        # Fallback dynamique : rapport amortissements avec linked_justifs vide
+        # → recalcul à la volée. Couvre les rapports legacy (avant Session 35.1)
+        # et fix le bug historique "all" → liste vide figée.
+        if not frozen:
+            template_id = rapport_meta.get("template_id")
+            if template_id in _AMORT_TEMPLATES:
+                rapport_filters = rapport_meta.get("filters") or {}
+                year = rapport_filters.get("year") or entry.get("year")
+                try:
+                    if year is not None:
+                        from backend.services import report_service
+                        recomputed = report_service.compute_linked_justifs(
+                            template_id, rapport_filters, int(year),
+                        )
+                        if recomputed:
+                            logger.info(
+                                "linked_justifs recalculé dynamiquement pour %s : %d justif(s)",
+                                doc.filename, len(recomputed),
+                            )
+                            frozen = recomputed
+                except Exception as e:
+                    logger.warning(
+                        "Fallback dynamique linked_justifs pour %s a échoué : %s",
+                        doc.filename, e,
+                    )
+
+        for fn in frozen:
             base = Path(fn).name
             if base:
                 linked.add(base)

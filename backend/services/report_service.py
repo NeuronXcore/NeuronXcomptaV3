@@ -159,29 +159,41 @@ def _amort_dotations_title(filters: dict) -> str:
     return base
 
 
-def _compute_linked_justifs(template_id: str, filters: dict, year: Optional[int]) -> list[str]:
+def compute_linked_justifs(template_id: str, filters: dict, year: Optional[int]) -> list[str]:
     """Liste les basenames des justifs liés aux immobilisations en scope du rapport.
 
     Calculée au moment de la génération et stockée dans `rapport_meta.linked_justifs`
-    de la GED. Consommée par `email_service._create_zip()` pour construire le
-    sous-dossier `Justificatifs_immobilisations/` lors de l'envoi comptable.
-    Gelée — pas de re-scan à l'envoi : un rapport envoyé représente l'état des
-    justifs au moment de sa génération.
+    de la GED. Consommée par `email_service._collect_linked_justifs()` pour
+    construire le sous-dossier `Justificatifs_immobilisations/` lors de l'envoi
+    comptable. **Aussi consommée en fallback dynamique** par `email_service`
+    quand un rapport legacy a `linked_justifs=[]` figé (recalcul à la volée).
+
+    Bugs historiques fixés :
+    - **"all" → None** : les filtres frontend portent les valeurs littérales
+      `"all"` (par défaut UI). Avant ce fix, on passait directement à
+      `list_immobilisations_with_source(statut="all", ...)` qui appliquait un
+      filtre strict `i.get("statut") == "all"` → 0 immo retournée → linked
+      vide. Désormais converti en `None` (= pas de filtre).
+    - **year non propagé** : on ne passe plus `year` à
+      `list_immobilisations_with_source` (qui filtre par `date_acquisition`,
+      pas par exercice de dotation). Le registre couvre toutes les immos quel
+      que soit l'exercice, et la restriction « dotations > 0 » est appliquée
+      séparément ci-dessous pour `amortissements_dotations`.
     """
     if template_id not in ("amortissements_registre", "amortissements_dotations"):
-        return []
-    if year is None:
         return []
 
     from backend.services import amortissement_service
 
+    statut = filters.get("statut")
+    poste = filters.get("poste")
     immos = amortissement_service.list_immobilisations_with_source(
-        statut=filters.get("statut"),
-        poste=filters.get("poste"),
-        year=year,
+        statut=None if statut in (None, "", "all") else statut,
+        poste=None if poste in (None, "", "all") else poste,
+        year=None,
     )
 
-    if template_id == "amortissements_dotations":
+    if template_id == "amortissements_dotations" and year is not None:
         # Restreindre aux immos avec dotation > 0 sur l'exercice
         try:
             dotations = amortissement_service.get_dotations(year)
@@ -205,6 +217,10 @@ def _compute_linked_justifs(template_id: str, filters: dict, year: Optional[int]
                 seen.add(base)
                 out.append(base)
     return out
+
+
+# Alias backward-compat : conserve l'ancien nom privé pour les appels internes existants.
+_compute_linked_justifs = compute_linked_justifs
 
 
 def _ensure_amortissements_renderers() -> None:

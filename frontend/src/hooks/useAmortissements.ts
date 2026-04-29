@@ -315,13 +315,28 @@ export function usePrepareAmortissementsEnvoi() {
       const findIn = (list: GedDocument[], templateId: string): GedDocument | undefined =>
         list.find((d) => d.rapport_meta?.template_id === templateId)
 
+      // Vérifie d'abord si des immos ont un justif lié — on ne régénère que dans ce cas
+      const immos = await api.get<Immobilisation[]>('/amortissements/')
+      const anyLinked = immos.some((i) => i.has_justif && (i.justif_filename ?? null))
+
       let docs = await fetchAmortReports()
-      const registreExists = !!findIn(docs, 'amortissements_registre')
-      const dotationsExists = !!findIn(docs, 'amortissements_dotations')
+      const registreCurrent = findIn(docs, 'amortissements_registre')
+      const dotationsCurrent = findIn(docs, 'amortissements_dotations')
+
+      // Régénération opportuniste : un rapport existe MAIS son `linked_justifs`
+      // est vide ALORS qu'on sait qu'au moins une immo a un justif. C'est le cas
+      // des rapports legacy générés avant le fix Session 35.1 (bug "all" → []
+      // figé). Régénérer rafraîchit le snapshot — le fallback dynamique côté
+      // email_service reste un filet de sécurité si la régénération échoue.
+      const isStale = (doc: GedDocument | undefined) =>
+        !!doc && anyLinked && (doc.rapport_meta?.linked_justifs?.length ?? 0) === 0
+
+      const registreNeedsGen = !registreCurrent || isStale(registreCurrent)
+      const dotationsNeedsGen = !dotationsCurrent || isStale(dotationsCurrent)
       let generatedCount = 0
 
-      // Auto-génération des rapports manquants (PDF par défaut)
-      if (!registreExists) {
+      // Auto-génération / régénération (PDF par défaut)
+      if (registreNeedsGen) {
         await api.post('/reports/generate', {
           template_id: 'amortissements_registre',
           filters: { year, statut: 'all', poste: 'all' },
@@ -329,7 +344,7 @@ export function usePrepareAmortissementsEnvoi() {
         })
         generatedCount += 1
       }
-      if (!dotationsExists) {
+      if (dotationsNeedsGen) {
         await api.post('/reports/generate', {
           template_id: 'amortissements_dotations',
           filters: { year, poste: 'all' },

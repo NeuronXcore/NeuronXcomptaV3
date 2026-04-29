@@ -8,6 +8,35 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-04-29) — Bouton « Envoyer au comptable » : factures d'achat enfin jointes au ZIP
+
+**Bug observé** : depuis le bouton « Envoyer au comptable » du header `AmortissementsPage`, les rapports `amortissements_registre` + `amortissements_dotations` étaient bien joints, mais le **sous-dossier `Justificatifs_immobilisations/` du ZIP restait vide** alors que les immos avaient des justifs liés. Implémentation Session 35 cassée silencieusement par un mismatch de filtre.
+
+**Cause racine** : dans [`backend/services/report_service.py`](backend/services/report_service.py), `_compute_linked_justifs(template_id, filters, year)` passait directement `filters.get("statut")` et `filters.get("poste")` (valeurs frontend par défaut = `"all"`) à `amortissement_service.list_immobilisations_with_source(statut="all", ...)`. Le backend filtrait STRICTEMENT `i.get("statut") == "all"` → 0 immo réelle (vrais statuts : `en_cours`, `amorti`, `sorti`). Résultat : `linked_justifs = []` figé dans `rapport_meta` à la génération.
+
+**Stratégie de fix** — triple niveau pour couvrir rapports nouveaux, legacy, et UX en avance.
+
+- **Niveau 1 — Fix `compute_linked_justifs` (rapports nouveaux)**
+  - **[`backend/services/report_service.py`](backend/services/report_service.py)** — la fonction est désormais publique (`compute_linked_justifs` sans underscore, alias backward-compat `_compute_linked_justifs` conservé). Conversion `"all"|"" → None` pour `statut` et `poste`. Le param `year` n'est plus propagé à `list_immobilisations_with_source` (qui filtre par `date_acquisition`, pas par exercice de dotation) — pour `amortissements_dotations` la restriction « dotations > 0 » est appliquée séparément après.
+  - Effet : tout NOUVEAU rapport amortissements généré aura `linked_justifs` correctement peuplé. Vérifié end-to-end : `compute_linked_justifs('amortissements_registre', {'year': 2026, 'statut': 'all', 'poste': 'all'}, 2026)` → `['boulanger_20260127_4506.99.pdf', 'amazon_20250626_789.60.pdf']` (vs `[]` avant fix).
+
+- **Niveau 2 — Fallback dynamique côté envoi (rapports legacy)**
+  - **[`backend/services/email_service.py`](backend/services/email_service.py)** — `_collect_linked_justifs(documents)` enrichi : pour chaque rapport amortissements présent, lit d'abord `rapport_meta.linked_justifs` (comportement actuel) ; **si la liste est vide MAIS** que le rapport est amortissements, **recalcule à la volée** via `report_service.compute_linked_justifs(template_id, rapport_filters, year)`. Logge en `info` quand le fallback se déclenche. Couvre les rapports legacy (générés avant le fix Session 35.1) et fait office de filet de sécurité même si une régénération frontend échoue.
+  - Vérifié sur 3 rapports legacy `data/ged/ged_metadata.json` 2025 (tous avec `linked_justifs=None`) : le fallback résout bien les 2 justifs `boulanger_*` + `amazon_*`. Constante `_AMORT_TEMPLATES = ("amortissements_registre", "amortissements_dotations")` exportée.
+
+- **Niveau 3 — Régénération opportuniste frontend**
+  - **[`frontend/src/hooks/useAmortissements.ts`](frontend/src/hooks/useAmortissements.ts)** — `usePrepareAmortissementsEnvoi(year)` étendu : avant la phase auto-génération des rapports manquants, vérifie si au moins une immo de l'année a `has_justif=true`. Si c'est le cas, force la régénération des rapports existants dont `linked_justifs.length === 0` (snapshot stale). Cela rafraîchit la metadata GED avec les linked_justifs corrects via le Niveau 1, et le ZIP final est cohérent. Le fallback Niveau 2 reste un filet de sécurité au cas où la régénération tombe en cache (faut-il ?).
+
+- **Pas d'impact non-régression**
+  - Sélection sans rapport amortissements → `_collect_linked_justifs` retourne `set()` vide (early-return `if not has_rapport`).
+  - Sélection avec rapport BNC ou autre template → pas de fallback déclenché (templates filtrés via `_AMORT_TEMPLATES`).
+  - Justif coché manuellement ET listé en linked → toujours dédupliqué dans `Justificatifs_immobilisations/` (priorité au sous-dossier dédié, comportement Session 35 inchangé).
+
+- **Vérification end-to-end**
+  - Backend pipeline (génération → metadata → envoi) : régénération `amortissements_registre` 2026 → metadata GED `linked_justifs: ['boulanger_*', 'amazon_*']` → `_collect_linked_justifs` retourne 2 justifs. Pipeline cohérent.
+  - Fallback dynamique : rapport legacy 2025 avec `linked_justifs=None` figé → `_collect_linked_justifs` recalcule et retourne 2 justifs sans toucher la metadata.
+  - Régression : sélection vide ou sans rapport amortissements → 0 justif retourné.
+
 ### Fixed (2026-04-29) — Bug VNC actuelle + statut « amorti » prématuré sur les immos pluriannuelles
 
 Bug structurel découvert pendant la session annotation justif : une immo récente avec `durée=3 ans` apparaissait comme `amorti` (avancement 100%, VNC 0 €) **dès sa création**, alors que les premières dotations n'avaient pas encore été passées. Cause : `cumul = sum(tableau)` sommait toutes les lignes du tableau (passées ET futures), donnant l'illusion d'une immobilisation totalement amortie. Affectait 4 chemins (registre, détail, KPIs, statut auto).
