@@ -788,7 +788,7 @@
       "montant": 29.27,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 20,
+        "index": 17,
         "ventilation_index": null
       },
       "period": {
@@ -819,7 +819,7 @@
       "montant": 5.99,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 62,
+        "index": 59,
         "ventilation_index": null
       },
       "period": {
@@ -4289,7 +4289,7 @@
       "montant": 39.31,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 23,
+        "index": 20,
         "ventilation_index": null
       },
       "period": {
@@ -4321,7 +4321,7 @@
       "montant": 53.63,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 22,
+        "index": 19,
         "ventilation_index": null
       },
       "period": {
@@ -4353,7 +4353,7 @@
       "montant": 23.51,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 36,
+        "index": 33,
         "ventilation_index": null
       },
       "period": {
@@ -4385,7 +4385,7 @@
       "montant": 30.5,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 50,
+        "index": 47,
         "ventilation_index": null
       },
       "period": {
@@ -4795,7 +4795,7 @@
       "montant": 2367.4,
       "ventilation_index": null,
       "is_reconstitue": false,
-      "operation_ref": "operations_merged_202512_20260414_234739.json:91",
+      "operation_ref": "operations_merged_202512_20260414_234739.json:88",
       "source_module": "charges-forfaitaires",
       "rapport_meta": {
         "template_id": null,
@@ -4874,7 +4874,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 31,
+        "index": 28,
         "ventilation_index": null
       }
     },
@@ -4979,7 +4979,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 40,
+        "index": 37,
         "ventilation_index": null
       }
     },
@@ -5773,7 +5773,7 @@
       "montant": 399.99,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 61,
+        "index": 58,
         "ventilation_index": null
       },
       "period": {
@@ -5804,7 +5804,7 @@
       "montant": 34.99,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 68,
+        "index": 65,
         "ventilation_index": 0
       },
       "period": {
@@ -5835,7 +5835,7 @@
       "montant": 372.98,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 67,
+        "index": 64,
         "ventilation_index": null
       },
       "period": {
@@ -5866,7 +5866,7 @@
       "montant": 409.0,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 68,
+        "index": 65,
         "ventilation_index": 1
       },
       "period": {
@@ -5897,7 +5897,7 @@
       "montant": 441.07,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 66,
+        "index": 63,
         "ventilation_index": null
       },
       "period": {
@@ -6026,7 +6026,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 17,
+        "index": 14,
         "ventilation_index": null
       },
       "period": {
@@ -6095,7 +6095,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 45,
+        "index": 42,
         "ventilation_index": null
       }
     },
@@ -6182,7 +6182,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 13,
+        "index": 10,
         "ventilation_index": null
       }
     },
@@ -6214,7 +6214,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 28,
+        "index": 25,
         "ventilation_index": null
       }
     },
@@ -6341,7 +6341,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 81,
+        "index": 78,
         "ventilation_index": null
       }
     },
@@ -6373,7 +6373,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 38,
+        "index": 35,
         "ventilation_index": null
       }
     },
@@ -6597,9 +6597,10 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 56,
+        "index": 53,
         "ventilation_index": null
-      }
+      },
+      "date_document": "2025-11-24"
     },
     "data/justificatifs/traites/udemy_20251201_274.75_20260412_074935.pdf": {
       "doc_id": "data/justificatifs/traites/udemy_20251201_274.75_20260412_074935.pdf",
@@ -6629,7 +6630,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 6,
+        "index": 3,
         "ventilation_index": null
       }
     },
@@ -9059,7 +9060,7 @@
       "montant": 13.15,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 18,
+        "index": 15,
         "ventilation_index": null
       },
       "period": {
@@ -9090,7 +9091,7 @@
       "montant": 7.75,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 43,
+        "index": 40,
         "ventilation_index": null
       },
       "period": {
@@ -9592,7 +9593,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 50,
+        "index": 47,
         "ventilation_index": null
       }
     },
@@ -11831,7 +11832,7 @@
       "date_operation": "2026-04-15",
       "montant": 141.56,
       "operation_ref": {
-        "file": "operations_merged_202512_20260414_234739.json",
+        "file": "operations_manual_202603_7b199f8d.json",
         "index": 0,
         "ventilation_index": null
       },
@@ -12301,7 +12302,7 @@
       "date_operation": "2026-03-19",
       "ventilation_index": null,
       "operation_ref": {
-        "file": "operations_merged_202512_20260414_234739.json",
+        "file": "operations_manual_202603_7b199f8d.json",
         "index": 0,
         "ventilation_index": null
       }
@@ -13239,7 +13240,7 @@
       "montant": 522.54,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 27,
+        "index": 24,
         "ventilation_index": null
       },
       "period": {
@@ -15988,7 +15989,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 38,
+        "index": 35,
         "ventilation_index": null
       }
     },
@@ -16020,7 +16021,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 44,
+        "index": 41,
         "ventilation_index": null
       }
     },
@@ -16054,7 +16055,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 50,
+        "index": 47,
         "ventilation_index": null
       }
     },
@@ -16230,7 +16231,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 17,
+        "index": 14,
         "ventilation_index": null
       }
     },
@@ -19386,7 +19387,7 @@
       "ventilation_index": null,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 13,
+        "index": 10,
         "ventilation_index": null
       }
     },
@@ -19806,7 +19807,7 @@
       "montant": 38.8,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 12,
+        "index": 9,
         "ventilation_index": null
       },
       "period": {
@@ -20428,56 +20429,6 @@
       "is_reconstitue": false,
       "statut_justificatif": "traite"
     },
-    "data/reports/snapshot_urssaf_2025_20260428_185042.pdf": {
-      "doc_id": "data/reports/snapshot_urssaf_2025_20260428_185042.pdf",
-      "type": "rapport",
-      "filename": "snapshot_urssaf_2025_20260428_185042.pdf",
-      "year": 2025,
-      "month": null,
-      "poste_comptable": null,
-      "categorie": "URSSAF",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-28T18:50:42.354989",
-      "original_name": "snapshot_urssaf_2025_20260428_185042.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": null,
-      "date_operation": null,
-      "period": {
-        "year": 2025,
-        "month": null,
-        "quarter": null
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Snapshot — URSSAF · Année 2025",
-        "description": "Snapshot capturé le 28/04/2026 à 18:50. Vue figée du drawer Compta Analytique pour la catégorie « URSSAF » sur la période Année 2025.",
-        "filters": {
-          "year": 2025,
-          "month": null,
-          "quarter": null,
-          "categories": [
-            "URSSAF"
-          ]
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-28T18:50:42.354989",
-        "can_regenerate": true,
-        "can_compare": true,
-        "report_type": "snapshot_categorie",
-        "source_module": "compta-analytique",
-        "snapshot_period": "Année 2025"
-      }
-    },
     "data/justificatifs/traites/udemy_20250828_350.00.pdf": {
       "doc_id": "data/justificatifs/traites/udemy_20250828_350.00.pdf",
       "type": "justificatif",
@@ -20536,7 +20487,7 @@
       "montant": 2643.3,
       "ventilation_index": null,
       "is_reconstitue": false,
-      "operation_ref": "operations_merged_202512_20260414_234739.json:88",
+      "operation_ref": "operations_merged_202512_20260414_234739.json:85",
       "source_module": "charges-forfaitaires",
       "rapport_meta": {
         "template_id": null,
@@ -20549,49 +20500,6 @@
         "format": "pdf",
         "favorite": false,
         "generated_at": "2026-04-28T20:43:26.434018",
-        "can_regenerate": false,
-        "can_compare": false
-      }
-    },
-    "data/reports/quote_part_vehicule_2025.pdf": {
-      "doc_id": "data/reports/quote_part_vehicule_2025.pdf",
-      "type": "rapport",
-      "filename": "quote_part_vehicule_2025.pdf",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": "vehicule",
-      "categorie": "Véhicule",
-      "sous_categorie": "Quote-part professionnelle",
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-28T20:43:42.273340",
-      "original_name": "quote_part_vehicule_2025.pdf",
-      "ocr_file": null,
-      "fournisseur": "Véhicule",
-      "date_document": "2025-12-31",
-      "date_operation": "2025-12-31",
-      "period": {
-        "year": 2025,
-        "month": 12
-      },
-      "montant": null,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": null,
-      "source_module": "charges-forfaitaires",
-      "rapport_meta": {
-        "template_id": null,
-        "title": "Quote-part véhicule 2025",
-        "description": "Quote-part professionnelle 51% — 178j × 7.9km",
-        "filters": {
-          "year": 2025,
-          "month": 12
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-28T20:43:42.273340",
         "can_regenerate": false,
         "can_compare": false
       }
@@ -20627,78 +20535,6 @@
         "index": 80,
         "ventilation_index": null
       }
-    },
-    "data/justificatifs/en_attente/amazon_20251216_41.98.pdf": {
-      "doc_id": "data/justificatifs/en_attente/amazon_20251216_41.98.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-29T06:25:58.755994",
-      "original_name": "amazon_20251216_41.98.pdf",
-      "ocr_file": "data/justificatifs/en_attente/amazon_20251216_41.98.ocr.json",
-      "fournisseur": "Amazon",
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": 4
-      },
-      "montant": 41.98,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "categorie": "Fournitures"
-    },
-    "data/justificatifs/en_attente/cultura_20251117_92.85.pdf": {
-      "doc_id": "data/justificatifs/en_attente/cultura_20251117_92.85.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 11,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-29T06:25:58.755994",
-      "original_name": "cultura_20251117_92.85.pdf",
-      "ocr_file": "data/justificatifs/en_attente/cultura_20251117_92.85.ocr.json",
-      "fournisseur": "Cultura",
-      "period": {
-        "year": 2025,
-        "month": 11,
-        "quarter": 4
-      },
-      "montant": 92.85,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "categorie": "Fournitures"
-    },
-    "data/justificatifs/en_attente/paypal_20250916_149.99.pdf": {
-      "doc_id": "data/justificatifs/en_attente/paypal_20250916_149.99.pdf",
-      "type": "justificatif",
-      "year": 2025,
-      "month": 9,
-      "poste_comptable": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-29T06:25:58.755994",
-      "original_name": "paypal_20250916_149.99.pdf",
-      "ocr_file": "data/justificatifs/en_attente/paypal_20250916_149.99.ocr.json",
-      "fournisseur": "Paypal",
-      "period": {
-        "year": 2025,
-        "month": 9,
-        "quarter": 3
-      },
-      "montant": 149.99,
-      "is_reconstitue": false,
-      "statut_justificatif": "en_attente",
-      "categorie": "Abonnements"
     },
     "data/justificatifs/traites/LW_20251005_47.80.pdf": {
       "doc_id": "data/justificatifs/traites/LW_20251005_47.80.pdf",
@@ -20750,7 +20586,7 @@
       "montant": 51.44,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 14,
+        "index": 11,
         "ventilation_index": null
       },
       "period": {
@@ -20781,7 +20617,7 @@
       "montant": 84.91,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 15,
+        "index": 12,
         "ventilation_index": null
       },
       "period": {
@@ -20812,7 +20648,7 @@
       "montant": 89.94,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 57,
+        "index": 54,
         "ventilation_index": null
       },
       "period": {
@@ -20843,7 +20679,7 @@
       "montant": 97.76,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 58,
+        "index": 55,
         "ventilation_index": null
       },
       "period": {
@@ -20874,7 +20710,7 @@
       "montant": 223.09,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 82,
+        "index": 79,
         "ventilation_index": null
       },
       "period": {
@@ -20905,7 +20741,7 @@
       "montant": 264.0,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 83,
+        "index": 80,
         "ventilation_index": null
       },
       "period": {
@@ -21153,7 +20989,392 @@
       "montant": 399.0,
       "operation_ref": {
         "file": "operations_merged_202512_20260414_234739.json",
-        "index": 85,
+        "index": 82,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Paypal",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/amazon_20251216_41.98.pdf": {
+      "doc_id": "data/justificatifs/traites/amazon_20251216_41.98.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T09:02:27.900576",
+      "original_name": "amazon_20251216_41.98.pdf",
+      "ocr_file": "data/justificatifs/traites/amazon_20251216_41.98.ocr.json",
+      "statut_justificatif": "traite",
+      "categorie": "Matériel",
+      "sous_categorie": "Informatique",
+      "fournisseur": "Amazon",
+      "date_operation": "2025-12-16",
+      "montant": 41.98,
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 37,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      }
+    },
+    "data/justificatifs/traites/paypal_20251212_59.99.pdf": {
+      "doc_id": "data/justificatifs/traites/paypal_20251212_59.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T09:48:40.679977",
+      "original_name": "paypal_20251212_59.99.pdf",
+      "ocr_file": "data/justificatifs/traites/paypal_20251212_59.99.ocr.json",
+      "categorie": "Logiciel",
+      "sous_categorie": null,
+      "date_operation": "2025-12-12",
+      "montant": 59.99,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 32,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Paypal",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/paypal_20251216_59.99.pdf": {
+      "doc_id": "data/justificatifs/traites/paypal_20251216_59.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T09:48:40.679977",
+      "original_name": "paypal_20251216_59.99.pdf",
+      "ocr_file": "data/justificatifs/traites/paypal_20251216_59.99.ocr.json",
+      "categorie": "Logiciel",
+      "sous_categorie": null,
+      "date_operation": "2025-12-29",
+      "montant": 59.99,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 64,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Paypal",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/paypal_20251229_59.99.pdf": {
+      "doc_id": "data/justificatifs/traites/paypal_20251229_59.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T09:48:40.679977",
+      "original_name": "paypal_20251229_59.99.pdf",
+      "ocr_file": "data/justificatifs/traites/paypal_20251229_59.99.ocr.json",
+      "categorie": "Logiciel",
+      "sous_categorie": null,
+      "date_operation": "2025-12-30",
+      "montant": 59.99,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 77,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Paypal",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251202_239.99.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251202_239.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T09:48:40.679977",
+      "original_name": "udemy_20251202_239.99.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251202_239.99.ocr.json",
+      "categorie": "Matériel",
+      "sous_categorie": null,
+      "date_operation": "2025-12-02",
+      "montant": 239.99,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 15,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/udemy_20251230_239.99.pdf": {
+      "doc_id": "data/justificatifs/traites/udemy_20251230_239.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T09:48:40.679977",
+      "original_name": "udemy_20251230_239.99.pdf",
+      "ocr_file": "data/justificatifs/traites/udemy_20251230_239.99.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": null,
+      "date_operation": "2025-12-30",
+      "montant": 239.99,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 75,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Udemy",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/boulanger_20251206_308.58.pdf": {
+      "doc_id": "data/justificatifs/traites/boulanger_20251206_308.58.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T10:04:12.053794",
+      "original_name": "boulanger_20251206_308.58.pdf",
+      "ocr_file": "data/justificatifs/traites/boulanger_20251206_308.58.ocr.json",
+      "categorie": "Fournitures",
+      "sous_categorie": null,
+      "date_operation": "2025-12-06",
+      "montant": 308.98,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 21,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "fournisseur": "Boulanger",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/cultura_20251117_92.85.pdf": {
+      "doc_id": "data/justificatifs/traites/cultura_20251117_92.85.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T06:25:58.755994",
+      "original_name": "cultura_20251117_92.85.pdf",
+      "ocr_file": "data/justificatifs/traites/cultura_20251117_92.85.ocr.json",
+      "fournisseur": "Cultura",
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "montant": 92.85,
+      "is_reconstitue": false,
+      "statut_justificatif": "traite",
+      "categorie": "Fournitures",
+      "sous_categorie": "",
+      "date_operation": "2025-11-17",
+      "ventilation_index": null,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 57,
+        "ventilation_index": null
+      }
+    },
+    "data/reports/quote_part_vehicule_2025.pdf": {
+      "doc_id": "data/reports/quote_part_vehicule_2025.pdf",
+      "type": "rapport",
+      "filename": "quote_part_vehicule_2025.pdf",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": "vehicule",
+      "categorie": "Véhicule",
+      "sous_categorie": "Quote-part professionnelle",
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T11:33:49.988040",
+      "original_name": "quote_part_vehicule_2025.pdf",
+      "ocr_file": null,
+      "fournisseur": "Véhicule",
+      "date_document": "2025-12-31",
+      "date_operation": "2025-12-31",
+      "period": {
+        "year": 2025,
+        "month": 12
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "source_module": "charges-forfaitaires",
+      "rapport_meta": {
+        "template_id": null,
+        "title": "Quote-part véhicule 2025",
+        "description": "Quote-part professionnelle 51% — 178j × 7.9km",
+        "filters": {
+          "year": 2025,
+          "month": 12
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-29T11:33:49.988040",
+        "can_regenerate": false,
+        "can_compare": false
+      }
+    },
+    "data/justificatifs/traites/auchan-essence_20260325_25.99_fs.pdf": {
+      "doc_id": "data/justificatifs/traites/auchan-essence_20260325_25.99_fs.pdf",
+      "type": "justificatif",
+      "year": 2026,
+      "month": 3,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T11:34:00.740142",
+      "original_name": "auchan-essence_20260325_25.99_fs.pdf",
+      "ocr_file": "data/justificatifs/traites/auchan-essence_20260325_25.99_fs.ocr.json",
+      "categorie": "Véhicule",
+      "sous_categorie": "Essence",
+      "date_operation": "2026-03-25",
+      "montant": 25.99,
+      "operation_ref": {
+        "file": "operations_manual_202603_7b199f8d.json",
+        "index": 1,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2026,
+        "month": 3,
+        "quarter": 1
+      },
+      "fournisseur": "Auchan Essence",
+      "is_reconstitue": true,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/paypal_20251117_119.99.pdf": {
+      "doc_id": "data/justificatifs/traites/paypal_20251117_119.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 11,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T11:34:00.740142",
+      "original_name": "paypal_20251117_119.99.pdf",
+      "ocr_file": "data/justificatifs/traites/paypal_20251117_119.99.ocr.json",
+      "categorie": "Formations",
+      "sous_categorie": null,
+      "date_operation": "2025-11-17",
+      "montant": 119.99,
+      "operation_ref": {
+        "file": "operations_merged_202511_20260414_234739.json",
+        "index": 60,
+        "ventilation_index": null
+      },
+      "period": {
+        "year": 2025,
+        "month": 11,
+        "quarter": 4
+      },
+      "fournisseur": "Paypal",
+      "is_reconstitue": false,
+      "statut_justificatif": "traite"
+    },
+    "data/justificatifs/traites/paypal_20251230_119.99.pdf": {
+      "doc_id": "data/justificatifs/traites/paypal_20251230_119.99.pdf",
+      "type": "justificatif",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T11:34:00.740142",
+      "original_name": "paypal_20251230_119.99.pdf",
+      "ocr_file": "data/justificatifs/traites/paypal_20251230_119.99.ocr.json",
+      "categorie": "Logiciel",
+      "sous_categorie": null,
+      "date_operation": "2025-12-30",
+      "montant": 119.99,
+      "operation_ref": {
+        "file": "operations_merged_202512_20260414_234739.json",
+        "index": 71,
         "ventilation_index": null
       },
       "period": {

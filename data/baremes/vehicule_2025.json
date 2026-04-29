@@ -1,6 +1,6 @@
 {
   "annee": 2025,
-  "date_derniere_application": "2026-04-28T20:43:42.216706",
+  "date_derniere_application": "2026-04-29T11:33:50.007962",
   "ratio_pro_applique": 51.0,
   "historique": [
     {
@@ -84,6 +84,17 @@
       "date": "2026-04-28T20:43:42.216706",
       "ratio": 51.0,
       "ancien_ratio": 51,
+      "distance": 7.9,
+      "jours": 178.0,
+      "km_sup": 500.0,
+      "km_totaux": 6500.0,
+      "pdf_filename": "quote_part_vehicule_2025.pdf",
+      "ged_doc_id": "data/reports/quote_part_vehicule_2025.pdf"
+    },
+    {
+      "date": "2026-04-29T11:33:50.007962",
+      "ratio": 51.0,
+      "ancien_ratio": 51.0,
       "distance": 7.9,
       "jours": 178.0,
       "km_sup": 500.0,
