@@ -7,6 +7,7 @@ import {
   ArrowRight, Expand, FileText, Link2, Trash2, Lightbulb,
 } from 'lucide-react'
 import { cn, formatCurrency, formatDate, isLibelleBrut } from '@/lib/utils'
+import { api } from '@/api/client'
 import { calcTableauAmortissement } from '@/lib/amortissement-engine'
 import {
   useCreateImmobilisation, useUpdateImmobilisation, useImmobiliserCandidate,
@@ -875,6 +876,11 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
           zIndex={60}
           onClose={() => setShowJustifSubDrawer(false)}
           onOpenLightbox={() => setLightboxFilename(activeJustifFilename)}
+          onOpenNative={(name) => {
+            api.post(`/justificatifs/${encodeURIComponent(name)}/open-native`).catch(() => {
+              window.open(`/api/justificatifs/${encodeURIComponent(name)}/preview`, '_blank')
+            })
+          }}
         />
       )}
 
@@ -882,6 +888,12 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
       <JustifPreviewLightbox
         filename={lightboxFilename}
         onClose={() => setLightboxFilename(null)}
+        onOpenExternal={() => {
+          if (!lightboxFilename) return
+          api.post(`/justificatifs/${encodeURIComponent(lightboxFilename)}/open-native`).catch(() => {
+            window.open(`/api/justificatifs/${encodeURIComponent(lightboxFilename)}/preview`, '_blank')
+          })
+        }}
       />
 
       {/* Drawer association manuelle (mode ciblé sur l'op candidate ou source) */}

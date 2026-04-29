@@ -6,6 +6,7 @@ import {
   Send, Loader2, Package, Pencil, Paperclip,
 } from 'lucide-react'
 import { cn, formatCurrency, isLibelleBrut } from '@/lib/utils'
+import { api } from '@/api/client'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -491,12 +492,27 @@ function RegistreTab({ immos, onSelect, onCession: _onCession }: {
         width={700}
         onClose={() => setPreviewJustif(null)}
         onOpenLightbox={() => previewJustif && setLightboxFilename(previewJustif)}
+        onOpenNative={(name) => {
+          // Pattern miroir EditorPage : POST silencieux qui demande à macOS
+          // d'ouvrir le PDF dans Aperçu (via le helper backend `open -a Preview`).
+          api.post(`/justificatifs/${encodeURIComponent(name)}/open-native`).catch(() => {
+            // Fallback navigateur si l'open-native échoue (ex. en-attente, pas
+            // sur macOS, etc.) — ouvre dans un nouvel onglet.
+            window.open(`/api/justificatifs/${encodeURIComponent(name)}/preview`, '_blank')
+          })
+        }}
       />
 
       {/* Lightbox plein écran (chaînée depuis le sub-drawer) */}
       <JustifPreviewLightbox
         filename={lightboxFilename}
         onClose={() => setLightboxFilename(null)}
+        onOpenExternal={() => {
+          if (!lightboxFilename) return
+          api.post(`/justificatifs/${encodeURIComponent(lightboxFilename)}/open-native`).catch(() => {
+            window.open(`/api/justificatifs/${encodeURIComponent(lightboxFilename)}/preview`, '_blank')
+          })
+        }}
       />
     </>
   )
