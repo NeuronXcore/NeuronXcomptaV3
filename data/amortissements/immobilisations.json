@@ -1,33 +1,5 @@
 [
   {
-    "id": "immo_20260418_0964",
-    "date_acquisition": "2025-02-15",
-    "date_mise_en_service": "2025-02-15",
-    "date_sortie": null,
-    "motif_sortie": null,
-    "prix_cession": null,
-    "quote_part_pro": 100.0,
-    "plafond_fiscal": null,
-    "co2_classe": null,
-    "operation_source": {
-      "file": "operations_merged_202502_20260414_234739.json",
-      "index": 42
-    },
-    "justificatif_id": null,
-    "ged_doc_id": null,
-    "created_at": "2026-04-18T17:40:46.434607",
-    "statut": "amorti",
-    "notes": null,
-    "designation": "DU150225LDLCMONTAUBAN MONTAUBAN 2599,99",
-    "base_amortissable": 2599.99,
-    "duree": 3,
-    "mode": "lineaire",
-    "poste": "divers",
-    "exercice_entree_neuronx": null,
-    "amortissements_anterieurs": 0.0,
-    "vnc_ouverture": null
-  },
-  {
     "id": "immo_20260427_c858",
     "designation": "PRLVSEPAPAYPALEUROPES.A.R.L.ETCIE 4506,99",
     "date_acquisition": "2026-01-28",

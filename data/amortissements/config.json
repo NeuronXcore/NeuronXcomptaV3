@@ -7,7 +7,7 @@
     "telephone": 3,
     "travaux": 10,
     "logiciel": 1,
-    "materiel": 5
+    "materiel": 3
   },
   "sous_categories_exclues": [
     "Carburant",
@@ -20,5 +20,5 @@
     "Leasing",
     "Loyer"
   ],
-  "seuil": 500.0
+  "seuil": 500
 }
