@@ -2,11 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import toast from 'react-hot-toast'
 import type {
-  Immobilisation, ImmobilisationCreate, AmortissementKpis,
+  Immobilisation, ImmobilisationCreate, ImmobilisationSource, AmortissementKpis,
   DotationsExercice, AmortissementCandidate, AmortissementConfig,
   CessionResult, AmortissementVirtualDetail, DotationRef,
   BackfillComputeRequest, BackfillComputeResponse,
-  CandidateDetail, DotationGenere,
+  CandidateDetail, DotationGenere, GedDocument,
 } from '@/types'
 
 // ─── Queries ───
@@ -16,9 +16,12 @@ export function useImmobilisations(statut?: string, poste?: string, year?: numbe
   if (statut) params.set('statut', statut)
   if (poste) params.set('poste', poste)
   if (year) params.set('year', String(year))
+  // URL toujours valide : trailing slash + qs uniquement si params.
+  // Sans ce garde, `?` sans slash casse le proxy Vite (Failed to fetch).
+  const qs = params.toString()
   return useQuery<Immobilisation[]>({
     queryKey: ['amortissements', statut, poste, year],
-    queryFn: () => api.get(`/amortissements?${params.toString()}`),
+    queryFn: () => api.get(qs ? `/amortissements/?${qs}` : '/amortissements/'),
   })
 }
 
@@ -75,6 +78,7 @@ export function useCreateImmobilisation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['amortissements'] })
       qc.invalidateQueries({ queryKey: ['amortissement-kpis'] })
+      qc.invalidateQueries({ queryKey: ['amortissements', 'source'] })
       toast.success('Immobilisation créée')
     },
   })
@@ -88,6 +92,7 @@ export function useUpdateImmobilisation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['amortissements'] })
       qc.invalidateQueries({ queryKey: ['amortissement-kpis'] })
+      qc.invalidateQueries({ queryKey: ['amortissements', 'source'] })
       toast.success('Immobilisation mise à jour')
     },
   })
@@ -112,6 +117,7 @@ export function useDeleteImmobilisation() {
       qc.invalidateQueries({ queryKey: ['amortissements'] })
       qc.invalidateQueries({ queryKey: ['amortissement-kpis'] })
       qc.invalidateQueries({ queryKey: ['amortissement-candidates'] })
+      qc.invalidateQueries({ queryKey: ['amortissements', 'source'] })
       qc.invalidateQueries({ queryKey: ['operations'] })
       qc.invalidateQueries({ queryKey: ['analytics'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
@@ -131,6 +137,7 @@ export function useImmobiliserCandidate() {
       qc.invalidateQueries({ queryKey: ['amortissements'] })
       qc.invalidateQueries({ queryKey: ['amortissement-candidates'] })
       qc.invalidateQueries({ queryKey: ['amortissement-kpis'] })
+      qc.invalidateQueries({ queryKey: ['amortissements', 'source'] })
       qc.invalidateQueries({ queryKey: ['operations'] })
       qc.invalidateQueries({ queryKey: ['alertes'] })
       toast.success('Opération immobilisée')
@@ -258,6 +265,106 @@ export function useRegenererPdfDotation() {
       qc.invalidateQueries({ queryKey: ['ged'] })
       qc.invalidateQueries({ queryKey: ['ged-documents'] })
       qc.invalidateQueries({ queryKey: ['amortissements', 'dotation-genere'] })
+    },
+  })
+}
+
+// ─── Source op + justif lié (drawer édition) ───
+//
+// Renvoie l'op bancaire source d'une immo (via transitivité) + le filename
+// du justif rattaché à cette op. `null` si l'immo a été créée manuellement
+// ou en reprise. Cache 30s — invalidé sur create/update/delete.
+
+export function useImmobilisationSource(immoId: string | null | undefined) {
+  return useQuery<ImmobilisationSource | null>({
+    queryKey: ['amortissements', 'source', immoId],
+    queryFn: () => api.get<ImmobilisationSource | null>(`/amortissements/${immoId}/source`),
+    enabled: !!immoId,
+    staleTime: 30_000,
+  })
+}
+
+// ─── Préparation envoi comptable amortissements ───
+//
+// Récupère (ou auto-génère si manquants) les rapports `amortissements_registre`
+// et `amortissements_dotations` pour l'année cible, puis lit `linked_justifs`
+// dans leur metadata GED. Retourne les 2 rapports + la liste dédupliquée des
+// justifs liés. Consommé par le bouton « Envoyer au comptable » du header
+// `AmortissementsPage` qui pré-coche tout dans `useSendDrawerStore`.
+
+export interface PrepareAmortissementsEnvoiResult {
+  rapports: GedDocument[]
+  linkedJustifs: string[]
+  generatedCount: number
+}
+
+export function usePrepareAmortissementsEnvoi() {
+  const qc = useQueryClient()
+  return useMutation<PrepareAmortissementsEnvoiResult, Error, number>({
+    mutationFn: async (year: number): Promise<PrepareAmortissementsEnvoiResult> => {
+      // Helper : récupère les rapports amortissements de l'année depuis la GED
+      const fetchAmortReports = async (): Promise<GedDocument[]> => {
+        const params = new URLSearchParams({ type: 'rapport', year: String(year) })
+        const docs = await api.get<GedDocument[]>(`/ged/documents?${params.toString()}`)
+        return docs.filter((d) => {
+          const tid = d.rapport_meta?.template_id
+          return tid === 'amortissements_registre' || tid === 'amortissements_dotations'
+        })
+      }
+
+      const findIn = (list: GedDocument[], templateId: string): GedDocument | undefined =>
+        list.find((d) => d.rapport_meta?.template_id === templateId)
+
+      let docs = await fetchAmortReports()
+      const registreExists = !!findIn(docs, 'amortissements_registre')
+      const dotationsExists = !!findIn(docs, 'amortissements_dotations')
+      let generatedCount = 0
+
+      // Auto-génération des rapports manquants (PDF par défaut)
+      if (!registreExists) {
+        await api.post('/reports/generate', {
+          template_id: 'amortissements_registre',
+          filters: { year, statut: 'all', poste: 'all' },
+          format: 'pdf',
+        })
+        generatedCount += 1
+      }
+      if (!dotationsExists) {
+        await api.post('/reports/generate', {
+          template_id: 'amortissements_dotations',
+          filters: { year, poste: 'all' },
+          format: 'pdf',
+        })
+        generatedCount += 1
+      }
+
+      // Re-fetch pour récupérer les rapports fraîchement générés (et leur linked_justifs)
+      if (generatedCount > 0) {
+        await qc.invalidateQueries({ queryKey: ['ged-documents'] })
+        await qc.invalidateQueries({ queryKey: ['ged-tree'] })
+        await qc.invalidateQueries({ queryKey: ['reports-gallery'] })
+        docs = await fetchAmortReports()
+      }
+
+      const registre = findIn(docs, 'amortissements_registre')
+      const dotations = findIn(docs, 'amortissements_dotations')
+      const rapports: GedDocument[] = [registre, dotations].filter(
+        (r): r is GedDocument => !!r,
+      )
+
+      // Agrège les linked_justifs des deux rapports — dédupliqué
+      const linkedSet = new Set<string>()
+      for (const r of rapports) {
+        for (const fn of r.rapport_meta?.linked_justifs ?? []) {
+          if (fn) linkedSet.add(fn)
+        }
+      }
+
+      return {
+        rapports,
+        linkedJustifs: Array.from(linkedSet).sort(),
+        generatedCount,
+      }
     },
   })
 }

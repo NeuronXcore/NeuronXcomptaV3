@@ -4,17 +4,19 @@ import toast from 'react-hot-toast'
 import { showDeleteImmoConfirmToast } from '@/lib/deleteImmobilisationToast'
 import {
   X, Landmark, Save, Loader2, Info, AlertTriangle, CheckCircle2, RefreshCw,
-  ArrowRight, Expand, FileText, Link2, Trash2,
+  ArrowRight, Expand, FileText, Link2, Trash2, Lightbulb,
 } from 'lucide-react'
-import { cn, formatCurrency, formatDate } from '@/lib/utils'
+import { cn, formatCurrency, formatDate, isLibelleBrut } from '@/lib/utils'
 import { calcTableauAmortissement } from '@/lib/amortissement-engine'
 import {
   useCreateImmobilisation, useUpdateImmobilisation, useImmobiliserCandidate,
   useComputeBackfill, useCandidateDetail, useDeleteImmobilisation,
+  useImmobilisationSource,
 } from '@/hooks/useAmortissements'
 import { useGedPostes } from '@/hooks/useGed'
 import PdfThumbnail from '@/components/shared/PdfThumbnail'
 import PreviewSubDrawer from '@/components/ocr/PreviewSubDrawer'
+import JustifPreviewLightbox from '@/components/shared/JustifPreviewLightbox'
 import ManualAssociationDrawer, { type TargetedOp } from '@/components/justificatifs/ManualAssociationDrawer'
 import type { Immobilisation, AmortissementCandidate, LigneAmortissement, ImmobilisationCreate } from '@/types'
 
@@ -58,9 +60,25 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
   // Sous-drawer preview justif + drawer association manuelle ciblée
   const [showJustifSubDrawer, setShowJustifSubDrawer] = useState(false)
   const [showManualAssoc, setShowManualAssoc] = useState(false)
+  // Lightbox plein écran (chaînée depuis le sub-drawer)
+  const [lightboxFilename, setLightboxFilename] = useState<string | null>(null)
 
   const isEdit = !!immobilisation
   const isCandidate = !!candidate
+
+  // Source op + justif (mode édition pure — pas en candidate ni readonly)
+  const editSourceImmoId = isEdit && !isCandidate ? immobilisation?.id ?? null : null
+  const { data: editSource } = useImmobilisationSource(editSourceImmoId)
+  // Source effective utilisée pour le rendu : candidateDetail.justificatif en mode
+  // candidate, sinon editSource.justif_filename en mode édition. Permet aux deux
+  // chemins de partager les mêmes sub-drawers/lightbox.
+  const editJustifFilename: string | null = !isCandidate && editSource?.justif_filename
+    ? editSource.justif_filename
+    : null
+  const candidateJustifFilename: string | null = isCandidate && candidateDetail?.justificatif
+    ? candidateDetail.justificatif.filename
+    : null
+  const activeJustifFilename = editJustifFilename ?? candidateJustifFilename
   // Section Reprise visible uniquement en mode création (pas en édition)
   const reprisAllowed = !isEdit
 
@@ -133,10 +151,17 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
     }
   }, [immobilisation?.id, candidate?.index, isOpen])
 
-  // Close on escape (mais Esc ferme uniquement le sub-drawer s'il est ouvert)
+  // Close on escape — z-stack : lightbox > sub-drawer > manual-assoc > drawer
+  // (la lightbox a son propre handler Esc avec stopPropagation, donc en pratique
+  // ce handler ne reçoit Esc que si la lightbox est fermée — on garde quand même
+  // la garde explicite pour clarté.)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
+      if (lightboxFilename) {
+        // Géré par la lightbox elle-même via window listener en mode capture
+        return
+      }
       if (showJustifSubDrawer) {
         setShowJustifSubDrawer(false)
         e.stopPropagation()
@@ -151,7 +176,7 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
     }
     if (isOpen) window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [isOpen, onClose, showJustifSubDrawer, showManualAssoc])
+  }, [isOpen, onClose, showJustifSubDrawer, showManualAssoc, lightboxFilename])
 
   // Préfill OCR quand candidate détail arrive — n'override que les champs vides
   useEffect(() => {
@@ -167,6 +192,7 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
     if (!isOpen) {
       setShowJustifSubDrawer(false)
       setShowManualAssoc(false)
+      setLightboxFilename(null)
     }
   }, [isOpen, candidate?.index])
 
@@ -313,7 +339,9 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
             </div>
           )}
 
-          {/* Section Opération source (mode candidate uniquement) — Prompt B2 */}
+          {/* Section Opération source — affichée en candidate ET en édition pure
+              (parité ; en édition, on s'appuie sur useImmobilisationSource via
+              transitivité op). */}
           {isCandidate && candidate && candidateDetail && (
             <div className="space-y-3 pb-4 border-b border-border">
               <p className="text-[10px] text-text-muted uppercase tracking-wide font-medium">
@@ -375,6 +403,80 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
             </div>
           )}
 
+          {/* Mode édition pure : section source via useImmobilisationSource */}
+          {isEdit && !isCandidate && (
+            <div className="space-y-3 pb-4 border-b border-border">
+              <p className="text-[10px] text-text-muted uppercase tracking-wide font-medium">
+                Opération source &amp; justificatif
+              </p>
+
+              {!editSource ? (
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3 flex items-start gap-2.5 text-xs text-blue-400">
+                  <Info size={14} className="shrink-0 mt-0.5" />
+                  <span>
+                    Aucune opération source rattachée (immobilisation créée manuellement
+                    ou en reprise d'exercice antérieur).
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {/* Carte op readonly */}
+                  <div className="bg-surface rounded-md p-3 border border-border">
+                    <div className="flex justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-text truncate">
+                          {editSource.libelle || '—'}
+                        </p>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          {formatDate(editSource.date)}
+                          {' · '}{editSource.categorie || '—'}
+                          {editSource.sous_categorie && ` / ${editSource.sous_categorie}`}
+                        </p>
+                      </div>
+                      <p className="text-sm font-medium tabular-nums text-red-400 shrink-0">
+                        −{formatCurrency(Math.abs(editSource.debit))}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate(
+                        `/editor?file=${encodeURIComponent(editSource.operation_file)}&highlight=${editSource.operation_index}&from=amortissements`
+                      )}
+                      className="mt-2 text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      Voir dans l'éditeur <ArrowRight size={10} />
+                    </button>
+                  </div>
+
+                  {/* Bloc justificatif (présent ou absent) */}
+                  {editSource.justif_filename ? (
+                    <JustificatifPreviewBlock
+                      filename={editSource.justif_filename}
+                      ocrData={{}}
+                      onExpand={() => setShowJustifSubDrawer(true)}
+                    />
+                  ) : (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 flex items-start gap-2.5">
+                      <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-amber-400 mb-1.5">
+                          Aucun justificatif associé
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowManualAssoc(true)}
+                          className="text-xs text-amber-300 underline hover:text-amber-100 flex items-center gap-1"
+                        >
+                          <Link2 size={10} /> Associer un justificatif
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Form */}
           <fieldset disabled={readonly} className="contents">
           <div className="grid grid-cols-2 gap-3">
@@ -382,6 +484,15 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
               <label className="text-[10px] text-text-muted block mb-1">Désignation</label>
               <input type="text" value={designation} onChange={e => setDesignation(e.target.value)}
                 className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary" />
+              <div className="text-xs text-primary flex items-start gap-1.5 mt-1.5">
+                <Lightbulb size={12} className="mt-0.5 flex-shrink-0" />
+                <span>
+                  Donne un nom court et descriptif (ex&nbsp;: «&nbsp;Ordinateur&nbsp;», «&nbsp;Fauteuil bureau&nbsp;»).
+                  {isLibelleBrut(designation) && (
+                    <> Cette immo a été créée depuis le libellé bancaire — à renommer.</>
+                  )}
+                </span>
+              </div>
             </div>
             <div>
               <label className="text-[10px] text-text-muted block mb-1">Date d'acquisition</label>
@@ -681,18 +792,25 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
       </div>
 
       {/* Sous-drawer preview justificatif (z-index 60 pour s'empiler par-dessus le drawer principal z-50) */}
-      {candidateDetail?.justificatif && (
+      {activeJustifFilename && (
         <PreviewSubDrawer
-          filename={showJustifSubDrawer ? candidateDetail.justificatif.filename : null}
+          filename={showJustifSubDrawer ? activeJustifFilename : null}
           mainDrawerOpen={isOpen && showJustifSubDrawer}
           mainDrawerWidth={650}
           width={700}
           zIndex={60}
           onClose={() => setShowJustifSubDrawer(false)}
+          onOpenLightbox={() => setLightboxFilename(activeJustifFilename)}
         />
       )}
 
-      {/* Drawer association manuelle (mode ciblé sur l'op candidate) */}
+      {/* Lightbox plein écran chaînée depuis le sub-drawer */}
+      <JustifPreviewLightbox
+        filename={lightboxFilename}
+        onClose={() => setLightboxFilename(null)}
+      />
+
+      {/* Drawer association manuelle (mode ciblé sur l'op candidate ou source) */}
       {isCandidate && candidate && (
         <ManualAssociationDrawer
           open={showManualAssoc}
@@ -707,6 +825,24 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
             montant: Math.abs(candidate.debit ?? 0),
             categorie: candidate.categorie,
             sousCategorie: candidate.sous_categorie,
+          } as TargetedOp]}
+        />
+      )}
+      {/* Mode édition pure : association manuelle ciblée sur l'op source */}
+      {!isCandidate && isEdit && editSource && (
+        <ManualAssociationDrawer
+          open={showManualAssoc}
+          onClose={() => setShowManualAssoc(false)}
+          year={parseInt((editSource.date || '').slice(0, 4)) || new Date().getFullYear()}
+          month={parseInt((editSource.date || '').slice(5, 7)) || null}
+          targetedOps={[{
+            filename: editSource.operation_file,
+            index: editSource.operation_index,
+            libelle: editSource.libelle,
+            date: editSource.date,
+            montant: Math.max(Math.abs(editSource.debit), Math.abs(editSource.credit)),
+            categorie: editSource.categorie,
+            sousCategorie: editSource.sous_categorie,
           } as TargetedOp]}
         />
       )}

@@ -188,3 +188,20 @@ export function formatDateLong(date: Date = new Date()): string {
   const y = date.getFullYear()
   return `${joursFr[d]} ${j} ${MOIS_FR[m].toLowerCase()} ${y}`
 }
+
+/**
+ * Détecte si une désignation d'immobilisation ressemble à un libellé bancaire
+ * brut (ex. `PRLVSEPAPAYPALDU0418/EPSON—579,00`) plutôt qu'à un libellé
+ * humain. Utilisé pour styler en italique gris dans le registre et pour
+ * afficher une incitation à renommer dans le drawer.
+ *
+ * Heuristique : vide, longueur > 80 chars, ou commence par un préfixe
+ * bancaire connu (PRLV, CB, VIR, SEPA, RETRAIT, CHQ, PAIEMENT).
+ */
+const RAW_LIBELLE_PREFIXES = /^(PRLV|CB |VIR|SEPA|RETRAIT|CHQ|PAIEMENT)/i
+
+export function isLibelleBrut(designation: string | null | undefined): boolean {
+  if (!designation) return true
+  const s = designation.trim()
+  return s.length === 0 || RAW_LIBELLE_PREFIXES.test(s) || s.length > 80
+}

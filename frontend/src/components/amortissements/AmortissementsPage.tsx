@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import {
   Landmark, Settings2, Plus, AlertTriangle, List, Calendar, BarChart3, Sparkles, Calculator,
+  Send, Loader2, Package, Pencil, Paperclip,
 } from 'lucide-react'
-import { cn, formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency, isLibelleBrut } from '@/lib/utils'
 import PageHeader from '@/components/shared/PageHeader'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import PreviewSubDrawer from '@/components/ocr/PreviewSubDrawer'
+import JustifPreviewLightbox from '@/components/shared/JustifPreviewLightbox'
 import ImmobilisationDrawer from './ImmobilisationDrawer'
 import ConfigAmortissementsDrawer from './ConfigAmortissementsDrawer'
 import CessionDrawer from './CessionDrawer'
@@ -14,9 +18,11 @@ import DotationTab from './DotationTab'
 import {
   useImmobilisations, useAmortissementKpis, useDotationsExercice,
   useCandidates, useIgnoreCandidate, useDotationGenere, useDotationVirtualDetail,
+  usePrepareAmortissementsEnvoi, useUpdateImmobilisation,
 } from '@/hooks/useAmortissements'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
-import type { Immobilisation, AmortissementCandidate, AmortissementKpis } from '@/types'
+import { useSendDrawerStore } from '@/stores/sendDrawerStore'
+import type { Immobilisation, AmortissementCandidate, AmortissementKpis, DocumentRef } from '@/types'
 
 type TabKey = 'registre' | 'tableau' | 'synthese' | 'candidates' | 'dotation'
 const VALID_TABS: TabKey[] = ['registre', 'tableau', 'synthese', 'candidates', 'dotation']
@@ -45,6 +51,55 @@ export default function AmortissementsPage() {
   const { data: dotationGenere } = useDotationGenere(selectedYear)
   const { data: virtualDetail } = useDotationVirtualDetail(selectedYear)
   const ignoreMutation = useIgnoreCandidate()
+
+  // Préparation envoi comptable : auto-génère les rapports manquants puis
+  // pré-coche dans le drawer global avec tous leurs justifs liés (sous-dossier
+  // dédié dans le ZIP final).
+  const prepareEnvoi = usePrepareAmortissementsEnvoi()
+  const openSendDrawer = useSendDrawerStore((s) => s.open)
+
+  const handleEnvoiComptable = async () => {
+    const toastId = 'amort-envoi'
+    try {
+      // Toast loading uniquement si génération nécessaire — sinon ouverture instantanée
+      toast.loading('Préparation de l\'envoi comptable…', { id: toastId })
+      const { rapports, linkedJustifs, generatedCount } =
+        await prepareEnvoi.mutateAsync(selectedYear)
+
+      // doc_id est un path complet (ex. "data/reports/foo.pdf") — basename suffit
+      const basenameOf = (docId: string): string => docId.split('/').pop() ?? docId
+      const preselected: DocumentRef[] = [
+        ...rapports
+          .map((r) => ({
+            type: 'rapport' as const,
+            filename: basenameOf(r.doc_id) || (r.original_name ?? ''),
+          }))
+          .filter((d) => d.filename),
+        ...linkedJustifs.map((fn) => ({ type: 'justificatif' as const, filename: fn })),
+      ]
+
+      openSendDrawer({
+        preselected,
+        defaultSubject: `Amortissements — Exercice ${selectedYear}`,
+        defaultFilter: 'rapport',
+      })
+
+      const justifLabel = linkedJustifs.length > 0
+        ? ` + ${linkedJustifs.length} justificatif${linkedJustifs.length > 1 ? 's' : ''}`
+        : ''
+      toast.success(
+        generatedCount > 0
+          ? `Drawer pré-rempli — ${generatedCount} rapport${generatedCount > 1 ? 's' : ''} généré${generatedCount > 1 ? 's' : ''}${justifLabel}`
+          : `Drawer pré-rempli — ${rapports.length} rapport${rapports.length > 1 ? 's' : ''}${justifLabel}`,
+        { id: toastId },
+      )
+    } catch (err) {
+      toast.error(
+        `Erreur préparation envoi : ${err instanceof Error ? err.message : 'inconnue'}`,
+        { id: toastId },
+      )
+    }
+  }
 
   // Scroll-to immo via ?immo_id=X (force tab=registre + smooth scroll + flash highlight)
   const scrollHandledRef = useRef<string | null>(null)
@@ -91,6 +146,17 @@ export default function AmortissementsPage() {
             <button onClick={() => setShowConfig(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-surface border border-border text-text-muted rounded-lg text-xs hover:bg-surface-hover">
               <Settings2 size={14} /> Config
+            </button>
+            <button
+              onClick={handleEnvoiComptable}
+              disabled={prepareEnvoi.isPending}
+              className="flex items-center gap-1.5 px-3 py-2 bg-surface border border-border text-text-muted rounded-lg text-sm hover:bg-surface-hover disabled:opacity-50"
+              title={`Pré-remplir le drawer comptable avec les rapports + justificatifs liés de l'exercice ${selectedYear}`}
+            >
+              {prepareEnvoi.isPending
+                ? <Loader2 size={14} className="animate-spin" />
+                : <Send size={14} />}
+              Envoyer au comptable
             </button>
             <button onClick={() => setShowCreate(true)}
               className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90">
@@ -203,73 +269,236 @@ function RegistreTab({ immos, onSelect, onCession: _onCession }: {
     sorti: 'bg-red-500/15 text-red-400',
   }
 
+  // Édition inline `designation`
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const updateMutation = useUpdateImmobilisation()
+
+  const startEdit = (immo: Immobilisation) => {
+    setEditingId(immo.id)
+    setEditValue(immo.designation || '')
+  }
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditValue('')
+  }
+  const commitEdit = async (immoId: string) => {
+    const value = editValue.trim()
+    setEditingId(null)
+    const current = immos.find((i) => i.id === immoId)?.designation ?? ''
+    if (value === current) return
+    try {
+      await updateMutation.mutateAsync({
+        id: immoId,
+        data: { designation: value },
+      })
+    } catch (err) {
+      toast.error(`Erreur : ${err instanceof Error ? err.message : 'inconnue'}`)
+    }
+  }
+
+  // Preview justificatif (sub-drawer standalone + lightbox)
+  const [previewJustif, setPreviewJustif] = useState<string | null>(null)
+  const [lightboxFilename, setLightboxFilename] = useState<string | null>(null)
+
+  const openSubDrawerStandalone = (filename: string) => {
+    setPreviewJustif(filename)
+  }
+  const handleNoJustif = () => {
+    toast('Aucun justificatif associé à cette immobilisation', { icon: '📎' })
+  }
+
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-surface border-b border-border text-text-muted text-xs">
-            <th className="text-left px-3 py-2 font-medium">Date acq.</th>
-            <th className="text-left px-3 py-2 font-medium">Désignation</th>
-            <th className="text-left px-3 py-2 font-medium">Poste</th>
-            <th className="text-left px-3 py-2 font-medium">Mode</th>
-            <th className="text-right px-3 py-2 font-medium">Base</th>
-            <th className="text-center px-3 py-2 font-medium">Durée</th>
-            <th className="text-center px-3 py-2 font-medium">Avancement</th>
-            <th className="text-right px-3 py-2 font-medium">VNC</th>
-            <th className="text-center px-3 py-2 font-medium">Statut</th>
-          </tr>
-        </thead>
-        <tbody>
-          {immos.map(i => (
-            <tr
-              key={i.id}
-              id={`immo-row-${i.id}`}
-              onClick={() => onSelect(i)}
-              className={cn(
-                'border-b border-border hover:bg-surface-hover cursor-pointer transition-colors',
-                i.statut !== 'en_cours' && 'opacity-60'
-              )}
-            >
-              <td className="px-3 py-2 text-xs text-text-muted">{i.date_acquisition}</td>
-              <td className="px-3 py-2 text-text max-w-[280px]">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="truncate">{i.designation}</span>
-                  {i.exercice_entree_neuronx != null && (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-700 font-medium"
-                      title={`Reprise depuis ${i.exercice_entree_neuronx} — acquisition réelle ${i.date_acquisition.slice(0, 4)}`}
-                    >
-                      Reprise {i.exercice_entree_neuronx}
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td className="px-3 py-2 text-xs text-text-muted">{i.poste ?? '—'}</td>
-              <td className="px-3 py-2 text-xs">{i.mode === 'lineaire' ? 'Lin.' : 'Dég.'}</td>
-              <td className="px-3 py-2 text-right font-mono text-xs">{formatCurrency(i.base_amortissable)}</td>
-              <td className="px-3 py-2 text-center text-xs">{i.duree} ans</td>
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden">
-                    <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(i.avancement_pct ?? 0, 100)}%` }} />
-                  </div>
-                  <span className="text-[10px] text-text-muted w-8">{Math.round(i.avancement_pct ?? 0)}%</span>
-                </div>
-              </td>
-              <td className="px-3 py-2 text-right font-mono text-xs font-bold">{formatCurrency(i.vnc_actuelle ?? 0)}</td>
-              <td className="px-3 py-2 text-center">
-                <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', STATUS_BADGE[i.statut] || '')}>
-                  {i.statut}
-                </span>
-              </td>
+    <>
+      <div className="border border-border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-surface border-b border-border text-text-muted text-xs">
+              <th className="text-left px-3 py-2 font-medium">Date acq.</th>
+              <th className="text-left px-3 py-2 font-medium">Désignation</th>
+              <th className="text-left px-3 py-2 font-medium">Poste</th>
+              <th className="text-left px-3 py-2 font-medium">Mode</th>
+              <th className="text-right px-3 py-2 font-medium">Base</th>
+              <th className="text-center px-3 py-2 font-medium">Durée</th>
+              <th className="text-center px-3 py-2 font-medium">Avancement</th>
+              <th className="text-right px-3 py-2 font-medium">VNC</th>
+              <th className="text-center px-3 py-2 font-medium w-[60px]">Justif.</th>
+              <th className="text-center px-3 py-2 font-medium">Statut</th>
             </tr>
-          ))}
-          {immos.length === 0 && (
-            <tr><td colSpan={9} className="px-3 py-8 text-center text-text-muted">Aucune immobilisation</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {immos.map((i) => {
+              const isEditing = editingId === i.id
+              const brut = isLibelleBrut(i.designation)
+              return (
+                <tr
+                  key={i.id}
+                  id={`immo-row-${i.id}`}
+                  onClick={() => {
+                    // On ne déclenche le drawer que si pas en train d'éditer la désignation
+                    if (!isEditing) onSelect(i)
+                  }}
+                  className={cn(
+                    'group border-b border-border hover:bg-surface-hover cursor-pointer transition-colors',
+                    i.statut !== 'en_cours' && 'opacity-60',
+                  )}
+                >
+                  <td className="px-3 py-2 text-xs text-text-muted">{i.date_acquisition}</td>
+                  <td className="px-3 py-2 text-text max-w-[280px]" onClick={(e) => isEditing && e.stopPropagation()}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* Pavé icône Package */}
+                      <div className="w-[30px] h-[30px] rounded-md bg-primary/10 text-primary grid place-items-center flex-shrink-0">
+                        <Package size={15} />
+                      </div>
+                      {/* Texte ou input édition */}
+                      <div className="flex-1 min-w-0">
+                        {isEditing ? (
+                          <input
+                            autoFocus
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={() => commitEdit(i.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                commitEdit(i.id)
+                              }
+                              if (e.key === 'Escape') {
+                                e.preventDefault()
+                                cancelEdit()
+                              }
+                            }}
+                            placeholder="ex : Ordinateur portable MacBook Pro M3"
+                            className="w-full bg-background border border-primary rounded-md px-2.5 py-1 text-sm outline-none ring-2 ring-primary/20"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span
+                              onDoubleClick={(e) => {
+                                e.stopPropagation()
+                                startEdit(i)
+                              }}
+                              className={cn(
+                                'truncate',
+                                brut && 'italic text-text-muted',
+                              )}
+                              title={brut ? 'Libellé bancaire brut — double-clic pour renommer' : undefined}
+                            >
+                              {i.designation || 'Libellé non renseigné'}
+                            </span>
+                            {i.exercice_entree_neuronx != null && (
+                              <span
+                                className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-700 font-medium shrink-0"
+                                title={`Reprise depuis ${i.exercice_entree_neuronx} — acquisition réelle ${i.date_acquisition.slice(0, 4)}`}
+                              >
+                                Reprise {i.exercice_entree_neuronx}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* Bouton crayon hover (sauf édition) */}
+                      {!isEditing && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEdit(i)
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-surface-hover text-text-muted hover:text-primary shrink-0"
+                          aria-label="Annoter la désignation"
+                          title="Renommer (Enter pour valider, Esc pour annuler)"
+                          type="button"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-text-muted">{i.poste ?? '—'}</td>
+                  <td className="px-3 py-2 text-xs">{i.mode === 'lineaire' ? 'Lin.' : 'Dég.'}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">{formatCurrency(i.base_amortissable)}</td>
+                  <td className="px-3 py-2 text-center text-xs">{i.duree} ans</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full"
+                          style={{ width: `${Math.min(i.avancement_pct ?? 0, 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-text-muted w-8">{Math.round(i.avancement_pct ?? 0)}%</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs font-bold">
+                    {formatCurrency(i.vnc_actuelle ?? 0)}
+                  </td>
+                  {/* Cellule paperclip */}
+                  <td className="px-3 py-2 text-center">
+                    {i.has_justif && i.justif_filename ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openSubDrawerStandalone(i.justif_filename!)
+                        }}
+                        className="w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-500 grid place-items-center hover:bg-emerald-500/25 hover:scale-105 transition-all mx-auto"
+                        aria-label="Aperçu du justificatif"
+                        title={i.justif_filename}
+                        type="button"
+                      >
+                        <Paperclip size={14} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleNoJustif()
+                        }}
+                        className="w-7 h-7 rounded-md text-text-muted/50 grid place-items-center hover:bg-surface-hover relative mx-auto"
+                        aria-label="Pas de justificatif"
+                        title="Aucun justificatif"
+                        type="button"
+                      >
+                        <Paperclip size={14} />
+                        <span className="absolute top-1/2 left-1 right-1 h-[1.5px] bg-text-muted/60 rotate-[-25deg] rounded pointer-events-none" />
+                      </button>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full', STATUS_BADGE[i.statut] || '')}>
+                      {i.statut}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+            {immos.length === 0 && (
+              <tr>
+                <td colSpan={10} className="px-3 py-8 text-center text-text-muted">
+                  Aucune immobilisation
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Sous-drawer preview standalone (déclenché par paperclip) */}
+      <PreviewSubDrawer
+        filename={previewJustif}
+        mainDrawerOpen={false}
+        standalone
+        width={700}
+        onClose={() => setPreviewJustif(null)}
+        onOpenLightbox={() => previewJustif && setLightboxFilename(previewJustif)}
+      />
+
+      {/* Lightbox plein écran (chaînée depuis le sub-drawer) */}
+      <JustifPreviewLightbox
+        filename={lightboxFilename}
+        onClose={() => setLightboxFilename(null)}
+      />
+    </>
   )
 }
 

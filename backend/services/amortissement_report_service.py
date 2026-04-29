@@ -77,6 +77,43 @@ def _is_reprise(immo) -> bool:
     return getattr(immo, "exercice_entree_neuronx", None) is not None
 
 
+def _format_justif_cell(immo) -> tuple[str, bool]:
+    """Retourne `(texte_affiché, has_justif)` pour la cellule justificatif.
+
+    Si présent, le filename est tronqué au milieu (`apple_20240312_2…00.pdf`)
+    pour rester lisible dans la cellule sans déborder. Le texte de la cellule
+    inclut une icône ✓/✗ (le code couleur est posé via TableStyle dans le PDF).
+    """
+    if isinstance(immo, dict):
+        has = bool(immo.get("has_justif"))
+        fn = immo.get("justif_filename") or ""
+    else:
+        has = bool(getattr(immo, "has_justif", False))
+        fn = getattr(immo, "justif_filename", "") or ""
+
+    if not has or not fn:
+        return ("✗", False)
+
+    base = Path(fn).name
+    if len(base) > 30:
+        base = f"{base[:14]}…{base[-13:]}"
+    return (f"✓ {base}", True)
+
+
+def _has_justif(immo) -> bool:
+    if isinstance(immo, dict):
+        return bool(immo.get("has_justif"))
+    return bool(getattr(immo, "has_justif", False))
+
+
+def _justif_filename(immo) -> Optional[str]:
+    if isinstance(immo, dict):
+        fn = immo.get("justif_filename")
+    else:
+        fn = getattr(immo, "justif_filename", None)
+    return fn or None
+
+
 # ═══════════════════════════════════════════════════════════════════
 # REGISTRE
 # ═══════════════════════════════════════════════════════════════════
@@ -87,10 +124,14 @@ def render_registre(year: int, output_path: Path, format: str, filters: dict) ->
 
     Filtres : `year` (req, contexte titre), `statut` (all|en_cours|amorti|sorti),
     `poste` (all|<poste>).
+
+    Charge les immos enrichies avec `has_justif` + `justif_filename` (dérivés
+    par transitivité via `_get_immo_op_index`) — affichés dans la nouvelle
+    colonne « Justificatif » des 3 formats.
     """
     from backend.services import amortissement_service
 
-    immos = amortissement_service.list_immobilisations_enriched(year=year)
+    immos = amortissement_service.list_immobilisations_with_source(year=year)
     immos = _apply_registre_filters(immos, filters)
 
     output_path = Path(output_path)
@@ -165,11 +206,12 @@ def _render_registre_pdf(immos: list, year: int, output_path: Path, filters: dic
         "Cumul amort.",
         "VNC actuelle",
         "Poste",
+        "Justificatif",
     ]
     data: list[list[str]] = [headers]
 
     if not immos:
-        data.append(["Aucune immobilisation", "", "", "", "", "", "", "", ""])
+        data.append(["Aucune immobilisation", "", "", "", "", "", "", "", "", ""])
     else:
         for immo in immos:
             designation = immo.get("designation", "") or ""
@@ -178,6 +220,7 @@ def _render_registre_pdf(immos: list, year: int, output_path: Path, filters: dic
             base = float(immo.get("base_amortissable", 0) or 0)
             vnc_actuelle = float(immo.get("vnc_actuelle", base) or base)
             cumul = base - vnc_actuelle
+            justif_cell, _ = _format_justif_cell(immo)
             data.append([
                 designation,
                 _origine_label(immo),
@@ -188,30 +231,34 @@ def _render_registre_pdf(immos: list, year: int, output_path: Path, filters: dic
                 _fr_euro(cumul),
                 _fr_euro(vnc_actuelle),
                 immo.get("poste") or "—",
+                justif_cell,
             ])
 
-        # Ligne TOTAL
+        # Ligne TOTAL — compteur justifs N/M
         total_base = sum(float(i.get("base_amortissable", 0) or 0) for i in immos)
         total_vnc = sum(float(i.get("vnc_actuelle", 0) or 0) for i in immos)
         total_cumul = total_base - total_vnc
+        n_justif = sum(1 for i in immos if _has_justif(i))
+        n_total = len(immos)
         data.append([
             "TOTAL",
             "",
             "",
-            f"{len(immos)} immo(s)",
+            f"{n_total} immo(s)",
             "",
             _fr_euro(total_base),
             _fr_euro(total_cumul),
             _fr_euro(total_vnc),
             "",
+            f"{n_justif} / {n_total}",
         ])
 
     table = Table(
         data,
         repeatRows=1,
         colWidths=[
-            55 * mm, 22 * mm, 20 * mm, 20 * mm, 14 * mm,
-            26 * mm, 26 * mm, 26 * mm, 25 * mm,
+            44 * mm, 20 * mm, 18 * mm, 18 * mm, 12 * mm,
+            22 * mm, 22 * mm, 22 * mm, 20 * mm, 38 * mm,
         ],
     )
 
@@ -231,7 +278,17 @@ def _render_registre_pdf(immos: list, year: int, output_path: Path, filters: dic
             ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#EEEDFE")),
             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ]
-        # Coloration ligne par ligne pour Origine "Reprise" — badge ambre
+        # Couleur du compteur TOTAL Justificatif : ambre si incomplet, vert sinon
+        if n_justif < n_total:
+            style_cmds.append(
+                ("TEXTCOLOR", (-1, -1), (-1, -1), colors.HexColor("#F59E0B"))
+            )
+        else:
+            style_cmds.append(
+                ("TEXTCOLOR", (-1, -1), (-1, -1), colors.HexColor("#16a34a"))
+            )
+
+        # Coloration ligne par ligne : badge "Reprise" ambre + couleur justif violet/gris
         for row_idx, immo in enumerate(immos, start=1):
             if _is_reprise(immo):
                 style_cmds.append(
@@ -242,6 +299,15 @@ def _render_registre_pdf(immos: list, year: int, output_path: Path, filters: dic
                 )
                 style_cmds.append(
                     ("FONTNAME", (1, row_idx), (1, row_idx), "Helvetica-Bold")
+                )
+            # Justif (col 9) : violet si présent, gris sinon
+            if _has_justif(immo):
+                style_cmds.append(
+                    ("TEXTCOLOR", (9, row_idx), (9, row_idx), colors.HexColor("#3C3489"))
+                )
+            else:
+                style_cmds.append(
+                    ("TEXTCOLOR", (9, row_idx), (9, row_idx), colors.HexColor("#999999"))
                 )
 
     table.setStyle(TableStyle(style_cmds))
@@ -284,6 +350,7 @@ def _render_registre_csv(immos: list, year: int, output_path: Path, filters: dic
         "Quote-part (%)",
         "Poste",
         "Exercice entrée NeuronX",
+        "Justificatif",
     ]
     lines: list[str] = [";".join(headers)]
 
@@ -292,6 +359,7 @@ def _render_registre_csv(immos: list, year: int, output_path: Path, filters: dic
         vnc = float(immo.get("vnc_actuelle", base) or base)
         cumul = base - vnc
         year_entree = immo.get("exercice_entree_neuronx")
+        justif_fn = _justif_filename(immo) or ""
         lines.append(";".join([
             (immo.get("designation", "") or "").replace(";", ","),
             _origine_label(immo),
@@ -305,18 +373,22 @@ def _render_registre_csv(immos: list, year: int, output_path: Path, filters: dic
             f"{float(immo.get('quote_part_pro', 100) or 100):.0f}",
             (immo.get("poste") or "").replace(";", ","),
             str(year_entree) if year_entree else "",
+            justif_fn.replace(";", ","),
         ]))
 
     # Ligne TOTAL
     total_base = sum(float(i.get("base_amortissable", 0) or 0) for i in immos)
     total_vnc = sum(float(i.get("vnc_actuelle", 0) or 0) for i in immos)
     total_cumul = total_base - total_vnc
+    n_justif = sum(1 for i in immos if _has_justif(i))
+    n_total = len(immos)
     lines.append(";".join([
         "TOTAL", "", "", "", "", "",
         _fr_decimal(total_base),
         _fr_decimal(total_cumul),
         _fr_decimal(total_vnc),
         "", "", "",
+        f"{n_justif} / {n_total} immobilisations justifiées" if n_total else "",
     ]))
 
     content = "\r\n".join(lines)
@@ -346,6 +418,7 @@ def _render_registre_xlsx(immos: list, year: int, output_path: Path, filters: di
         "Quote-part (%)",
         "Poste",
         "Exercice entrée NeuronX",
+        "Justificatif",
     ]
     ws.append(headers)
 
@@ -358,12 +431,18 @@ def _render_registre_xlsx(immos: list, year: int, output_path: Path, filters: di
 
     reprise_fill = PatternFill(start_color="FAEEDA", end_color="FAEEDA", fill_type="solid")
     reprise_font = Font(color="854F0B", bold=True)
+    # Conditional fill pour la colonne Justificatif (M = 13)
+    justif_present_fill = PatternFill(start_color="EEEDFE", end_color="EEEDFE", fill_type="solid")
+    justif_present_font = Font(color="3C3489", bold=True)
+    justif_absent_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    justif_absent_font = Font(color="854F0B")
 
     for immo in immos:
         base = float(immo.get("base_amortissable", 0) or 0)
         vnc = float(immo.get("vnc_actuelle", base) or base)
         cumul = base - vnc
         year_entree = immo.get("exercice_entree_neuronx")
+        justif_fn = _justif_filename(immo) or ""
         row = [
             immo.get("designation", "") or "",
             _origine_label(immo),
@@ -377,6 +456,7 @@ def _render_registre_xlsx(immos: list, year: int, output_path: Path, filters: di
             float(immo.get("quote_part_pro", 100) or 100),
             immo.get("poste") or "",
             year_entree if year_entree else "",
+            justif_fn,
         ]
         ws.append(row)
         # Style Reprise sur la cellule Origine
@@ -384,6 +464,14 @@ def _render_registre_xlsx(immos: list, year: int, output_path: Path, filters: di
             cell = ws.cell(row=ws.max_row, column=2)
             cell.fill = reprise_fill
             cell.font = reprise_font
+        # Style conditionnel sur la cellule Justificatif (col 13 = M)
+        justif_cell = ws.cell(row=ws.max_row, column=13)
+        if _has_justif(immo):
+            justif_cell.fill = justif_present_fill
+            justif_cell.font = justif_present_font
+        else:
+            justif_cell.fill = justif_absent_fill
+            justif_cell.font = justif_absent_font
 
     # Format EUR sur colonnes monétaires (G/H/I = 7/8/9)
     for col_letter in ("G", "H", "I"):
@@ -391,7 +479,7 @@ def _render_registre_xlsx(immos: list, year: int, output_path: Path, filters: di
             cell.number_format = "#,##0.00 €"
             cell.alignment = Alignment(horizontal="right")
 
-    # Ligne TOTAL avec formules SUM
+    # Ligne TOTAL avec formules SUM + compteur justifs
     last_row = ws.max_row
     if last_row >= 2:
         total_row = last_row + 1
@@ -405,9 +493,20 @@ def _render_registre_xlsx(immos: list, year: int, output_path: Path, filters: di
             )
             cell.number_format = "#,##0.00 €"
             cell.font = Font(bold=True)
+        # Compteur justifs : N/M
+        n_justif = sum(1 for i in immos if _has_justif(i))
+        n_total = len(immos)
+        justif_total_cell = ws.cell(
+            row=total_row, column=13, value=f"{n_justif} / {n_total}",
+        )
+        justif_total_cell.font = Font(
+            bold=True,
+            color="16A34A" if n_justif >= n_total else "F59E0B",
+        )
         total_fill = PatternFill(start_color="EEEDFE", end_color="EEEDFE", fill_type="solid")
         for cell in ws[total_row]:
-            cell.fill = total_fill
+            if cell.column != 13:  # Préserver la couleur conditionnelle du compteur
+                cell.fill = total_fill
 
     # Auto-width
     for col in ws.columns:

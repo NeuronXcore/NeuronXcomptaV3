@@ -23,7 +23,12 @@ async def list_immobilisations(
     poste: Optional[str] = Query(None),
     year: Optional[int] = Query(None),
 ):
-    return amortissement_service.get_all_immobilisations(statut, poste, year)
+    """Liste enrichie avec `has_justif` + `justif_filename` (transitivité op).
+
+    Évite le N+1 côté frontend : la cellule paperclip et la metadata UI lisent
+    directement ces champs au lieu de fetch `/source` pour chaque ligne.
+    """
+    return amortissement_service.list_immobilisations_with_source(statut, poste, year)
 
 
 @router.get("/kpis")
@@ -153,6 +158,20 @@ async def get_tableau(immo_id: str):
     if not immo:
         raise HTTPException(404, "Immobilisation non trouvée")
     return amortissement_service.compute_tableau(immo)
+
+
+@router.get("/{immo_id}/source")
+async def get_immobilisation_source(immo_id: str):
+    """Retourne l'op source + justif lié (transitivité).
+
+    Format : `{operation_file, operation_index, libelle, date, debit, credit,
+              categorie, sous_categorie, justif_filename}` ou `null` si pas
+    d'op rattachée. **Doit être déclaré AVANT `/{immo_id}`** (FastAPI matche
+    par ordre — sinon `/{immo_id}` capture `source` comme un id).
+    """
+    if not amortissement_service.get_immobilisation(immo_id):
+        raise HTTPException(404, "Immobilisation introuvable")
+    return amortissement_service.get_linked_op_with_justif(immo_id)
 
 
 @router.get("/{immo_id}")

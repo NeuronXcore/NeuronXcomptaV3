@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import uuid
 from datetime import datetime, date
 from pathlib import Path
@@ -35,6 +36,164 @@ logger = logging.getLogger(__name__)
 
 IMMOBILISATIONS_FILE = AMORTISSEMENTS_DIR / "immobilisations.json"
 CONFIG_FILE = AMORTISSEMENTS_DIR / "config.json"
+
+
+# ─── Index inversé immobilisation_id → (op_file, op_index) ───
+#
+# Construit lazy au premier accès, invalidé sur toute mutation `immobilisation_id`
+# (link, delete, dissociate). Permet la résolution O(1) du justificatif lié à une
+# immo via la transitivité op (`Lien justificatif` sur l'op porte le justif).
+# Évite le N+1 sur les rendus de rapport / liste enrichie.
+
+_immo_op_index: Optional[dict[str, tuple[str, int]]] = None
+_immo_op_index_lock = threading.Lock()
+
+
+def _build_immo_op_index() -> dict[str, tuple[str, int]]:
+    """Scan tous les fichiers d'opérations, construit la map immo_id → (file, idx)."""
+    from backend.services import operation_service
+    idx: dict[str, tuple[str, int]] = {}
+    try:
+        files = operation_service.list_operation_files()
+    except Exception:
+        return idx
+    for f_meta in files:
+        filename = f_meta.get("filename")
+        if not filename:
+            continue
+        try:
+            ops = operation_service.load_operations(filename)
+        except Exception:
+            continue
+        for i, op in enumerate(ops):
+            if not isinstance(op, dict):
+                continue
+            immo_id = op.get("immobilisation_id")
+            if immo_id:
+                idx[str(immo_id)] = (filename, i)
+    return idx
+
+
+def invalidate_immo_op_index() -> None:
+    """À appeler depuis tout endroit qui modifie immobilisation_id sur une op."""
+    global _immo_op_index
+    with _immo_op_index_lock:
+        _immo_op_index = None
+
+
+def _get_immo_op_index() -> dict[str, tuple[str, int]]:
+    global _immo_op_index
+    with _immo_op_index_lock:
+        if _immo_op_index is None:
+            _immo_op_index = _build_immo_op_index()
+        return _immo_op_index
+
+
+def get_linked_op_with_justif(immo_id: str) -> Optional[dict]:
+    """Retourne l'op source de l'immo + son justif éventuel (via transitivité).
+
+    Format : {operation_file, operation_index, libelle, date, debit, credit,
+              categorie, sous_categorie, justif_filename: Optional[str]}
+    None si pas d'op rattachée. Le `justif_filename` est le basename du
+    `Lien justificatif` de l'op (ou de la sous-ligne ventilation parente),
+    en filtrant les liens `reports/...` qui sont des PDF rapports forfaits.
+    """
+    from backend.services import operation_service
+
+    pos = _get_immo_op_index().get(immo_id)
+    if pos is None:
+        return None
+    filename, idx = pos
+    try:
+        ops = operation_service.load_operations(filename)
+    except Exception:
+        invalidate_immo_op_index()
+        return None
+    if idx >= len(ops):
+        invalidate_immo_op_index()
+        return None
+    op = ops[idx]
+    if op.get("immobilisation_id") != immo_id:
+        # Index obsolète — on l'invalide pour reconstruction au prochain accès
+        invalidate_immo_op_index()
+        return None
+
+    lien = (op.get("Lien justificatif") or "").strip()
+    justif_filename: Optional[str] = None
+    if lien and not lien.startswith("reports/"):
+        justif_filename = Path(lien).name or None
+
+    debit_val = op.get("Débit") or 0
+    credit_val = op.get("Crédit") or 0
+    try:
+        debit_f = float(debit_val)
+    except (ValueError, TypeError):
+        debit_f = 0.0
+    try:
+        credit_f = float(credit_val)
+    except (ValueError, TypeError):
+        credit_f = 0.0
+
+    return {
+        "operation_file": filename,
+        "operation_index": idx,
+        "libelle": op.get("Libellé", "") or "",
+        "date": op.get("Date", "") or "",
+        "debit": debit_f,
+        "credit": credit_f,
+        "categorie": op.get("Catégorie", "") or "",
+        "sous_categorie": op.get("Sous-catégorie", "") or "",
+        "justif_filename": justif_filename,
+    }
+
+
+def list_immobilisations_with_source(
+    statut: Optional[str] = None,
+    poste: Optional[str] = None,
+    year: Optional[int] = None,
+) -> list[dict]:
+    """Variante enrichie de `get_all_immobilisations` exposant `has_justif` +
+    `justif_filename` pour chaque immo via la transitivité op.
+
+    Utilise l'index inversé construit lazy. Les filtres standards s'appliquent
+    en amont.
+    """
+    immos = get_all_immobilisations(statut=statut, poste=poste, year=year)
+    op_index = _get_immo_op_index()
+
+    # Pré-charger les fichiers concernés une seule fois pour éviter les N+1 reads
+    from backend.services import operation_service
+    files_needed: set[str] = set()
+    for immo in immos:
+        pos = op_index.get(immo.get("id", ""))
+        if pos:
+            files_needed.add(pos[0])
+    file_cache: dict[str, list[dict]] = {}
+    for filename in files_needed:
+        try:
+            file_cache[filename] = operation_service.load_operations(filename)
+        except Exception:
+            file_cache[filename] = []
+
+    for immo in immos:
+        immo_id = immo.get("id", "")
+        pos = op_index.get(immo_id)
+        has_justif = False
+        justif_filename: Optional[str] = None
+        if pos:
+            filename, idx = pos
+            ops = file_cache.get(filename, [])
+            if 0 <= idx < len(ops):
+                op = ops[idx]
+                if op.get("immobilisation_id") == immo_id:
+                    lien = (op.get("Lien justificatif") or "").strip()
+                    if lien and not lien.startswith("reports/"):
+                        justif_filename = Path(lien).name or None
+                        has_justif = bool(justif_filename)
+        immo["has_justif"] = has_justif
+        immo["justif_filename"] = justif_filename
+
+    return immos
 
 
 # ─── Persistence ───
@@ -80,6 +239,73 @@ def _save_config(data: dict) -> None:
 
 # ─── CRUD ───
 
+def _compute_realized_state(
+    tableau: list[dict],
+    base: float,
+    amortissements_anterieurs: float,
+    today: Optional[date] = None,
+) -> dict:
+    """Calcule l'état réalisé d'une immobilisation à la date `today` (default: aujourd'hui).
+
+    **Bug historique fixé (Session 36)** : avant ce helper, `cumul = sum(tableau)`
+    incluait toutes les lignes (passées ET futures), ce qui faisait apparaître les
+    immos pluriannuelles comme amorties dès l'ouverture du registre. Désormais on ne
+    somme que les exercices ≤ année courante, et pour l'exercice en cours on
+    pro-rate la dotation au jour près (base 360, convention française).
+
+    Retourne `{cumul_realise, vnc_actuelle, avancement_pct, amorti_realise}`.
+    `amorti_realise` est True ssi tous les exercices du tableau sont passés ET la
+    VNC finale est nulle.
+    """
+    if today is None:
+        today = date.today()
+    current_year = today.year
+
+    realized_lines = [
+        l for l in tableau
+        if not l.get("is_backfill") and l.get("exercice", 9999) <= current_year
+    ]
+
+    cumul_passes = sum(
+        l["dotation_brute"] for l in realized_lines
+        if l.get("exercice", 9999) < current_year
+    )
+
+    # Pro-rata année en cours : dotation × jours écoulés / jours_ligne (base 360).
+    # Convention comptable française : (mois × 30) + (jours - 1) au sein de l'année.
+    cumul_courant = 0.0
+    line_courant = next(
+        (l for l in realized_lines if l.get("exercice") == current_year),
+        None,
+    )
+    if line_courant is not None:
+        jours_ligne = max(1, int(line_courant.get("jours") or 360))
+        # Jours écoulés depuis le 1er janvier de l'exercice courant (base 360).
+        jours_ecoules = (today.month - 1) * 30 + (today.day - 1)
+        ratio = min(1.0, max(0.0, jours_ecoules / jours_ligne))
+        cumul_courant = float(line_courant["dotation_brute"]) * ratio
+
+    cumul_realise = cumul_passes + cumul_courant + float(amortissements_anterieurs or 0)
+    vnc_actuelle = max(0.0, base - cumul_realise)
+    avancement_pct = round(cumul_realise / base * 100, 1) if base > 0 else 0
+
+    # Amorti réalisé : toutes les lignes du tableau sont passées + VNC finale nulle
+    non_backfill = [l for l in tableau if not l.get("is_backfill")]
+    last_line = non_backfill[-1] if non_backfill else None
+    amorti_realise = bool(
+        last_line
+        and last_line.get("exercice", 9999) <= current_year
+        and last_line.get("vnc", 1) <= 0.01
+    )
+
+    return {
+        "cumul_realise": round(cumul_realise, 2),
+        "vnc_actuelle": round(vnc_actuelle, 2),
+        "avancement_pct": min(avancement_pct, 100.0),
+        "amorti_realise": amorti_realise,
+    }
+
+
 def get_all_immobilisations(
     statut: Optional[str] = None,
     poste: Optional[str] = None,
@@ -93,15 +319,14 @@ def get_all_immobilisations(
     if year:
         immos = [i for i in immos if i.get("date_acquisition", "").startswith(str(year))]
 
-    # Enrich with computed fields
+    # Enrich with computed fields (réalisé au jour courant — pas le total final)
     for i in immos:
         tableau = compute_tableau(i)
-        cumul = sum(l["dotation_brute"] for l in tableau if not l.get("is_backfill"))
-        base = i.get("base_amortissable", 0)
-        # Pour les immos avec reprise : dotations antérieures + dotations NeuronX
-        cumul_total = cumul + float(i.get("amortissements_anterieurs", 0) or 0)
-        i["avancement_pct"] = round(cumul_total / base * 100, 1) if base > 0 else 0
-        i["vnc_actuelle"] = round(base - cumul_total, 2)
+        base = float(i.get("base_amortissable", 0) or 0)
+        anterieurs = float(i.get("amortissements_anterieurs", 0) or 0)
+        state = _compute_realized_state(tableau, base, anterieurs)
+        i["avancement_pct"] = state["avancement_pct"]
+        i["vnc_actuelle"] = state["vnc_actuelle"]
 
     return immos
 
@@ -111,11 +336,11 @@ def get_immobilisation(immo_id: str) -> Optional[dict]:
     for i in immos:
         if i["id"] == immo_id:
             i["tableau"] = compute_tableau(i)
-            cumul = sum(l["dotation_brute"] for l in i["tableau"] if not l.get("is_backfill"))
-            base = i.get("base_amortissable", 0)
-            cumul_total = cumul + float(i.get("amortissements_anterieurs", 0) or 0)
-            i["avancement_pct"] = round(cumul_total / base * 100, 1) if base > 0 else 0
-            i["vnc_actuelle"] = round(base - cumul_total, 2)
+            base = float(i.get("base_amortissable", 0) or 0)
+            anterieurs = float(i.get("amortissements_anterieurs", 0) or 0)
+            state = _compute_realized_state(i["tableau"], base, anterieurs)
+            i["avancement_pct"] = state["avancement_pct"]
+            i["vnc_actuelle"] = state["vnc_actuelle"]
             return i
     return None
 
@@ -212,10 +437,15 @@ def update_immobilisation(immo_id: str, data: dict) -> Optional[dict]:
             if i.get("date_sortie"):
                 i["statut"] = "sorti"
             tableau = compute_tableau(i)
-            non_backfill = [l for l in tableau if not l.get("is_backfill")]
-            if non_backfill and non_backfill[-1]["vnc"] <= 0:
-                if i["statut"] == "en_cours":
-                    i["statut"] = "amorti"
+            # Le statut « amorti » est posé UNIQUEMENT si l'amortissement est
+            # réellement terminé (dernière ligne du tableau dans le passé +
+            # VNC finale ~0). Avant ce fix, on regardait juste `tableau[-1].vnc`
+            # ce qui basculait les immos pluriannuelles à `amorti` dès la création.
+            base = float(i.get("base_amortissable", 0) or 0)
+            anterieurs = float(i.get("amortissements_anterieurs", 0) or 0)
+            state = _compute_realized_state(tableau, base, anterieurs)
+            if state["amorti_realise"] and i["statut"] == "en_cours":
+                i["statut"] = "amorti"
             _save_immobilisations(immos)
             i["tableau"] = tableau
             return i
@@ -286,6 +516,7 @@ def delete_immobilisation(immo_id: str) -> Optional[dict]:
     # Retirer du registre EN DERNIER — si crash en amont, immo reste cohérente
     immos = [i for i in immos if i["id"] != immo_id]
     _save_immobilisations(immos)
+    invalidate_immo_op_index()
 
     return {
         "status": "deleted",
@@ -903,6 +1134,7 @@ def link_operation_to_immobilisation(filename: str, index: int, immo_id: str) ->
             ops[index]["Catégorie"] = "Immobilisations"
             ops[index]["Sous-catégorie"] = immo.get("poste", "")
         save_operations(ops, filename)
+        invalidate_immo_op_index()
         return ops[index]
     raise ValueError(f"Index {index} invalide pour {filename}")
 
@@ -970,9 +1202,10 @@ def get_kpis(year: Optional[int] = None) -> dict:
         base = float(immo.get("base_amortissable", 0))
         total_base += base
         tableau = compute_tableau(immo)
-        cumul = sum(l["dotation_brute"] for l in tableau if not l.get("is_backfill"))
-        cumul_total = cumul + float(immo.get("amortissements_anterieurs", 0) or 0)
-        vnc = base - cumul_total
+        # VNC réelle au jour courant (et non total après tous exercices futurs).
+        anterieurs = float(immo.get("amortissements_anterieurs", 0) or 0)
+        state = _compute_realized_state(tableau, base, anterieurs)
+        vnc = state["vnc_actuelle"]
         total_vnc += vnc
 
         p = immo.get("poste", "autre")

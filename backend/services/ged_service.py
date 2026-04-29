@@ -270,8 +270,15 @@ def register_rapport(
     format_type: str,
     template_id: Optional[str] = None,
     replaced_filename: Optional[str] = None,
+    linked_justifs: Optional[list[str]] = None,
 ) -> None:
-    """Enregistre un rapport dans le metadata GED."""
+    """Enregistre un rapport dans le metadata GED.
+
+    `linked_justifs` (Optional[list[str]]) : pour les rapports amortissements,
+    liste des basenames de justifs liés aux immos en scope (via transitivité
+    op). Gelée au moment de la génération, consommée par `email_service` pour
+    construire le sous-dossier `Justificatifs_immobilisations/` du ZIP envoyé.
+    """
     metadata = load_metadata()
     docs = metadata.get("documents", {})
 
@@ -304,6 +311,20 @@ def register_rapport(
         categorie = cats[0]
 
     now = datetime.now().isoformat()
+    rapport_meta = {
+        "template_id": template_id,
+        "title": title,
+        "description": description,
+        "filters": filters,
+        "format": format_type,
+        "favorite": False,
+        "generated_at": now,
+        "can_regenerate": True,
+        "can_compare": True,
+    }
+    if linked_justifs is not None:
+        rapport_meta["linked_justifs"] = list(linked_justifs)
+
     docs[doc_id] = {
         "doc_id": doc_id,
         "type": "rapport",
@@ -328,17 +349,7 @@ def register_rapport(
         "ventilation_index": None,
         "is_reconstitue": False,
         "operation_ref": None,
-        "rapport_meta": {
-            "template_id": template_id,
-            "title": title,
-            "description": description,
-            "filters": filters,
-            "format": format_type,
-            "favorite": False,
-            "generated_at": now,
-            "can_regenerate": True,
-            "can_compare": True,
-        },
+        "rapport_meta": rapport_meta,
     }
 
     metadata["documents"] = docs

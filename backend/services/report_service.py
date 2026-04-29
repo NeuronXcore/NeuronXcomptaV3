@@ -159,6 +159,54 @@ def _amort_dotations_title(filters: dict) -> str:
     return base
 
 
+def _compute_linked_justifs(template_id: str, filters: dict, year: Optional[int]) -> list[str]:
+    """Liste les basenames des justifs liés aux immobilisations en scope du rapport.
+
+    Calculée au moment de la génération et stockée dans `rapport_meta.linked_justifs`
+    de la GED. Consommée par `email_service._create_zip()` pour construire le
+    sous-dossier `Justificatifs_immobilisations/` lors de l'envoi comptable.
+    Gelée — pas de re-scan à l'envoi : un rapport envoyé représente l'état des
+    justifs au moment de sa génération.
+    """
+    if template_id not in ("amortissements_registre", "amortissements_dotations"):
+        return []
+    if year is None:
+        return []
+
+    from backend.services import amortissement_service
+
+    immos = amortissement_service.list_immobilisations_with_source(
+        statut=filters.get("statut"),
+        poste=filters.get("poste"),
+        year=year,
+    )
+
+    if template_id == "amortissements_dotations":
+        # Restreindre aux immos avec dotation > 0 sur l'exercice
+        try:
+            dotations = amortissement_service.get_dotations(year)
+            active_ids = {
+                d.get("immobilisation_id")
+                for d in dotations.get("detail", [])
+                if (d.get("dotation_brute") or 0) > 0
+            }
+            immos = [i for i in immos if i.get("id") in active_ids]
+        except Exception:
+            # En cas d'erreur sur le calcul des dotations, on conserve la liste complète
+            pass
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for immo in immos:
+        fn = immo.get("justif_filename") or ""
+        if fn:
+            base = Path(fn).name
+            if base and base not in seen:
+                seen.add(base)
+                out.append(base)
+    return out
+
+
 def _ensure_amortissements_renderers() -> None:
     """Injecte renderer/dedup_key_fn/title_builder sur les templates amortissements.
 
@@ -599,7 +647,9 @@ def get_or_generate(
     index["reports"].append(meta)
     _save_index(index)
 
-    # 4. Enregistrement GED V2 (best-effort)
+    # 4. Enregistrement GED V2 (best-effort) — inclut linked_justifs pour les
+    #    templates amortissements (consommé par email_service au build du ZIP)
+    linked_justifs = _compute_linked_justifs(template_id, filters, year)
     try:
         from backend.services import ged_service
         ged_service.register_rapport(
@@ -611,13 +661,14 @@ def get_or_generate(
             format_type=fmt,
             template_id=template_id,
             replaced_filename=replaced,
+            linked_justifs=linked_justifs if linked_justifs else None,
         )
     except Exception as e:
         logger.warning("Enregistrement GED rapport %s échoué: %s", filename, e)
 
     logger.info(
-        "get_or_generate generated: %s (%s, format=%s, replaced=%s)",
-        filename, dedup_key_str, fmt, replaced,
+        "get_or_generate generated: %s (%s, format=%s, replaced=%s, linked_justifs=%d)",
+        filename, dedup_key_str, fmt, replaced, len(linked_justifs),
     )
     return {**meta, "replaced": replaced, "from_cache": False}
 
@@ -749,7 +800,8 @@ def generate_report(request: dict) -> dict:
     index["reports"].append(meta)
     _save_index(index)
 
-    # Register in GED V2
+    # Register in GED V2 — inclut linked_justifs pour les templates amortissements
+    linked_justifs_legacy = _compute_linked_justifs(template_id, filters, year) if template_id else []
     try:
         from backend.services import ged_service
         ged_service.register_rapport(
@@ -761,6 +813,7 @@ def generate_report(request: dict) -> dict:
             format_type=fmt,
             template_id=template_id,
             replaced_filename=replaced,
+            linked_justifs=linked_justifs_legacy if linked_justifs_legacy else None,
         )
     except Exception:
         pass

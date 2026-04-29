@@ -1208,6 +1208,13 @@ export interface RapportMeta {
   generated_at?: string
   can_regenerate: boolean
   can_compare: boolean
+  /**
+   * Liste des basenames de justifs liés au rapport (rapports amortissements
+   * uniquement). Calculée à la génération via la transitivité immo→op→justif,
+   * gelée dans la metadata GED. Consommée par le ZIP envoi comptable pour
+   * construire le sous-dossier `Justificatifs_immobilisations/` avec dédup.
+   */
+  linked_justifs?: string[]
 }
 
 export type GedKnownType = 'releve' | 'justificatif' | 'rapport' | 'document_libre' | 'liasse_fiscale_scp'
@@ -1441,6 +1448,21 @@ export interface Immobilisation {
   avancement_pct?: number
   vnc_actuelle?: number
   tableau?: LigneAmortissement[]
+  // Enrichi par `list_immobilisations_with_source` (transitivité op → justif)
+  has_justif?: boolean
+  justif_filename?: string | null
+}
+
+export interface ImmobilisationSource {
+  operation_file: string
+  operation_index: number
+  libelle: string
+  date: string
+  debit: number
+  credit: number
+  categorie: string
+  sous_categorie: string
+  justif_filename: string | null
 }
 
 export interface ImmobilisationCreate {

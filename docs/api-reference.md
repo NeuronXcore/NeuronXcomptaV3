@@ -587,10 +587,14 @@ Compare le CA liasse avec les honoraires bancaires crédités de l'année (somme
 - `recapitulatif_social` — Récapitulatif social URSSAF/CARMF/ODM (PDF)
 
 **Amortissements** (catégorie `Amortissements`, renderer custom multi-format PDF/CSV/XLSX) :
-- `amortissements_registre` — Registre des immobilisations. Filtres : `year` (req), `statut` (all/en_cours/amorti/sorti), `poste` (all/<poste>). `dedup_key: amort_registre_{year}_{statut}_{poste}`.
-- `amortissements_dotations` — Tableau des dotations exercice. Filtres : `year` (req), `poste` (all/<poste>). `dedup_key: amort_dotations_{year}_{poste}`.
+- `amortissements_registre` — Registre des immobilisations. Filtres : `year` (req), `statut` (all/en_cours/amorti/sorti), `poste` (all/<poste>). `dedup_key: amort_registre_{year}_{statut}_{poste}`. **Colonne « Justificatif »** (Session 35) : PDF avec icône `✓ filename` violet `#3C3489` ou `✗` gris, ligne TOTAL `N / M` ambre/vert ; CSV/XLSX avec filename complet et mise en forme conditionnelle.
+- `amortissements_dotations` — Tableau des dotations exercice. Filtres : `year` (req), `poste` (all/<poste>). `dedup_key: amort_dotations_{year}_{poste}`. Pas de colonne Justif dédiée mais bénéficie quand même de `linked_justifs` dans `rapport_meta`.
 
 Chaque entrée expose les champs étendus optionnels : `category`, `formats: ["pdf", "csv", "xlsx"]`, `filters_schema` (description des filtres pour génération UI dynamique).
+
+**`linked_justifs` dans `rapport_meta` (Session 35)** : à la génération, `report_service._compute_linked_justifs(template_id, filters, year)` calcule la liste dédupliquée des basenames de justifs liés aux immos en scope (transitivité op → justif via `_get_immo_op_index`). Stocké dans `metadata GED.rapport_meta.linked_justifs: list[str]`. **Gelé à la génération** — pas de re-scan à l'envoi. Pour `amortissements_dotations`, restreint aux immos avec `dotation_brute > 0` sur l'exercice. Backward compat : les rapports legacy sans ce champ sont traités comme `[]`.
+
+Le drawer envoi comptable (`POST /api/email/send`) lit `linked_justifs` pour ajouter un sous-dossier `Justificatifs_immobilisations/` au ZIP, **dédupliqué** contre les justifs cochés manuellement (priorité au sous-dossier dédié). Voir [section Email — `_create_zip` (Session 35)](#email).
 
 ### `POST /generate`
 Générer un rapport avec déduplication (même filtres+format = remplacement).
@@ -1144,6 +1148,15 @@ Envoyer des documents par email. Zippe tous les documents en un seul ZIP, envoie
 **Body :** `EmailSendRequest { documents: DocumentRef[], destinataires, objet?, corps? }`
 
 **Réponse :** `EmailSendResponse { success, message, destinataires, fichiers_envoyes, taille_totale_mo }`
+
+**Sous-dossier `Justificatifs_immobilisations/` (Session 35)** : si la sélection contient un rapport `amortissements_registre` ou `amortissements_dotations`, `email_service._create_zip()` lit `rapport_meta.linked_justifs` (gelé à la génération) via le helper `_collect_linked_justifs(documents)` et applique 3 passes :
+1. Skip des justifs cochés manuellement déjà listés comme linked → priorité au sous-dossier dédié pour la **déduplication** (un justif cliqué + lié à un rapport amortissements n'apparaît qu'une fois dans `Justificatifs_immobilisations/`, pas dans `justificatifs/`).
+2. Ajout des autres docs dans leurs sous-dossiers standards (`justificatifs/`, `rapports/`, `releves/`, `exports/`, `documents/`).
+3. Ajout des justifs liés dans `Justificatifs_immobilisations/` via `justificatif_service.get_justificatif_path(basename, include_reports=False)` (strict `data/justificatifs/`, log warning sans crash si justif manquant physiquement).
+
+Pattern miroir appliqué à `_create_manual_zip()` pour le mode envoi manuel. `_build_doc_tree` (preview email) et `_build_zip_tree` (post-création) reflètent le sous-dossier dans l'arborescence affichée dans l'email HTML brandé. `generate_email_body_plain` ajoute une section dédiée « Justificatifs des immobilisations (N) » en mode plain text.
+
+Constante `IMMO_JUSTIFS_FOLDER = "Justificatifs_immobilisations"` exportée par `email_service`.
 
 ### `GET /history`
 Historique des envois email. **Query params :** `year` (optionnel), `limit` (défaut 50).
@@ -1742,12 +1755,57 @@ Compare 2 rapports. Body : `{ "doc_id_a": "...", "doc_id_b": "..." }`. Retourne 
 ## Amortissements (`/api/amortissements`)
 
 ### `GET /`
-Liste des immobilisations avec champs calculés (`avancement_pct`, `vnc_actuelle`).
+Liste des immobilisations avec champs calculés (`avancement_pct`, `vnc_actuelle`) **enrichie de la transitivité op → justif** (Session 36) : `has_justif: bool` + `justif_filename: Optional[str]`. Évite le N+1 frontend (la cellule paperclip du registre lit ces champs directement).
 
 **Query params :** `statut` (en_cours/amorti/sorti), `poste`, `year`
 
+**Réponse (extrait) :**
+```json
+[
+  {
+    "id": "immo_20260418_0964",
+    "designation": "DU150225LDLCMONTAUBAN MONTAUBAN 2599,99",
+    "date_acquisition": "2025-02-15",
+    "base_amortissable": 2599.99,
+    "duree": 3,
+    "mode": "lineaire",
+    "poste": "informatique",
+    "statut": "en_cours",
+    "avancement_pct": 100,
+    "vnc_actuelle": 0.0,
+    "has_justif": true,
+    "justif_filename": "ldlc_20250215_2599.99.pdf"
+  }
+]
+```
+
+`has_justif` est dérivé via la transitivité op (`Operation.immobilisation_id == immo.id` → `Operation."Lien justificatif"` non vide). Les liens préfixés `reports/...` (PDF rapports forfaits, pas des justifs métier) sont filtrés.
+
 ### `GET /kpis?year=2025`
 KPIs : nb actives/amorties/sorties, nb candidates, dotation exercice, total VNC, ventilation par poste.
+
+### `GET /{immo_id}/source` (Session 36)
+Retourne l'opération source d'une immobilisation + le justificatif lié via transitivité. **Doit être déclaré AVANT `/{immo_id}`** côté router (sinon FastAPI capture `source` comme un id).
+
+**Réponse :** `ImmobilisationSource` ou `null` si pas d'op rattachée (immo créée manuellement ou en reprise).
+
+```json
+{
+  "operation_file": "operations_merged_202502_20260414_234739.json",
+  "operation_index": 42,
+  "libelle": "DU150225LDLCMONTAUBAN MONTAUBAN 2599,99",
+  "date": "2025-02-15",
+  "debit": 2599.99,
+  "credit": 0.0,
+  "categorie": "Matériel",
+  "sous_categorie": "Informatique",
+  "justif_filename": "ldlc_20250215_2599.99.pdf"
+}
+```
+
+**Erreurs :** `404` si immobilisation introuvable.
+
+**Consommé par** : `ImmobilisationDrawer` en mode édition (section « Opération source & justificatif » + bouton « Voir dans l'éditeur ↗ »). Cache TanStack Query 30s, queryKey `['amortissements', 'source', immoId]` invalidée par les mutations create/update/delete/immobiliser.
 
 ### `GET /{immo_id}`
 Détail d'une immobilisation avec tableau d'amortissement complet calculé.

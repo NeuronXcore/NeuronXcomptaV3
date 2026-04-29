@@ -257,6 +257,54 @@ TYPE_FOLDER_MAP = {
     "ged": "documents",
 }
 
+# Sous-dossier dédié aux justificatifs liés à un rapport amortissements présent
+# dans la sélection. Dédupliqué contre `justificatifs/` (priorité au sous-dossier
+# dédié quand le justif apparaît dans `linked_justifs` d'un rapport coché).
+IMMO_JUSTIFS_FOLDER = "Justificatifs_immobilisations"
+
+
+def _collect_linked_justifs(documents: list[DocumentRef]) -> set[str]:
+    """Lit `rapport_meta.linked_justifs` de chaque rapport présent et agrège.
+
+    Lecture seule de `data/ged/ged_metadata.json` — best-effort, log warning
+    sur erreur sans crasher l'envoi.
+    """
+    linked: set[str] = set()
+    has_rapport = any(d.type == "rapport" for d in documents)
+    if not has_rapport:
+        return linked
+    try:
+        from backend.services import ged_service
+        metadata = ged_service.load_metadata()
+        docs_meta = (metadata or {}).get("documents", {}) or {}
+    except Exception as e:
+        logger.warning("Lecture metadata GED échouée pour linked_justifs : %s", e)
+        return linked
+
+    # Construit un index basename → entry pour lookup rapide
+    by_basename: dict[str, dict] = {}
+    for entry in docs_meta.values():
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("type") != "rapport":
+            continue
+        fn = entry.get("filename") or Path(entry.get("doc_id", "")).name
+        if fn:
+            by_basename.setdefault(fn, entry)
+
+    for doc in documents:
+        if doc.type != "rapport":
+            continue
+        entry = by_basename.get(doc.filename)
+        if not entry:
+            continue
+        rapport_meta = entry.get("rapport_meta") or {}
+        for fn in rapport_meta.get("linked_justifs") or []:
+            base = Path(fn).name
+            if base:
+                linked.add(base)
+    return linked
+
 LOGO_PATH = ASSETS_DIR / "logo_lockup_light_400.png"
 LOGO_MARK_PATH = ASSETS_DIR / "logo_mark_64.png"
 LOGO_MARK_HD_PATH = ASSETS_DIR / "logo_mark_200.png"
@@ -269,14 +317,39 @@ MOIS_FR = [
 
 
 def _create_zip(documents: list[DocumentRef], fichiers: list[Path]) -> Path:
-    """Crée un ZIP temporaire contenant tous les documents organisés par type."""
+    """Crée un ZIP temporaire contenant tous les documents organisés par type.
+
+    Si la sélection contient un rapport amortissements avec `linked_justifs`,
+    les justifs liés sont placés dans `Justificatifs_immobilisations/` au lieu
+    de `justificatifs/`. Un justif coché manuellement ET listé comme linked
+    apparaît UNIQUEMENT dans le sous-dossier dédié (déduplication).
+    """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_path = Path(tempfile.gettempdir()) / f"Documents_Comptables_{timestamp}.zip"
 
+    immo_justifs = _collect_linked_justifs(documents)
+
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Passe 1 : ajout des documents standards, en skippant les justifs déjà
+        # marqués comme linked (priorité au sous-dossier dédié)
         for doc, fpath in zip(documents, fichiers):
+            if doc.type == "justificatif" and fpath.name in immo_justifs:
+                continue
             folder = TYPE_FOLDER_MAP.get(doc.type, "autres")
             zf.write(str(fpath), arcname=f"{folder}/{fpath.name}")
+
+        # Passe 2 : sous-dossier `Justificatifs_immobilisations/` —
+        # justifs liés aux rapports amortissements présents dans la sélection
+        for basename in sorted(immo_justifs):
+            try:
+                from backend.services import justificatif_service
+                justif_path = justificatif_service.get_justificatif_path(basename, include_reports=False)
+            except Exception:
+                justif_path = None
+            if justif_path and justif_path.exists():
+                zf.write(str(justif_path), arcname=f"{IMMO_JUSTIFS_FOLDER}/{basename}")
+            else:
+                logger.warning("Justif lié manquant : %s", basename)
 
     return zip_path
 
@@ -496,8 +569,14 @@ def _check_envoi_notes_block(documents: list[DocumentRef]) -> tuple[Optional[str
 
 def generate_email_body_plain(documents: list[DocumentRef], nom: Optional[str] = None) -> str:
     """Génère le corps automatique plain text (fallback pour clients sans HTML)."""
+    immo_justifs = _collect_linked_justifs(documents)
+
     by_type: dict[str, list[DocumentRef]] = {}
     for d in documents:
+        # Justif déjà listé comme linked → omis du groupe `justificatif`,
+        # apparaîtra dans la section dédiée "Justificatifs des immobilisations"
+        if d.type == "justificatif" and d.filename in immo_justifs:
+            continue
         by_type.setdefault(d.type, []).append(d)
 
     type_headers = {
@@ -518,6 +597,13 @@ def generate_email_body_plain(documents: list[DocumentRef], nom: Optional[str] =
         for d in docs:
             display = _clean_filename_for_display(d.filename)
             lines.append(f"  - {display}")
+        lines.append("")
+
+    # Section dédiée — justifs liés à un rapport amortissements présent
+    if immo_justifs:
+        lines.append(f"Justificatifs des immobilisations ({len(immo_justifs)}) :")
+        for basename in sorted(immo_justifs):
+            lines.append(f"  - {_clean_filename_for_display(basename)}")
         lines.append("")
 
     # Injection notes Check d'envoi (mono-période uniquement)
@@ -636,11 +722,25 @@ def _build_zip_tree(zip_path: Path) -> tuple[str, str]:
 
 
 def _build_doc_tree(documents: list[DocumentRef]) -> tuple[str, str]:
-    """Construit une arborescence simulée quand le ZIP n'existe pas (preview)."""
+    """Construit une arborescence simulée quand le ZIP n'existe pas (preview).
+
+    Réplique la logique de `_create_zip` : si un rapport amortissements est
+    présent avec `linked_justifs`, ces justifs apparaissent dans le sous-dossier
+    `Justificatifs_immobilisations/` au lieu de `justificatifs/` (dédup).
+    """
+    immo_justifs = _collect_linked_justifs(documents)
+
     by_folder: dict[str, list[str]] = {}
     for doc in documents:
+        # Justif coché manuellement déjà listé comme linked → skip (apparaîtra
+        # dans le sous-dossier dédié)
+        if doc.type == "justificatif" and doc.filename in immo_justifs:
+            continue
         folder = TYPE_FOLDER_MAP.get(doc.type, "autres")
         by_folder.setdefault(folder, []).append(doc.filename)
+
+    if immo_justifs:
+        by_folder[IMMO_JUSTIFS_FOLDER] = sorted(immo_justifs)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_name = f"Documents_Comptables_{timestamp}.zip"
@@ -826,13 +926,34 @@ def _create_manual_zip(
     fichiers: list[Path],
     zip_path: Path,
 ) -> tuple[float, list[str]]:
+    """Pattern miroir de `_create_zip` pour le mode envoi manuel — incluant le
+    sous-dossier `Justificatifs_immobilisations/` avec déduplication.
+    """
     contenu_tree: list[str] = []
+    immo_justifs = _collect_linked_justifs(documents)
+
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for doc, fpath in zip(documents, fichiers):
+            if doc.type == "justificatif" and fpath.name in immo_justifs:
+                continue
             folder = TYPE_FOLDER_MAP.get(doc.type, "autres")
             arcname = f"{folder}/{fpath.name}"
             zf.write(str(fpath), arcname=arcname)
             contenu_tree.append(arcname)
+
+        for basename in sorted(immo_justifs):
+            try:
+                from backend.services import justificatif_service
+                justif_path = justificatif_service.get_justificatif_path(basename, include_reports=False)
+            except Exception:
+                justif_path = None
+            arcname = f"{IMMO_JUSTIFS_FOLDER}/{basename}"
+            if justif_path and justif_path.exists():
+                zf.write(str(justif_path), arcname=arcname)
+                contenu_tree.append(arcname)
+            else:
+                logger.warning("Justif lié manquant (manual zip) : %s", basename)
+
     size_mo = round(zip_path.stat().st_size / (1024 * 1024), 2)
     return size_mo, sorted(contenu_tree)
 

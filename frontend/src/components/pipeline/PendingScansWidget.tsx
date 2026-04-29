@@ -1,14 +1,16 @@
-import { useState, useMemo, useEffect } from 'react'
+// (Session 35) JustifPreviewLightbox extrait vers components/shared/
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   Paperclip, ChevronDown, ChevronRight, Loader2, Stamp,
-  FileText, Search, Wand2, Eye, X, ExternalLink,
+  FileText, Search, Wand2, Eye,
 } from 'lucide-react'
 import { cn, formatCurrency, isReconstitue, MOIS_FR } from '@/lib/utils'
 import { useJustificatifs, useJustificatifOperationSuggestions } from '@/hooks/useJustificatifs'
 import { useManualAssociate } from '@/hooks/useRapprochement'
+import JustifPreviewLightbox from '@/components/shared/JustifPreviewLightbox'
 import type { JustificatifInfo, OperationSuggestion } from '@/types'
 
 const MAX_VISIBLE = 10
@@ -33,79 +35,6 @@ function extractYearMonth(filename: string): { year: number; month: number } | n
   const m = filename.match(/_(\d{4})(\d{2})\d{2}_/)
   if (!m) return null
   return { year: parseInt(m[1], 10), month: parseInt(m[2], 10) }
-}
-
-interface JustifPreviewLightboxProps {
-  filename: string
-  onClose: () => void
-}
-
-function JustifPreviewLightbox({ filename, onClose }: JustifPreviewLightboxProps) {
-  // Esc pour fermer
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
-  // PDF stream — endpoint backend résout auto en_attente/ vs traites/
-  const previewUrl = `/api/justificatifs/${encodeURIComponent(filename)}/preview`
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface border border-border rounded-lg shadow-2xl flex flex-col w-[90vw] max-w-[1100px] h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText size={16} className="text-text-muted shrink-0" />
-            <span className="text-sm font-medium text-text truncate" title={filename}>
-              {filename}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <a
-              href={previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1.5 text-text-muted hover:text-text rounded-md hover:bg-surface-hover transition-colors"
-              title="Ouvrir dans un nouvel onglet"
-            >
-              <ExternalLink size={14} />
-            </a>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-text-muted hover:text-text rounded-md hover:bg-surface-hover transition-colors"
-              title="Fermer (Esc)"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 min-h-0 bg-black/50">
-          <object
-            data={previewUrl}
-            type="application/pdf"
-            className="w-full h-full"
-            aria-label={`Aperçu de ${filename}`}
-          >
-            <div className="flex items-center justify-center h-full text-text-muted text-sm">
-              Le navigateur ne peut pas afficher ce PDF.{' '}
-              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="ml-1 text-primary underline">
-                Ouvrir dans un onglet
-              </a>
-            </div>
-          </object>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 interface PendingScanCardProps {
