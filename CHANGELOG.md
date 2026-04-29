@@ -8,6 +8,58 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-29) — Cohérence OD forfaits (blanchissage / repas / véhicule signalétique) + badge Forfait + filtre + carte Compta Analytique
+
+Les 3 forfaits déductibles (blanchissage, repas, véhicule) sont désormais visibles uniformément dans l'Éditeur + Justificatifs + Compta Analytique avec un badge cyan dédié. Le véhicule, qui n'avait historiquement aucune écriture comptable (juste un ratio sur poste GED), reçoit une OD signalétique au 31/12 (`Débit=0`/`Crédit=0`) qui sert de point d'accroche pour le PDF rapport sans changer la mécanique de déduction. Toute la chaîne « OD → PDF rapport en GED → trombone cliquable » est réparée pour les 3 sources.
+
+- **Backend — création OD avec champ `source`**
+  - **[`backend/services/charges_forfaitaires_service.py`](backend/services/charges_forfaitaires_service.py)** — `generer_od()` (blanchissage) et `generer_repas()` posent désormais `source: "blanchissage"` / `"repas"` à la création de l'OD au 31/12 (manquait, ce qui cassait silencieusement la détection `sources_attendues` dans `check_envoi_service.py:455`). `appliquer_vehicule()` crée en 7ᵉ étape une **OD signalétique** via le nouveau helper `_create_or_update_vehicule_od(year, ratio_pro, pdf_filename)` (Débit=0/Crédit=0, `source: "vehicule"`, `Catégorie: "Véhicule"`, `Sous-catégorie: "Quote-part professionnelle"`, `Lien justificatif: "reports/quote_part_vehicule_{year}.pdf"`, `lettre: True`). Idempotente (rafraîchit l'existante si retrouvée via `_find_vehicule_od(year)`). `supprimer_vehicule()` appelle `_remove_vehicule_od(year)` en best-effort. La déduction comptable continue de passer par le ratio `deductible_pct` du poste GED `vehicule` — l'OD est purement signalétique, ne touche pas à `charges_pro`.
+
+- **Backend — migration boot idempotente**
+  - **[`backend/main.py`](backend/main.py)** *(nouveau helper)* — `_migrate_forfait_sources_and_links()` appelée dans le `lifespan` AVANT `apply_link_repair`. Phase 1 : pour chaque op `type_operation == "OD"` avec `Catégorie == "Blanchissage professionnel"` ou `Catégorie == "Repas pro" ET Sous-catégorie == "Repas seul"`, pose `source` si vide ET restaure `Lien justificatif` si vide via lookup pattern `{source}_{year}*.pdf` dans `data/reports/`. Phase 2 : pour chaque `data/baremes/vehicule_{year}.json` avec `ratio_pro_applique` non null + PDF `quote_part_vehicule_{year}.pdf` présent, crée l'OD signalétique via `_create_or_update_vehicule_od` (cas user existant). Idempotente : 2ᵉ run = 0 modif silencieux. Logs `info` séparés pour sources / liens / OD véhicule créées.
+
+- **Backend — préservation paths `reports/...` dans `apply_link_repair`**
+  - **[`backend/services/justificatif_service.py`](backend/services/justificatif_service.py)** — `scan_link_issues()` (~ligne 1218) ne marque plus comme `ghost_refs` les liens préfixés `reports/` qui pointent vers un PDF existant dans `data/reports/` (`if (REPORTS_DIR / name).exists(): continue`). Avant ce fix, `apply_link_repair` au boot purgeait silencieusement les `Lien justificatif: "reports/..."` (faux positif — il considérait ces fichiers comme absents du dossier `data/justificatifs/`), ce qui rendait les PDF rapports OD blanchissage/repas/véhicule inaccessibles depuis l'Éditeur. Bug confirmé sur l'instance utilisateur (2 OD blanchissage+repas avec `Lien justificatif: ""` retrouvé après inspection du fichier décembre 2025).
+
+- **Backend — endpoint preview/thumbnail/open-native avec fallback `data/reports/`**
+  - **[`backend/services/justificatif_service.py`](backend/services/justificatif_service.py)** — `get_justificatif_path(filename, include_reports: bool = False)` accepte un opt-in `include_reports=True` qui ajoute `data/reports/` comme 3ᵉ fallback (après `en_attente/` et `traites/`). En lecture seule. Les mutations (`delete_justificatif`, `rename_justificatif`, OCR background dans `_run_ocr_background`) restent par défaut sans le fallback — protection contre la suppression/rename accidentels d'un PDF rapport.
+  - **[`backend/routers/justificatifs.py`](backend/routers/justificatifs.py)** — `GET /{filename}/preview`, `/thumbnail`, `POST /open-native` passent désormais `include_reports=True`. Le trombone des OD forfaits ouvre directement le PDF rapport stocké dans `data/reports/` (transparent côté frontend, pas de changement UI nécessaire).
+
+- **Frontend — composant ForfaitBadge + intégration**
+  - **[`frontend/src/components/shared/ForfaitBadge.tsx`](frontend/src/components/shared/ForfaitBadge.tsx)** *(nouveau)* — badge cliquable cyan (palette `#CFF1F1` bg, `#0E5566` text, `#5BB7B7` border), icône `Sparkles` (Lucide), libellé adaptatif `Forfait blanchissage` / `Forfait repas` / `Forfait véhicule` selon prop `source`. Pattern miroir `DotationBadge` / `ImmoBadge`. Clic → `navigate('/charges-forfaitaires?tab={source}')`. Tooltip `Écriture OD · forfait {source} (charge déductible 31/12)`.
+  - **[`frontend/src/components/editor/EditorPage.tsx`](frontend/src/components/editor/EditorPage.tsx)** + **[`frontend/src/components/justificatifs/JustificatifsPage.tsx`](frontend/src/components/justificatifs/JustificatifsPage.tsx)** + **[`frontend/src/pages/AlertesPage.tsx`](frontend/src/pages/AlertesPage.tsx)** — détection `forfaitSource = (op.source === 'blanchissage' || op.source === 'repas' || op.source === 'vehicule') ? op.source : null`, badge intégré dans le wrapper `<div className="flex flex-wrap gap-1 mb-1">` qui regroupe les autres badges (Note de frais / Immo / Dotation).
+
+- **Frontend — filtre `OperationTypeFilter` + dropdowns**
+  - **[`frontend/src/lib/utils.ts`](frontend/src/lib/utils.ts)** — type `OperationTypeFilter` étendu avec `'forfait'`. `matchesOperationType` ajoute `case 'forfait': return op.source === 'blanchissage' || op.source === 'repas' || op.source === 'vehicule'`. **Effet bénéfique automatique** : le filtre `bancaire` (`!op.source && !op.immobilisation_id`) exclut désormais les 3 forfaits — cohérent avec la dotation amortissement déjà exclue.
+  - **EditorPage** + **JustificatifsPage** + **AlertesPage** — option `<option value="forfait">Forfait</option>` ajoutée au dropdown `Type d'opération`.
+
+- **Frontend — 5ᵉ carte « Forfait » dans `RepartitionParTypeCard`**
+  - **[`frontend/src/components/compta-analytique/ComptaAnalytiquePage.tsx`](frontend/src/components/compta-analytique/ComptaAnalytiquePage.tsx)** — `RepartitionParTypeCard` étendu à 5 cartes (Bancaire / Notes de frais / Immobilisations / Dotation / **Forfait**). `forfaitDebit = (blanchissage?.debit ?? 0) + (repas?.debit ?? 0) + (vehicule?.debit ?? 0)` ; `forfaitCount` somme les 3 sources. Grid `lg:grid-cols-4` → `lg:grid-cols-5`. Palette cyan cohérente avec `ForfaitBadge`. Sur l'instance user 2025 : 5 010,70 € sur 3 ops = 1.2 % du total dépenses.
+
+### Added (2026-04-29) — Garde stricte saisie hors mois (Éditeur handleSave)
+
+Empêche la pollution accidentelle d'un fichier mensuel quand l'utilisateur saisit une date hors du mois du fichier ouvert (typiquement via « + Ligne ▾ → Note de frais (CB perso) » avec une date d'un autre mois). Bug observé : 3 ops mars 2026 (essence) + 1 op avril 2026 ajoutées par erreur dans le fichier décembre 2025 (`operations_merged_202512_*.json`). Cleanup data en parallèle (cf. ci-dessous).
+
+- **[`frontend/src/components/editor/EditorPage.tsx`](frontend/src/components/editor/EditorPage.tsx)** — `handleSave` extrait le `YYYYMM` du filename via regex `operations_(merged|split|manual)_(\d{4})(\d{2})_` (les fichiers d'import bancaire libres au pattern non standard sont exemptés — ils peuvent légitimement couvrir 2 mois à cheval). Si une op a une `Date` qui ne commence pas par `{YYYY}-{MM}`, le save est refusé avec un toast d'erreur 6 secondes : `{N} ligne(s) hors du mois {MOIS_FR} {YYYY} ({jusqu'à 3 dates exemples}). Bascule sur le bon mois pour saisir ces lignes.`. Validation côté frontend uniquement — un client API direct peut toujours forcer une saisie cross-mois (cas légitime utilisé par `_find_or_create_december_file` pour les OD forfaits/dotation au 31/12).
+
+### Added (2026-04-29) — Auto-rapprochement scope-mois à l'import du relevé bancaire
+
+Les justificatifs scannés AVANT l'import d'un relevé bancaire restaient en `en_attente/` même après l'import (auto-rapprochement non re-déclenché sur les justifs déjà OCR-isés). L'utilisateur devait cliquer manuellement « Associer automatiquement » dans la JustificatifsPage. Désormais l'auto-rapprochement se relance automatiquement à la fin de l'import, scopé sur le mois dominant des ops importées (perf ~0,2 s vs 1-2 s en global).
+
+- **[`backend/routers/operations.py`](backend/routers/operations.py)** — `POST /api/operations/import` calcule le mois dominant des ops importées via un dict `month_counts: dict[str, int]` (clé `YYYY-MM`, valeur = nombre d'ops). Si `month_counts` non vide, lance `rapprochement_service.run_auto_rapprochement(dominant_year, dominant_month)` en `BackgroundTasks`. Fallback global (sans scope) si aucune date exploitable dans les ops importées. Le scope ±1 mois est déjà supporté par `run_auto_rapprochement` ([backend/services/rapprochement_service.py:954](backend/services/rapprochement_service.py:954)) et bénéficie du cache ML cleared en début de run.
+
+### Fixed (2026-04-29) — Cleanup data ad-hoc : 4 ops mal placées (cross-mois) + reindex GED/OCR
+
+Cleanup ponctuel sur l'instance utilisateur, applicable à toute installation présentant le même symptôme.
+
+- **3 ops mars 2026** (essence : 19/03 133,81 €, 25/03 25,99 €, 28/03 141,56 €) déplacées du fichier `operations_merged_202512_20260414_234739.json` (décembre 2025) vers `operations_manual_202603_7b199f8d.json` (mars 2026). Indices originaux 0, 1, 2 → fichier décembre passe de 90 à 87 ops.
+- **1 op avril 2026** (15/04, débit 0) déplacée du fichier `operations_manual_202603_7b199f8d.json` (mars 2026, mal nommé) vers nouveau fichier `operations_manual_202604_81b1e054.json` (avril 2026). Format hex8 cohérent avec `operation_service.create_empty_file`.
+- **1 fichier mars 2026 vide en doublon supprimé** : `operations_manual_202603_33135d29.json` (0 ops) — le user en avait 2 fichiers mars 2026 coexistants.
+- **49 refs GED** reindexées dans `data/ged/ged_metadata.json` (formats `dict {file, index, ventilation_index}` et string `"file:index"` tous deux supportés). Indices > 2 dans le fichier décembre décrémentés de 3.
+- **5 refs OCR** reindexées dans `data/justificatifs/{en_attente,traites}/*.ocr.json`.
+- **2 refs orphelines** détectées et redirigées vers le nouveau fichier mars 2026 (fac-similés essence 20260319 + 20260325 qui pointaient vers les anciens indices 0/1 du fichier décembre).
+- **Backups** : `data/imports/operations/_archive/{file}.bak_20260429_123048` (3 fichiers : décembre, mars, ged_metadata).
+
 ### Added (2026-04-29) — Suppression d'immobilisation cascade + toast de confirmation custom
 
 Bouton de suppression d'immobilisation enfin disponible dans l'UI (le hook `useDeleteImmobilisation` existait depuis longtemps mais n'était consommé nulle part), avec cascade backend qui dénoue proprement l'opération bancaire liée et un toast de confirmation custom élégant qui remplace le `window.confirm` natif.

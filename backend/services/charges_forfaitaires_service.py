@@ -184,6 +184,7 @@ class ChargesForfaitairesService:
             "alertes_resolues": [],
             "lettre": True,
             "type_operation": "OD",
+            "source": "blanchissage",
         }
         operations.append(od)
         od_index = len(operations) - 1
@@ -649,6 +650,7 @@ class ChargesForfaitairesService:
             "alertes_resolues": [],
             "lettre": True,
             "type_operation": "OD",
+            "source": "repas",
         }
         operations.append(od)
         od_index = len(operations) - 1
@@ -984,6 +986,10 @@ class ChargesForfaitairesService:
         4. Générer le PDF rapport dans data/reports/
         5. Enregistrer dans la GED comme type "rapport"
         6. Mettre à jour l'historique dans le barème véhicule
+        7. Créer / rafraîchir l'OD signalétique au 31/12 (Débit=0/Crédit=0,
+           source=vehicule, lien justificatif vers le PDF rapport) — purement
+           visuelle dans Édition/Justificatifs ; le ratio comptable reste
+           appliqué via le poste GED `vehicule.deductible_pct`.
         """
         calc_request = VehiculeRequest(
             year=request.year,
@@ -1035,6 +1041,16 @@ class ChargesForfaitairesService:
         })
         self._save_bareme_vehicule(request.year, bareme)
 
+        # 7. Créer ou rafraîchir l'OD signalétique au 31/12
+        try:
+            self._create_or_update_vehicule_od(
+                year=request.year,
+                ratio_pro=result.ratio_pro,
+                pdf_filename=pdf_filename,
+            )
+        except Exception as e:
+            logger.warning(f"Création OD signalétique véhicule {request.year} échouée: {e}")
+
         return ApplyVehiculeResponse(
             ratio_pro=result.ratio_pro,
             ancien_ratio=ancien_ratio,
@@ -1042,6 +1058,111 @@ class ChargesForfaitairesService:
             ged_doc_id=ged_doc_id,
             poste_updated=poste_updated,
         )
+
+    def _find_vehicule_od(self, year: int) -> Optional[tuple[str, int]]:
+        """Cherche l'OD signalétique véhicule existante. Retourne (filename, index) ou None."""
+        marker = f"Charge forfaitaire véhicule {year}"
+        for fp in sorted(IMPORTS_OPERATIONS_DIR.glob("operations_*.json")):
+            try:
+                ops = json.loads(fp.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(ops, list):
+                continue
+            for i, op in enumerate(ops):
+                if (op.get("source") == "vehicule"
+                        and op.get("type_operation") == "OD"
+                        and (op.get("Commentaire") or "").startswith(marker)):
+                    return fp.name, i
+        return None
+
+    def _create_or_update_vehicule_od(
+        self, year: int, ratio_pro: float, pdf_filename: str
+    ) -> tuple[str, int]:
+        """Crée ou met à jour l'OD signalétique véhicule au 31/12.
+
+        L'OD est purement visuelle (Débit=0, Crédit=0) — elle sert UNIQUEMENT à
+        rendre le PDF rapport quote-part visible dans l'Éditeur et la
+        JustificatifsPage via le champ `Lien justificatif`. Le mécanisme de
+        déduction comptable réelle reste le ratio sur poste GED `vehicule`.
+
+        Idempotente : si une OD signalétique existe déjà pour cette année, on la
+        rafraîchit (ratio, lien justif, libellé) ; sinon on l'append au fichier
+        de décembre.
+
+        Retourne (filename, index).
+        """
+        existing = self._find_vehicule_od(year)
+        date_ecriture = f"{year}-12-31"
+        libelle = f"Quote-part professionnelle véhicule {year} — ratio {ratio_pro:.0f}%"
+        commentaire = (
+            f"Charge forfaitaire véhicule {year} — quote-part {ratio_pro:.0f}% "
+            "(OD signalétique, déduction réelle via le poste GED 'vehicule')"
+        )
+        lien = f"reports/{pdf_filename}"
+
+        if existing:
+            filename, idx = existing
+            filepath = IMPORTS_OPERATIONS_DIR / filename
+            ops = json.loads(filepath.read_text(encoding="utf-8"))
+            op = ops[idx]
+            op["Date"] = date_ecriture
+            op["Libellé"] = libelle
+            op["Débit"] = 0
+            op["Crédit"] = 0
+            op["Catégorie"] = "Véhicule"
+            op["Sous-catégorie"] = "Quote-part professionnelle"
+            op["Justificatif"] = True
+            op["Lien justificatif"] = lien
+            op["Commentaire"] = commentaire
+            op["lettre"] = True
+            op["type_operation"] = "OD"
+            op["source"] = "vehicule"
+            filepath.write_text(json.dumps(ops, ensure_ascii=False, indent=2), encoding="utf-8")
+            return filename, idx
+
+        # Création
+        target_file = self._find_or_create_december_file(year)
+        filepath = IMPORTS_OPERATIONS_DIR / target_file
+        ops = json.loads(filepath.read_text(encoding="utf-8"))
+        od = {
+            "Date": date_ecriture,
+            "Libellé": libelle,
+            "Débit": 0,
+            "Crédit": 0,
+            "Catégorie": "Véhicule",
+            "Sous-catégorie": "Quote-part professionnelle",
+            "Justificatif": True,
+            "Lien justificatif": lien,
+            "Important": False,
+            "A_revoir": False,
+            "Commentaire": commentaire,
+            "alertes": [],
+            "compte_attente": False,
+            "alertes_resolues": [],
+            "lettre": True,
+            "type_operation": "OD",
+            "source": "vehicule",
+        }
+        ops.append(od)
+        idx = len(ops) - 1
+        filepath.write_text(json.dumps(ops, ensure_ascii=False, indent=2), encoding="utf-8")
+        return target_file, idx
+
+    def _remove_vehicule_od(self, year: int) -> bool:
+        """Supprime l'OD signalétique véhicule. Retourne True si supprimée."""
+        existing = self._find_vehicule_od(year)
+        if not existing:
+            return False
+        filename, idx = existing
+        filepath = IMPORTS_OPERATIONS_DIR / filename
+        ops = json.loads(filepath.read_text(encoding="utf-8"))
+        if 0 <= idx < len(ops):
+            ops.pop(idx)
+            filepath.write_text(json.dumps(ops, ensure_ascii=False, indent=2), encoding="utf-8")
+            logger.info(f"OD signalétique véhicule {year} supprimée: {filename}#{idx}")
+            return True
+        return False
 
     # ── Véhicule : helpers internes ──
 
@@ -1453,10 +1574,16 @@ class ChargesForfaitairesService:
     # ── Véhicule : suppression (pour regénérer) ──
 
     def supprimer_vehicule(self, year: int) -> bool:
-        """Supprime PDF + GED + reset barème (garde historique)."""
+        """Supprime PDF + GED + OD signalétique + reset barème (garde historique)."""
         bareme = self._load_bareme_vehicule(year)
         if not bareme.get("date_derniere_application"):
             return False
+
+        # Supprimer l'OD signalétique au 31/12 (best-effort)
+        try:
+            self._remove_vehicule_od(year)
+        except Exception as e:
+            logger.warning(f"Suppression OD véhicule {year} échouée: {e}")
 
         # Supprimer le PDF
         pdf_path = REPORTS_DIR / f"quote_part_vehicule_{year}.pdf"

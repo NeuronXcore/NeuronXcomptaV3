@@ -1387,13 +1387,20 @@ Page Charges forfaitaires (/charges-forfaitaires) → ChargesForfaitairesPage
   │       └─ Boutons : Ouvrir GED / Regénérer / Envoyer au comptable
   │
   ├─ Backend : ChargesForfaitairesService
-  │   ├─ Blanchissage : calcul, OD décembre, PDF ReportLab, GED
-  │   ├─ Repas : calcul forfait (plafond − seuil × jours), OD décembre, PDF, GED
-  │   ├─ Véhicule : calcul ratio, update poste GED, PDF avec dépenses, GED, historique barème
+  │   ├─ Blanchissage : calcul, OD décembre (source="blanchissage", Débit=montant), PDF ReportLab, GED
+  │   ├─ Repas : calcul forfait (plafond − seuil × jours), OD décembre (source="repas", Débit=montant), PDF, GED
+  │   ├─ Véhicule : calcul ratio, update poste GED, PDF avec dépenses, GED, historique barème,
+  │   │              + OD SIGNALÉTIQUE 31/12 (source="vehicule", Débit=0/Crédit=0) — visible dans
+  │   │              Editor/Justificatifs avec badge cyan "Forfait véhicule" et trombone vers PDF rapport.
+  │   │              Helpers _create_or_update_vehicule_od / _remove_vehicule_od / _find_vehicule_od.
+  │   │              La déduction comptable continue de passer par le ratio deductible_pct du poste GED.
   │   ├─ Barèmes : blanchissage_{year}.json + repas_{year}.json + vehicule_{year}.json (fallback année récente)
   │   ├─ PDF : data/reports/ (blanchissage_*.pdf, repas_*.pdf, quote_part_vehicule_*.pdf)
   │   ├─ GED : type "rapport" + source_module "charges-forfaitaires"
-  │   └─ Config : data/charges_forfaitaires_config.json (par année, champs partagés + véhicule)
+  │   ├─ Config : data/charges_forfaitaires_config.json (par année, champs partagés + véhicule)
+  │   └─ Migration boot _migrate_forfait_sources_and_links (lifespan, AVANT apply_link_repair) :
+  │       phase 1 pose source manquant + restaure Lien justificatif vide via lookup reports/
+  │       phase 2 crée OD signalétique véhicule pour barèmes déjà appliqués (ratio_pro_applique non null)
   │
   ├─ Composants partagés :
   │   ├─ PdfPreviewDrawer.tsx : drawer 700px avec object PDF + boutons ouvrir/télécharger/fermer

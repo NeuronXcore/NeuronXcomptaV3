@@ -220,8 +220,33 @@ async def import_pdf(file: UploadFile = File(...), background_tasks: BackgroundT
         operations, pdf_bytes=pdf_bytes, pdf_hash=pdf_hash
     )
 
-    # Déclencher le rapprochement auto en arrière-plan
-    background_tasks.add_task(rapprochement_service.run_auto_rapprochement)
+    # Déclencher le rapprochement auto en arrière-plan, scopé sur le mois
+    # dominant des ops importées (perf : ~0.2s scope mois vs 1-2s global).
+    # Permet aux justifs scannés AVANT l'import (en_attente/) de s'auto-associer
+    # immédiatement aux nouvelles ops bancaires.
+    dominant_year: Optional[int] = None
+    dominant_month: Optional[int] = None
+    month_counts: dict[str, int] = {}
+    for op in operations:
+        d = (op.get("Date") or "")
+        if len(d) >= 7:
+            month_counts[d[:7]] = month_counts.get(d[:7], 0) + 1
+    if month_counts:
+        dominant_ym = max(month_counts.items(), key=lambda x: x[1])[0]
+        try:
+            yyyy, mm = dominant_ym.split("-")
+            dominant_year = int(yyyy)
+            dominant_month = int(mm)
+        except (ValueError, IndexError):
+            pass
+    if dominant_year and dominant_month:
+        background_tasks.add_task(
+            rapprochement_service.run_auto_rapprochement,
+            dominant_year,
+            dominant_month,
+        )
+    else:
+        background_tasks.add_task(rapprochement_service.run_auto_rapprochement)
 
     return {
         "filename": filename,

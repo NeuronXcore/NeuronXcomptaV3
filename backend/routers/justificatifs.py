@@ -100,8 +100,13 @@ async def reverse_lookup_justificatif(filename: str):
 
 @router.get("/{filename}/preview")
 async def preview_justificatif(filename: str):
-    """Sert le fichier PDF pour preview dans iframe."""
-    filepath = justificatif_service.get_justificatif_path(filename)
+    """Sert le fichier PDF pour preview dans iframe.
+
+    `include_reports=True` permet aussi de servir les PDF rapports forfaits
+    (blanchissage, repas, dotation, véhicule) stockés dans `data/reports/` et
+    référencés depuis les OD via `Lien justificatif: "reports/{filename}"`.
+    """
+    filepath = justificatif_service.get_justificatif_path(filename, include_reports=True)
     if not filepath:
         raise HTTPException(status_code=404, detail="Justificatif non trouvé")
     return FileResponse(
@@ -115,14 +120,18 @@ async def preview_justificatif(filename: str):
 @router.get("/{filename}/thumbnail")
 async def thumbnail_justificatif(filename: str):
     """Sert la thumbnail PNG d'un justificatif en résolvant automatiquement
-    sa location (en_attente ou traites). Délègue à ged_service qui génère la
-    thumbnail à la volée via pdf2image + cache.
+    sa location (en_attente, traites ou reports). Délègue à ged_service qui
+    génère la thumbnail à la volée via pdf2image + cache.
 
     Créé pour fixer le bug du drawer Rapprochement qui hard-codait le chemin
     `en_attente/` — un justificatif déjà associé et déplacé vers `traites/`
     retournait alors 404 et affichait une page blanche dans la preview.
+
+    `include_reports=True` étend la résolution aux PDF rapports forfaits
+    (data/reports/) pour que le trombone des OD blanchissage/repas affiche
+    bien la vignette du PDF rapport en GED.
     """
-    filepath = justificatif_service.get_justificatif_path(filename)
+    filepath = justificatif_service.get_justificatif_path(filename, include_reports=True)
     if not filepath:
         raise HTTPException(status_code=404, detail="Justificatif non trouvé")
 
@@ -142,9 +151,12 @@ async def thumbnail_justificatif(filename: str):
 
 @router.post("/{filename}/open-native")
 async def open_native(filename: str):
-    """Ouvre le justificatif dans l'application native (Aperçu macOS)."""
+    """Ouvre le justificatif dans l'application native (Aperçu macOS).
+
+    `include_reports=True` couvre aussi les PDF rapports forfaits liés aux OD.
+    """
     import subprocess
-    filepath = justificatif_service.get_justificatif_path(filename)
+    filepath = justificatif_service.get_justificatif_path(filename, include_reports=True)
     if not filepath:
         raise HTTPException(status_code=404, detail="Justificatif non trouvé")
     try:

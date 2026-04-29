@@ -45,6 +45,7 @@ import { useImmobilisations } from '@/hooks/useAmortissements'
 import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
 import ImmoBadge from '@/components/shared/ImmoBadge'
 import DotationBadge from '@/components/shared/DotationBadge'
+import ForfaitBadge from '@/components/shared/ForfaitBadge'
 import { useCategories, useSettings } from '@/hooks/useApi'
 import { useBatchHints } from '@/hooks/useRapprochement'
 import { useDissociate, useDeleteJustificatif } from '@/hooks/useJustificatifs'
@@ -762,6 +763,32 @@ export default function EditorPage() {
       }
       return op
     })
+
+    // Garde stricte : refuser le save si une op a une date hors du mois du fichier.
+    // Évite les saisies "+ Note de frais" avec date d'un autre mois qui pollueraient
+    // le fichier courant. Ne s'applique qu'aux fichiers nommés avec le pattern
+    // `_YYYYMM_` (merged/split/manual) — les fichiers d'import bancaire libres
+    // peuvent légitimement couvrir plusieurs mois.
+    const fileMonthMatch = selectedFile.match(/operations_(?:merged|split|manual)_(\d{4})(\d{2})_/)
+    if (fileMonthMatch) {
+      const yyyy = fileMonthMatch[1]
+      const mm = fileMonthMatch[2]
+      const expectedPrefix = `${yyyy}-${mm}`
+      const offending = cleanedOps.filter(op => {
+        const d = (op.Date || '').toString()
+        return d.length >= 7 && !d.startsWith(expectedPrefix)
+      })
+      if (offending.length > 0) {
+        const examples = [...new Set(offending.map(o => o.Date))].slice(0, 3).join(', ')
+        const monthLabel = `${MOIS_FR[parseInt(mm) - 1]} ${yyyy}`
+        toast.error(
+          `${offending.length} ligne(s) hors du mois ${monthLabel} (${examples}). Bascule sur le bon mois pour saisir ces lignes.`,
+          { duration: 6000 }
+        )
+        return
+      }
+    }
+
     saveMutation.mutate(
       { filename: selectedFile, operations: cleanedOps },
       {
@@ -947,9 +974,16 @@ export default function EditorPage() {
         const isNoteDeFrais = row.original.source === 'note_de_frais'
         const immoId = row.original.immobilisation_id
         const isDotation = row.original.source === 'amortissement'
+        const forfaitSource = (
+          row.original.source === 'blanchissage'
+          || row.original.source === 'repas'
+          || row.original.source === 'vehicule'
+        )
+          ? row.original.source as 'blanchissage' | 'repas' | 'vehicule'
+          : null
         const opDate = row.original.Date || ''
         const opYear = opDate ? parseInt(opDate.slice(0, 4)) : new Date().getFullYear()
-        const hasBadges = isNoteDeFrais || !!immoId || isDotation
+        const hasBadges = isNoteDeFrais || !!immoId || isDotation || !!forfaitSource
         return (
           <div className="relative flex flex-col">
             {color && (
@@ -990,6 +1024,12 @@ export default function EditorPage() {
                     onClick={() => navigate(
                       `/visualization?year=${opYear}&category=${encodeURIComponent('Dotations aux amortissements')}`
                     )}
+                  />
+                )}
+                {forfaitSource && (
+                  <ForfaitBadge
+                    source={forfaitSource}
+                    onClick={() => navigate(`/charges-forfaitaires?tab=${forfaitSource}`)}
                   />
                 )}
               </div>
@@ -2199,6 +2239,7 @@ export default function EditorPage() {
               <option value="note_de_frais">Notes de frais</option>
               <option value="immobilisation">Immobilisations</option>
               <option value="dotation">Dotations</option>
+              <option value="forfait">Forfaits</option>
             </select>
           </div>
           <div>

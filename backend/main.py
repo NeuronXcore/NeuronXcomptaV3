@@ -11,6 +11,7 @@ import logging
 from contextlib import asynccontextmanager
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -288,6 +289,139 @@ def _migrate_amortissement_config() -> None:
             log.info(f"✓ {added_reprise} immo(s) enrichie(s) avec champs reprise (None par défaut)")
 
 
+def _migrate_forfait_sources_and_links() -> None:
+    """Migration idempotente des OD forfaits blanchissage / repas.
+
+    Pour chaque op `type_operation == "OD"` dans data/imports/operations/*.json :
+      - Si `Catégorie == "Blanchissage professionnel"` ET `source` vide → set `source = "blanchissage"`.
+      - Si `Catégorie == "Repas pro"` ET `Sous-catégorie == "Repas seul"` ET `source` vide → set `source = "repas"`.
+      - Si `Lien justificatif` vide ET source identifiée → cherche le PDF rapport dans
+        `data/reports/` par pattern (`blanchissage_{year}_*.pdf` ou `repas_{year}_*.pdf`)
+        et restaure `Lien justificatif = "reports/{filename}"` + `Justificatif = True`.
+
+    Skip silencieux si tout est déjà cohérent. Pas de risque de re-clear par
+    `apply_link_repair` car `_collect_referenced_justificatifs` préserve désormais
+    les paths `reports/...` pointant vers un PDF existant.
+    """
+    from backend.core.config import IMPORTS_OPERATIONS_DIR, REPORTS_DIR  # noqa: F401 (REPORTS_DIR utilisé en phase 2)
+    log = logging.getLogger(__name__)
+    ops_dir = Path(IMPORTS_OPERATIONS_DIR)
+    if not ops_dir.exists():
+        return
+
+    sources_added = 0
+    links_restored = 0
+
+    def _find_report_pdf(source: str, year: int) -> Optional[str]:
+        """Cherche un PDF rapport dans data/reports/ par préfixe `source_YYYY*.pdf`.
+
+        Pattern réel : `blanchissage_YYYYMMDD_montant.pdf` ou
+        `repas_YYYYMMDD_montant.pdf` (cf. charges_forfaitaires_service).
+        Le glob `{source}_{year}*.pdf` capture `{source}_{year}1231_*.pdf` et
+        s'aligne sur le fallback de `get_forfaits_generes()`.
+        """
+        if not REPORTS_DIR.exists():
+            return None
+        candidates = sorted(REPORTS_DIR.glob(f"{source}_{year}*.pdf"))
+        if not candidates:
+            return None
+        # En cas de multiples (regen historique), prendre le plus récent (mtime)
+        candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return candidates[0].name
+
+    for fp in ops_dir.glob("operations_*.json"):
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, list):
+            continue
+        changed = False
+        for op in data:
+            if op.get("type_operation") != "OD":
+                continue
+
+            cat = op.get("Catégorie") or ""
+            sub = op.get("Sous-catégorie") or ""
+
+            forfait_source: Optional[str] = None
+            if cat == "Blanchissage professionnel":
+                forfait_source = "blanchissage"
+            elif cat == "Repas pro" and sub == "Repas seul":
+                forfait_source = "repas"
+            else:
+                continue
+
+            # 1. Pose source si vide
+            if not (op.get("source") or "").strip():
+                op["source"] = forfait_source
+                sources_added += 1
+                changed = True
+
+            # 2. Restaure Lien justificatif si vide
+            current_link = (op.get("Lien justificatif") or "").strip()
+            if not current_link:
+                date_str = (op.get("Date") or "")
+                try:
+                    year = int(date_str[:4])
+                except (ValueError, TypeError):
+                    continue
+                pdf_name = _find_report_pdf(forfait_source, year)
+                if pdf_name:
+                    op["Lien justificatif"] = f"reports/{pdf_name}"
+                    op["Justificatif"] = True
+                    links_restored += 1
+                    changed = True
+
+        if changed:
+            fp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if sources_added or links_restored:
+        log.info(
+            f"Migration OD forfaits: sources={sources_added} ajoutées, "
+            f"liens={links_restored} restaurés"
+        )
+
+    # Phase 2 : OD signalétique véhicule pour les barèmes déjà appliqués.
+    # Le véhicule ne créait historiquement aucune OD bancaire ; on en crée une
+    # signalétique (Débit=0/Crédit=0) pour rendre le PDF rapport visible dans
+    # Édition/Justificatifs au même titre que blanchissage/repas. La déduction
+    # comptable continue de passer par le ratio sur poste GED `vehicule`.
+    try:
+        from backend.core.config import BAREMES_DIR
+        from backend.services.charges_forfaitaires_service import ChargesForfaitairesService
+        if BAREMES_DIR.exists():
+            service: Optional[ChargesForfaitairesService] = None
+            for bareme_fp in sorted(BAREMES_DIR.glob("vehicule_*.json")):
+                try:
+                    bareme = json.loads(bareme_fp.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                ratio = bareme.get("ratio_pro_applique")
+                date_app = bareme.get("date_derniere_application")
+                if ratio is None or not date_app:
+                    continue
+                # Extraire l'année du filename : vehicule_YYYY.json
+                try:
+                    year_str = bareme_fp.stem.split("_", 1)[1]
+                    year = int(year_str)
+                except (IndexError, ValueError):
+                    continue
+                pdf_filename = f"quote_part_vehicule_{year}.pdf"
+                pdf_path = REPORTS_DIR / pdf_filename
+                if not pdf_path.exists():
+                    continue
+                if service is None:
+                    service = ChargesForfaitairesService()
+                # _create_or_update est idempotent (skip si déjà cohérent)
+                pre = service._find_vehicule_od(year)
+                service._create_or_update_vehicule_od(year, float(ratio), pdf_filename)
+                if pre is None:
+                    log.info(f"OD signalétique véhicule {year} créée (ratio {ratio:.0f}%)")
+    except Exception as e:
+        log.warning(f"Migration OD signalétique véhicule échouée: {e}")
+
+
 def _migrate_repas_to_repas_pro() -> None:
     """Migration one-shot : 'repas' → 'Repas pro' + sous-cat 'Repas seul' dans les opérations."""
     from backend.core.config import IMPORTS_OPERATIONS_DIR
@@ -360,6 +494,13 @@ async def lifespan(app: FastAPI):
     # Réconciliation index rapports
     from backend.services.report_service import reconcile_index
     reconcile_index()
+    # Migration idempotente des OD forfaits (source + lien rapport restauré)
+    # — DOIT être appelée AVANT apply_link_repair pour fournir un état stable
+    # à la passe de réparation.
+    try:
+        _migrate_forfait_sources_and_links()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Migration OD forfaits error: {e}")
     # Réparation silencieuse des liens justificatifs (duplicatas, orphelins, ghosts)
     try:
         from backend.services import justificatif_service

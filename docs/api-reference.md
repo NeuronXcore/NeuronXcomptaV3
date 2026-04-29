@@ -47,6 +47,8 @@ Importe un relevé bancaire PDF. Form-data avec champ `file`.
 }
 ```
 
+**Auto-rapprochement scope-mois en background (Session 33)** : à la fin de l'import, le router calcule le **mois dominant** des ops importées (dict `month_counts: dict[YYYY-MM, count]`) et lance `rapprochement_service.run_auto_rapprochement(year, month)` en `BackgroundTasks` avec scope ±1 mois (~0,2 s vs 1-2 s en global). Permet aux justifs scannés AVANT l'import (`en_attente/`, déjà OCR-isés) de s'auto-associer immédiatement aux nouvelles ops bancaires, sans intervention manuelle. Fallback global si aucune date exploitable dans les ops importées (ex. PDF dont l'extraction de dates a échoué).
+
 ### `POST /create-empty`
 Crée un fichier d'opérations vide pour un mois donné (saisie manuelle, typiquement notes de frais CB perso avant l'import du relevé bancaire). Route déclarée **avant** les routes dynamiques `/{filename}` pour éviter la collision FastAPI.
 
@@ -742,6 +744,8 @@ Upload multi-fichiers PDF/JPG/PNG. Form-data : champ `files` (multiple). Les ima
 ### `GET /{filename}/preview`
 Sert le PDF pour iframe.
 
+**Fallback `data/reports/` (Session 33)** : `get_justificatif_path(filename, include_reports=True)` cherche désormais dans `en_attente/` → `traites/` → `data/reports/`. Permet de servir les PDF rapports forfaits (blanchissage, repas, dotation amortissements, véhicule) liés aux OD via `Lien justificatif: "reports/{filename}"`. Lecture seule — les mutations (delete, rename) restent strictement scopées à `data/justificatifs/`.
+
 ### `GET /{filename}/suggestions`
 Suggestions d'association (score date + montant + fournisseur OCR). Exclut les opérations déjà liées à un autre justificatif (conserve celles liées au justificatif courant pour ré-association).
 
@@ -762,6 +766,8 @@ Dissocier. Efface les `category_hint` et `sous_categorie_hint` du `.ocr.json` po
 **Nouveau endpoint cross-location.** Retourne le thumbnail PNG d'un justificatif en résolvant automatiquement `en_attente/` puis `traites/` via `get_justificatif_path()`, puis délègue à `ged_service.get_thumbnail_path()`.
 
 Le thumbnail est généré à la volée via `pdf2image` + `poppler` si absent du cache (`data/ged/thumbnails/{md5}.png`), puis servi en PNG. Résout le bug historique des blank thumbnails quand un composant frontend hard-codait `en_attente/` alors que le fichier était déjà en `traites/` (cas ford-revision).
+
+**Fallback `data/reports/` (Session 33)** : passe `include_reports=True` à `get_justificatif_path` — étend la résolution aux PDF rapports forfaits pour que les vignettes des OD signalétiques (blanchissage / repas / véhicule) s'affichent correctement dans l'UI.
 
 Utilisé par les composants frontend `Thumbnail`, `SuggestionCard`, `SkippedItemEditor`, `OcrEditDrawer`, `PreviewSubDrawer`.
 

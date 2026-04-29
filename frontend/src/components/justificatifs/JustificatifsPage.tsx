@@ -31,6 +31,7 @@ import { useImmobilisations } from '@/hooks/useAmortissements'
 import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
 import ImmoBadge from '@/components/shared/ImmoBadge'
 import DotationBadge from '@/components/shared/DotationBadge'
+import ForfaitBadge from '@/components/shared/ForfaitBadge'
 import { showDeleteConfirmToast, showDeleteSuccessToast } from '@/lib/deleteJustificatifToast'
 import { Unlink, Paperclip, Trash2, Link2, Copy as FacsimileIcon } from 'lucide-react'
 import { LockCell } from '@/components/LockCell'
@@ -550,6 +551,7 @@ export default function JustificatifsPage() {
             <option value="note_de_frais">Notes de frais</option>
             <option value="immobilisation">Immobilisations</option>
             <option value="dotation">Dotations</option>
+            <option value="forfait">Forfaits</option>
           </select>
 
           {/* Bouton reset filtres cat + source (visible uniquement si un filtre est actif) */}
@@ -880,7 +882,7 @@ export default function JustificatifsPage() {
                         </td>
                         <td className="px-2 py-1.5 max-w-[160px]" onClick={e => e.stopPropagation()}>
                           <div className="flex flex-col">
-                            {(op.source === 'note_de_frais' || op.immobilisation_id || op.source === 'amortissement') && (
+                            {(op.source === 'note_de_frais' || op.immobilisation_id || op.source === 'amortissement' || op.source === 'blanchissage' || op.source === 'repas' || op.source === 'vehicule') && (
                               <div className="flex flex-wrap gap-1 mb-1">
                                 {op.source === 'note_de_frais' && (
                                   <span
@@ -912,6 +914,12 @@ export default function JustificatifsPage() {
                                     onClick={() => navigate(
                                       `/visualization?year=${parseInt((op.Date || '').slice(0, 4)) || new Date().getFullYear()}&category=${encodeURIComponent('Dotations aux amortissements')}`
                                     )}
+                                  />
+                                )}
+                                {(op.source === 'blanchissage' || op.source === 'repas' || op.source === 'vehicule') && (
+                                  <ForfaitBadge
+                                    source={op.source}
+                                    onClick={() => navigate(`/charges-forfaitaires?tab=${op.source}`)}
                                   />
                                 )}
                               </div>

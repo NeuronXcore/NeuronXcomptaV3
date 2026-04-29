@@ -128,12 +128,19 @@ export function isLegacyPseudoCanonical(name: string): boolean {
 }
 
 /**
- * Filtre `Type d'opération` étendu (Prompt B2). Helper partagé par EditorPage,
- * JustificatifsPage, AlertesPage, RepartitionParTypeCard.
+ * Filtre `Type d'opération` étendu (Prompt B2 + forfaits). Helper partagé par
+ * EditorPage, JustificatifsPage, AlertesPage, RepartitionParTypeCard.
  * Note : `bancaire` exclut explicitement les ops avec `immobilisation_id`
- * (qui sont déjà dans la catégorie `Immobilisations`) et `source` non-vide.
+ * (qui sont déjà dans la catégorie `Immobilisations`) et `source` non-vide
+ * (donc tous les forfaits + note_de_frais + dotation passent à travers).
  */
-export type OperationTypeFilter = 'all' | 'bancaire' | 'note_de_frais' | 'immobilisation' | 'dotation'
+export type OperationTypeFilter =
+  | 'all'
+  | 'bancaire'
+  | 'note_de_frais'
+  | 'immobilisation'
+  | 'dotation'
+  | 'forfait'
 
 export function matchesOperationType(
   op: { source?: string; immobilisation_id?: string },
@@ -145,6 +152,8 @@ export function matchesOperationType(
     case 'note_de_frais': return op.source === 'note_de_frais'
     case 'immobilisation': return !!op.immobilisation_id
     case 'dotation': return op.source === 'amortissement'
+    case 'forfait':
+      return op.source === 'blanchissage' || op.source === 'repas' || op.source === 'vehicule'
     default: return true
   }
 }

@@ -28,6 +28,7 @@ from backend.core.config import (
     MAGIC_BYTES,
     GED_DIR,
     IMPORTS_OPERATIONS_DIR,
+    REPORTS_DIR,
     ensure_directories,
 )
 from backend.services import operation_service
@@ -475,14 +476,32 @@ def _clean_operation_link(justificatif_filename: str) -> list:
 
 # ─── Path resolution ───
 
-def get_justificatif_path(filename: str) -> Optional[Path]:
-    """Résout le chemin d'un justificatif dans en_attente ou traites.
+def get_justificatif_path(filename: str, include_reports: bool = False) -> Optional[Path]:
+    """Résout le chemin d'un justificatif.
+
+    Ordre de résolution :
+      1. data/justificatifs/en_attente/
+      2. data/justificatifs/traites/
+      3. data/reports/  → UNIQUEMENT si `include_reports=True`. Couvre les PDF
+         rapports forfaits (blanchissage, repas, dotation amortissements,
+         véhicule) liés aux OD via `Lien justificatif: "reports/{filename}"`.
+         Lecture seule — ne JAMAIS utiliser ce fallback pour rename/delete/move
+         (les rapports vivent dans leur propre cycle de vie via report_service).
+
+    Par défaut le fallback `reports/` est OFF pour protéger les mutations
+    (delete_justificatif, rename_justificatif, etc.) qui doivent rester scopées
+    à `data/justificatifs/`. Les endpoints read-only (preview / thumbnail /
+    open-native) doivent passer `include_reports=True` pour servir les rapports
+    forfaits aux trombones de l'Éditeur et JustificatifsPage.
 
     NOTE : sandbox/ est volontairement exclu — c'est une file d'attente de travail
     hors périmètre GED. Utilise `sandbox_service.get_sandbox_path()` si tu as
     besoin de résoudre un fichier sandbox.
     """
-    for dir_path in [JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR]:
+    dirs = [JUSTIFICATIFS_EN_ATTENTE_DIR, JUSTIFICATIFS_TRAITES_DIR]
+    if include_reports:
+        dirs.append(REPORTS_DIR)
+    for dir_path in dirs:
         filepath = dir_path / filename
         if filepath.exists():
             return filepath
@@ -1216,8 +1235,13 @@ def scan_link_issues() -> dict:
             orphans_to_move_to_attente.append({"name": name})
 
     # C : ghosts — op référence un fichier absent des deux dossiers
+    # Les rapports stockés dans data/reports/ (PDF forfaits blanchissage, repas,
+    # dotation amortissements, véhicule liés aux OD via "reports/{filename}")
+    # sont des références valides — ne pas les considérer comme ghosts.
     on_disk = traites_pdfs | attente_pdfs
     for name in sorted(set(referenced.keys()) - on_disk):
+        if (REPORTS_DIR / name).exists():
+            continue
         for op_file, op_idx in referenced[name]:
             ghost_refs.append({"name": name, "op_file": op_file, "op_idx": op_idx})
 

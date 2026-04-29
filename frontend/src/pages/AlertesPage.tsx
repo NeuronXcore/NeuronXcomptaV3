@@ -8,6 +8,7 @@ import { useImmobilisations } from '@/hooks/useAmortissements'
 import { useImmobilisationDrawerStore } from '@/stores/immobilisationDrawerStore'
 import ImmoBadge from '@/components/shared/ImmoBadge'
 import DotationBadge from '@/components/shared/DotationBadge'
+import ForfaitBadge from '@/components/shared/ForfaitBadge'
 import RapprochementWorkflowDrawer from '@/components/rapprochement/RapprochementWorkflowDrawer'
 import ManualAssociationDrawer, { type TargetedOp } from '@/components/justificatifs/ManualAssociationDrawer'
 import toast from 'react-hot-toast'
@@ -356,8 +357,15 @@ export default function AlertesPage() {
         const isNoteDeFrais = op.source === 'note_de_frais'
         const immoId = op.immobilisation_id
         const isDotation = op.source === 'amortissement'
+        const forfaitSource = (
+          op.source === 'blanchissage'
+          || op.source === 'repas'
+          || op.source === 'vehicule'
+        )
+          ? op.source as 'blanchissage' | 'repas' | 'vehicule'
+          : null
         const opYear = parseInt((op.Date || '').slice(0, 4)) || new Date().getFullYear()
-        const hasBadges = isNoteDeFrais || !!immoId || isDotation
+        const hasBadges = isNoteDeFrais || !!immoId || isDotation || !!forfaitSource
         return (
           <div className="flex flex-col">
             {hasBadges && (
@@ -392,6 +400,12 @@ export default function AlertesPage() {
                     onClick={() => navigate(
                       `/visualization?year=${opYear}&category=${encodeURIComponent('Dotations aux amortissements')}`
                     )}
+                  />
+                )}
+                {forfaitSource && (
+                  <ForfaitBadge
+                    source={forfaitSource}
+                    onClick={() => navigate(`/charges-forfaitaires?tab=${forfaitSource}`)}
                   />
                 )}
               </div>
@@ -749,6 +763,7 @@ export default function AlertesPage() {
             <option value="note_de_frais">Notes de frais</option>
             <option value="immobilisation">Immobilisations</option>
             <option value="dotation">Dotations</option>
+            <option value="forfait">Forfaits</option>
           </select>
 
           {(categoryFilter || subcategoryFilter || sourceFilter !== 'all' || alerteTypeFilter !== 'all') && (

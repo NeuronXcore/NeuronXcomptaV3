@@ -399,6 +399,13 @@ function RepartitionParTypeCard({
 }) {
   const bancaire = sources.find(s => s.source === 'bancaire')
   const ndf = sources.find(s => s.source === 'note_de_frais')
+  const blanchissage = sources.find(s => s.source === 'blanchissage')
+  const repas = sources.find(s => s.source === 'repas')
+  const vehicule = sources.find(s => s.source === 'vehicule')
+  // Véhicule : OD signalétique (Débit=0/Crédit=0) — incluse dans le compteur
+  // mais n'ajoute rien au montant (la déduction passe par le ratio sur poste GED).
+  const forfaitDebit = (blanchissage?.debit ?? 0) + (repas?.debit ?? 0) + (vehicule?.debit ?? 0)
+  const forfaitCount = (blanchissage?.count ?? 0) + (repas?.count ?? 0) + (vehicule?.count ?? 0)
 
   // Immobilisations + dotations dérivés du category_summary (catégories dédiées)
   const immoCat = categorySummary.find(c => (c['Catégorie'] ?? '').toLowerCase() === 'immobilisations')
@@ -408,7 +415,7 @@ function RepartitionParTypeCard({
   const dotationDebit = dotationCat?.['Débit'] ?? 0
   const dotationCount = dotationCat?.Nombre_Opérations ?? 0
 
-  const totalDebit = (bancaire?.debit ?? 0) + (ndf?.debit ?? 0) + immoDebit + dotationDebit
+  const totalDebit = (bancaire?.debit ?? 0) + (ndf?.debit ?? 0) + immoDebit + dotationDebit + forfaitDebit
   const share = (v: number) => (totalDebit > 0 ? ((v / totalDebit) * 100).toFixed(1) : '0.0')
 
   return (
@@ -417,7 +424,7 @@ function RepartitionParTypeCard({
         <h3 className="text-sm font-semibold text-text">Répartition par type d'opération</h3>
         <span className="text-xs text-text-muted">Total {formatCurrency(totalDebit)}</span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
         {/* Bancaire */}
         <div className="bg-background rounded-lg p-3 flex items-center justify-between">
           <div className="min-w-0">
@@ -482,6 +489,22 @@ function RepartitionParTypeCard({
             <div className="text-[10px] text-text-muted mt-0.5">{dotationCount} op{dotationCount > 1 ? 's' : ''} · {share(dotationDebit)}%</div>
           </div>
           <Wallet size={26} className="text-[#26215C]/40 shrink-0" />
+        </div>
+        {/* Forfaits (blanchissage + repas) */}
+        <div className="bg-background rounded-lg p-3 flex items-center justify-between border border-[#5BB7B7]/40">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span
+                className="text-[10px] font-medium px-1.5 rounded leading-4"
+                style={{ background: '#CFF1F1', color: '#0E5566' }}
+              >
+                Forfait
+              </span>
+            </div>
+            <div className="text-lg font-semibold text-text tabular-nums">{formatCurrency(forfaitDebit)}</div>
+            <div className="text-[10px] text-text-muted mt-0.5">{forfaitCount} op{forfaitCount > 1 ? 's' : ''} · {share(forfaitDebit)}%</div>
+          </div>
+          <Wallet size={26} className="text-[#0E5566]/40 shrink-0" />
         </div>
       </div>
     </div>
