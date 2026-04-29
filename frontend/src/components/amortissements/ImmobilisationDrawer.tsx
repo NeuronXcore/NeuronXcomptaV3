@@ -11,7 +11,7 @@ import { calcTableauAmortissement } from '@/lib/amortissement-engine'
 import {
   useCreateImmobilisation, useUpdateImmobilisation, useImmobiliserCandidate,
   useComputeBackfill, useCandidateDetail, useDeleteImmobilisation,
-  useImmobilisationSource,
+  useImmobilisationSource, useAmortissementConfig,
 } from '@/hooks/useAmortissements'
 import { useGedPostes } from '@/hooks/useGed'
 import PdfThumbnail from '@/components/shared/PdfThumbnail'
@@ -41,6 +41,43 @@ const PLAFONDS_VEHICULE = [
 ]
 
 const formatEuro = (n: number) => formatCurrency(n)
+
+const DEFAULT_DUREE = 5
+
+/**
+ * Normalise une chaîne (sous-catégorie ou poste) vers le slug utilisé dans
+ * `config.durees_par_defaut` ({informatique, materiel-medical, vehicule, …}).
+ * Lowercase + retrait diacritiques + espaces → tirets.
+ */
+function slugifyForDuree(s: string | null | undefined): string {
+  if (!s) return ''
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+}
+
+/**
+ * Cherche la durée par défaut pour une sous-cat / poste donné dans la config.
+ * Tolérant aux variantes de casse / accents (ex. « Informatique » → `informatique`).
+ * Retourne `DEFAULT_DUREE` (5 ans) si aucun match.
+ */
+function resolveDureeDefaut(
+  durees: Record<string, number> | undefined,
+  ...candidates: (string | null | undefined)[]
+): number {
+  if (!durees) return DEFAULT_DUREE
+  for (const c of candidates) {
+    const slug = slugifyForDuree(c)
+    if (slug && Object.prototype.hasOwnProperty.call(durees, slug)) {
+      const v = Number(durees[slug])
+      if (!Number.isNaN(v) && v > 0) return v
+    }
+  }
+  return DEFAULT_DUREE
+}
 
 export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, candidate, readonly = false }: ImmobilisationDrawerProps) {
   const navigate = useNavigate()
@@ -82,11 +119,18 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
   // Section Reprise visible uniquement en mode création (pas en édition)
   const reprisAllowed = !isEdit
 
+  // Config amortissements (durées par défaut, seuils, sous-cats exclues)
+  const { data: amortConfig } = useAmortissementConfig()
+  const dureesParDefaut = amortConfig?.durees_par_defaut
+
   // Champs principaux (renommés)
   const [designation, setDesignation] = useState('')
   const [dateAcquisition, setDateAcquisition] = useState('')
   const [baseAmortissable, setBaseAmortissable] = useState(0)
-  const [duree, setDuree] = useState(5)
+  const [duree, setDuree] = useState(DEFAULT_DUREE)
+  // Flag pour empêcher l'auto-update durée quand l'utilisateur a explicitement
+  // choisi une valeur (sinon changer le poste écraserait son choix).
+  const [dureeManuallyEdited, setDureeManuallyEdited] = useState(false)
   // Mode locké à 'lineaire' en création / lecture seule en édition (legacy degressif autorisé en lecture)
   const [mode, setMode] = useState<string>('lineaire')
   const [poste, setPoste] = useState('')
@@ -116,6 +160,9 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
       setCo2(immobilisation.co2_classe || '')
       setPlafond(immobilisation.plafond_fiscal ?? null)
       setNotes(immobilisation.notes || '')
+      // Édition d'une immo existante : la durée est figée par l'utilisateur,
+      // on flag manualEdited pour empêcher l'auto-update sur changement poste.
+      setDureeManuallyEdited(true)
       // Section reprise — pré-remplir si existe
       if (immobilisation.exercice_entree_neuronx != null) {
         setIsReprise(true)
@@ -134,7 +181,10 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
       setDesignation(candidate.libelle)
       setDateAcquisition(candidate.date)
       setBaseAmortissable(candidate.debit)
-      setDuree(5)
+      // Durée par défaut dérivée de la sous-catégorie (Matériel/Informatique/…)
+      // ou de la catégorie en fallback. Respecte la config utilisateur.
+      setDuree(resolveDureeDefaut(dureesParDefaut, candidate.sous_categorie, candidate.categorie))
+      setDureeManuallyEdited(false)
       setMode('lineaire')
       setPoste('')
       setDateMes(candidate.date)
@@ -143,13 +193,31 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
       setIsReprise(false); setExerciceEntree(new Date().getFullYear())
       setAmortAnterieurs(0); setVncOuverture(0); setBackfillManuallyEdited(false)
     } else {
-      setDesignation(''); setDateAcquisition(''); setBaseAmortissable(0); setDuree(5)
+      // Création vierge : durée par défaut pas encore résolue (pas de poste/sous-cat).
+      // L'utilisateur choisira un poste → useEffect ci-dessous met à jour la durée.
+      setDesignation(''); setDateAcquisition(''); setBaseAmortissable(0)
+      setDuree(DEFAULT_DUREE); setDureeManuallyEdited(false)
       setMode('lineaire'); setPoste(''); setDateMes(''); setQuotePartPro(100)
       setCo2(''); setPlafond(null); setNotes('')
       setIsReprise(false); setExerciceEntree(new Date().getFullYear())
       setAmortAnterieurs(0); setVncOuverture(0); setBackfillManuallyEdited(false)
     }
+    // dureesParDefaut volontairement absent des deps : la résolution se fait à
+    // l'ouverture du drawer ; un changement de config en cours d'édition ne doit
+    // pas écraser les valeurs courantes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [immobilisation?.id, candidate?.index, isOpen])
+
+  // Auto-update durée quand l'utilisateur change le poste comptable, tant qu'il
+  // n'a pas explicitement modifié la durée (sinon on respecte son choix).
+  useEffect(() => {
+    if (dureeManuallyEdited) return
+    if (!poste) return
+    const proposed = resolveDureeDefaut(dureesParDefaut, poste)
+    if (proposed !== duree) setDuree(proposed)
+    // Volontaire : on ne dépend pas de `duree` (sinon boucle infinie).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [poste, dureesParDefaut, dureeManuallyEdited])
 
   // Close on escape — z-stack : lightbox > sub-drawer > manual-assoc > drawer
   // (la lightbox a son propre handler Esc avec stopPropagation, donc en pratique
@@ -514,8 +582,14 @@ export default function ImmobilisationDrawer({ isOpen, onClose, immobilisation, 
             </div>
             <div>
               <label className="text-[10px] text-text-muted block mb-1">Durée (années)</label>
-              <select value={duree} onChange={e => setDuree(parseInt(e.target.value))}
-                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary">
+              <select
+                value={duree}
+                onChange={(e) => {
+                  setDuree(parseInt(e.target.value))
+                  setDureeManuallyEdited(true)
+                }}
+                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
+              >
                 {[1, 3, 5, 7, 10].map(d => <option key={d} value={d}>{d} ans</option>)}
               </select>
             </div>

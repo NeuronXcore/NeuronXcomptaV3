@@ -8,6 +8,17 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-04-29) — Drawer immobilisation : durée par défaut respecte la config utilisateur
+
+**Bug** : à l'ouverture du drawer « Nouvelle immobilisation » (clic + ou sur une opération candidate), la durée proposée était **toujours 5 ans en dur**, même si l'utilisateur avait configuré 3 ans pour la sous-catégorie « Informatique » dans `Config Amortissements > Durées par défaut`.
+
+**Cause** : `frontend/src/components/amortissements/ImmobilisationDrawer.tsx` initialisait `useState(5)` puis `setDuree(5)` dans les branches `candidate` et `new` du `useEffect` d'init, sans jamais consulter `config.durees_par_defaut`.
+
+**Fix** :
+- **[`frontend/src/components/amortissements/ImmobilisationDrawer.tsx`](frontend/src/components/amortissements/ImmobilisationDrawer.tsx)** — 2 helpers locaux : `slugifyForDuree(s)` (lowercase + retrait diacritiques + espaces → tirets, ex. `"Informatique" → "informatique"`) + `resolveDureeDefaut(durees, ...candidates)` (lookup tolérant via le slug, retourne `DEFAULT_DUREE = 5` si aucun match). Hook `useAmortissementConfig()` chargé en début de composant ; mode `candidate` consomme `resolveDureeDefaut(durees, candidate.sous_categorie, candidate.categorie)` (sous-cat prioritaire, catégorie en fallback). Mode `new` reste à `DEFAULT_DUREE` jusqu'à ce que l'utilisateur sélectionne un poste comptable, puis un `useEffect([poste, dureesParDefaut])` met à jour la durée automatiquement. Flag `dureeManuallyEdited` (set à `true` au premier `<select>` change) empêche l'auto-update d'écraser un choix utilisateur explicite. En mode édition d'une immo existante, `dureeManuallyEdited` est initialisé à `true` (la durée est figée par l'utilisateur).
+- Vérifié sur la config user (`materiel-medical: 3, informatique: 3, materiel: 3, mobilier: 10, ...`) : op candidate avec sous-cat `Informatique` → 3 ans, sous-cat `Mobilier` → 10 ans, sous-cat vide ou inconnue → fallback catégorie `Matériel` → 3 ans.
+- Pas de régression : édition d'une immo existante respecte sa durée stockée (pas d'auto-update sur changement de poste si manualEdited initial = true).
+
 ### Fixed (2026-04-29) — Bouton « Envoyer au comptable » : factures d'achat enfin jointes au ZIP
 
 **Bug observé** : depuis le bouton « Envoyer au comptable » du header `AmortissementsPage`, les rapports `amortissements_registre` + `amortissements_dotations` étaient bien joints, mais le **sous-dossier `Justificatifs_immobilisations/` du ZIP restait vide** alors que les immos avaient des justifs liés. Implémentation Session 35 cassée silencieusement par un mismatch de filtre.
