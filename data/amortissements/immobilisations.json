@@ -6,7 +6,7 @@
     "base_amortissable": 4506.99,
     "duree": 3,
     "mode": "lineaire",
-    "poste": null,
+    "poste": "fournitures",
     "date_mise_en_service": "2026-01-28",
     "date_sortie": null,
     "motif_sortie": null,
@@ -25,7 +25,7 @@
     "ged_doc_id": null,
     "created_at": "2026-04-27T23:01:09.212662",
     "statut": "en_cours",
-    "notes": null
+    "notes": "Apple Studio M3"
   },
   {
     "id": "immo_20260427_1e3e",
@@ -54,5 +54,33 @@
     "created_at": "2026-04-27T23:02:28.313287",
     "statut": "en_cours",
     "notes": null
+  },
+  {
+    "id": "immo_20260429_1065",
+    "designation": "DU150225LDLCMONTAUBAN MONTAUBAN 2599,99",
+    "date_acquisition": "2025-02-15",
+    "base_amortissable": 2599.99,
+    "duree": 5,
+    "mode": "lineaire",
+    "poste": "fournitures",
+    "date_mise_en_service": "2025-02-15",
+    "date_sortie": null,
+    "motif_sortie": null,
+    "prix_cession": null,
+    "quote_part_pro": 100.0,
+    "plafond_fiscal": null,
+    "co2_classe": null,
+    "exercice_entree_neuronx": null,
+    "amortissements_anterieurs": 0.0,
+    "vnc_ouverture": null,
+    "operation_source": {
+      "file": "operations_merged_202502_20260414_234739.json",
+      "index": 39
+    },
+    "justificatif_id": null,
+    "ged_doc_id": null,
+    "created_at": "2026-04-29T22:04:10.334429",
+    "statut": "en_cours",
+    "notes": "Serveur"
   }
 ]
