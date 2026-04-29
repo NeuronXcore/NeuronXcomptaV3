@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
-import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, Calculator } from 'lucide-react'
 import {
   ComposedChart, Line, Area, Bar, BarChart,
   XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
 import MetricCard from '@/components/shared/MetricCard'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
-import { useHistoriqueBNC, usePrevisionsBNC } from '@/hooks/useSimulation'
+import { useHistoriqueBNC, usePrevisionsBNC, useUrssafProjection } from '@/hooks/useSimulation'
 import { formatCurrency, MOIS_FR } from '@/lib/utils'
 
 const MOIS_COURT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
@@ -21,6 +21,10 @@ export default function SimulationPrevisionsSection({ year }: Props) {
 
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth() + 1
+
+  // Projection cotisations URSSAF sur 5 années (N-2 à N+2 par défaut)
+  const projectionStartYear = currentYear - 2
+  const { data: urssafProjection } = useUrssafProjection(projectionStartYear, 5)
 
   // BNC estimé année en cours
   const bncCurrentYear = useMemo(() => {
@@ -218,6 +222,77 @@ export default function SimulationPrevisionsSection({ year }: Props) {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Projection cotisations URSSAF — anticipe acompte / régul / remboursement */}
+      {urssafProjection && urssafProjection.length > 0 && (
+        <div className="bg-surface rounded-xl border border-border p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Calculator size={16} className="text-sky-400" />
+            <h3 className="font-semibold">Projection cotisations URSSAF</h3>
+          </div>
+          <p className="text-xs text-text-muted mb-4">
+            Acompte = URSSAF dû sur BNC N-2 (base des prélèvements provisionnels). Régul = URSSAF dû sur BNC N − acompte versé. À payer en N+1.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-text-muted">
+                  <th className="text-left py-2 font-medium">Année</th>
+                  <th className="text-right py-2 font-medium">BNC</th>
+                  <th className="text-right py-2 font-medium">URSSAF dû</th>
+                  <th className="text-right py-2 font-medium">Acompte (sur N-2)</th>
+                  <th className="text-right py-2 font-medium">Régul estimée</th>
+                  <th className="text-center py-2 font-medium">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {urssafProjection.map((row) => {
+                  const regulClass = row.signe === 'regul'
+                    ? 'text-rose-400'
+                    : row.signe === 'remboursement'
+                      ? 'text-emerald-400'
+                      : 'text-text-muted'
+                  const statutBadge = row.statut === 'passe'
+                    ? 'bg-text-muted/10 text-text-muted'
+                    : row.statut === 'courant'
+                      ? 'bg-primary/15 text-primary'
+                      : 'bg-amber-500/15 text-amber-400'
+                  const originBadge = row.bnc_origine === 'forecast'
+                    ? <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 ml-1">forecast</span>
+                    : null
+                  return (
+                    <tr key={row.year} className="border-b border-border/50">
+                      <td className="py-2 font-medium">{row.year}</td>
+                      <td className="py-2 text-right font-mono">
+                        {row.bnc != null ? formatCurrency(row.bnc) : '—'}
+                        {originBadge}
+                      </td>
+                      <td className="py-2 text-right font-mono">{formatCurrency(row.urssaf_du)}</td>
+                      <td className="py-2 text-right font-mono text-text-muted">
+                        {row.acompte_theorique > 0 ? formatCurrency(row.acompte_theorique) : '—'}
+                      </td>
+                      <td className={`py-2 text-right font-mono font-semibold ${regulClass}`}>
+                        {/* Convention flux côté user : remboursement = +, régul = − */}
+                        {row.signe === 'remboursement' && '+'}
+                        {row.signe === 'regul' && '−'}
+                        {formatCurrency(Math.abs(row.regul_estimee))}
+                      </td>
+                      <td className="py-2 text-center">
+                        <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-medium ${statutBadge}`}>
+                          {row.statut === 'passe' ? 'passé' : row.statut === 'courant' ? 'courant' : 'futur'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-text-muted/70 italic mt-3">
+            Les années « forecast » utilisent la régression linéaire saisonnière de `forecast_bnc` — fiabilité limitée si l'historique est court.
+          </p>
         </div>
       )}
     </div>

@@ -104,24 +104,61 @@ def estimate_urssaf(bnc: float, bareme: dict) -> dict:
     }
 
 
+_URSSAF_KEYWORDS = ("urssaf", "dspamc", "cotis")
+
+
+def _is_urssaf_op(op: dict) -> bool:
+    """Détecte une opération URSSAF par libellé ou catégorie."""
+    libelle = (op.get("Libellé") or "").lower()
+    cat = (op.get("Catégorie") or "").lower()
+    sous = (op.get("Sous-catégorie") or "").lower()
+    return (
+        any(k in libelle for k in _URSSAF_KEYWORDS)
+        or ("cotisations" in cat and "urssaf" in sous)
+    )
+
+
+def _compute_total_urssaf_debit_annuel(year: int) -> float:
+    """Somme les Débits des ops URSSAF de l'année (utilisé pour le ratio non-déductible)."""
+    from backend.services import operation_service
+
+    files = operation_service.list_operation_files()
+    total = 0.0
+    for finfo in files:
+        if finfo.get("year") != year:
+            continue
+        for op in operation_service.load_operations(finfo["filename"]):
+            if not _is_urssaf_op(op):
+                continue
+            d = abs(op.get("Débit", 0) or 0)
+            if d > 0:
+                total += d
+    return total
+
+
 def compute_urssaf_deductible(
     montant_brut: float,
     bnc_estime: float,
     year: int,
     cotisations_sociales_estime: Optional[float] = None,
+    total_urssaf_annuel: Optional[float] = None,
 ) -> dict:
     """
-    Calcule la part déductible et non déductible d'une cotisation URSSAF brute.
+    Calcule la part déductible et non déductible d'une cotisation URSSAF.
 
-    La seule part non déductible est la CSG non déductible (2,4%) + CRDS (0,5%) = 2,9%
-    appliquée à l'assiette CSG/CRDS (dépend de l'année).
+    La seule part non déductible est la CSG non déductible (2,4 %) + CRDS (0,5 %) = 2,9 %
+    appliquée à l'assiette CSG/CRDS annuelle. Cette part annuelle est ensuite répartie
+    AU PRO-RATA des paiements URSSAF de l'année — `montant_brut` est traité comme **un
+    paiement parmi d'autres**, pas comme l'agrégat annuel.
 
     Args:
-        montant_brut: cotisation URSSAF totale payée (€)
+        montant_brut: paiement URSSAF concerné (€)
         bnc_estime: BNC prévisionnel de l'année (€)
         year: année fiscale
         cotisations_sociales_estime: total cotisations sociales obligatoires estimées
-            (URSSAF + CARMF + ODM). Si None, utilise bnc_estime × 0.25 comme fallback.
+            (URSSAF + CARMF + ODM). Si None, utilise bnc_estime × 0,25 comme fallback.
+        total_urssaf_annuel: somme des Débits URSSAF de l'année. Si None, calculé
+            automatiquement par scan disque (~25 ops typique).
 
     Returns:
         dict avec: montant_brut, assiette_csg_crds, part_non_deductible,
@@ -144,7 +181,18 @@ def compute_urssaf_deductible(
         cotis = cotisations_sociales_estime if cotisations_sociales_estime is not None else bnc_estime * 0.25
         assiette = bnc_estime + cotis
 
-    non_deductible = round(assiette * taux_nd, 2)
+    annual_non_deductible = assiette * taux_nd
+
+    if total_urssaf_annuel is None:
+        total_urssaf_annuel = _compute_total_urssaf_debit_annuel(year)
+
+    if total_urssaf_annuel > 0:
+        ratio = annual_non_deductible / total_urssaf_annuel
+        ratio = max(0.0, min(ratio, 1.0))
+        non_deductible = round(montant_brut * ratio, 2)
+    else:
+        non_deductible = round(min(annual_non_deductible, montant_brut), 2)
+
     non_deductible = min(non_deductible, montant_brut)
     deductible = round(montant_brut - non_deductible, 2)
 
@@ -154,11 +202,88 @@ def compute_urssaf_deductible(
         "assiette_csg_crds": round(assiette, 2),
         "assiette_mode": mode,
         "taux_non_deductible": taux_nd,
+        "annual_non_deductible": round(annual_non_deductible, 2),
+        "total_urssaf_annuel": round(total_urssaf_annuel, 2),
         "part_non_deductible": non_deductible,
         "part_deductible": deductible,
         "ratio_non_deductible": round(non_deductible / montant_brut, 4) if montant_brut else 0.0,
         "bnc_estime_utilise": bnc_estime,
         "cotisations_sociales_utilisees": cotisations_sociales_estime,
+    }
+
+
+def run_batch_csg_split(year: int, force: bool = False) -> dict:
+    """
+    Calcule et stocke le split CSG/CRDS sur toutes les opérations URSSAF de l'année.
+
+    Le total annuel URSSAF est calculé une seule fois puis injecté dans chaque appel
+    à `compute_urssaf_deductible` pour garantir un split au pro-rata cohérent.
+
+    - force=False : skip les ops déjà splittées (idempotent).
+    - force=True  : recalcule toutes les ops URSSAF.
+
+    Retourne un résumé exploitable pour log lifespan ou réponse API.
+    """
+    from backend.services import operation_service
+
+    historique = get_historical_bnc([year])
+    annual = historique.get("annual", [])
+    year_data = next((a for a in annual if a["year"] == year), None)
+    bnc_estime = abs(year_data["bnc"]) if year_data else 50000.0
+
+    files = operation_service.list_operation_files()
+    year_files = [f for f in files if f.get("year") == year]
+
+    total_urssaf_annuel = 0.0
+    for finfo in year_files:
+        for op in operation_service.load_operations(finfo["filename"]):
+            if not _is_urssaf_op(op):
+                continue
+            d = abs(op.get("Débit", 0) or 0)
+            if d > 0:
+                total_urssaf_annuel += d
+
+    updated = 0
+    skipped = 0
+    files_touched = 0
+    total_non_deductible = 0.0
+
+    for finfo in year_files:
+        filename = finfo["filename"]
+        ops = operation_service.load_operations(filename)
+        changed = False
+        for op in ops:
+            if not _is_urssaf_op(op):
+                continue
+            if not force and op.get("csg_non_deductible"):
+                skipped += 1
+                total_non_deductible += op["csg_non_deductible"]
+                continue
+            montant = abs(op.get("Débit", 0) or 0)
+            if montant <= 0:
+                continue
+            result = compute_urssaf_deductible(
+                montant_brut=montant,
+                bnc_estime=bnc_estime,
+                year=year,
+                total_urssaf_annuel=total_urssaf_annuel,
+            )
+            op["csg_non_deductible"] = result["part_non_deductible"]
+            total_non_deductible += result["part_non_deductible"]
+            updated += 1
+            changed = True
+        if changed:
+            operation_service.save_operations(ops, filename=filename)
+            files_touched += 1
+
+    return {
+        "year": year,
+        "bnc_estime": bnc_estime,
+        "total_urssaf_annuel": round(total_urssaf_annuel, 2),
+        "updated": updated,
+        "skipped": skipped,
+        "files_touched": files_touched,
+        "total_non_deductible": round(total_non_deductible, 2),
     }
 
 

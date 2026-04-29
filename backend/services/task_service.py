@@ -189,6 +189,47 @@ def generate_auto_tasks(year: int) -> List[Task]:
     except Exception as e:
         logger.warning("Erreur scan dotation_manquante: %s", e)
 
+    # 8. Alerte régularisation URSSAF — si le BNC N s'écarte de plus de 30 %
+    #    du BNC N-2 (volatilité du revenu) ET l'écart entre URSSAF dû sur BNC N
+    #    et URSSAF déjà payée en cash dépasse 1 k€, créer une tâche d'alerte.
+    #    L'URSSAF assoit ses acomptes sur BNC N-2 → un saut de revenu provoque
+    #    une régul significative (à payer ou remboursement) en N+1.
+    try:
+        from backend.services import urssaf_provisional_service
+
+        delta_pct = urssaf_provisional_service.compute_bnc_delta_pct(year)
+        if delta_pct is not None and abs(delta_pct) >= 30:
+            regul = urssaf_provisional_service.compute_urssaf_regul_estimate(year)
+            ecart = regul.get("ecart_regul", 0.0)
+            if abs(ecart) >= 1000:
+                signe = regul.get("signe", "regul")
+                signe_label = "à payer" if signe == "regul" else "remboursement"
+                priority = TaskPriority.haute if abs(delta_pct) >= 50 else TaskPriority.normale
+                tasks.append(
+                    Task(
+                        title=f"Alerte régularisation URSSAF {year}",
+                        description=(
+                            f"BNC {year} {'+' if delta_pct > 0 else ''}{delta_pct:.0f} % vs N-2 · "
+                            f"écart estimé {ecart:+.0f} € ({signe_label})"
+                        ),
+                        status=TaskStatus.todo,
+                        priority=priority,
+                        source=TaskSource.auto,
+                        year=year,
+                        auto_key=f"urssaf_regul_alert_{year}",
+                        metadata={
+                            "year": year,
+                            "bnc_delta_pct": delta_pct,
+                            "ecart_regul": round(ecart, 2),
+                            "signe": signe,
+                            "confiance": regul.get("confiance"),
+                            "action_url": f"/visualization?year={year}&category=URSSAF",
+                        },
+                    )
+                )
+    except Exception as e:
+        logger.warning("Erreur scan urssaf_regul_alert: %s", e)
+
     # 6. Modèle ML à réentraîner — si corrections manuelles cumulées depuis
     #    le dernier entraînement dépassent les seuils configurés dans Settings.
     try:

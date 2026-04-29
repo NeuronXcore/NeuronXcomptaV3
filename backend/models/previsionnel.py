@@ -3,9 +3,16 @@ Modeles Pydantic pour le module Previsionnel.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
+
+
+# Types de cotisation URSSAF — voir urssaf_provisional_service pour la logique :
+# - "urssaf_acompte" : 12 prélèvements/an basés sur BNC N-2 (provisionnel)
+# - "urssaf_regul"   : régul N-1 versée typiquement en novembre N
+# - None             : provider standard à montant_estime fixe
+TypeCotisation = Literal["urssaf_acompte", "urssaf_regul"]
 
 
 # ─── Providers (configuration fournisseurs recurrents) ───
@@ -26,6 +33,7 @@ class PrevProvider(BaseModel):
     tolerance_montant: float = 5.0
     poste_comptable: Optional[str] = None
     actif: bool = True
+    type_cotisation: Optional[TypeCotisation] = None
 
 
 class PrevProviderCreate(BaseModel):
@@ -43,6 +51,7 @@ class PrevProviderCreate(BaseModel):
     tolerance_montant: float = 5.0
     poste_comptable: Optional[str] = None
     actif: bool = True
+    type_cotisation: Optional[TypeCotisation] = None
 
 
 class PrevProviderUpdate(BaseModel):
@@ -60,6 +69,7 @@ class PrevProviderUpdate(BaseModel):
     tolerance_montant: Optional[float] = None
     poste_comptable: Optional[str] = None
     actif: Optional[bool] = None
+    type_cotisation: Optional[TypeCotisation] = None
 
 
 # ─── Prelevements (mode echeancier) ───
@@ -138,6 +148,7 @@ class TimelinePoste(BaseModel):
     provider_id: Optional[str] = None
     document_ref: Optional[str] = None
     confidence: Optional[float] = None
+    type_cotisation: Optional[TypeCotisation] = None  # pour rendu badge URSSAF
 
 
 class TimelineMois(BaseModel):

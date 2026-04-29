@@ -565,6 +565,23 @@ async def lifespan(app: FastAPI):
         _migrate_amortissement_config()
     except Exception as e:
         logging.getLogger(__name__).warning(f"Migration amortissements error: {e}")
+    # Auto-split CSG/CRDS sur ops URSSAF (N-2 + N-1 + N) — idempotent, ~50ms/op,
+    # garantit que charges_pro et BNC sont à jour sans action utilisateur.
+    try:
+        import datetime
+        from backend.services import fiscal_service
+        log = logging.getLogger(__name__)
+        current_year = datetime.date.today().year
+        for year in (current_year - 2, current_year - 1, current_year):
+            result = fiscal_service.run_batch_csg_split(year=year, force=False)
+            if result["updated"] > 0:
+                log.info(
+                    "CSG/CRDS auto-split %s: %d ops calculées "
+                    "(non-déductible total %.2f €)",
+                    year, result["updated"], result["total_non_deductible"],
+                )
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"CSG/CRDS auto-split au boot: {e}")
     # Preload EasyOCR en arrière-plan (non-bloquant) — élimine le cold start
     # de ~20-30s sur le 1er OCR après boot. Le thread daemon loade le modèle
     # pendant que le backend commence à servir les requêtes.

@@ -6,11 +6,9 @@ from typing import Optional
 import logging
 
 from backend.models.simulation import SimulationRequest, UrssafDeductibleRequest, UrssafDeductibleResult
-from backend.services import fiscal_service, operation_service
+from backend.services import fiscal_service, urssaf_provisional_service
 
 logger = logging.getLogger(__name__)
-
-_URSSAF_KEYWORDS = ("urssaf", "dspamc", "cotis")
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
@@ -73,17 +71,6 @@ async def compute_urssaf_deductible_endpoint(body: UrssafDeductibleRequest):
     )
 
 
-def _is_urssaf_op(op: dict) -> bool:
-    """Détecte une opération URSSAF par libellé ou catégorie."""
-    libelle = (op.get("Libellé") or "").lower()
-    cat = (op.get("Catégorie") or "").lower()
-    sous = (op.get("Sous-catégorie") or "").lower()
-    return (
-        any(k in libelle for k in _URSSAF_KEYWORDS)
-        or ("cotisations" in cat and "urssaf" in sous)
-    )
-
-
 @router.post("/batch-csg-split")
 async def batch_csg_split(year: int = Query(...), force: bool = Query(False)):
     """
@@ -92,48 +79,24 @@ async def batch_csg_split(year: int = Query(...), force: bool = Query(False)):
     - force=True  : recalcule toutes les ops URSSAF
     Utilise le BNC historique de l'année comme assiette.
     """
-    historique = fiscal_service.get_historical_bnc([year])
-    annual = historique.get("annual", [])
-    year_data = next((a for a in annual if a["year"] == year), None)
-    bnc_estime = abs(year_data["bnc"]) if year_data else 50000.0
+    return fiscal_service.run_batch_csg_split(year=year, force=force)
 
-    files = operation_service.list_operation_files()
-    year_files = [f for f in files if f.get("year") == year]
 
-    updated = 0
-    skipped = 0
-    total_non_deductible = 0.0
+@router.get("/urssaf-regul/{year}")
+async def urssaf_regul(year: int):
+    """Estime la régularisation URSSAF de l'année N (à payer ou remboursement)
+    en comparant l'URSSAF dû sur le BNC réel de N à ce qui a été payé en cash."""
+    return urssaf_provisional_service.compute_urssaf_regul_estimate(year)
 
-    for finfo in year_files:
-        filename = finfo["filename"]
-        ops = operation_service.load_operations(filename)
-        changed = False
-        for op in ops:
-            if not _is_urssaf_op(op):
-                continue
-            if not force and op.get("csg_non_deductible"):
-                skipped += 1
-                total_non_deductible += op["csg_non_deductible"]
-                continue
-            montant = abs(op.get("Débit", 0) or 0)
-            if montant <= 0:
-                continue
-            result = fiscal_service.compute_urssaf_deductible(
-                montant_brut=montant,
-                bnc_estime=bnc_estime,
-                year=year,
-            )
-            op["csg_non_deductible"] = result["part_non_deductible"]
-            total_non_deductible += result["part_non_deductible"]
-            updated += 1
-            changed = True
-        if changed:
-            operation_service.save_operations(ops, filename=filename)
 
-    return {
-        "year": year,
-        "bnc_estime": bnc_estime,
-        "updated": updated,
-        "skipped": skipped,
-        "total_non_deductible": round(total_non_deductible, 2),
-    }
+@router.get("/urssaf-acompte-theorique/{year}")
+async def urssaf_acompte_theorique(year: int):
+    """Calcule l'acompte URSSAF théorique de l'année N basé sur BNC N-2."""
+    return urssaf_provisional_service.compute_acompte_theorique(year)
+
+
+@router.get("/urssaf-projection")
+async def urssaf_projection(start_year: int = Query(...), horizon: int = Query(5)):
+    """Projette URSSAF dû / acompte / régul sur `horizon` années à partir de
+    `start_year`. Utilise BNC réel quand disponible, forecast sinon."""
+    return urssaf_provisional_service.project_cotisations_multi_years(start_year, horizon)

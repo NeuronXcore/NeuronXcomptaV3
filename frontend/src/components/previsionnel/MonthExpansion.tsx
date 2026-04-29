@@ -39,6 +39,16 @@ export default function MonthExpansion({ month, onClose }: Props) {
               <div key={p.id} className="flex items-center gap-2 text-xs">
                 {sourceIcon(p.source)}
                 <span className="flex-1 text-text-muted truncate">{p.label}</span>
+                {p.type_cotisation === 'urssaf_acompte' && (
+                  <span className="text-[9px] px-1.5 py-0.5 bg-sky-500/15 text-sky-400 rounded uppercase tracking-wide">
+                    Acompte
+                  </span>
+                )}
+                {p.type_cotisation === 'urssaf_regul' && (
+                  <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/15 text-amber-400 rounded uppercase tracking-wide">
+                    Régul N−1
+                  </span>
+                )}
                 <span className="font-mono text-text">{formatCurrency(p.montant)}</span>
                 <StatusBadge statut={p.statut} />
               </div>

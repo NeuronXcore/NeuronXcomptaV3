@@ -3,7 +3,7 @@ import { X, Plus, Loader2 } from 'lucide-react'
 import { cn, MOIS_FR } from '@/lib/utils'
 import { useAddProvider, useUpdateProvider } from '@/hooks/usePrevisionnel'
 import { useCategories } from '@/hooks/useApi'
-import type { PrevProvider } from '@/types'
+import type { PrevProvider, TypeCotisation } from '@/types'
 
 interface Props {
   open: boolean
@@ -34,6 +34,7 @@ export default function ProviderDrawer({ open, onClose, provider }: Props) {
   const [keywordsOps, setKeywordsOps] = useState<string[]>(provider?.keywords_operations || [])
   const [tolerance, setTolerance] = useState(provider?.tolerance_montant || 5)
   const [actif, setActif] = useState(provider?.actif ?? true)
+  const [typeCotisation, setTypeCotisation] = useState<TypeCotisation | null>(provider?.type_cotisation ?? null)
   const [kwInput, setKwInput] = useState('')
   const [kwOpsInput, setKwOpsInput] = useState('')
 
@@ -56,6 +57,7 @@ export default function ProviderDrawer({ open, onClose, provider }: Props) {
       setKeywordsOps(provider.keywords_operations)
       setTolerance(provider.tolerance_montant)
       setActif(provider.actif)
+      setTypeCotisation(provider.type_cotisation ?? null)
     }
   }, [provider?.id])
 
@@ -77,6 +79,7 @@ export default function ProviderDrawer({ open, onClose, provider }: Props) {
       keywords_operations: keywordsOps,
       tolerance_montant: tolerance,
       actif,
+      type_cotisation: typeCotisation,
     }
     if (isEdit && provider) {
       updateMut.mutate({ id: provider.id, data }, { onSuccess: onClose })
@@ -154,6 +157,27 @@ export default function ProviderDrawer({ open, onClose, provider }: Props) {
               <option value="">—</option>
               {catData?.categories?.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
             </select>
+          </div>
+
+          {/* Type cotisation URSSAF — calcule acompte/régul à partir du BNC N-2 */}
+          <div>
+            <label className="text-[10px] text-text-muted mb-1 block">Type de cotisation</label>
+            <select
+              value={typeCotisation ?? ''}
+              onChange={(e) => setTypeCotisation((e.target.value || null) as TypeCotisation | null)}
+              className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text"
+            >
+              <option value="">Standard (montant fixe)</option>
+              <option value="urssaf_acompte">URSSAF — acompte mensuel (calculé sur BNC N-2)</option>
+              <option value="urssaf_regul">URSSAF — régularisation N-1 (1× en novembre)</option>
+            </select>
+            {typeCotisation && (
+              <p className="text-[10px] text-text-muted/70 italic mt-1">
+                {typeCotisation === 'urssaf_acompte'
+                  ? 'Le montant des échéances mensuelles sera calculé automatiquement à partir du BNC N-2.'
+                  : 'Une seule échéance sera générée en novembre, basée sur la régul URSSAF N-1.'}
+              </p>
+            )}
           </div>
 
           {/* Keywords OCR */}

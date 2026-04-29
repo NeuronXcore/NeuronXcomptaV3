@@ -832,12 +832,29 @@ def unverify_prelevement(echeance_id: str, mois: int):
 def get_timeline(year: int) -> TimelineResponse:
     """Construit la vue timeline 12 mois."""
     from backend.services.operation_service import list_operation_files, load_operations
+    from backend.services import urssaf_provisional_service
 
     settings = get_settings()
     providers = get_providers()
     echeances = get_echeances(year)
     today = date.today()
     current_month = today.month if today.year == year else (13 if today.year > year else 0)
+
+    # Calculs URSSAF dérivés (lazy : seulement si au moins un provider URSSAF typé)
+    urssaf_acompte_mensuel: Optional[float] = None
+    urssaf_regul_n_moins_1: Optional[float] = None
+    if any(p.type_cotisation in ("urssaf_acompte", "urssaf_regul") for p in providers):
+        try:
+            ac = urssaf_provisional_service.compute_acompte_theorique(year)
+            urssaf_acompte_mensuel = ac.get("mensuel") or None
+        except Exception:
+            pass
+        try:
+            rg = urssaf_provisional_service.compute_urssaf_regul_estimate(year - 1)
+            ec = rg.get("ecart_regul", 0.0)
+            urssaf_regul_n_moins_1 = ec if ec > 0 else None
+        except Exception:
+            pass
 
     # Charger operations annee N et N-1
     ops_by_month: dict[int, list[dict]] = defaultdict(list)
@@ -911,7 +928,43 @@ def get_timeline(year: int) -> TimelineResponse:
                             ))
                             break
             else:
-                if m in prov.mois_attendus:
+                # URSSAF acompte : 12 mois, montant pris du calcul théorique BNC N-2
+                if prov.type_cotisation == "urssaf_acompte":
+                    ech = ech_by_provider_month.get(prov.id, {}).get(m)
+                    if ech and ech.montant_reel:
+                        montant = ech.montant_reel
+                    elif urssaf_acompte_mensuel is not None:
+                        montant = urssaf_acompte_mensuel
+                    else:
+                        montant = prov.montant_estime or 0
+                    statut = ech.statut if ech else "attendu"
+                    charges.append(TimelinePoste(
+                        id=f"provider:{prov.id}:{m}",
+                        label=prov.label,
+                        montant=montant,
+                        source="provider",
+                        statut=statut,
+                        provider_id=prov.id,
+                        document_ref=ech.document_ref if ech else None,
+                        type_cotisation="urssaf_acompte",
+                    ))
+                # URSSAF régul : une seule échéance en novembre N (régul de N-1)
+                elif prov.type_cotisation == "urssaf_regul":
+                    if m == 11 and urssaf_regul_n_moins_1 is not None:
+                        ech = ech_by_provider_month.get(prov.id, {}).get(m)
+                        montant = (ech.montant_reel if ech and ech.montant_reel else urssaf_regul_n_moins_1) or 0
+                        statut = ech.statut if ech else "attendu"
+                        charges.append(TimelinePoste(
+                            id=f"provider:{prov.id}:{m}",
+                            label=f"{prov.label} (régul {year - 1})",
+                            montant=montant,
+                            source="provider",
+                            statut=statut,
+                            provider_id=prov.id,
+                            document_ref=ech.document_ref if ech else None,
+                            type_cotisation="urssaf_regul",
+                        ))
+                elif m in prov.mois_attendus:
                     ech = ech_by_provider_month.get(prov.id, {}).get(m)
                     montant = (ech.montant_reel if ech and ech.montant_reel else prov.montant_estime) or 0
                     statut = ech.statut if ech else "attendu"

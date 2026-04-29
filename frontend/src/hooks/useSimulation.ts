@@ -1,6 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/api/client'
-import type { AllBaremes, TauxMarginal, SeuilCritique, HistoriqueBNC, PrevisionBNC, UrssafDeductibleResult } from '@/types'
+import type {
+  AllBaremes,
+  TauxMarginal,
+  SeuilCritique,
+  HistoriqueBNC,
+  PrevisionBNC,
+  UrssafDeductibleResult,
+  UrssafRegulEstimate,
+  UrssafAcompteTheorique,
+  UrssafProjectionRow,
+} from '@/types'
 
 export function useBaremes(year: number) {
   return useQuery<AllBaremes>({
@@ -91,5 +101,32 @@ export function usePatchCsgSplit(filename: string, index: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
     },
+  })
+}
+
+export function useUrssafRegul(year: number, enabled: boolean = true) {
+  return useQuery<UrssafRegulEstimate>({
+    queryKey: ['urssaf-regul', year],
+    queryFn: () => api.get(`/simulation/urssaf-regul/${year}`),
+    staleTime: 60 * 1000,
+    enabled: enabled && year > 0,
+  })
+}
+
+export function useUrssafAcompteTheorique(year: number, enabled: boolean = true) {
+  return useQuery<UrssafAcompteTheorique>({
+    queryKey: ['urssaf-acompte-theorique', year],
+    queryFn: () => api.get(`/simulation/urssaf-acompte-theorique/${year}`),
+    staleTime: 5 * 60 * 1000,
+    enabled: enabled && year > 0,
+  })
+}
+
+export function useUrssafProjection(startYear: number, horizon: number = 5, enabled: boolean = true) {
+  return useQuery<UrssafProjectionRow[]>({
+    queryKey: ['urssaf-projection', startYear, horizon],
+    queryFn: () => api.get(`/simulation/urssaf-projection?start_year=${startYear}&horizon=${horizon}`),
+    staleTime: 60 * 1000,
+    enabled: enabled && startYear > 0,
   })
 }

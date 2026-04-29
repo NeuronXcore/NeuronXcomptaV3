@@ -2054,16 +2054,99 @@ Calcule et stocke le split CSG/CRDS pour toutes les opérations URSSAF d'une ann
 
 **Paramètres :** `year` (int, required), `force` (bool, défaut false — si true recalcule même les ops déjà splitées)
 
+**Note** : auto-exécuté au lifespan boot pour `[N−2, N−1, N]` (idempotent grâce au skip natif). L'appel manuel ne sert qu'à forcer un recalcul après changement de barème ou correction de BNC. Backend délègue à `fiscal_service.run_batch_csg_split()` qui pré-calcule le total annuel URSSAF **une fois** puis injecte dans chaque appel `compute_urssaf_deductible` (formule pro-rata).
+
 **Réponse :**
 ```json
 {
   "year": 2025,
-  "bnc_estime": 823.45,
+  "bnc_estime": 228929.08,
+  "total_urssaf_annuel": 56803.0,
   "updated": 12,
   "skipped": 0,
-  "total_non_deductible": 212.04
+  "files_touched": 12,
+  "total_non_deductible": 4912.82
 }
 ```
+
+### `GET /urssaf-regul/{year}`
+Estime la régularisation URSSAF de l'année N (à payer ou remboursement) en comparant l'URSSAF dû sur le BNC réel de N à ce qui a été payé en cash. L'écart correspond à l'appel de régularisation versé typiquement en octobre/novembre N+1.
+
+**Paramètres :** `year` (int, required)
+
+**Réponse :**
+```json
+{
+  "year": 2025,
+  "bnc_n": 228929.08,
+  "urssaf_du": 47024.03,
+  "urssaf_paye_cash": 56803.0,
+  "ecart_regul": -9778.97,
+  "signe": "remboursement",
+  "confiance": "definitif",
+  "taux_couverture": 1.208,
+  "base_recettes": "liasse"
+}
+```
+
+- `signe` ∈ `"regul"` (à payer, écart > 0) | `"remboursement"` (écart < 0) | `"equilibre"` (|écart| < 100 €)
+- `confiance: "definitif"` si la liasse SCP de N est saisie, sinon `"provisoire"`
+- `taux_couverture` = `urssaf_paye_cash / urssaf_du` (1.0 = parfaitement couvert, > 1.0 = trop payé, < 1.0 = sous-couvert)
+
+### `GET /urssaf-acompte-theorique/{year}`
+Calcule l'acompte URSSAF théorique de l'année N sur la base du BNC N-2 (mécanisme provisionnel URSSAF).
+
+**Paramètres :** `year` (int, required)
+
+**Réponse :**
+```json
+{
+  "year": 2026,
+  "year_ref": 2024,
+  "bnc_ref": 117727.83,
+  "acompte_total": 24334.34,
+  "mensuel": 2027.86
+}
+```
+
+Si BNC N-2 indisponible (historique trop court), retourne `bnc_ref: null` avec `acompte_total: 0` et `mensuel: 0`.
+
+### `GET /urssaf-projection`
+Projette URSSAF dû / acompte / régul sur `horizon` années à partir de `start_year`. Utilise BNC réel quand disponible, forecast `forecast_bnc()` (régression linéaire saisonnière) sinon.
+
+**Paramètres :** `start_year` (int, required), `horizon` (int, défaut 5)
+
+**Réponse :**
+```json
+[
+  {
+    "year": 2024,
+    "statut": "passe",
+    "bnc": 117727.83,
+    "bnc_origine": "real",
+    "bnc_n_moins_2": null,
+    "urssaf_du": 24334.34,
+    "acompte_theorique": 0.0,
+    "regul_estimee": 24334.34,
+    "signe": "regul"
+  },
+  {
+    "year": 2026,
+    "statut": "courant",
+    "bnc": 26976.68,
+    "bnc_origine": "real",
+    "bnc_n_moins_2": 117727.83,
+    "urssaf_du": 4658.68,
+    "acompte_theorique": 24334.34,
+    "regul_estimee": -19675.66,
+    "signe": "remboursement"
+  }
+]
+```
+
+- `statut` ∈ `"passe"` | `"courant"` | `"futur"` (calculé selon l'année courante)
+- `bnc_origine` ∈ `"real"` (BNC déjà connu) | `"forecast"` (projection peu fiable au-delà de N+1 si historique < 36 mois) | `"unknown"`
+- `regul_estimee` = `urssaf_du - acompte_theorique` (positif = régul à payer en N+1, négatif = remboursement)
 
 ---
 

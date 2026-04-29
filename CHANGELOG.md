@@ -8,6 +8,56 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed + Added (2026-04-29) — Anticipation régularisation URSSAF + fix bug pro-rata `compute_urssaf_deductible` + auto-run lifespan
+
+Triple chantier dans la même session : (1) **fix structurel d'un bug pré-existant** dans `compute_urssaf_deductible` qui marquait jusqu'à 100 % de l'URSSAF comme non-déductible (BNC sur-évalué), (2) **automatisation du batch CSG/CRDS** au lifespan boot (idempotent, couvre N-2/N-1/N), (3) **nouveau module d'anticipation des régularisations URSSAF** sur 3 surfaces (drawer Compta Analytique + panel Simulation BNC + Prévisionnel) avec auto-task d'alerte (8e détection).
+
+- **Fix `compute_urssaf_deductible` — formule pro-rata**
+  - **[`backend/services/fiscal_service.py`](backend/services/fiscal_service.py)** — Avant : `non_deductible = round(assiette × 2,9 %, 2)` puis `min(non_deductible, montant_brut)`. Quand appelée per-op (depuis `run_batch_csg_split` ou le widget UI), chaque op recevait jusqu'à l'intégralité du non-déductible **annuel** capé à son montant. Sur 2024 (10 ops URSSAF, total 20 546 €), les 10 ops avaient toutes `non_deductible == Débit` (100 % marqué non-déductible) → URSSAF disparaissait totalement de `charges_pro` → BNC sur-évalué de ~16 k €. Fix : nouveau param optionnel `total_urssaf_annuel: Optional[float] = None`, calcul `annual_non_deductible / total_urssaf_annuel = ratio` puis `non_deductible_op = montant × ratio`. Si `total_urssaf_annuel` non fourni, auto-fetch via nouveau helper `_compute_total_urssaf_debit_annuel(year)` (lazy load `operation_service`). Helpers `_is_urssaf_op` et `_URSSAF_KEYWORDS` déplacés du router vers le service. Reset des 24 ops corrompues (10×2024 + 12×2025 + 2×2026) via `force=True`, ratios finaux 8,2-20,8 % (vs 100 % bug).
+
+- **Auto-run `batch-csg-split` au lifespan boot**
+  - **[`backend/main.py`](backend/main.py)** — appelé après `_migrate_amortissement_config()` pour `[N−2, N−1, N]` (couvre N-2 = ancien exercice à clôturer, N-1 = clôture en cours, N = exercice courant). Idempotent grâce au skip natif `if not force and op.csg_non_deductible: skip`. Le boot bloque ~1-2 s max (logique sync, lecture barème JSON + écriture fichiers ops). Pattern miroir des autres migrations (try/except → `logger.warning`, jamais bloquant). Log `info` uniquement si `updated > 0`.
+  - **[`backend/services/fiscal_service.py`](backend/services/fiscal_service.py)** — nouvelle fonction `run_batch_csg_split(year, force) -> dict` (déplacée depuis le router, sync). Pré-calcule `total_urssaf_annuel` **une fois** par année puis injecte dans chaque appel `compute_urssaf_deductible`. Retourne `{year, bnc_estime, total_urssaf_annuel, updated, skipped, files_touched, total_non_deductible}`.
+  - **[`backend/routers/simulation.py`](backend/routers/simulation.py)** — endpoint `POST /api/simulation/batch-csg-split` réduit à thin wrapper `return fiscal_service.run_batch_csg_split(year, force)`. Nettoyage : suppression de l'import `operation_service` et de la constante `_URSSAF_KEYWORDS` désormais inutiles côté router.
+
+- **Nouveau service `urssaf_provisional_service`**
+  - **[`backend/services/urssaf_provisional_service.py`](backend/services/urssaf_provisional_service.py)** *(nouveau)* — 4 fonctions pures composant l'existant (`bnc_service.compute_bnc`, `fiscal_service.estimate_urssaf` / `forecast_bnc`, `liasse_scp_service.get_ca_for_bnc`). (a) `compute_urssaf_regul_estimate(year)` retourne `{bnc_n, urssaf_du, urssaf_paye_cash, ecart_regul, signe: "regul"|"remboursement"|"equilibre", confiance: "definitif"|"provisoire", taux_couverture}` ; `confiance: "definitif"` si liasse SCP saisie. (b) `compute_acompte_theorique(year)` calcule l'acompte URSSAF théorique de N sur la base du BNC N-2. (c) `project_cotisations_multi_years(start_year, horizon=5)` projette URSSAF dû/acompte/régul sur N années (BNC réel ou forecast). (d) `compute_bnc_delta_pct(year)` retourne l'écart relatif BNC N vs N-2 (utilisé par task_service).
+
+- **3 nouveaux endpoints**
+  - **[`backend/routers/simulation.py`](backend/routers/simulation.py)** — `GET /api/simulation/urssaf-regul/{year}`, `GET /api/simulation/urssaf-acompte-theorique/{year}`, `GET /api/simulation/urssaf-projection?start_year=&horizon=` (default 5).
+
+- **Auto-task `urssaf_regul_alert` (8e détection)**
+  - **[`backend/services/task_service.py`](backend/services/task_service.py)** — insérée entre `dotation_manquante` et `ml_retrain`. Si `|delta BNC N vs N-2| ≥ 30 %` ET `|ecart_regul| ≥ 1 000 €` (seuils en dur, pas de toggle settings), crée une tâche `auto_key=urssaf_regul_alert_{year}`, priority `haute` si delta ≥ 50 % sinon `normale`, metadata `{year, bnc_delta_pct, ecart_regul, signe, confiance, action_url}`. Idempotente via dedup `auto_key` du router. Sur le corpus user actuel (BNC 2024 = 117 k€, BNC 2026 partiel = 27 k€, delta -77 %), tâche priority haute générée pour 2026.
+
+- **Frontend — section drawer URSSAF**
+  - **[`frontend/src/components/compta-analytique/CategoryDetailDrawer.tsx`](frontend/src/components/compta-analytique/CategoryDetailDrawer.tsx)** — nouvelle section « **Régularisation URSSAF estimée** » sous Déductibilité CSG/CRDS, conditionnelle (`isUrssafCategory && month === null && quarter === null`, vue annuelle uniquement). 4 lignes : URSSAF dû / URSSAF payé / écart `+X €` (vert) ou `−X €` (rouge) selon `signe`, badge `definitif` (vert) ou `provisoire` (ambre), note `appel typique octobre/novembre N+1`. Convention de signe **flux côté utilisateur** : `remboursement = +X €` (argent qui rentre, vert) ; `regul = −X €` (argent qui sort, rouge). Hook `useUrssafRegul(year, enabled)` avec gating `enabled` pour éviter fetch hors scope.
+  - Copy du bloc **Déductibilité CSG/CRDS** clarifié : `Calcul : 2,9 % × assiette CSG/CRDS (BNC × 0,74 ≥ 2025 ; BNC + cotisations sociales ≤ 2024), réparti au pro-rata des paiements URSSAF de l'année. Exclu du BNC.` + note italique `Approximation cash basis — ne distingue pas les acomptes (base N−2) des régularisations (base N−1) dans les paiements de l'année.`.
+
+- **Frontend — panel projection 5 années**
+  - **[`frontend/src/components/simulation/SimulationPrevisionsSection.tsx`](frontend/src/components/simulation/SimulationPrevisionsSection.tsx)** — nouveau bloc « **Projection cotisations URSSAF** » après le tableau historique annuel. `startYear = currentYear - 2`, horizon 5 par défaut. Tableau colonnes `Année / BNC / URSSAF dû / Acompte (sur N-2) / Régul estimée / Statut`. Badge `passé`/`courant`/`futur` + badge `forecast` ambre quand `bnc_origine === "forecast"`. Note italique sur fiabilité du forecast quand historique court (régression linéaire, BNC négatifs hallucinés possibles si <36 mois). Convention signe identique au drawer (régul = −, remboursement = +).
+
+- **Frontend — Prévisionnel `type_cotisation`**
+  - **[`backend/models/previsionnel.py`](backend/models/previsionnel.py)** — nouveau type `TypeCotisation = Literal["urssaf_acompte", "urssaf_regul"]`, champ `type_cotisation: Optional[TypeCotisation] = None` ajouté à `PrevProvider`, `PrevProviderCreate`, `PrevProviderUpdate` et `TimelinePoste`. Pas de migration de données — providers existants conservent `None`.
+  - **[`backend/services/previsionnel_service.py`](backend/services/previsionnel_service.py)** — `get_timeline()` branche : `type_cotisation == "urssaf_acompte"` → 12 échéances mensuelles, montant = `compute_acompte_theorique(year).mensuel` (auto-calculé sur BNC N-2) ; `type_cotisation == "urssaf_regul"` → 1 échéance en novembre N, montant = régul estimée de N-1 (si > 0). Lazy-load `urssaf_provisional_service` uniquement si au moins un provider URSSAF typé existe (zéro overhead pour les users qui n'utilisent pas la fonctionnalité).
+  - **[`frontend/src/components/previsionnel/ProviderDrawer.tsx`](frontend/src/components/previsionnel/ProviderDrawer.tsx)** — nouveau dropdown « Type de cotisation » (Standard / URSSAF acompte / URSSAF régul N-1) après le champ Catégorie + note explicative dynamique selon la sélection.
+  - **[`frontend/src/components/previsionnel/MonthExpansion.tsx`](frontend/src/components/previsionnel/MonthExpansion.tsx)** — badges dans les lignes timeline : `Acompte` (cyan `bg-sky-500/15 text-sky-400`) et `Régul N−1` (ambre `bg-amber-500/15 text-amber-400`).
+
+- **Frontend — types + hooks**
+  - **[`frontend/src/types/index.ts`](frontend/src/types/index.ts)** — ajout `TypeCotisation`, `UrssafRegulEstimate`, `UrssafAcompteTheorique`, `UrssafProjectionRow`. Champ `type_cotisation?` ajouté à `PrevProvider`, `PrevProviderCreate`, `TimelinePoste`.
+  - **[`frontend/src/hooks/useSimulation.ts`](frontend/src/hooks/useSimulation.ts)** — 3 nouveaux hooks `useUrssafRegul(year, enabled?)`, `useUrssafAcompteTheorique(year, enabled?)`, `useUrssafProjection(startYear, horizon?, enabled?)`. Gating `enabled` pour éviter fetch hors scope.
+
+- **Données vérifiées sur le corpus user**
+  | Année | BNC | URSSAF dû | URSSAF payé cash | Écart | Confiance |
+  |-------|-----|-----------|------------------|-------|-----------|
+  | 2024  | 117 727 € | 24 334 € | 20 546 € | **+3 788 € (régul)** | provisoire |
+  | 2025  | 228 929 € | 47 024 € | 56 803 € | **−9 779 € (remboursement)** | définitif (liasse) |
+  | 2026  | 26 977 € (partiel) | 4 659 € | 7 018 € | **−2 359 € (remboursement)** | provisoire |
+
+- **Limitations connues**
+  - La projection multi-années dépend de `forecast_bnc()` (régression linéaire saisonnière) — peu fiable au-delà de N+1 si l'historique BNC fait moins de 36 mois (BNC négatifs hallucinés possibles, signalés par badge `forecast` ambre).
+  - L'auto-task `urssaf_regul_alert` ne se déclenche QUE si BNC N-2 est dans le système. Sur le corpus user (historique commence 2024), elle ne se déclenche pas pour 2024/2025 (BNC 2022/2023 indispo) — uniquement pour 2026 (BNC 2024 dispo).
+  - Le calcul de l'écart régul mélange acomptes N (base BNC N-2) et régul N-1 (base BNC N-1) dans les paiements de l'année (limitation cash basis comptable BNC) — approximation documentée dans le copy du drawer.
+
 ### Added (2026-04-29) — Cohérence OD forfaits (blanchissage / repas / véhicule signalétique) + badge Forfait + filtre + carte Compta Analytique
 
 Les 3 forfaits déductibles (blanchissage, repas, véhicule) sont désormais visibles uniformément dans l'Éditeur + Justificatifs + Compta Analytique avec un badge cyan dédié. Le véhicule, qui n'avait historiquement aucune écriture comptable (juste un ratio sur poste GED), reçoit une OD signalétique au 31/12 (`Débit=0`/`Crédit=0`) qui sert de point d'accroche pour le PDF rapport sans changer la mécanique de déduction. Toute la chaîne « OD → PDF rapport en GED → trombone cliquable » est réparée pour les 3 sources.

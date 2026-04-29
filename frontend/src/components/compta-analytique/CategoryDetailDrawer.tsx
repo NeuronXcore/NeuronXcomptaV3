@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toPng } from 'html-to-image'
 import { useCategoryDetail, useExportCategorySnapshot } from '@/hooks/useApi'
-import { useBatchCsgSplit } from '@/hooks/useSimulation'
+import { useBatchCsgSplit, useUrssafRegul } from '@/hooks/useSimulation'
 import { formatCurrency, cn, MOIS_FR } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import {
   X, Loader2, Tags, Calendar, DollarSign, FileText, AlertTriangle, Zap, Camera, Filter, ChevronDown,
+  TrendingUp, TrendingDown, Minus,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -102,6 +103,10 @@ export default function CategoryDetailDrawer({
   }, [category, year, month, quarter])
 
   const isUrssafCategory = ['urssaf', 'cotisations'].includes((category || '').toLowerCase())
+
+  // Régul URSSAF : ne charge qu'en vue annuelle complète URSSAF
+  const showRegulSection = isUrssafCategory && year != null && quarter == null && month == null
+  const regulQuery = useUrssafRegul(year ?? 0, showRegulSection)
 
   // Ops filtrées selon la sous-cat sélectionnée (ou liste complète si null)
   const filteredOps = useMemo(() => {
@@ -409,8 +414,14 @@ export default function CategoryDetailDrawer({
                         <span className="text-text-muted">└── CSG/CRDS non déductible</span>
                         <span className="font-mono text-red-400">{formatCurrency((data.total_csg_non_deductible ?? 0))}</span>
                       </div>
-                      <div className="pt-1.5 border-t border-amber-500/10 text-[10px] text-text-muted">
-                        La part non déductible (CSG 2,4% + CRDS 0,5%) est exclue du calcul BNC.
+                      <div className="pt-1.5 border-t border-amber-500/10 text-[10px] text-text-muted leading-relaxed space-y-1">
+                        <div>
+                          Calcul : <span className="text-text">2,9 % (CSG-nd 2,4 % + CRDS 0,5 %) × assiette CSG/CRDS</span>
+                          {' '}({year >= 2025 ? 'BNC × 0,74' : 'BNC + cotisations sociales'}), réparti au pro-rata des paiements URSSAF de l'année. Exclu du BNC.
+                        </div>
+                        <div className="italic text-text-muted/70">
+                          Approximation cash basis — ne distingue pas les acomptes (base N−2) des régularisations (base N−1) dans les paiements de l'année.
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -418,6 +429,68 @@ export default function CategoryDetailDrawer({
                       Cliquez sur « Calculer tout » pour calculer la part déductible de toutes les cotisations URSSAF de {year}.
                     </p>
                   )}
+                </section>
+              )}
+
+              {/* Régularisation URSSAF estimée — vue annuelle URSSAF uniquement */}
+              {showRegulSection && regulQuery.data && regulQuery.data.urssaf_du > 0 && (
+                <section className="bg-sky-500/5 border border-sky-500/20 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      {regulQuery.data.signe === 'regul' ? (
+                        <TrendingUp size={14} className="text-rose-400" />
+                      ) : regulQuery.data.signe === 'remboursement' ? (
+                        <TrendingDown size={14} className="text-emerald-400" />
+                      ) : (
+                        <Minus size={14} className="text-text-muted" />
+                      )}
+                      <h3 className="text-xs font-semibold text-sky-400 uppercase tracking-wider">
+                        Régularisation URSSAF estimée
+                      </h3>
+                    </div>
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded font-medium uppercase',
+                      regulQuery.data.confiance === 'definitif'
+                        ? 'bg-emerald-500/15 text-emerald-400'
+                        : 'bg-amber-500/15 text-amber-400',
+                    )}>
+                      {regulQuery.data.confiance}
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">URSSAF dû sur BNC {year}</span>
+                      <span className="font-mono text-text">{formatCurrency(regulQuery.data.urssaf_du)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">URSSAF payé en {year} (cash)</span>
+                      <span className="font-mono text-text">{formatCurrency(regulQuery.data.urssaf_paye_cash)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-sky-500/10 pt-2">
+                      <span className="text-text-muted">
+                        {regulQuery.data.signe === 'regul' && 'À régulariser (à payer)'}
+                        {regulQuery.data.signe === 'remboursement' && 'Remboursement attendu'}
+                        {regulQuery.data.signe === 'equilibre' && 'Équilibré'}
+                      </span>
+                      <span className={cn(
+                        'font-mono font-semibold',
+                        regulQuery.data.signe === 'regul' && 'text-rose-400',
+                        regulQuery.data.signe === 'remboursement' && 'text-emerald-400',
+                        regulQuery.data.signe === 'equilibre' && 'text-text-muted',
+                      )}>
+                        {/* Convention flux de trésorerie côté utilisateur :
+                            remboursement = +X (argent qui rentre, vert)
+                            régul         = −X (argent qui sort, rouge) */}
+                        {regulQuery.data.signe === 'remboursement' && '+'}
+                        {regulQuery.data.signe === 'regul' && '−'}
+                        {formatCurrency(Math.abs(regulQuery.data.ecart_regul))}
+                      </span>
+                    </div>
+                    <div className="pt-1.5 border-t border-sky-500/10 text-[10px] text-text-muted leading-relaxed italic">
+                      Estimation basée sur le BNC {year} {regulQuery.data.confiance === 'definitif' ? '(liasse SCP)' : '(provisoire bancaire)'} —
+                      l'appel de régularisation tombe typiquement en octobre/novembre {year + 1}.
+                    </div>
+                  </div>
                 </section>
               )}
 

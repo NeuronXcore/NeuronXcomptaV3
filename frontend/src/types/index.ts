@@ -927,6 +927,8 @@ export interface AutoLogEntry {
 
 // ─── Prévisionnel ───
 
+export type TypeCotisation = 'urssaf_acompte' | 'urssaf_regul'
+
 export interface PrevProvider {
   id: string
   fournisseur: string
@@ -943,6 +945,7 @@ export interface PrevProvider {
   tolerance_montant: number
   poste_comptable: string | null
   actif: boolean
+  type_cotisation?: TypeCotisation | null
 }
 
 export interface PrevProviderCreate {
@@ -960,6 +963,7 @@ export interface PrevProviderCreate {
   tolerance_montant?: number
   poste_comptable?: string | null
   actif?: boolean
+  type_cotisation?: TypeCotisation | null
 }
 
 export interface PrelevementLine {
@@ -1022,6 +1026,7 @@ export interface TimelinePoste {
   provider_id: string | null
   document_ref: string | null
   confidence: number | null
+  type_cotisation?: TypeCotisation | null
 }
 
 export interface TimelineMois {
@@ -1651,6 +1656,38 @@ export interface UrssafDeductibleResult {
   ratio_non_deductible: number
   bnc_estime_utilise: number
   cotisations_sociales_utilisees: number | null
+}
+
+export interface UrssafRegulEstimate {
+  year: number
+  bnc_n: number
+  urssaf_du: number
+  urssaf_paye_cash: number
+  ecart_regul: number
+  signe: 'regul' | 'remboursement' | 'equilibre'
+  confiance: 'definitif' | 'provisoire'
+  taux_couverture: number
+  base_recettes: 'liasse' | 'bancaire'
+}
+
+export interface UrssafAcompteTheorique {
+  year: number
+  year_ref: number
+  bnc_ref: number | null
+  acompte_total: number
+  mensuel: number
+}
+
+export interface UrssafProjectionRow {
+  year: number
+  statut: 'passe' | 'courant' | 'futur'
+  bnc: number | null
+  bnc_origine: 'real' | 'forecast' | 'unknown'
+  bnc_n_moins_2: number | null
+  urssaf_du: number
+  acompte_theorique: number
+  regul_estimee: number
+  signe: 'regul' | 'remboursement' | 'equilibre'
 }
 
 export interface TauxMarginal {
