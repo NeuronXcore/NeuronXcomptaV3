@@ -20,5 +20,5 @@
     "Leasing",
     "Loyer"
   ],
-  "seuil": 500
+  "seuil": 500.0
 }

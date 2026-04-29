@@ -21510,6 +21510,54 @@
       "fournisseur": "Bureauvallee",
       "is_reconstitue": false,
       "statut_justificatif": "traite"
+    },
+    "data/reports/rapport_registre_immobilisations_2026_20260429_215317.pdf": {
+      "doc_id": "data/reports/rapport_registre_immobilisations_2026_20260429_215317.pdf",
+      "type": "rapport",
+      "filename": "rapport_registre_immobilisations_2026_20260429_215317.pdf",
+      "year": 2026,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-04-29T21:53:17.560035",
+      "original_name": "rapport_registre_immobilisations_2026_20260429_215317.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2026,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": "amortissements_registre",
+        "title": "Registre immobilisations 2026",
+        "description": null,
+        "filters": {
+          "year": 2026,
+          "statut": "all",
+          "poste": "all"
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-04-29T21:53:17.560035",
+        "can_regenerate": true,
+        "can_compare": true,
+        "linked_justifs": [
+          "boulanger_20260127_4506.99.pdf",
+          "amazon_20250626_789.60.pdf"
+        ]
+      }
     }
   }
 }
