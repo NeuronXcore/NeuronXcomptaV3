@@ -8,6 +8,80 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-30) — Module Rappels Dashboard (moteur extensible, 11 règles, UI bandeau)
+
+Bandeau **« À ne pas oublier »** placé tout en haut du Dashboard (avant la jauge), avec moteur backend extensible isolé du module `/api/alertes` (qui gère les anomalies réactives sur opérations) et UI complète : durée snooze configurable, désactivation par règle, animation de mise en évidence quand replié.
+
+**Backend — Architecture** :
+- `data/rappels_snooze.json` — état snooze (dict `{rule_id: ISO_datetime_expiry}`, cleanup auto des expirés à chaque save).
+- [`backend/core/config.py`](backend/core/config.py) — constante `RAPPELS_SNOOZE_FILE`.
+- [`backend/models/rappel.py`](backend/models/rappel.py) — Pydantic schemas : `Rappel`, `RappelLevel` (`critical`/`warning`/`info`), `RappelCategory` (`fiscal`/`comptable`/`scp`/`patrimoine`/`tresorerie`), `RappelCTA`, `RappelsSummary`, `SnoozeRequest`, `RuleInfo`.
+- [`backend/models/settings.py`](backend/models/settings.py) — `rappels_collapsed: bool = True` (replié par défaut) + `rappels_disabled_rules: list[str] = []`.
+- [`backend/services/rappels_rules/_base.py`](backend/services/rappels_rules/_base.py) — dataclass `RappelContext` (today, operation_files meta, cloture_status `{year-1, year}` toujours chargés, settings, snooze_state) + Protocol `RappelRule` (avec `rule_id`, `label`, `description`) + helper `format_eur(amount)` mutualisé.
+- [`backend/services/rappels_rules/__init__.py`](backend/services/rappels_rules/__init__.py) — exporte `ALL_RULES` (11 règles), `RappelContext`, `RappelRule`.
+- [`backend/services/rappels_service.py`](backend/services/rappels_service.py) — engine : construit le contexte 1× par requête, itère `ALL_RULES` en try/except autonome (un crash ne masque pas les autres rappels), filtre snoozés ET règles désactivées via `settings.rappels_disabled_rules`, trie par niveau (critical > warning > info) puis date_detection. API publique : `get_all_rappels(today: Optional[date] = None) -> RappelsSummary` (`today` injectable pour tests deterministes), `snooze_rappel(rule_id, days)`, `unsnooze_rappel(rule_id)`, `list_rules() -> list[RuleInfo]`.
+- [`backend/routers/rappels.py`](backend/routers/rappels.py) — `GET /api/rappels`, `GET /api/rappels/rules`, `POST /api/rappels/{rule_id}/snooze` (whitelist `[1, 7, 30]`), `DELETE /api/rappels/{rule_id}/snooze`. Enregistré dans [`backend/main.py`](backend/main.py).
+
+**Backend — 11 règles** (chaque règle = 1 module, pattern strict via Protocol) :
+
+| # | rule_id | label | Catégorie | Déclenchement |
+|---|---|---|---|---|
+| 1 | `justif_manquant` | Justificatifs manquants | comptable | Ops sans justif depuis ≥30j (warning) ou ≥60j (critical). 2 rappels distincts (`_30j` / `_60j`). Skip via `is_justificatif_required()` (gère exemptions perso/CARMF/URSSAF/Honoraires). |
+| 2 | `mois_non_cloture` | Mois M-1 non clôturé | comptable | `today.day > 15` ET M-1 avec `taux_lettrage < 1.0 OR taux_justificatifs < 1.0`. id `mois_non_cloture_{year}_{month:02d}`. |
+| 3 | `decl_2035` | Déclaration 2035 | fiscal | `today.month == 4`. Warning ≤15 avril, critical >15. CTA `/ged?type=liasse_fiscale_scp&year={year}`. |
+| 4 | `liasse_scp_manquante` | Liasse SCP non saisie | scp | `today.month >= 5` ET liasse N-1 absente. Warning mai-juin, critical juillet+. |
+| 5 | `compte_attente_satur` | Compte d'attente saturé | comptable | Ops avec alertes non résolues : ≥30 (warning) ou ≥60 (critical). |
+| 6 | `urssaf_regul` | Régularisation URSSAF anticipée | fiscal | `\|ecart\| ≥ 1 000 €` sur exercice N-1 (basé `compute_urssaf_regul_estimate`). Skip si `confiance == "provisoire"`. Critical si ≥5 000 € OU `today.month >= 9`. |
+| 7 | `lettrage_retard_cloture` | Lettrage en retard sur exercice clôturé | comptable | Liasse N-1 saisie ET ≥1 mois avec `taux_lettrage < 1.0`. Critical si ≥4 mois. |
+| 8 | `dotation_amort_manquante` | Dotation amortissements manquante | comptable | Liasse N-1 saisie + immo active + `find_dotation_operation(N-1) is None` → critical. CTA `/amortissements?tab=dotation&year={year}`. |
+| 9 | `charges_forfaitaires_non_generees` | Charges forfaitaires non générées | comptable | `today.month >= 11` + au moins 1 forfait (blanchissage / repas / véhicule) absent. Critical si 3 manquants OU `today.month == 12 && day > 15`. |
+| 10 | `liasse_scp_incoherente` | Liasse SCP incohérente | scp | `\|ca_liasse - recettes_pro_bancaires\| / max(...)` >= 5%. Critical >= 20%. |
+| 11 | `bnc_baisse_significative` | BNC en baisse significative | patrimoine | Liasse N-1 ET N-2 saisies + ratio `bnc_n / bnc_n-1 < 0.80`. Critical si <0.65. |
+
+**Frontend — Composants** :
+- [`frontend/src/types/index.ts`](frontend/src/types/index.ts) — types `RappelLevel`, `RappelCategory`, `RappelCTA`, `Rappel`, `RappelsSummary`, `RappelRuleInfo` + extensions `AppSettings.rappels_collapsed?`, `rappels_disabled_rules?`.
+- [`frontend/src/hooks/useRappels.ts`](frontend/src/hooks/useRappels.ts) — `useRappels()` (queryKey `['rappels']`, staleTime 5min, refetchOnWindowFocus), `useSnoozeRappel()` (POST avec invalidation), `useRappelRules()` (queryKey `['rappels', 'rules']`).
+- [`frontend/src/components/dashboard/RappelLevelIcon.tsx`](frontend/src/components/dashboard/RappelLevelIcon.tsx) — icône cerclée 28px par niveau (AlertCircle/AlertTriangle/Info dans cercle danger/warning/primary à 15% opacity).
+- [`frontend/src/components/dashboard/RappelItem.tsx`](frontend/src/components/dashboard/RappelItem.tsx) — ligne individuelle avec icône + catégorie uppercase + titre + message + boutons CTA + Reporter. Le bouton Reporter ouvre un **mini-menu popover** avec 3 options de durée (1 jour / 7 jours / 30 jours), avec gestion clic outside + Esc. Animation slide-out 280ms (`opacity + translateX(20px) + max-height: 0`) avant la mutation TanStack pour éviter le flash.
+- [`frontend/src/components/dashboard/DashboardRappels.tsx`](frontend/src/components/dashboard/DashboardRappels.tsx) — bandeau conteneur replié par défaut. **Quand replié** (et `total > 0`) : cadre orange systématique (`border-warning/40` + `bg-warning/[0.04]` + halo box-shadow pulsé `animate-nx-rappels-glow` 2,4s en custom property `--nx-glow: rgba(245, 158, 11, 0.55)`), cloche avec couleur dynamique selon plus haut niveau (`text-danger`/`text-warning`/`text-primary`/`text-text-muted`) + animation `animate-nx-bell-ring` (cycle 3s, 6 oscillations -18°/+18°/-14°/+14°/-8°/+8° puis pause longue), badge compteur (top-right de la cloche, fond plein selon niveau, ring blanc, plafonné `99+`) avec `animate-nx-badge-pulse` 1,8s **uniquement** si `level === 'critical'`. **Quand déplié** : tout retombe au calme (pas d'animation, fond neutre `bg-surface`, bordure `border-border`). Bouton « Régler les rappels » (icône `Settings2`) à droite du toggle expand → ouvre `RappelRulesMenu`. Si `total === 0` → carte « Tout est à jour » avec icône `Check` verte.
+- [`frontend/src/components/dashboard/RappelRulesMenu.tsx`](frontend/src/components/dashboard/RappelRulesMenu.tsx) — popover 420px ancré sous le bouton settings avec toggle on/off pour chaque règle (style miroir Tailwind toggle 9×5, primary/border, slide animation), descriptions inline pour chaque règle. Source : `useRappelRules()` ; persist : `useUpdateSettings({ rappels_disabled_rules })`.
+- [`frontend/src/components/dashboard/DashboardPage.tsx`](frontend/src/components/dashboard/DashboardPage.tsx) — `<DashboardRappels />` inséré tout en haut du `space-y-6`, après `<PageHeader>` et **avant** `<ProgressionGauge>`.
+
+**Frontend — Animations CSS** ([`frontend/src/index.css`](frontend/src/index.css)) :
+- `@keyframes nx-bell-ring` (3s) : 6 oscillations marquées sur les 40% du cycle puis pause de ~1,8s. `transform-origin: top center` pour pivoter autour du sommet de la cloche.
+- `@keyframes nx-badge-pulse` (1,8s) : scale 1 → 1,12 + box-shadow halo qui s'étend de 0 à 6px en rouge danger, puis fade.
+- `@keyframes nx-rappels-glow` (2,4s) : box-shadow pulsé pilotable via custom property `--nx-glow` (orange par défaut). Effet « police lights » sans clignotement, attire l'œil sans agresser.
+
+**Conventions design** :
+- Cadre orange = identité du widget (signal présent). Cloche/badge = niveau de gravité (signal de criticité).
+- Animations OFF dès que le bandeau est ouvert ou vide (pas de pollution visuelle pendant que l'utilisateur consulte).
+- Snooze 7j par défaut côté UI, mais backend accepte 1/7/30 (validé via menu durée).
+- `today` injectable dans `get_all_rappels()` permet des smoke tests deterministes (`date(2026, 4, 30)` etc.).
+
+**Décision V1 — pas de cross-cache invalidation** : les 5+ mutations existantes (associate/dissociate justif, lettrage, clôture) ne sont PAS modifiées pour invalider `['rappels']`. À la place, `useRappels()` utilise `staleTime: 5min` + `refetchOnWindowFocus: true` qui couvrent 99% des cas pour un signal informatif. Mauvais ratio risque/bénéfice de modifier 5+ hooks pour un widget.
+
+**Vérification end-to-end** :
+- Smoke tests Python avec `today` injectable : decl_2035 transition warning→critical au passage du 15 avril, mois_non_cloture déclenche bien M-1 (gère janvier → décembre N-1 sans modulo manuel via `today.replace(day=1) - timedelta(days=1)`).
+- Sur le corpus user au 30/04/2026 : 6 rappels critical actifs (`justif_manquant_60j`, `decl_2035_2026`, `compte_attente_satur`, `urssaf_regul_2026`, `lettrage_retard_cloture_2025`, `dotation_amort_manquante_2025`).
+- Désactivation `compte_attente_satur` via popover → règle disparaît du payload, réactivation → revient.
+- Snooze 1j sur `justif_manquant_60j` → écrit dans `data/rappels_snooze.json`, le rappel disparaît, refetch automatique. Unsnooze via DELETE → réapparaît.
+- Aucune erreur console, typecheck propre, animations CSS confirmées en preview MCP (matrice de rotation -14° capturée pendant un swing, `animate-nx-rappels-glow` actif).
+
+### Fixed (2026-04-30) — `PUT /api/settings` écrasait silencieusement les emails / exemptions au PUT partiel
+
+**Bug critique pré-existant** exposé par les nouveaux toggles `rappels_collapsed` et `rappels_disabled_rules` qui multiplient les PUT partiels.
+
+**Cause racine** : [`backend/routers/settings.py`](backend/routers/settings.py) parsait le payload directement dans le modèle Pydantic strict `AppSettings`. Comme `AppSettings` a des **valeurs par défaut** sur tous les champs (`email_smtp_user: None`, `email_comptable_destinataires: []`, etc.), Pydantic remplissait silencieusement les champs absents avec ces defaults — puis `model_dump()` réécrivait **tout le fichier**, écrasant les emails / mots de passe SMTP / exemptions / seuils ML.
+
+→ Conséquence observée : dès qu'un toggle UI envoyait un patch (`Auto-pointage`, `rappels_collapsed`, etc.), tous les autres settings disparaissaient.
+
+**Fix** ([`backend/routers/settings.py`](backend/routers/settings.py)) :
+- Le PUT accepte maintenant un `dict` arbitraire au lieu de `AppSettings` strict.
+- Lit le fichier existant, **merge** le payload partiel par-dessus (shallow), valide via `AppSettings(**merged)` pour rejeter les payloads malformés (400 si invalide), puis écrit le résultat.
+- Les champs absents du PUT sont **préservés** à leur valeur courante (plus jamais écrasés par des defaults).
+
+**Restauration des données perdues** : `settings.backup.json` (avec un bug syntaxique JSON corrigé à la volée — virgule mal placée après le mot de passe Gmail) a permis de récupérer les emails (smtp user / app password / 3 destinataires / nom) + les 5 catégories d'exemptions justificatifs (Perso, URSSAF, Honoraires, perso, CARMF). `settings.json.before-restore.bak` créé par sécurité avant restauration. Vérification : 2 PUT partiels successifs (`rappels_collapsed`) → aucun champ critique écrasé.
+
 ### Fixed (2026-04-29) — Bouton « Ouvrir avec Aperçu » dans les sub-drawers paperclip + lightbox du registre Amortissements
 
 Le `PreviewSubDrawer` standalone ouvert depuis la cellule paperclip du registre `AmortissementsPage` (et celui du drawer édition section « Opération source & justificatif ») n'affichait pas le bouton « Ouvrir avec Aperçu » macOS, contrairement à l'usage `EditorPage`. Idem pour la lightbox plein écran chaînée. Le composant `PreviewSubDrawer` n'affiche le bouton que si la prop `onOpenNative` est fournie ; je ne la passais pas.
