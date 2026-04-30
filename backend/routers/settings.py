@@ -35,10 +35,42 @@ async def get_settings():
 
 
 @router.put("")
-async def save_settings(settings: AppSettings):
-    """Sauvegarde les paramètres."""
+async def save_settings(partial: dict):
+    """Sauvegarde les paramètres en MERGE avec l'existant.
+
+    Bug critique fixé : auparavant le router parsait le payload dans `AppSettings`
+    strict, ce qui forçait Pydantic à injecter les valeurs par défaut sur tous les
+    champs absents du PUT. `model_dump()` écrivait ensuite tout le modèle, écrasant
+    silencieusement les emails / exemptions / seuils ML / etc. dès qu'un toggle
+    partiel (auto_pointage, rappels_collapsed, …) était envoyé depuis l'UI.
+
+    Nouveau comportement : on lit d'abord le fichier existant, on merge le payload
+    partiel par-dessus (shallow), puis on valide via `AppSettings(**merged)` pour
+    rejeter les payloads malformés. Les champs absents du PUT sont préservés à
+    leur valeur courante (pas écrasés par des defaults).
+    """
+    current: dict = {}
+    if SETTINGS_FILE.exists():
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict):
+                current = loaded
+        except Exception:
+            current = {}
+
+    if not isinstance(partial, dict):
+        raise HTTPException(400, "Le payload doit être un objet JSON")
+
+    merged = {**current, **partial}
+
+    try:
+        validated = AppSettings(**merged)
+    except Exception as exc:
+        raise HTTPException(400, f"Settings invalides: {exc}")
+
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(settings.model_dump(), f, ensure_ascii=False, indent=2)
+        json.dump(validated.model_dump(), f, ensure_ascii=False, indent=2)
     return {"message": "Paramètres sauvegardés"}
 
 
