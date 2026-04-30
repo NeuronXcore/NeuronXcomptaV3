@@ -562,18 +562,21 @@ def _resolve_single_period(documents: list[DocumentRef]) -> Optional[tuple[int, 
     periods_set: set[tuple[int, int]] = set()
     has_anonymous = False
     for d in documents:
-        m = re.search(r"(\d{4})[-_](\d{2})", d.filename)
+        # Strict YYYY-MM ou YYYY_MM avec lookarounds non-digit pour éviter les
+        # matchs parasites à l'intérieur d'un timestamp `YYYYMMDD_HHMMSS` (ex.
+        # `20260430_063507` → matchait `0430_06` = juin 430). Année 2000-2099,
+        # mois 01-12 strict.
+        m = re.search(r"(?<!\d)(20\d{2})[-_](0[1-9]|1[0-2])(?!\d)", d.filename)
         if m:
             year = int(m.group(1))
             month = int(m.group(2))
-            if 1 <= month <= 12:
-                periods_set.add((year, month))
-                continue
+            periods_set.add((year, month))
+            continue
         # Essayer de parser le nom de mois directement
         matched = False
         for i, mois in enumerate(MOIS_FR):
             if mois.lower() in d.filename.lower():
-                ym = re.search(r"(\d{4})", d.filename)
+                ym = re.search(r"(?<!\d)(20\d{2})(?!\d)", d.filename)
                 if ym:
                     periods_set.add((int(ym.group(1)), i + 1))
                     matched = True
@@ -674,22 +677,26 @@ def _extract_periods_from_docs(documents: list[DocumentRef]) -> list[str]:
     """Extrait les périodes (Mois Année) depuis les noms de fichiers exports."""
     periods = []
     for d in documents:
-        # Pattern: Export_Comptable_2025-03_Mars.zip ou Export_Comptable_2025_Mars.zip
-        m = re.search(r"(\d{4})[-_](\d{2})", d.filename)
+        matched = False
+        # Priorité 1 : nom de mois français explicite (ex. `_Janvier_`) — plus
+        # fiable que YYYY-MM car évite toute confusion avec les timestamps.
+        for i, mois in enumerate(MOIS_FR):
+            if mois.lower() in d.filename.lower():
+                ym = re.search(r"(?<!\d)(20\d{2})(?!\d)", d.filename)
+                if ym:
+                    periods.append(f"{MOIS_FR[i]} {ym.group(1)}")
+                    matched = True
+                break
+        if matched:
+            continue
+        # Priorité 2 : pattern strict YYYY-MM ou YYYY_MM avec lookarounds
+        # non-digit pour éviter de matcher à l'intérieur d'un timestamp
+        # `YYYYMMDD_HHMMSS` (ex. `20260430_063507` → matchait `0430_06` = juin 430).
+        m = re.search(r"(?<!\d)(20\d{2})[-_](0[1-9]|1[0-2])(?!\d)", d.filename)
         if m:
             year = int(m.group(1))
             month = int(m.group(2))
-            if 1 <= month <= 12:
-                periods.append(f"{MOIS_FR[month - 1]} {year}")
-        else:
-            # Essayer de parser le nom de mois directement
-            for i, mois in enumerate(MOIS_FR):
-                if mois.lower() in d.filename.lower():
-                    # Trouver l'année
-                    ym = re.search(r"(\d{4})", d.filename)
-                    if ym:
-                        periods.append(f"{MOIS_FR[i]} {ym.group(1)}")
-                    break
+            periods.append(f"{MOIS_FR[month - 1]} {year}")
     # Dédupliquer en gardant l'ordre
     seen: set[str] = set()
     unique: list[str] = []

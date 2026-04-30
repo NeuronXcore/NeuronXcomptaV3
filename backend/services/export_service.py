@@ -106,26 +106,26 @@ def _prepare_export_operations(operations: list, filename: str) -> dict:
             n = len(ventilation)
             for i, vline in enumerate(ventilation):
                 sub = {
-                    "Date": op.get("Date", ""),
-                    "Libelle": f"{op.get('Libellé', op.get('Libelle', ''))} [V{i+1}/{n}]",
+                    "Date": op.get("Date") or "",
+                    "Libelle": f"{op.get('Libellé') or op.get('Libelle') or ''} [V{i+1}/{n}]",
                     "Debit": _safe_float(vline.get("montant", 0)) if _safe_float(op.get("Débit", 0)) > 0 else 0.0,
                     "Credit": _safe_float(vline.get("montant", 0)) if _safe_float(op.get("Crédit", 0)) > 0 else 0.0,
-                    "Categorie": vline.get("categorie", ""),
-                    "Sous_categorie": vline.get("sous_categorie", ""),
-                    "Justificatif": os.path.basename(vline.get("justificatif", "") or ""),
-                    "Commentaire": op.get("Commentaire", ""),
+                    "Categorie": vline.get("categorie") or "",
+                    "Sous_categorie": vline.get("sous_categorie") or "",
+                    "Justificatif": os.path.basename(vline.get("justificatif") or ""),
+                    "Commentaire": op.get("Commentaire") or "",
                 }
                 _classify_line(sub, pro, perso, attente)
         else:
             line = {
-                "Date": op.get("Date", ""),
-                "Libelle": op.get("Libellé", op.get("Libelle", "")),
+                "Date": op.get("Date") or "",
+                "Libelle": op.get("Libellé") or op.get("Libelle") or "",
                 "Debit": _safe_float(op.get("Débit", 0)),
                 "Credit": _safe_float(op.get("Crédit", 0)),
-                "Categorie": op.get("Catégorie", op.get("Categorie", "")),
-                "Sous_categorie": op.get("Sous-catégorie", op.get("Sous_categorie", "")),
-                "Justificatif": _get_justificatif_name(op),
-                "Commentaire": op.get("Commentaire", ""),
+                "Categorie": op.get("Catégorie") or op.get("Categorie") or "",
+                "Sous_categorie": op.get("Sous-catégorie") or op.get("Sous_categorie") or "",
+                "Justificatif": _get_justificatif_name(op) or "",
+                "Commentaire": op.get("Commentaire") or "",
             }
             _classify_line(line, pro, perso, attente)
 
