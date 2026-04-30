@@ -407,6 +407,44 @@ export interface AppSettings {
   // Sandbox — traitement auto des fichiers non-canoniques
   sandbox_auto_mode?: boolean
   sandbox_auto_delay_seconds?: number
+  // Rappels Dashboard — bandeau replié par défaut
+  rappels_collapsed?: boolean
+  // Liste des `rule_id` désactivés (toggle dans l'UI du bandeau)
+  rappels_disabled_rules?: string[]
+}
+
+// === Rappels Dashboard ===
+
+export type RappelLevel = 'critical' | 'warning' | 'info'
+export type RappelCategory = 'fiscal' | 'comptable' | 'scp' | 'patrimoine' | 'tresorerie'
+
+export interface RappelCTA {
+  label: string
+  route: string
+}
+
+export interface Rappel {
+  id: string
+  niveau: RappelLevel
+  categorie: RappelCategory
+  titre: string
+  message: string
+  cta: RappelCTA | null
+  snoozable: boolean
+  date_detection: string
+}
+
+export interface RappelsSummary {
+  rappels: Rappel[]
+  counts: Record<RappelLevel, number>
+  total: number
+}
+
+export interface RappelRuleInfo {
+  rule_id: string
+  label: string
+  description: string
+  enabled: boolean
 }
 
 // === Email / Envoi Comptable ===

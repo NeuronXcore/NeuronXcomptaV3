@@ -48,6 +48,11 @@ class AppSettings(BaseModel):
     check_envoi_reminder_n3_offset: int = 20
     # ISO date YYYY-MM-DD : pendant cette fenêtre, _compute_level retourne None (pas de reminder).
     check_envoi_vacances_jusquau: Optional[str] = None
+    # Rappels Dashboard — bandeau replié par défaut (UX : ne pas surcharger).
+    rappels_collapsed: bool = True
+    # Liste des `rule_id` désactivés par l'utilisateur (toggle UI dans le bandeau).
+    # Les règles désactivées sont skip à l'évaluation par l'engine.
+    rappels_disabled_rules: list[str] = []
 
 
 class DiskSpaceInfo(BaseModel):

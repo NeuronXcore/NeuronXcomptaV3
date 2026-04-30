@@ -16,6 +16,7 @@ import AlertesSection from './AlertesSection'
 import FiscalDeadlines from './FiscalDeadlines'
 import RevenueChart from './RevenueChart'
 import ActivityFeed from './ActivityFeed'
+import DashboardRappels from './DashboardRappels'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -70,6 +71,9 @@ export default function DashboardPage() {
           </div>
         }
       />
+
+      {/* Rappels — bandeau « À ne pas oublier » (replié par défaut) */}
+      <DashboardRappels />
 
       {/* Progression gauge */}
       <ProgressionGauge progression={data.progression} />

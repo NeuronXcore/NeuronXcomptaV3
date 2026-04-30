@@ -310,3 +310,47 @@ tr.editor-row:focus-within {
   0%, 100% { opacity: 0.18; transform: scale(1); }
   50%      { opacity: 0.34; transform: scale(1.05); }
 }
+
+/* ── DashboardRappels : cloche qui sonne quand le bandeau est replié ──
+ * Cycle 3s avec sonnerie active sur les ~1.2s premières (de 0% à 40%)
+ * puis pause de ~1.8s. Plus marquée que V1 : 6 oscillations alternées
+ * avec amplitude max 18°, decroissance progressive.
+ * `transform-origin: top center` pour pivoter autour du sommet de la cloche.
+ */
+@keyframes nx-bell-ring {
+  0%, 40%, 100% { transform: rotate(0deg); }
+  4%            { transform: rotate(-18deg); }
+  10%           { transform: rotate(18deg); }
+  16%           { transform: rotate(-14deg); }
+  22%           { transform: rotate(14deg); }
+  28%           { transform: rotate(-8deg); }
+  34%           { transform: rotate(8deg); }
+}
+.animate-nx-bell-ring {
+  animation: nx-bell-ring 3s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+/* Badge compteur sur la cloche : pulse douce pour souligner l'urgence,
+ * particulièrement lisible quand le niveau est `critical`. */
+@keyframes nx-badge-pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  50%      { transform: scale(1.12); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+.animate-nx-badge-pulse {
+  animation: nx-badge-pulse 1.8s ease-out infinite;
+}
+
+/* Glow autour du bandeau replié — attire l'œil par un halo coloré pulsé.
+ * Couleurs spécifiques par niveau (3 variantes via custom property `--nx-glow`).
+ * Le bandeau garde son fond `bg-surface` mais gagne un anneau lumineux qui
+ * respire à 2.4s par cycle. */
+@keyframes nx-rappels-glow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--nx-glow, rgba(239,68,68,0.35)),
+                          0 0 18px -2px var(--nx-glow, rgba(239,68,68,0.35)); }
+  50%      { box-shadow: 0 0 0 2px var(--nx-glow, rgba(239,68,68,0.55)),
+                          0 0 26px 0   var(--nx-glow, rgba(239,68,68,0.55)); }
+}
+.animate-nx-rappels-glow {
+  animation: nx-rappels-glow 2.4s ease-in-out infinite;
+}
