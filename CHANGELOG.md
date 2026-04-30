@@ -8,6 +8,64 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-04-30) — Email comptable : titre/intro affichait « juin 430 » au lieu du bon mois
+
+**Cause racine** : la regex `r"(\d{4})[-_](\d{2})"` dans [`_resolve_single_period`](backend/services/email_service.py:557) et [`_extract_periods_from_docs`](backend/services/email_service.py:673) matchait à l'intérieur du timestamp `YYYYMMDD_HHMMSS` du filename. Sur `Export_Comptable_2025_Janvier_PDF_20260430_063507.zip`, elle captait `0430_06` → year=430, month=6 → titre bandeau « Export comptable — juin 430 » et intro « l'export comptable de juin 430 sous forme d'archive ZIP… ».
+
+**Fix** ([backend/services/email_service.py](backend/services/email_service.py)) — regex stricte `r"(?<!\d)(20\d{2})[-_](0[1-9]|1[0-2])(?!\d)"` avec lookarounds non-digit (empêche le match dans des runs de chiffres comme `20260430`) + bornes 2000-2099 + mois 01-12 strict. `_extract_periods_from_docs` réorganisé pour **prioriser le nom de mois français** (ex. `_Janvier_`) AVANT la regex YYYY-MM — plus fiable sur les filenames structurés `Export_Comptable_YYYY_Mois_*` car la regex YYYY-MM ne sert que pour les patterns legacy `YYYY-MM`. Validé sur 7 patterns (Janvier/Juin/Mars/Décembre/compte_attente/wrapper Documents_Comptables/sans période).
+
+**Note défensive** : ce pattern de bug peut se reproduire ailleurs dans le code. Toute regex extrayant `(\d{4})[-_](\d{2})` depuis un filename qui peut contenir un timestamp `YYYYMMDD_HHMMSS` doit utiliser des lookarounds non-digit (`(?<!\d)` / `(?!\d)`) pour éviter le match parasite.
+
+### Fixed (2026-04-30) — Génération export Juin 2025 plantait « sequence item 5: expected str, NoneType found »
+
+**Cause racine** : le fichier `operations_merged_202506_*.json` avait `"Sous-catégorie": null` (vrai `None` JSON) sur ses 74 ops, alors que les autres mois avaient `""`. Dans [`_prepare_export_operations`](backend/services/export_service.py:107) lignes 121-129, `op.get("Sous-catégorie", "")` renvoyait `None` (le défaut ne s'applique qu'à l'absence de clé, pas à une valeur `None` explicite), puis `";".join([..., None, ...])` dans `_csv_row` crashait sur l'item d'index 5.
+
+**Fix** ([backend/services/export_service.py:107-129](backend/services/export_service.py)) — coercion défensive `or ""` à la **source** dans `_prepare_export_operations` sur Date / Libellé / Catégorie / Sous_categorie / Justificatif / Commentaire (branche ventilée + branche normale). Single point of fix : tous les downstream consumers (CSV principal, PDF, Excel, ventilation par catégorie) reçoivent désormais des strings garantis non-None. Vérifié end-to-end : `POST /api/exports/generate-month` Juin 2025 → HTTP 200, ZIP 3.6 Mo (74 ops + 25 justifs + relevé + compte attente).
+
+**Note défensive** : `dict.get(key, default)` retourne **`None`** si `key` existe avec valeur `None` — le `default` n'est utilisé que si la clé est absente. Pour coercer `None → ""` en sortie, utiliser `(d.get(key) or "")`.
+
+### Added (2026-04-30) — Export Comptable V3 : pill date dernier export + bulk delete + modal validation pré-envoi
+
+**Pill date « dernier export »** sur chaque carte mois ([frontend/src/components/export/ExportPage.tsx:273-293](frontend/src/components/export/ExportPage.tsx)) — visible à droite des pills `PDF` / `CSV` (vert emerald), pill neutre `bg-text-muted/15 text-text-muted` au format `JJ/MM/AA` (`tabular-nums`). Date calculée via `[m.last_pdf_date, m.last_csv_date].filter(Boolean).sort().pop()` (tri ISO 8601 lexicographique = chronologique). Tooltip étendu `Dernier export : JJ/MM/AA` au survol. Aucune modification backend — `last_pdf_date` / `last_csv_date` déjà exposés dans `ExportMonthStatus`.
+
+**Bulk delete dans l'onglet Historique** ([HistoryTab](frontend/src/components/export/ExportPage.tsx)) — 2 nouveaux entry points :
+- **Header bar toujours visible** (quand pas de sélection) : `N exports au total` à gauche + boutons `[✓ Tout sélectionner]` (neutre) + `[🗑 Tout supprimer]` (rouge ghost) à droite.
+- **Toolbar sélection** (quand ≥1 export coché) : bouton rouge soft `Supprimer (N)` ajouté à côté de `Envoyer au comptable`.
+- **Modal de confirmation unifiée** : titre adaptatif (`Supprimer les N exports ?` mode all / `Supprimer N export(s) sélectionné(s) ?` mode selection), liste les 8 premiers filenames + `+ X autres…` si plus, bandeau « Action irréversible — les ZIP correspondants seront supprimés du disque », boutons `Annuler` / `Supprimer (N)` rouge avec spinner pendant l'opération.
+- **Implémentation** : `Promise.allSettled` sur les `N` `DELETE /api/exports/{filename}` parallèles via `useDeleteExport.mutateAsync`. Toast adaptatif : tous OK / partiel `M supprimés, K en erreur` / échec total. Sélection vidée automatiquement à la fin.
+
+**Modal de validation pré-envoi** au clic « Envoyer au comptable » depuis l'historique ([validateBeforeSend state](frontend/src/components/export/ExportPage.tsx)) — intercepte avant l'ouverture du drawer email :
+- Width `max-w-3xl`, max-height `85vh`, scroll interne sur la liste des ZIPs.
+- Header : icône `PackageCheck` primary + titre `Vérifier le contenu avant envoi (N ZIP)`.
+- Body : une carte par ZIP sélectionné avec `Mois Année` + filename mono + taille, suivi du `ZipContentsPanel` réutilisé qui affiche l'arborescence groupée par dossier (`releves/`, `justificatifs/`, `compte_attente/`, `rapports/`).
+- Footer : `Total : X.X Mo` à gauche + `[Annuler]` / `[Confirmer et préparer l'email]` (primary) à droite.
+- Confirmer → ouvre le drawer email avec `preselected` (comportement existant préservé). Annuler → ferme la modal, sélection conservée.
+- Réutilise `useExportContents(filename)` (endpoint `/api/exports/contents/{filename}` existant) — pas d'appel backend supplémentaire.
+
+### Added (2026-04-30) — Toast envoi email branded `EmailSentToast` (icône mailbox SVG animée)
+
+Nouveau composant [`frontend/src/components/shared/EmailSentToast.tsx`](frontend/src/components/shared/EmailSentToast.tsx) remplaçant le `toast.success(result.message)` par défaut dans `SendToAccountantDrawer.handleSend` ([SendToAccountantDrawer.tsx:236](frontend/src/components/email/SendToAccountantDrawer.tsx)).
+
+**Design** : card 380px, accent gauche gradient indigo `#6366F1` → sky `#38BDF8`. Icône zone 48×48 rounded-12 fond gradient indigo soft `#E0E7FF` → `#DBEAFE`.
+
+**Icône SVG mailbox custom (32×32, full props vectoriels)** :
+- Poteau (rect violet `#6366F1`)
+- Corps de la boîte arrière (path arrondi violet)
+- Porte avant (path indigo foncé `#4F46E5`) avec poignée (cercle clair) + slot horizontal `#3730A3`
+- Drapeau rouge `#EF4444` (rect) + tige darker `#B91C1C`
+- Lettre blanche avec stroke indigo + path "V" (rabat enveloppe)
+
+**Animation orchestrée 3 keyframes** ajoutées dans [frontend/src/index.css](frontend/src/index.css) (groupe `nx-mailbox-*`) :
+- `nx-mailbox-letter` (1s, cubic-bezier(0.4, 0, 0.6, 1) forwards) — la lettre apparaît `translate(-12px,-16px) rotate(-18deg) scale(0.8) opacity:0`, vole vers le slot `translate(0,0) rotate(0) scale(1) opacity:1` à 55%, puis disparaît dans la boîte (scale 0.55, opacity 0) à 100%.
+- `nx-mailbox-flag` (1.4s, cubic-bezier(0.34, 1.56, 0.64, 1) forwards = rebond) — le drapeau démarre `rotate(-92deg)` (couché vers le bas), reste plat jusqu'à 55% (timing avec disparition lettre), puis se relève en oscillant via overshoot 14° → -6° → 0° (effet rebond classique).
+- `nx-mailbox-glow` (2.4s ease-out infinite) — 2 anneaux décalés (0s + 1.2s) qui pulsent en `scale(1) opacity:0.55 → scale(1.55) opacity:0`.
+
+**Contenu** : titre `Email envoyé au comptable`, sous-ligne `Distribué à N destinataire(s).`, 2 pills méta (`N pièces jointes` indigo + `X.X Mo` sky). Bouton `X` close en haut-droite. `duration: 6000`, `position: 'top-right'`.
+
+**Snapshot des compteurs** au moment du clic envoi (avant `sendMutation.mutate`) — évite les race conditions avec `close()` qui reset `selected` / `destinataires` avant que le `onSuccess` arrive.
+
+**Pattern réutilisable** : reproduit la structure de [`MLRetrainToast`](frontend/src/components/shared/MLRetrainToast.tsx) (anneaux pulsants `ml-pulse-ring`) et de la variante victory de [`SandboxArrivalToast`](frontend/src/components/shared/SandboxArrivalToast.tsx) (animation custom orchestrée + branded SVG). Toute future toast custom de ce type doit suivre le même pattern : composant dans `components/shared/`, keyframes nommées `nx-{nom}-*` dans `index.css`, déclenchement via `toast.custom((t) => <X toastId={t.id} visible={t.visible} ... />, { duration, position })`.
+
 ### Added (2026-04-30) — Module Rappels Dashboard (moteur extensible, 11 règles, UI bandeau)
 
 Bandeau **« À ne pas oublier »** placé tout en haut du Dashboard (avant la jauge), avec moteur backend extensible isolé du module `/api/alertes` (qui gère les anomalies réactives sur opérations) et UI complète : durée snooze configurable, désactivation par règle, animation de mise en évidence quand replié.
