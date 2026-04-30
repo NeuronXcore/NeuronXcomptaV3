@@ -1063,5 +1063,320 @@
     "success": true,
     "error_message": null,
     "mode": "smtp"
+  },
+  {
+    "id": "99603fce",
+    "sent_at": "2026-04-30T06:42:22.564207",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Janvier PDF 20260430 063507 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Janvier_PDF_20260430_063507.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.31,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "b9c4e910",
+    "sent_at": "2026-04-30T06:53:10.944542",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Février PDF 20260430 063510 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Février_PDF_20260430_063510.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.23,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "b7fd0206",
+    "sent_at": "2026-04-30T06:53:42.431874",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Mars PDF 20260430 063511 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Mars_PDF_20260430_063511.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.03,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "4d5c3038",
+    "sent_at": "2026-04-30T06:54:00.093245",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Avril PDF 20260430 063516 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Avril_PDF_20260430_063516.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.42,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "304fad6b",
+    "sent_at": "2026-04-30T06:54:19.625202",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Mai PDF 20260430 063518 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Mai_PDF_20260430_063518.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 4.63,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "b6f66d0d",
+    "sent_at": "2026-04-30T06:54:40.703064",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Juin PDF 20260430 063519 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Juin_PDF_20260430_063519.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.62,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "3a91ab95",
+    "sent_at": "2026-04-30T06:54:57.439960",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Juillet PDF 20260430 063520 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Juillet_PDF_20260430_063520.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 5.14,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "171bdf84",
+    "sent_at": "2026-04-30T06:55:18.644605",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Août PDF 20260430 063521 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Août_PDF_20260430_063521.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 2.1,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "29e88a8d",
+    "sent_at": "2026-04-30T06:55:40.619163",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Septembre PDF 20260430 063524 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Septembre_PDF_20260430_063524.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.13,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "f745ff0c",
+    "sent_at": "2026-04-30T06:56:11.784323",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Octobre PDF 20260430 063523 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Octobre_PDF_20260430_063523.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 4.22,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "f3638d1b",
+    "sent_at": "2026-04-30T06:56:28.993933",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Novembre PDF 20260430 063523 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Novembre_PDF_20260430_063523.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.31,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "41a450be",
+    "sent_at": "2026-04-30T06:57:02.274842",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Export Comptable 2025 Décembre PDF 20260430 063522 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "export",
+        "filename": "Export_Comptable_2025_Décembre_PDF_20260430_063522.zip"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 3.87,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "c52749c2",
+    "sent_at": "2026-04-30T07:08:29.384233",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Frais de blanchissage professionnel 2025",
+    "documents": [
+      {
+        "type": "rapport",
+        "filename": "blanchissage_20251231_2367,40.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.01,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "c9bfc53d",
+    "sent_at": "2026-04-30T07:08:37.939086",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Forfait repas professionnels 2025",
+    "documents": [
+      {
+        "type": "rapport",
+        "filename": "repas_20251231_2643,30.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.01,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "590e0957",
+    "sent_at": "2026-04-30T07:08:47.323706",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Quote-part véhicule 2025 — 51%",
+    "documents": [
+      {
+        "type": "rapport",
+        "filename": "quote_part_vehicule_2025.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.01,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
   }
 ]
