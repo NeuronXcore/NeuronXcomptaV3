@@ -354,3 +354,23 @@ tr.editor-row:focus-within {
 .animate-nx-rappels-glow {
   animation: nx-rappels-glow 2.4s ease-in-out infinite;
 }
+
+/* Toast envoi email — animation enveloppe qui tombe dans la boîte aux lettres,
+ * puis le drapeau se lève. Joué une seule fois à l'apparition du toast. */
+@keyframes nx-mailbox-letter {
+  0%   { transform: translate(-12px, -16px) rotate(-18deg) scale(0.8); opacity: 0; }
+  15%  { opacity: 1; }
+  55%  { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  75%  { transform: translate(0, 4px) rotate(0deg) scale(0.92); opacity: 0.9; }
+  100% { transform: translate(0, 9px) rotate(0deg) scale(0.55); opacity: 0; }
+}
+@keyframes nx-mailbox-flag {
+  0%, 55% { transform: rotate(-92deg); }
+  72%     { transform: rotate(14deg); }
+  86%     { transform: rotate(-6deg); }
+  100%    { transform: rotate(0deg); }
+}
+@keyframes nx-mailbox-glow {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(1.55); opacity: 0; }
+}

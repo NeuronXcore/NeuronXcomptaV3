@@ -11,6 +11,7 @@ import { useSettings } from '@/hooks/useApi'
 import EmailChipsInput from '@/components/common/EmailChipsInput'
 import ManualSendButton from '@/components/email/ManualSendButton'
 import ManualZipCard from '@/components/email/ManualZipCard'
+import EmailSentToast from '@/components/shared/EmailSentToast'
 import type { DocumentRef, DocumentInfo, DocumentType, EmailHistoryEntry } from '@/types'
 
 const TYPE_CONFIG: { key: DocumentType; label: string; icon: typeof Archive }[] = [
@@ -233,12 +234,26 @@ export default function SendToAccountantDrawer() {
 
   const handleSend = useCallback(() => {
     if (destinataires.length === 0 || selected.size === 0) return
+    const snapshotDestinataires = destinataires.length
+    const snapshotAttachments = selectedDocs.length
+    const snapshotSizeMb = totalSizeMb
     sendMutation.mutate(
       { documents: selectedDocs, destinataires, objet, corps },
       {
         onSuccess: (result) => {
           if (result.success) {
-            toast.success(result.message)
+            toast.custom(
+              (t) => (
+                <EmailSentToast
+                  toastId={t.id}
+                  visible={t.visible}
+                  destinatairesCount={snapshotDestinataires}
+                  attachmentsCount={snapshotAttachments}
+                  sizeMb={snapshotSizeMb}
+                />
+              ),
+              { duration: 6000, position: 'top-right' }
+            )
             close()
           } else {
             toast.error(result.message)
@@ -247,7 +262,7 @@ export default function SendToAccountantDrawer() {
         onError: (err) => toast.error(err.message),
       }
     )
-  }, [destinataires, selectedDocs, objet, corps, sendMutation, close, selected.size])
+  }, [destinataires, selectedDocs, objet, corps, sendMutation, close, selected.size, totalSizeMb])
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} o`

@@ -12,7 +12,7 @@ import {
   useExportContents,
 } from '@/hooks/useExports'
 import type { ExportMonthStatus, ExportFile } from '@/hooks/useExports'
-import { cn } from '@/lib/utils'
+import { cn, formatDateShort } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import {
@@ -270,6 +270,14 @@ function ExportMonthCard({ month: m, year, isGenerating, onExport }: ExportMonth
 
   const hasExport = m.has_pdf || m.has_csv
 
+  const lastExportIso = [m.last_pdf_date, m.last_csv_date]
+    .filter((d): d is string => !!d)
+    .sort()
+    .pop()
+  const lastExportLabel = lastExportIso
+    ? `Dernier export : ${formatDateShort(lastExportIso)}`
+    : undefined
+
   return (
     <div className={cn(
       'rounded-xl border p-4 transition-all',
@@ -286,6 +294,9 @@ function ExportMonthCard({ month: m, year, isGenerating, onExport }: ExportMonth
           )}
           {m.has_csv && (
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400">CSV</span>
+          )}
+          {lastExportIso && (
+            <span title={lastExportLabel} className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-text-muted/15 text-text-muted tabular-nums">{formatDateShort(lastExportIso)}</span>
           )}
           {!hasExport && (
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-400">à générer</span>
@@ -373,8 +384,11 @@ function HistoryTab() {
   const { data: exports, isLoading } = useExportList()
   const deleteMutation = useDeleteExport()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [bulkConfirm, setBulkConfirm] = useState<null | { mode: 'selection' | 'all'; targets: string[] }>(null)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [expandedFile, setExpandedFile] = useState<string | null>(null)
   const [selectedExports, setSelectedExports] = useState<Set<string>>(new Set())
+  const [validateBeforeSend, setValidateBeforeSend] = useState<ExportFile[] | null>(null)
   const openSendDrawer = useSendDrawerStore(s => s.open)
 
   const list = exports ?? []
@@ -402,6 +416,28 @@ function HistoryTab() {
 
   const toggleExpand = (filename: string) => {
     setExpandedFile(prev => prev === filename ? null : filename)
+  }
+
+  const handleBulkDelete = async () => {
+    if (!bulkConfirm) return
+    const targets = bulkConfirm.targets
+    setBulkDeleting(true)
+    try {
+      const results = await Promise.allSettled(targets.map(f => deleteMutation.mutateAsync(f)))
+      const ok = results.filter(r => r.status === 'fulfilled').length
+      const ko = results.length - ok
+      if (ko === 0) {
+        toast.success(`${ok} export${ok > 1 ? 's' : ''} supprimé${ok > 1 ? 's' : ''}`)
+      } else if (ok === 0) {
+        toast.error(`Échec de la suppression (${ko} erreur${ko > 1 ? 's' : ''})`)
+      } else {
+        toast.error(`${ok} supprimé${ok > 1 ? 's' : ''}, ${ko} en erreur`)
+      }
+      setSelectedExports(new Set())
+    } finally {
+      setBulkDeleting(false)
+      setBulkConfirm(null)
+    }
   }
 
   if (isLoading) return <LoadingSpinner text="Chargement des exports..." />
@@ -468,17 +504,46 @@ function HistoryTab() {
           </button>
           <button
             onClick={() => {
-              const preselected = Array.from(selectedExports).map(filename => ({
-                type: 'export' as const,
-                filename,
-              }))
-              openSendDrawer({ preselected, defaultFilter: 'export' })
+              const items = list.filter(e => selectedExports.has(e.filename))
+              setValidateBeforeSend(items)
             }}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
           >
             <Send size={13} />
             Envoyer au comptable ({selectedExports.size})
           </button>
+          <button
+            onClick={() => setBulkConfirm({ mode: 'selection', targets: Array.from(selectedExports) })}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-danger/15 text-danger border border-danger/30 rounded-lg text-xs font-medium hover:bg-danger/25 transition-colors"
+          >
+            <Trash2 size={13} />
+            Supprimer ({selectedExports.size})
+          </button>
+        </div>
+      )}
+
+      {/* Header bar — actions globales toujours visibles */}
+      {!someSelected && (
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs text-text-muted">
+            {list.length} export{list.length > 1 ? 's' : ''} au total
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleSelectAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-border rounded-lg text-xs font-medium text-text-muted hover:text-text hover:border-primary/40 transition-colors"
+            >
+              <Check size={13} />
+              Tout sélectionner
+            </button>
+            <button
+              onClick={() => setBulkConfirm({ mode: 'all', targets: list.map(e => e.filename) })}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-surface border border-danger/30 rounded-lg text-xs font-medium text-danger hover:bg-danger/10 transition-colors"
+            >
+              <Trash2 size={13} />
+              Tout supprimer
+            </button>
+          </div>
         </div>
       )}
 
@@ -588,6 +653,140 @@ function HistoryTab() {
             </div>
           </div>
         )})}
+
+      {/* Pre-send validation modal — show ZIP contents before opening the email drawer */}
+      {validateBeforeSend && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setValidateBeforeSend(null)}>
+          <div
+            className="bg-surface rounded-2xl border border-border shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-5 border-b border-border flex items-start gap-3 shrink-0">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <PackageCheck size={20} className="text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-text">
+                  Vérifier le contenu avant envoi
+                  <span className="ml-2 text-text-muted font-normal">({validateBeforeSend.length} ZIP)</span>
+                </h3>
+                <p className="text-xs text-text-muted mt-1">
+                  Parcourez les fichiers contenus dans chaque archive avant de générer l'email au comptable.
+                </p>
+              </div>
+              <button
+                onClick={() => setValidateBeforeSend(null)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors shrink-0"
+                title="Fermer"
+              >
+                <Minus size={16} className="rotate-90" />
+              </button>
+            </div>
+
+            {/* Body — scroll area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {validateBeforeSend.map(exp => (
+                <div key={exp.filename} className="bg-background rounded-xl border border-border overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-border flex items-center gap-2.5 bg-surface/40">
+                    <Archive size={14} className="text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-text truncate">
+                        {exp.month_name ? `${exp.month_name} ${exp.year}` : exp.filename}
+                      </p>
+                      <p className="text-[11px] text-text-muted font-mono truncate">{exp.filename}</p>
+                    </div>
+                    <span className="text-[11px] text-text-muted shrink-0 flex items-center gap-1">
+                      <HardDrive size={11} />
+                      {exp.size_human}
+                    </span>
+                  </div>
+                  <ZipContentsPanel filename={exp.filename} />
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border flex items-center justify-between gap-2 shrink-0 bg-surface/60">
+              <p className="text-xs text-text-muted">
+                Total : {(validateBeforeSend.reduce((s, e) => s + e.size, 0) / (1024 * 1024)).toFixed(1)} Mo
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setValidateBeforeSend(null)}
+                  className="px-4 py-2 text-sm bg-surface-hover rounded-lg hover:bg-border transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => {
+                    const preselected = validateBeforeSend.map(e => ({
+                      type: 'export' as const,
+                      filename: e.filename,
+                    }))
+                    openSendDrawer({ preselected, defaultFilter: 'export' })
+                    setValidateBeforeSend(null)
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  <Send size={14} />
+                  Confirmer et préparer l'email
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation modal */}
+      {bulkConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => !bulkDeleting && setBulkConfirm(null)}>
+          <div className="bg-surface rounded-2xl border border-border p-6 max-w-md w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
+                <AlertCircle size={20} className="text-danger" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-text">
+                  {bulkConfirm.mode === 'all'
+                    ? `Supprimer les ${bulkConfirm.targets.length} exports ?`
+                    : `Supprimer ${bulkConfirm.targets.length} export${bulkConfirm.targets.length > 1 ? 's' : ''} sélectionné${bulkConfirm.targets.length > 1 ? 's' : ''} ?`}
+                </h3>
+                <p className="text-xs text-text-muted mt-1">
+                  Action irréversible — les ZIP correspondants seront supprimés du disque.
+                </p>
+              </div>
+            </div>
+            <div className="bg-background/60 border border-border rounded-lg p-3 mb-4 max-h-40 overflow-y-auto">
+              <ul className="space-y-1 text-[11px] font-mono text-text-muted">
+                {bulkConfirm.targets.slice(0, 8).map(f => (
+                  <li key={f} className="truncate">• {f}</li>
+                ))}
+                {bulkConfirm.targets.length > 8 && (
+                  <li className="italic">+ {bulkConfirm.targets.length - 8} autres…</li>
+                )}
+              </ul>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setBulkConfirm(null)}
+                disabled={bulkDeleting}
+                className="px-4 py-2 text-sm bg-surface-hover rounded-lg hover:bg-border disabled:opacity-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex items-center gap-2 px-4 py-2 text-sm bg-danger text-white rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {bulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                Supprimer ({bulkConfirm.targets.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {confirmDelete && (
