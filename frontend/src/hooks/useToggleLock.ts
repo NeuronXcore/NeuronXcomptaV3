@@ -21,6 +21,7 @@ export function useToggleLock() {
     onSuccess: (_data, { filename }) => {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
       queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }

@@ -4,12 +4,27 @@ import { X, Download, ExternalLink } from 'lucide-react'
 interface PdfPreviewDrawerProps {
   open: boolean
   onClose: () => void
-  filename: string
+  /** Filename used to build the default `/api/reports/preview/{name}` URL.
+   *  Ignoré quand `pdfUrl` est fourni (ex. snapshots Livret servis par /api/livret/snapshots/{id}/pdf). */
+  filename?: string
+  /** URL externe complète vers le PDF — prend le pas sur `filename` quand fournie.
+   *  Utile pour les snapshots Livret servis par un endpoint dédié. */
+  pdfUrl?: string
+  /** Filename à proposer à l'utilisateur lors du téléchargement. Défaut = `filename`. */
+  downloadFilename?: string
   title: string
   subtitle?: string
 }
 
-export default function PdfPreviewDrawer({ open, onClose, filename, title, subtitle }: PdfPreviewDrawerProps) {
+export default function PdfPreviewDrawer({
+  open,
+  onClose,
+  filename,
+  pdfUrl,
+  downloadFilename,
+  title,
+  subtitle,
+}: PdfPreviewDrawerProps) {
   // Esc to close
   useEffect(() => {
     if (!open) return
@@ -20,7 +35,9 @@ export default function PdfPreviewDrawer({ open, onClose, filename, title, subti
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
-  const previewUrl = `/api/reports/preview/${encodeURIComponent(filename)}`
+  const previewUrl =
+    pdfUrl ?? (filename ? `/api/reports/preview/${encodeURIComponent(filename)}` : '')
+  const dlName = downloadFilename ?? filename ?? 'document.pdf'
 
   return (
     <>
@@ -59,7 +76,7 @@ export default function PdfPreviewDrawer({ open, onClose, filename, title, subti
             </a>
             <a
               href={previewUrl}
-              download={filename}
+              download={dlName}
               className="p-2 rounded-lg text-text-muted hover:text-text hover:bg-background transition-colors"
               title="Télécharger"
             >
@@ -76,9 +93,9 @@ export default function PdfPreviewDrawer({ open, onClose, filename, title, subti
 
         {/* PDF viewer */}
         <div className="flex-1 min-h-0 p-3">
-          {open && (
+          {open && previewUrl && (
             <object
-              key={filename}
+              key={previewUrl}
               data={previewUrl}
               type="application/pdf"
               className="w-full h-full rounded-lg border border-border bg-background"

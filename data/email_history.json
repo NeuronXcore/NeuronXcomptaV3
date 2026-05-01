@@ -1378,5 +1378,55 @@
     "success": true,
     "error_message": null,
     "mode": "smtp"
+  },
+  {
+    "id": "9b9034e4",
+    "sent_at": "2026-04-30T07:17:29.419768",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "rapport tableau dotations 2025 20260430 071648 — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "rapport",
+        "filename": "rapport_tableau_dotations_2025_20260430_071648.pdf"
+      }
+    ],
+    "nb_documents": 1,
+    "taille_totale_mo": 0.01,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
+  },
+  {
+    "id": "333ad66b",
+    "sent_at": "2026-04-30T07:18:01.280483",
+    "destinataires": [
+      "NPOILLOT@sygnatures.com",
+      "eric3.marenco3@wanadoo.fr",
+      "docteur.andre.ceccoli@gmail.com"
+    ],
+    "objet": "Documents comptables (3 fichiers) — Dr Ceccoli",
+    "documents": [
+      {
+        "type": "rapport",
+        "filename": "blanchissage_20251231_2367,40.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "repas_20251231_2643,30.pdf"
+      },
+      {
+        "type": "rapport",
+        "filename": "quote_part_vehicule_2025.pdf"
+      }
+    ],
+    "nb_documents": 3,
+    "taille_totale_mo": 0.04,
+    "success": true,
+    "error_message": null,
+    "mode": "smtp"
   }
 ]

@@ -1080,7 +1080,12 @@ def _propagate_attente_comment(
 
 
 def validate_instance(year: int, period: CheckPeriod, month: Optional[int] = None) -> CheckEnvoiInstance:
-    """Marque `validated_at = now()` si ready_for_send. Sinon ValueError."""
+    """Marque `validated_at = now()` si ready_for_send. Sinon ValueError.
+
+    Hook Phase 3 (Livret) : la validation `period=annual` déclenche un snapshot
+    automatique de type `cloture` (best-effort, sans faire échouer la validation
+    si la génération échoue).
+    """
     instance = get_instance(year, period, month)
     if not instance.ready_for_send:
         raise ValueError("Instance non prête : items bloquants restants")
@@ -1098,6 +1103,24 @@ def validate_instance(year: int, period: CheckPeriod, month: Optional[int] = Non
     rkey = _reminder_period_key(year, period, month)
     reminders.pop(rkey, None)
     _save_reminders(reminders)
+
+    # Hook Livret Phase 3 : snapshot cloture automatique sur validation annuelle
+    if period == CheckPeriod.ANNUAL:
+        try:
+            from datetime import date as _date
+            from backend.models.livret import SnapshotType
+            from backend.services import livret_snapshot_service
+            livret_snapshot_service.create_snapshot(
+                year=year,
+                snapshot_type=SnapshotType.CLOTURE,
+                comment="Clôture exercice — version définitive",
+                as_of_date=_date(year, 12, 31),
+            )
+            logging.getLogger(__name__).info("Livret snapshot cloture %s créé via hook validation", year)
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                "Livret snapshot cloture %s failed (best-effort): %s", year, e
+            )
 
     return get_instance(year, period, month)
 

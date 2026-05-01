@@ -23,6 +23,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/alertes': "Compte d'attente",
   '/previsionnel': 'Prévisionnel',
   '/visualization': 'Compta Analytique',
+  '/livret': 'Livret comptable',
   '/reports': 'Rapports',
   '/simulation': 'Simulation BNC',
   '/export': 'Export Comptable',
@@ -49,7 +50,15 @@ export default function AppLayout() {
   useSandbox()
 
   useEffect(() => {
-    const label = ROUTE_TITLES[pathname]
+    let label = ROUTE_TITLES[pathname]
+    // Dynamic routes (Livret) — match prefix
+    if (!label) {
+      if (pathname.startsWith('/livret/') && pathname.endsWith('/archives')) {
+        label = 'Archives Livret'
+      } else if (pathname.startsWith('/livret/') || pathname === '/livret') {
+        label = 'Livret comptable'
+      }
+    }
     document.title = label ? `${label} · ${APP_NAME}` : APP_NAME
   }, [pathname])
 

@@ -84,6 +84,7 @@ export function useAssociate() {
       queryClient.invalidateQueries({ queryKey: ['justificatif-stats'] })
       queryClient.invalidateQueries({ queryKey: ['operations'] })
       queryClient.invalidateQueries({ queryKey: ['justificatif-suggestions'] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -102,6 +103,7 @@ export function useDissociate() {
       // ses suggestions dans le widget Pipeline jusqu'au prochain refetch.
       queryClient.invalidateQueries({ queryKey: ['justificatif-reverse-lookup'] })
       queryClient.invalidateQueries({ queryKey: ['justificatif-operation-suggestions'] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }

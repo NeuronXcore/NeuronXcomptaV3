@@ -28,6 +28,9 @@ export function useSaveOperations() {
     onSuccess: (_, { filename }) => {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      // Livret comptable : invalidation toutes années (l'année du fichier n'est pas
+      // toujours connue ici sans parsing du filename — coût négligeable sur 1-3 ans actifs).
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -103,6 +106,7 @@ export function useCategorizeOperations() {
       api.post<{ modified: number; total: number }>(`/operations/${filename}/categorize`, { mode }),
     onSuccess: (_, { filename }) => {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }

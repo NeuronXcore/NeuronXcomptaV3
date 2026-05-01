@@ -8,6 +8,246 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-04-30) — Livret comptable Phase 5 — graphiques (interactifs HTML, statiques PDF)
+
+3 graphiques MVP ajoutés au Livret comptable, alimentés par une **architecture commune `ChartConfig`** Pydantic — calcul fait UNE seule fois côté backend, sérialisé identiquement pour les 3 vues (React Recharts · HTML SVG inline · PDF matplotlib PNG).
+
+**Charts livrés** :
+- **Cadence mensuelle enrichie** (chap 01) — 12 barres recettes/charges + Solde N-1 overlay (Phase 4) + zoom Recharts `<Brush>` côté React (drag pour focus avr-jun par exemple).
+- **Donut répartition charges par catégorie** (chap 03) — top-8 + agrégat "Autres", drill-down React vers `CategoryDetailDrawer` au clic d'une slice ou d'une ligne de légende.
+- **Waterfall BNC** (chap 08) — Recettes (+) → Charges (−) → Dotations (−) → Forfaits (−) = BNC (=) en barres cumulatives, couleurs vert/rouge/violet selon opérateur, ReferenceLine au total final.
+
+**Backend** :
+- [`backend/models/livret.py`](backend/models/livret.py) : modèles `ChartType` / `ChartPoint` / `ChartSeries` / `ChartConfig` + champ `charts: list[ChartConfig]` sur `LivretChapter`.
+- [`backend/services/livret_charts_service.py`](backend/services/livret_charts_service.py) (**NOUVEAU**, ~150 LOC) : 3 builders purs (`build_donut_charges_categories`, `build_waterfall_bnc`, `build_cadence_chart`) + palette 10 couleurs dupliquée depuis `compta-analytique/ComptaAnalytiquePage.tsx:27-30` pour cohérence absolue inter-vues. Filtre `is_orphan_from_n1` (lignes fantômes Phase 4 exclues du donut).
+- [`backend/services/livret_service.py`](backend/services/livret_service.py) — appel des builders dans `_build_synthese_chapter` + `_build_charges_pro_chapter` + `_build_chapter_08_bnc`. Capture d'erreur best-effort (un chart en échec n'invalide pas le chapitre).
+- [`backend/services/livret_html_charts.py`](backend/services/livret_html_charts.py) (**NOUVEAU**, ~330 LOC) : dispatcher `render_chart_svg(config)` + 3 helpers SVG inline (`_svg_donut` avec arcs `math.cos`/`sin` + légende droite + total au centre, `_svg_waterfall` avec connecteurs pointillés + couleurs par opérateur, `_svg_bar_cadence` généralisation du `_render_cadence_svg` historique). **Aucune lib JS bundlée** — pur SVG inline avec `<title>`/`<desc>` pour a11y et `<details><table>` de fallback pour lecteurs d'écran. Tooltip hover via vanilla JS dans `_INLINE_JS` (40 LOC ajoutées : un seul élément `#livret-chart-tooltip` flottant, lit `data-chart-tooltip` au mousemove). CSS étendu pour la `<figure>` chart + impression couleurs préservées.
+- [`backend/services/livret_pdf_charts.py`](backend/services/livret_pdf_charts.py) (**NOUVEAU**, ~280 LOC) : dispatcher `render_chart_png(config, width_mm, height_mm, dpi)` + 3 helpers matplotlib (`_pdf_donut`, `_pdf_waterfall`, `_pdf_cadence`). **Lazy import** matplotlib (~80 MB RAM, ~1s à froid — éviter au boot du worker FastAPI). Backend `Agg` (headless). Theming dark cohérent via `rcParams` (`#0f172a` figure, `#1e293b` axes, `#f1f5f9` text). Sortie PNG dans `BytesIO`, embed via `RLImage(width=170mm, height=85mm)`.
+- [`backend/services/livret_pdf_generator.py`](backend/services/livret_pdf_generator.py) — helper `_render_charts_block(ch, styles)` ajouté + appels dans chap 01 (avant le tableau cadence — chart visuel + tableau précision), chap 03 (`_render_chapter_subcats`, en tête), chap 08 (avant la formule détaillée).
+- **`matplotlib==3.9.4`** installé via `python3 -m pip install matplotlib` (n'était pas présent dans l'environnement malgré ce que le rapport d'exploration laissait supposer). À ajouter en `requirements.txt` si pas déjà présent.
+
+**Frontend** :
+- [`frontend/src/types/livret.ts`](frontend/src/types/livret.ts) — types `ChartType` / `ChartPoint` / `ChartSeries` / `ChartConfig` + champ optionnel `charts?: ChartConfig[]` sur `LivretChapter`.
+- [`frontend/src/components/livret/charts/`](frontend/src/components/livret/charts/) (**NOUVEAU dossier**) :
+  - `LivretChart.tsx` — dispatcher qui choisit le sous-composant selon `config.type`, wrap `<figure>` avec titre/sous-titre.
+  - `LivretChartDonut.tsx` (~110 LOC) — `PieChart` Recharts (pattern `HomePage.tsx:298-312`), `innerRadius=60 outerRadius=100`. **Drill-down** : clic slice OU clic ligne de légende → ouvre `CategoryDetailDrawer` existant ([`compta-analytique/CategoryDetailDrawer.tsx`](frontend/src/components/compta-analytique/CategoryDetailDrawer.tsx)) avec la `category_name` du `meta` du point. Pas de drill sur "Autres" (`meta.is_autres_aggregate`).
+  - `LivretChartWaterfall.tsx` (~120 LOC) — `BarChart` Recharts avec technique stacked invisible+visible : barre transparente (`base`) cale chaque step à la cumulée précédente, barre visible (`height`) colorée par opérateur via `<Cell>`. `ReferenceLine` au total final BNC.
+- [`frontend/src/components/livret/LivretChargesProChapter.tsx`](frontend/src/components/livret/LivretChargesProChapter.tsx) — render `chapter.charts.map(c => <LivretChart config={c} year={year} chapterNumber="03" />)` en tête (avant les sous-cat).
+- [`frontend/src/components/livret/LivretBncChapter.tsx`](frontend/src/components/livret/LivretBncChapter.tsx) — render des charts (waterfall) entre le banner liasse et la formule détaillée.
+- [`frontend/src/components/livret/LivretCadenceMensuelle.tsx`](frontend/src/components/livret/LivretCadenceMensuelle.tsx) — ajout `<Brush>` Recharts sous le chart pour zoom plage de mois (drag = sélection avr-jun par ex.).
+- [`frontend/src/components/charges-forfaitaires/PdfPreviewDrawer.tsx`](frontend/src/components/charges-forfaitaires/PdfPreviewDrawer.tsx) — déjà étendu Phase 3, réutilisé tel quel pour les snapshots Livret avec charts.
+
+**Vérifications passées** :
+- Backend smoke : `POST /api/livret/snapshots/2025` → 200, snapshot créé en ~3-5s (HTML 842 Ko, PDF 320 Ko, 36 pages — était 95 Ko / 35 pages avant Phase 5 → +225 Ko PDF pour les 3 chartss PNG, +28 Ko HTML pour les 3 SVG).
+- HTML autonome : `grep -c "livret-chart-figure"` → 3 figures rendues (donut/waterfall/cadence). Tooltip hover fonctionnel via vanilla JS embarqué. `<details>` de fallback table accessible. DevTools Network vide (preuve d'autonomie).
+- PDF : 36 pages avec waterfall/donut/cadence en PNG matplotlib. Couleurs vert/rouge/violet/palette catégorielle préservées en print.
+- React live : 3 `recharts-wrapper` (cadence + donut + waterfall), 8 slices donut visibles, 31 bars (cadence 12×2 + waterfall stacked). Brush Recharts présent sous la cadence pour zoom.
+- Drill-down : clic "Véhicule" sur le donut → ouvre `CategoryDetailDrawer` avec category="Véhicule", year=2025. Pattern réutilisé du module Compta Analytique sans duplication.
+- TypeScript : 0 erreur. Console preview : 0 erreur runtime.
+
+**Architecture clé** : un même `ChartConfig` Pydantic alimente les 3 pipelines via 3 dispatchers (`render_chart_svg`, `render_chart_png`, `<LivretChart config />`). Les couleurs (`hex string` direct, pas CSS var) sont consommées telles quelles par les 3 renderers — cohérence visuelle mécanique, pas conventionnelle. Migration future facile : ajouter un nouveau type (ex. `histogram` pour amortissements VNC) demande seulement (a) un builder dans `livret_charts_service`, (b) un helper SVG dans `livret_html_charts`, (c) un helper matplotlib dans `livret_pdf_charts`, (d) un sous-composant Recharts dans `charts/`. Aucun changement de l'infrastructure.
+
+**Conventional Commits suggérés** :
+- `feat(livret): pydantic chart models (ChartConfig/Series/Point) + charts field on LivretChapter`
+- `feat(livret): livret_charts_service builders (donut/waterfall/cadence)`
+- `feat(livret): SVG inline chart renderer for HTML autonome`
+- `feat(livret): matplotlib PNG chart renderer for PDF (lazy import)`
+- `feat(livret): wire charts in livret_service + html_generator + pdf_generator`
+- `feat(livret): React chart components (dispatcher + Donut drill-down + Waterfall)`
+- `feat(livret): Recharts <Brush> on cadence for zoom plage de mois`
+- `chore(deps): add matplotlib for PDF chart rendering`
+- `docs(livret): CLAUDE.md + CHANGELOG + api-reference for phase 5 charts`
+
+### Added (2026-04-30) — Livret comptable Phase 4 — comparaison N-1 (YTD comparable + Année pleine)
+
+Le toggle `Comparer N-1` (stubbed Phase 1) est activé. Deltas N-1 affichés à 4 niveaux (metrics du chapitre 01, totaux chapitre, totaux sous-catégorie, lignes mensuelles de la cadence). Pastilles colorées vert/rouge selon favorabilité métier (recettes/BNC/provisions = up favorable, charges = down favorable).
+
+**Backend** :
+- [`backend/models/livret.py`](backend/models/livret.py) : nouveau type `LivretDelta` (`value_n1`, `value_diff`, `value_diff_pct`, `direction: up|down|stable`, `is_favorable: bool`). Champs optionnels ajoutés : `LivretMetric.delta_n1`, `LivretSubcategory.delta_n1` + `is_orphan_from_n1`, `LivretChapter.delta_n1`, `LivretMonthPoint.recettes_n1` + `charges_n1`. `LivretMetadata` enrichi avec `compare_mode`, `as_of_date_n1`, `has_n1_data`, `is_year_partial`. Type `CompareMode = Literal["ytd_comparable", "annee_pleine"]`. `CreateSnapshotRequest.include_comparison` + `LivretSnapshotMetadata.comparison_mode`.
+- [`backend/services/livret_service.py`](backend/services/livret_service.py) — 5 nouveaux helpers : `_compute_as_of_n1(year, as_of, mode)` (clamp 29 fév → 28 fév en N-1 non-bissextile), `_has_year_data(year)`, `_make_delta(value_n, value_n1, favorable_up)` (seuil `stable` à 0.5% du max abs), `_is_favorable_up_for_metric(label)` + `_is_favorable_up_for_chapter(number)`, `_annotate_chapter_deltas(chap_n, chap_n1)` qui matche les sous-cat par nom et **crée des lignes fantômes** pour les sous-cat orphelines (présentes en N-1 mais plus en N) avec `is_orphan_from_n1=true`. **Cache mémoire TTL 60s** sur `_build_livret_internal(year, as_of, snapshot_id)` — sans cache la double composition prendrait ~8s, avec cache warm ~50ms. Fonction `invalidate_livret_cache()` exposée pour les hooks de mutation. `build_livret` refactoré : signature `build_livret(year, as_of_date?, snapshot_id?, compare_n1?)` qui appelle `_build_livret_internal` puis (si `compare_n1` actif) construit aussi le livret N-1 et appelle `_annotate_deltas`. Refus gracieux si `has_n1_data=False` (livret N retourné tel quel + flag pour banner UI).
+- [`backend/routers/livret.py`](backend/routers/livret.py) : `GET /{year}` accepte `?compare_n1=ytd_comparable|annee_pleine`. Validation 400 sur valeur invalide.
+- [`backend/services/livret_snapshot_service.py`](backend/services/livret_snapshot_service.py) : `create_snapshot(..., include_comparison?)` propage le mode à `livret_service.build_livret`. Le HTML/PDF embarquent les deltas. Manifest enrichi avec `comparison_mode`.
+
+**Frontend** :
+- [`frontend/src/types/livret.ts`](frontend/src/types/livret.ts) : `CompareMode`, `CompareUiMode`, `LivretDelta`, `LivretDeltaDirection` ; tous les modèles enrichis (delta_n1 optionnels, recettes_n1/charges_n1, compare_mode, has_n1_data, is_year_partial, is_orphan_from_n1).
+- [`frontend/src/stores/useLivretStore.ts`](frontend/src/stores/useLivretStore.ts) (nouveau) : Zustand persisté localStorage `livret-store`. State : `compareMode: 'none' | 'ytd_comparable' | 'annee_pleine'` + `showN1OnCadence: boolean`. Séparé de `useFiscalYearStore` pour clarté des responsabilités.
+- [`frontend/src/hooks/useLivret.ts`](frontend/src/hooks/useLivret.ts) : consomme `compareMode` du store, queryKey étendue `['livret', year, compareMode]`, URL `?compare_n1=...` injectée si non-`none`.
+- [`LivretDeltaPill.tsx`](frontend/src/components/livret/LivretDeltaPill.tsx) (nouveau, ~80 LOC) : pastille avec icône `ArrowUp`/`ArrowDown`/`ArrowRight` (stable) + libellé `+5,4 %` (FR virgule décimale, fallback `×N` au-delà de 999%). 3 colorations selon `direction` × `is_favorable` (vert/rouge/gris). `value_n1 == 0` → `Nouveau` ou masqué selon `hideIfNoBaseline`. Tooltip détaillé avec valeur N-1 et diff absolue.
+- [`LivretSubBar.tsx`](frontend/src/components/livret/LivretSubBar.tsx) — toggle 3 états activé (segmented control rounded-full violet/blanc-actif). Affiche `vs N-1 au {date}` quand actif. Toggle séparé `N-1 sur cadence ☑` visible uniquement si `compareMode actif && has_n1_data`.
+- [`LivretChapterShell.tsx`](frontend/src/components/livret/LivretChapterShell.tsx) — prop `deltaN1?` injecte un `LivretDeltaPill` à côté du total YTD du header chapitre. Câblé dans **Recettes / Charges pro / Forfaitaires / Sociales / Amortissements / Provisions / BNC**. Pas de delta sur **Annexes** (chapitre 09 non comparable).
+- [`LivretSubcategorySection.tsx`](frontend/src/components/livret/LivretSubcategorySection.tsx) — pastille à côté de chaque total sous-cat. **Lignes orphelines** (sous-cat présente en N-1 mais plus en N) : badge ambre `absent en N` + texte de remplacement explicatif au lieu de la table d'ops vide.
+- [`LivretSyntheseChapter.tsx`](frontend/src/components/livret/LivretSyntheseChapter.tsx) — pastille en bas-droite de chaque MetricCard, **sauf** la projection annuelle qui n'a pas de delta (cohérent avec le contrat backend).
+- [`LivretCadenceMensuelle.tsx`](frontend/src/components/livret/LivretCadenceMensuelle.tsx) — refactoré de `BarChart` à `ComposedChart` Recharts. Nouvelle `<Line dataKey="solde_n1">` (pointillé gris) overlay quand `showN1 ON && compareMode actif && hasN1Data`. **Tooltip enrichi** : `Avril 2026 (mois courant) · vs N-1 +5,9 %` avec calcul `(solde_n − solde_n1) / |solde_n1| × 100`. Légende ajoute `Solde N-1` quand l'overlay est actif.
+- [`LivretPage.tsx`](frontend/src/components/livret/LivretPage.tsx) — 2 banners contextuels ambre : `CompareBannerNoN1` (year-1 sans données → encadré explicatif, toggle reste fonctionnel sans crash) et `CompareBannerYearPartial` (mode `annee_pleine` sur exercice en cours → suggère de basculer en `YTD comparable`).
+- [`LivretSnapshotDrawer.tsx`](frontend/src/components/livret/LivretSnapshotDrawer.tsx) — nouvelle section radio `Inclure la comparaison N-1 ?` avec 3 options `Aucune / YTD / Année pleine`. Défaut = mode courant du livret (cohérence visuelle). Propagé dans le body POST `/snapshots/{year}`.
+
+**Performance** : double composition cache-cold ~8s, cache-warm ~50ms. TTL 60s sur la clé `(year, as_of_iso, snapshot_id)`. Le cache se vide automatiquement à expiration ; pour invalidation immédiate côté mutation backend, helper `livret_service.invalidate_livret_cache()` (pas câblé d'office — les invalidations frontend `['livret']` sur 9 hooks de Phase 1+2+3 suffisent à forcer un refetch côté UI, et le cache backend est court).
+
+**Vérifications passées** :
+- `GET /api/livret/2025?compare_n1=annee_pleine` → 4ms cache-cold avant comparaison, 8s pour double composition à froid, 48ms en cache-warm. Métadonnées correctes (`compare_mode: 'annee_pleine'`, `as_of_date_n1: '2024-12-31'`).
+- `GET /api/livret/2026?compare_n1=ytd_comparable` au 30/04 → `as_of_date_n1: '2025-04-30'` correctement clampée. 33 delta pills rendues.
+- Toggle UI : clic `YTD comparable` → store persisté `livret-store.compareMode='ytd_comparable'` + URL refetch. Recettes pro YTD pill verte `+219%` (favorable), Charges pro YTD pill verte (favorable), BNC YTD pill verte `+89,6%` (favorable), BNC projeté SANS delta (correct).
+- Toggle `N-1 sur cadence` → ligne pointillée Solde N-1 overlay. Tooltip Recharts enrichi avec valeurs N et N-1 + diff %.
+- Banner "Pas de comparaison disponible — l'exercice 2023 n'a aucune donnée enregistrée" affiché correctement quand on bascule sur 2024 avec `compareMode` actif.
+- Chap 03 : 16 sous-cat orphelines en mode YTD comparable (sous-cat existant fortement en 2025 mais pas encore peuplées en 2026). Badge `absent en N` + delta négatif.
+- Snapshot avec `include_comparison: 'ytd_comparable'` créé en 4-5s, `comparison_mode: 'ytd_comparable'` stocké dans manifest. HTML 826 Ko (vs 813 Ko sans comparaison) — les pills delta ajoutent ~13 Ko.
+- TypeScript : 0 erreur. Console preview : 0 erreur runtime.
+
+**Conventional Commits suggérés** :
+- `feat(livret): pydantic delta models + metadata extension`
+- `feat(livret): _compute_as_of_n1 + _annotate_deltas helpers`
+- `feat(livret): build_livret with compare_n1 branch + memo cache`
+- `feat(livret): /api/livret/{year}?compare_n1=... endpoint param`
+- `feat(livret): zustand store + useLivret with compareMode`
+- `feat(livret): LivretDeltaPill component`
+- `feat(livret): wire deltas in synthese, chapter shell, subcategories`
+- `feat(livret): cadence mensuelle with N-1 overlay (ComposedChart) + enriched tooltip`
+- `feat(livret): activate compare toggle in subbar (3 states segmented)`
+- `feat(livret): no-N1 + non-clos contextual banners`
+- `feat(livret): integrate include_comparison in phase 3 snapshots (backend + UI radio)`
+- `docs(livret): CLAUDE.md + CHANGELOG + api-reference for phase 4`
+
+### Added (2026-04-30) — Livret comptable Phase 3 — snapshots HTML autonomes + PDF paginés + Archives
+
+Le livret prend sa dimension archivable. Les boutons stubbed Phase 1 (Figer instantané / Archives / ↓ PDF / ↓ HTML) sont activés. Génération de **2 fichiers** par snapshot : un HTML 100% autonome (consultable hors-ligne, filtres locaux + expand JS embarqués) et un PDF paginé ReportLab (~30-60 pages selon volumétrie).
+
+**Backend** :
+- [`backend/models/livret.py`](backend/models/livret.py) : 4 nouveaux modèles — `SnapshotType` (enum: `auto_monthly` / `cloture` / `manual`), `LivretSnapshotMetadata`, `CreateSnapshotRequest`, `SnapshotsListResponse`. Le champ `Livret.chapters` reste `SerializeAsAny[LivretChapter]` (Phase 2).
+- [`backend/services/livret_snapshot_service.py`](backend/services/livret_snapshot_service.py) (~470 LOC) : CRUD snapshots + manifest atomique. **Lock fichier `manifest.lock`** via `fcntl.flock` (LOCK_EX non-bloquant pour création → lève `BlockingIOError` qui devient HTTP 423). **Sauvegarde `manifest.json.bak`** à chaque écriture, **fallback automatique** sur `.bak` si le primaire est corrompu. **Cleanup défensif** : si la génération HTML/PDF échoue à mi-chemin, suppression des fichiers partiels avant remontée d'erreur. ID snapshot stable `{year}_{snapshot_date}_{type}` (suffixe `_HHMMSS` en cas de collision intra-jour, suffixe `_v2`/`_v3`/... en cas de re-clôture). **Idempotence du job mensuel** via `has_auto_snapshot_for_period(year, "YYYY-MM")`.
+- [`backend/services/livret_html_generator.py`](backend/services/livret_html_generator.py) (~620 LOC) : produit un fichier HTML autonome (CSS + JS inline, **aucun fetch / aucun import externe**). Police système (sans-serif fallback). Filtres locaux Tout/À revoir/Justif manquant/Mixte/Verrouillé en vanilla JS lisant `window.LIVRET_DATA`. Expand/collapse via class toggle. Sommaire `<a>` cliquable. Cadence mensuelle rendue en **SVG inline** (12 mois, recettes vert / charges rouge, mois projetés `fillOpacity 0.45 + strokeDasharray`, ReferenceLine violette `aujourd'hui`). Cibles taille : < 1 Mo typique, warning `large: true` au-dessus de 5 Mo, erreur 413 au-delà de 50 Mo. Pas de Jinja2 (le projet utilise déjà `.format()` natif Python pour les emails) — composition via f-strings + `json.dumps` pour l'injection des données dans `window.LIVRET_DATA`.
+- [`backend/services/livret_pdf_generator.py`](backend/services/livret_pdf_generator.py) (~580 LOC) : ReportLab A4 portrait, `BaseDocTemplate` + `PageTemplate` avec footer auto (`Livret {year} · Instantané {date} · Page X`). Page de garde (logo `logo_lockup_light_400.png` + titre + type + YTD au + commentaire). Sommaire avec table chapitres + YTD. Chapitres dans l'ordre du TOC (saut de page entre chacun). Tableaux ops max 100 lignes par sous-cat (au-delà : `+ N opérations non affichées`). Index justifs max 200 lignes. Cibler 30-60 pages.
+- [`backend/routers/livret.py`](backend/routers/livret.py) : 6 endpoints snapshots déclarés AVANT les routes dynamiques `/{year}` (collision FastAPI sinon) — `GET /snapshots[?year=]`, `POST /snapshots/{year}`, `GET /snapshots/{id}`, `GET /snapshots/{id}/html` (FileResponse `inline`), `GET /snapshots/{id}/pdf` (FileResponse `inline`), `DELETE /snapshots/{id}[?force=true]`. Codes HTTP : 400 (année future / payload invalide), 404 (snapshot inconnu), 423 (cloture protégée OU snapshot déjà en cours), 500 (erreur génération).
+- [`backend/main.py`](backend/main.py) — nouveau **`_livret_snapshots_monthly_loop()`** : boucle asyncio coopérative (tick 1h, sleep coopératif via `shutdown_event`) qui crée un snapshot `auto_monthly` pour toutes les années actives quand la fenêtre `1er du mois 02:00-04:00` est atteinte. Idempotent grâce à `has_auto_snapshot_for_period`. Pattern strict du projet (pas d'APScheduler). Démarrage 5 min après boot, ajout dans la liste de tâches shutdown.
+- [`backend/services/check_envoi_service.py:validate_instance`](backend/services/check_envoi_service.py:1082) — **hook clôture** : sur `period == ANNUAL` et validation réussie, appelle `livret_snapshot_service.create_snapshot(year, type=CLOTURE, comment="Clôture exercice — version définitive", as_of_date=31/12/year)` en best-effort (échec n'invalide pas la clôture).
+
+**Frontend** :
+- [`frontend/src/types/livret.ts`](frontend/src/types/livret.ts) : `SnapshotType` / `SnapshotTrigger` / `LivretSnapshotMetadata` / `CreateSnapshotRequest` / `SnapshotsListResponse`.
+- [`frontend/src/lib/download.ts`](frontend/src/lib/download.ts) (nouveau) : helpers `triggerBlobDownload(blob, filename)` + `downloadFromUrl(url, filename)` — utilise `URL.createObjectURL` + lien `<a download>` + cleanup différé. Pas de `?download=true` côté serveur (les endpoints servent toujours `inline`).
+- [`frontend/src/hooks/useLivretSnapshots.ts`](frontend/src/hooks/useLivretSnapshots.ts) : `useLivretSnapshots(year?)` (staleTime 30s), `useLivretSnapshot(id)`, `useCreateLivretSnapshot()`, `useDeleteLivretSnapshot()`. Helpers URL `snapshotHtmlUrl(id)` / `snapshotPdfUrl(id)` pour iframe/object. Helpers download `downloadSnapshotHtml(id, name)` / `downloadSnapshotPdf(id, name)`. Invalidation cascade : `['livret-snapshots']` + `['ged-documents']` + `['ged-tree']`.
+- [`frontend/src/components/charges-forfaitaires/PdfPreviewDrawer.tsx`](frontend/src/components/charges-forfaitaires/PdfPreviewDrawer.tsx) — étendu avec props optionnels `pdfUrl?: string` (URL externe, prend le pas sur `filename`) + `downloadFilename?: string`. `filename` devient optionnel. Pas de duplication de composant.
+- [`LivretSnapshotViewerDrawer.tsx`](frontend/src/components/livret/LivretSnapshotViewerDrawer.tsx) (nouveau, ~110 LOC) : drawer `min(85vw, 1400px)` qui rend le HTML autonome dans une `<iframe sandbox="allow-scripts">` (pas `allow-same-origin` — le HTML n'a pas besoin de cookies/storage car tout est en JS inline). Header avec bouton `Télécharger` (force blob), `ExternalLink` (nouvel onglet), `X` (fermer). Loader centré pendant le chargement de l'iframe. Esc handler pour fermer.
+- [`LivretSnapshotDrawer.tsx`](frontend/src/components/livret/LivretSnapshotDrawer.tsx) (nouveau, ~190 LOC) : drawer 480px de **création** d'un snapshot manuel. Date picker (défaut hier, max aujourd'hui), textarea commentaire, bandeau d'info sur la génération (HTML autonome / PDF paginé / GED). Loader pendant 2-5s. À succès, écran récap avec tailles HTML/PDF + boutons `Voir HTML` / `Voir PDF` / `Télécharger PDF` + "Créer un autre instantané".
+- [`LivretToolbar.tsx`](frontend/src/components/livret/LivretToolbar.tsx) — **les 4 boutons stubbed Phase 1 sont activés**. `Figer instantané` (primary purple, ouvre `LivretSnapshotDrawer`). `Archives` (badge compteur primary `useLivretSnapshots(year).data?.snapshots.length`, navigate vers `/livret/{year}/archives`). `↓ PDF` (clic principal = ouvre `PdfPreviewDrawer` avec le dernier snapshot, ou toast "Aucun snapshot — créez-en un d'abord" qui ouvre le drawer création). `↓ HTML` (idem avec `LivretSnapshotViewerDrawer`).
+- [`LivretArchivesPage.tsx`](frontend/src/components/livret/LivretArchivesPage.tsx) (nouveau, ~280 LOC), route `/livret/:year/archives` : header avec breadcrumb retour Livret + bouton primary `Créer un instantané`. Filtres chips type (Tous / Auto mensuel / Manuel / Clôture) avec compteurs. Tableau 7 colonnes (Date · Type avec badge coloré + icône `Lock` si cloture · YTD au · Commentaire · HTML size · PDF size · 4 actions). **4 actions par row** : `Eye` (voir HTML in-app), `FileText` (voir PDF in-app), `Download` (menu déroulant `Télécharger HTML` / `Télécharger PDF`), `Trash2` (supprimer avec `window.confirm`, garde stricte sur cloture qui demande une confirmation `force=true` explicite).
+- [`App.tsx`](frontend/src/App.tsx) — nouvelle route `/livret/:year/archives`.
+- [`AppLayout.tsx`](frontend/src/components/layout/AppLayout.tsx) — `ROUTE_TITLES` étendu avec match prefix `/livret/...` → "Livret comptable" / `/livret/.../archives` → "Archives Livret".
+
+**Vérifications passées** :
+- `POST /api/livret/snapshots/2025` → snapshot créé en ~2-3 s (HTML 813 Ko, PDF 95 Ko, 35 pages). GED registered avec `source_module: "livret"` + `report_type: "livret_snapshot"`.
+- `GET /api/livret/snapshots/{id}/html` → 200 + `Content-Disposition: inline` → l'iframe sandboxée affiche le livret figé.
+- `GET /api/livret/snapshots/{id}/pdf` → 200 inline → `<object type="application/pdf">` du `PdfPreviewDrawer` affiche les 35 pages avec toolbar PDF native.
+- Filtres chips dans le HTML autonome → masquent les rows + affichent compteur "X / Y affichées" via JS embarqué (preuve d'autonomie : devtools Network ne montre **aucun** fetch venant de l'iframe).
+- Page Archives : tri DESC, filtres par type, 4 actions opérationnelles, badge cloture avec icône Lock.
+- Tentative de suppression `cloture` sans `force` → HTTP 423 + toast informatif. Avec `?force=true` → succès.
+- TypeScript : 0 erreur. Console preview : 0 erreur runtime.
+
+**Bug fix interne** : ReportLab `<font color="...">` dans Paragraph attend `#RRGGBB` (pas `0xRRGGBB`). Premier essai du chap 08 utilisait `color.hexval()[2:]` qui produit `16a34a` sans `#` → `Invalid color value`. Fix : map `op_hex = {"plus": "#16a34a", ...}` en littéraux explicites.
+
+**Conventional Commits suggérés** :
+- `feat(livret): pydantic models for snapshots (Phase 3)`
+- `feat(livret): livret_snapshot_service with manifest + fcntl lock`
+- `feat(livret): standalone HTML generator (inline CSS/JS, no fetch)`
+- `feat(livret): paginated PDF generator (ReportLab + footer page X/Y)`
+- `feat(livret): /api/livret/snapshots endpoints (inline default)`
+- `feat(livret): asyncio monthly snapshot loop (idempotent)`
+- `feat(livret): cloture hook auto-snapshot in check_envoi.validate_instance`
+- `feat(livret): frontend hooks + blob download helpers`
+- `feat(livret): LivretSnapshotViewerDrawer (sandboxed HTML iframe)`
+- `feat(pdf-preview): support optional pdfUrl prop`
+- `feat(livret): snapshot create drawer + toolbar activated`
+- `feat(livret): archives page with type filters + 4 actions per row`
+- `fix(livret): hex color literals for ReportLab Paragraph font tag`
+- `docs(livret): CLAUDE.md + CHANGELOG + api-reference for phase 3`
+
+### Added (2026-04-30) — Livret comptable Phase 2 — chapitres 04→09 complétés
+
+Suite de la Phase 1. Les 6 chapitres restants sont composés sur les services métier existants (aucune donnée nouvelle).
+
+**Backend** — extensions de `livret_service` + `models/livret` :
+- [`backend/models/livret.py`](backend/models/livret.py) : 9 nouveaux modèles Pydantic — `LivretBncFormulaLine`, `LivretBncProjection`, `LivretBncChapter`, `LivretAmortissementImmo`, `LivretAmortissementsChapter`, `LivretAnnexeBareme`, `LivretAnnexeJustifEntry`, `LivretAnnexeChapter`, `LivretProvisionGauge`, `LivretProvisionsChapter`, `LivretForfaitDecomposition`, `LivretForfaitairesChapter` (toutes des sous-classes de `LivretChapter`).
+- **Sérialisation polymorphe via `SerializeAsAny[LivretChapter]`** : sans cette annotation, Pydantic v2 sérialisait chaque chapitre comme le parent `LivretChapter` et droppait les champs spécifiques aux sous-classes (`formula`, `decompositions`, `immobilisations`, `gauges`, etc.). Gotcha repéré au premier rendu — le bug fix est essentiel à la polymorphie.
+- [`backend/services/livret_service.py`](backend/services/livret_service.py) : 6 nouveaux composeurs privés (`_build_chapter_04_forfaitaires`, `_05_sociales`, `_06_amortissements`, `_07_provisions`, `_08_bnc`, `_09_annexes`) + helper `_classify_cotisation(op) → 'urssaf' | 'carmf' | 'odm' | None` (URSSAF via `fiscal_service._is_urssaf_op`, CARMF/OdM via libellé+catégorie). Glossaire 13 entrées + méthodologie markdown seedés en module-level constants. `build_livret(year)` étendu pour appeler les 6 composeurs ; ordre subtil : **chapitre 08 calculé AVANT 07** pour que les cibles de provisions (IR / Charges sociales / Coussin) soient dérivées de la projection fiscale (`fiscal_service.simulate_multi`).
+- **Pas de nouvel endpoint** — tout remonte via `GET /api/livret/{year}` existant. La structure JSON reste rétrocompatible (les chapitres 01-03 ont la même forme qu'en Phase 1).
+
+**Frontend** — 6 nouveaux composants dans `frontend/src/components/livret/` :
+- `LivretForfaitairesChapter` (chap 04, mode groupé) — 3 cards de décomposition (Blanchissage `Shirt` violet · Repas pro `UtensilsCrossed` orange · Véhicule `Car` sky) avec dépliable jours travaillés / articles barème / forfait jour / quote-part km. Empty state CTA → `/charges-forfaitaires`.
+- `LivretSocialesChapter` (chap 05, mode groupé) — sous-cat URSSAF/CARMF/OdM. Note explicative CSG/CRDS au-dessus. Pour les ops URSSAF avec `csg_non_deductible > 0`, le `LivretOpsTable` affiche en sub_lines la décomposition Part déductible / CSG non déductible + CRDS (hors BNC).
+- `LivretAmortissementsChapter` (chap 06) — tableau 8 colonnes (Immobilisation + badge `Reprise` ambre / Poste / Acquis le / Durée / Val. origine / Dotation YTD / Cumul / VNC) + ligne TOTAL violette en footer. `overflow-x-auto` + `min-w-[820px]` pour scroll horizontal sur viewport étroit. Empty state CTA → `/amortissements`.
+- `LivretProvisionsChapter` (chap 07, mode éclaté) — 3 `GaugeCard` side-by-side (Provision IR / Charges sociales / Coussin) avec barre de progression colorée (vert ≥100% / violet ≥70% / ambre <70%). Empty state pédagogique avec CTA → `/editor` pour expliquer le tag des transferts.
+- `LivretBncChapter` (chap 08) — bandeau warning ambre si liasse non saisie (CTA `Saisir la liasse` → `/visualization`). Bloc formula style monospace avec opérateurs (+/−/=) colorés et ligne BNC réalisé YTD en bold + bordure primary. Bloc projection 4 ProjCards (BNC projeté / IR / Charges sociales avec sous-ligne URSSAF/CARMF/OdM / Revenu net) + footer Sources.
+- `LivretAnnexesChapter` (chap 09) — 4 sections accordion : `JustifsIndexTable` (paginé 50/page avec ← Précédent / N/M / Suivant →) · `BaremesGrid` (cards 2 cols listant `summary` ad-hoc par type) · `Glossaire` (13 entrées avec border-l violette) · `MethodologieMarkdown` (parser inline pour `##`, `**bold**`, `` `code` `` — pas de full markdown lib).
+- `LivretPage` étendue pour insérer les 6 chapitres dans l'ordre après le 03. `Phase2Placeholder` retiré. Casts TypeScript explicites via `as LivretBncChapterType` etc. car `chapters[N]` est typé comme `LivretChapter | LivretSynthese` côté frontend.
+
+**Hors scope (encore stubbed)** : Boutons toolbar `Figer instantané` / `Archives` / `↓ PDF` / `↓ HTML` (Phase 3) · toggle `Comparer N-1` (Phase 4).
+
+**Vérifications manuelles passées** :
+- `GET /api/livret/2025` retourne 9 chapitres avec leurs champs spécifiques sérialisés (`formula`/`decompositions`/`immobilisations`/`gauges`/`justificatifs_index`/`baremes_appliques`/`glossaire`/`methodologie`).
+- `/livret/2025` (clos) : 4 metrics + cadence 12 barres pleines + 9 chapitres rendus dans l'ordre, scrollIntoView via clic TOC fonctionnel, chapitre 04 montre les 3 forfaits (Blanchissage 2 367 €, Repas 2 643 €, Véhicule signalétique ratio 51 %), chapitre 06 liste 6 immobilisations actives + ligne TOTAL `699,31 €`, chapitre 08 formule 5 lignes + projection IR `82 669 €` cohérente avec le simulateur, chapitre 09 expose 471 justifs paginés + 3 barèmes appliqués (BLANCHISSAGE 2025, URSSAF 2025, VEHICULE 2025) + glossaire 13 entrées + méthodologie.
+- `/livret/2026` (en cours) : chapitre 04 affiche correctement l'empty state CTA (aucun forfait généré pour 2026), cadence avec mois passés en plein + futurs en pointillés + ReferenceLine `aujourd'hui`.
+- TypeScript : 0 erreur `tsc --noEmit`. Console preview : 0 erreur runtime après le fix Pydantic.
+
+**Conventional Commits suggérés** :
+- `feat(livret): pydantic models for chapters 04 to 09`
+- `feat(livret): chapter 04 forfaitaires composer`
+- `feat(livret): chapter 05 sociales composer with CSG split`
+- `feat(livret): chapter 06 amortissements composer`
+- `feat(livret): chapter 07 provisions composer`
+- `feat(livret): chapter 08 BNC fiscal composer with projection`
+- `feat(livret): chapter 09 annexes composer + seeded glossary/methodology`
+- `feat(livret): frontend components for chapters 04 to 09`
+- `fix(livret): SerializeAsAny on chapters dict for polymorphic JSON output`
+- `docs(livret): CLAUDE.md + CHANGELOG + api-reference for phase 2`
+
+### Added (2026-04-30) — Livret comptable vivant — Phase 1 (fondations + 3 chapitres pilotes)
+
+Nouvelle vue de synthèse narrative annuelle (`/livret`, sidebar **ANALYSE**, icône `BookOpen`). Agrégateur **vivant** sur les services métier existants (analytics, BNC, prévisionnel, amortissements, charges forfaitaires, liasse SCP) — **n'introduit aucune donnée nouvelle**. Refetch périodique TanStack 60 s + `refetchOnWindowFocus` + invalidation immédiate sur les mutations clés (édition op, ventilation, lock, lettrage, association justif, dotation amort, forfait, liasse) → la vue reflète l'état courant à quelques secondes près.
+
+**Backend** :
+- [`backend/models/livret.py`](backend/models/livret.py) : 11 modèles Pydantic (`Livret`, `LivretMetadata`, `LivretMetric`, `LivretMonthPoint`, `LivretSyntheseChapter`, `LivretFlag`, `LivretOperation`, `LivretSubcategory`, `LivretChapter`, `LivretSynthese`, `TocEntry`, `ProjectionResult`).
+- [`backend/services/projection_service.py`](backend/services/projection_service.py) : interface `IProjectionProvider` (Protocol) + V1 `PrevisionnelProjectionProvider` (adaptateur sur `previsionnel_service.get_timeline(year)` qui projette déjà via régression saisonnière + providers récurrents) + `FallbackProjectionProvider` (`ytd_total / months_elapsed`). Service public `project(year, as_of_date?)` qui tente le primaire, retombe sur le fallback si la timeline est vide. **Confidence** : `high` (≥6 mois clos), `medium` (2-5), `low` (<2 ou fallback).
+- [`backend/services/livret_service.py`](backend/services/livret_service.py) : `build_livret(year, as_of_date?, snapshot_id?)` + `get_metadata(year)`. Le service ne touche jamais aux JSON d'opérations directement — délègue à `operation_service.list_operation_files()` + `analytics_service.get_year_overview()` + `bnc_service.compute_bnc()` + helper interne `_build_postes_index()` pour la résolution `taux_pro` (deductible_pct du poste GED). **Pattern fondamental** : trivial à brancher sur SQLite plus tard, les services sous-jacents migreront sans toucher au livret.
+- [`backend/routers/livret.py`](backend/routers/livret.py) : 3 endpoints — `GET /{year}` (livret complet), `GET /{year}/metadata` (poll léger), `GET /{year}/projection` (debug). Tous acceptent un query param `as_of` (ISO date YYYY-MM-DD).
+- [`backend/core/config.py`](backend/core/config.py) : `LIVRET_SNAPSHOTS_DIR = data/livret_snapshots/` + `LIVRET_SNAPSHOTS_MANIFEST` créés au lifespan, manifest seedé `{"version": 1, "snapshots": []}` pour préparer la Phase 3.
+
+**Frontend** :
+- [`frontend/src/types/livret.ts`](frontend/src/types/livret.ts) : miroir TS des modèles Pydantic + `LivretFilterKey` / `LivretActiveFilters` pour les filtres locaux.
+- [`frontend/src/hooks/useLivret.ts`](frontend/src/hooks/useLivret.ts) : `useLivret(year)` (refetchInterval 60s, refetchOnWindowFocus, refetchOnMount: 'always'), `useLivretMetadata(year)` (poll 30s), `useLivretProjection(year)`, helpers `invalidateLivret(qc, year?)` + `useInvalidateLivret()`.
+- [`frontend/src/components/livret/`](frontend/src/components/livret/) — 14 composants : `LivretPage` (compose toolbar + sub-bar + filter chips + TOC + chapitres) · `LivretToolbar` (sticky, sélecteur année ◀ ▶, live dot pulsant, MAJ relative, boutons stubbed Phase 3 — Figer instantané / Archives / ↓ PDF / ↓ HTML) · `LivretSubBar` (« Au {date} · X mois écoulés · Y à projeter », toggle compare N-1 stubbed Phase 4) · `LivretFilterChips` (Tout / À revoir / Justif manquant / Mixte / Verrouillé) · `LivretToc` (grid 9 chapitres, 01-03 actifs, 04-09 stubbed) · `LivretSyntheseChapter` (4 MetricCards + cadence) · `LivretCadenceMensuelle` (Recharts BarChart 12 mois, mois passés en plein, courant marqué d'une `ReferenceLine` violette « aujourd'hui », futurs avec `fillOpacity: 0.45 + strokeDasharray`) · `LivretRecettesChapter` (chap 02, mode groupé : op mère + sub_lines en arborescence) · `LivretChargesProChapter` (chap 03, mode éclaté : sous-lignes ventilées injectées dans leurs vraies sous-cat) · `LivretChapterShell` · `LivretSubcategorySection` · `LivretOpsTable` (toggle expand · date · libellé · flags · montant) · `LivretFlagPills` (5 pastilles 6×6 : ✓ lettrée / ⚠ à revoir / ⚠ justif manquant / 🔒 verrouillée / % mixte) · `LivretVentilationDetail` (sub_lines + méta lock/lettre) · `LivretFiltersCounter` (« X / Y affichées · les totaux ne sont pas filtrés »).
+- Routes `/livret` + `/livret/:year` ([App.tsx](frontend/src/App.tsx)). Sync URL `:year` → store Zustand `useFiscalYearStore` au mount.
+- Sidebar entry `Livret comptable` (icône `BookOpen`) dans **ANALYSE** ([Sidebar.tsx](frontend/src/components/layout/Sidebar.tsx)).
+- ROUTE_TITLES enrichi pour le tab title sync ([AppLayout.tsx](frontend/src/components/layout/AppLayout.tsx)).
+
+**Invalidation câblée** ([useOperations](frontend/src/hooks/useOperations.ts), [useToggleLock](frontend/src/hooks/useToggleLock.ts), [useBulkLock](frontend/src/hooks/useBulkLock.ts), [useVentilation](frontend/src/hooks/useVentilation.ts), [useJustificatifs](frontend/src/hooks/useJustificatifs.ts), [useLettrage](frontend/src/hooks/useLettrage.ts), [useLiasseScp](frontend/src/hooks/useLiasseScp.ts), [useAmortissements](frontend/src/hooks/useAmortissements.ts), [useChargesForfaitaires](frontend/src/hooks/useChargesForfaitaires.ts)) : ajout `qc.invalidateQueries({ queryKey: ['livret'] })` dans les `onSuccess` des mutations qui impactent le contenu du livret (save ops, categorize, lock/bulk-lock, ventilation set/remove/update, associate/dissociate justif, lettrage, save/delete liasse, generer/supprimer dotation, generer/supprimer forfait blanchissage/repas/véhicule). Refresh quasi-immédiat après chaque action utilisateur — combiné au refetch 60 s, donne la sensation « live ».
+
+**Hors scope Phase 1, stubbed dans l'UI** :
+- Boutons « Figer instantané », « Archives », « ↓ PDF », « ↓ HTML » → rendus mais désactivés avec tooltip `Phase 3`.
+- Toggle « Comparer N-1 » → rendu mais désactivé avec tooltip `Phase 4`.
+- Chapitres 04 → 09 (Forfaitaires, Cotisations sociales, Amortissements, Provisions, BNC fiscal, Annexes) → entrées TOC visibles mais grisées + placeholder « Disponibles en Phase 2 ».
+
+**Bug fix sur la clé `mois_data` vs `mois`** : le prompt original supposait `analytics_service.get_year_overview(year)` exposait `mois_data[]`, mais la clé réelle est `mois[]`. Premier brouillon avait des cadences toutes à 0 sur exercice clos. Fallback de robustesse `overview.get("mois") or overview.get("mois_data") or []` injecté dans `livret_service._build_synthese_chapter` et `projection_service._ytd_from_overview`.
+
+**Vérifications manuelles passées** :
+- `GET /api/livret/2025` → 200, structure conforme (3 chapitres + 9 entrées TOC, `is_live: true`).
+- `GET /api/livret/2026/metadata` → 200, retourne `months_elapsed: 3, months_remaining: 9`.
+- Page `/livret` charge en mode live, live dot pulse, horodatage relatif s'incrémente.
+- Cadence 2025 (clos) : 12 barres Recettes (verts) + Charges (rouges) réelles, scaling correct (35k jan → 144 px sur Y axis 60k).
+- Cadence 2026 (en cours) : 3 mois en plein + ReferenceLine « aujourd'hui » au mois courant + futurs avec fillOpacity 0.45 + strokeDasharray.
+- Année 2027 (à venir) : tag « Exercice à venir », chapitres vides, pas d'erreur 500.
+- Chapitre 03 : op ventilée mixte éclatée en sous-lignes dans leurs vraies sous-cat ; `Immobilisations`, `Dotations aux amortissements`, `Ventilé` exclus pour éviter le double-comptage.
+- Filtres locaux : `Justif manquant` actif → counters « X / Y affichées » apparaissent, totaux chapitre/sous-cat **non** filtrés.
+- TOC : clic « 03 Charges professionnelles » → scrollIntoView vers la section.
+
+**Conventional Commits suggérés** (un commit par étape majeure pour faciliter la review) :
+- `feat(livret): pydantic models + projection service interface`
+- `feat(livret): projection service V1 (previsionnel adapter + fallback)`
+- `feat(livret): livret_service aggregator + 3 pilot chapters`
+- `feat(livret): /api/livret endpoints`
+- `feat(livret): frontend types + hooks + page shell`
+- `feat(livret): synthèse chapter + cadence mensuelle`
+- `feat(livret): recettes + charges pro chapters with vent. modes`
+- `feat(livret): wire invalidateLivret in mutations`
+- `docs(livret): CLAUDE.md + CHANGELOG + api-reference`
+
 ### Fixed (2026-04-30) — Email comptable : titre/intro affichait « juin 430 » au lieu du bon mois
 
 **Cause racine** : la regex `r"(\d{4})[-_](\d{2})"` dans [`_resolve_single_period`](backend/services/email_service.py:557) et [`_extract_periods_from_docs`](backend/services/email_service.py:673) matchait à l'intérieur du timestamp `YYYYMMDD_HHMMSS` du filename. Sur `Export_Comptable_2025_Janvier_PDF_20260430_063507.zip`, elle captait `0430_06` → year=430, month=6 → titre bandeau « Export comptable — juin 430 » et intro « l'export comptable de juin 430 sous forme d'archive ZIP… ».

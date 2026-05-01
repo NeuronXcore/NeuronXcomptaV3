@@ -7,5 +7,15 @@
         "manual_ok": true
       }
     }
+  },
+  "annual": {
+    "items": {
+      "amortissements.registre_a_jour": {
+        "manual_ok": true
+      },
+      "documents_annuels.convention_scp": {
+        "manual_ok": true
+      }
+    }
   }
 }

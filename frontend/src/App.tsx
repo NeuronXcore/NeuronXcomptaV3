@@ -27,6 +27,8 @@ import TasksPage from '@/components/tasks/TasksPage'
 import SnapshotsPage from '@/components/snapshots/SnapshotsPage'
 import ChargesForfaitairesPage from '@/components/charges-forfaitaires/ChargesForfaitairesPage'
 import CheckEnvoiPage from '@/components/check-envoi/CheckEnvoiPage'
+import LivretPage from '@/components/livret/LivretPage'
+import LivretArchivesPage from '@/components/livret/LivretArchivesPage'
 import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 import LiasseScpDrawer from '@/components/liasse/LiasseScpDrawer'
 import GlobalImmobilisationDrawer from '@/components/amortissements/GlobalImmobilisationDrawer'
@@ -71,6 +73,9 @@ export default function App() {
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/visualization" element={<ComptaAnalytiquePage />} />
+        <Route path="/livret" element={<LivretPage />} />
+        <Route path="/livret/:year" element={<LivretPage />} />
+        <Route path="/livret/:year/archives" element={<LivretArchivesPage />} />
         <Route path="/justificatifs" element={<JustificatifsPage />} />
         <Route path="/rapprochement" element={<Navigate to="/justificatifs" replace />} />
         <Route path="/alertes" element={<AlertesPage />} />

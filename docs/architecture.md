@@ -1690,6 +1690,67 @@ useFiscalYearStore (Zustand + persist localStorage)
 
 Tous lisent/écrivent le même store → sync bidirectionnelle automatique (Zustand natif).
 
+### Livret comptable (synthèse narrative annuelle)
+
+Vue de synthèse vivante des 9 chapitres comptables (Synthèse · Recettes · Charges pro · Forfaitaires · Cotisations sociales · Amortissements · Provisions · BNC fiscal · Annexes). 5 phases livrées, architecture modulaire chapitre par chapitre.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Vue React live (/livret)            Snapshots (Phase 3)          │
+│  ┌──────────────────────────┐        ┌──────────────────────┐     │
+│  │  useLivret(year)          │       │ POST /api/livret/     │     │
+│  │  refetchInterval 60s      │       │   snapshots/{year}    │     │
+│  │  invalidate sur 9 hooks   │       │ + asyncio loop 1h     │     │
+│  └─────────┬────────────────┘        └────────┬──────────────┘     │
+│            ▼                                  ▼                    │
+└────────────┼──────────────────────────────────┼────────────────────┘
+             │                                  │
+             ▼                                  ▼
+   GET /api/livret/{year}              build_livret(year, ...)
+   ?compare_n1=ytd|annee_pleine                │
+             │                                  │
+             ▼                                  ▼
+┌──────────────────────────────────────────────────────────────────┐
+│           livret_service.build_livret(year, compare_n1?)          │
+│                                                                   │
+│   • _build_synthese_chapter        ┐                              │
+│   • _build_recettes_chapter        │                              │
+│   • _build_charges_pro_chapter     │  9 builders (Phase 1+2)      │
+│   • _build_chapter_04..09          │                              │
+│   • livret_charts_service          ┘  3 ChartConfig (Phase 5)     │
+│                                                                   │
+│   Cache mémoire TTL 60s sur (year, as_of, snapshot_id)            │
+│   Lazy import bnc_service / analytics_service / amortissement     │
+└──────────────────────────────────────────────────────────────────┘
+             │
+             ▼
+   ┌─────────┴─────────────────┬──────────────────┐
+   ▼                           ▼                  ▼
+React (Recharts)         HTML autonome        PDF paginé
+LivretPage.tsx           livret_html_         livret_pdf_
++ charts/                  generator.py         generator.py
+LivretChartDonut         + livret_html_       + livret_pdf_
+LivretChartWaterfall      charts.py            charts.py
+LivretCadence (Brush)    SVG inline pur       matplotlib Agg PNG
+                         vanilla JS tooltip   embed RLImage
+                         < 1 Mo               170mm × 85mm
+```
+
+**Pattern fondamental — agrégateur** : `build_livret` ne touche jamais aux JSON d'opérations directement. Il consomme uniquement les services métier (`analytics_service.get_year_overview`, `bnc_service.compute_bnc`, `amortissement_service.get_dotations`, `charges_forfaitaires_service.get_total_deductible_year`, `liasse_scp_service.get_ca_for_bnc`, `previsionnel_service.get_timeline`). Trivial à brancher sur SQLite plus tard sans toucher au livret.
+
+**Sérialisation polymorphe** : `Livret.chapters: dict[str, SerializeAsAny[LivretChapter]]` — sans `SerializeAsAny`, Pydantic v2 dropait silencieusement les champs spécifiques aux sous-classes (`formula` du `LivretBncChapter`, `decompositions` du `LivretForfaitairesChapter`, `immobilisations` du `LivretAmortissementsChapter`, etc.).
+
+**Comparaison N-1** (Phase 4) — le service compose le livret N-1 avec `as_of_n1` clampée, puis `_annotate_deltas` traverse les 2 livrets en parallèle. Convention favorabilité : `_FAVORABLE_UP_CHAPTERS = {01, 02, 07, 08}` (recettes/BNC/provisions = up favorable, charges = down favorable). Lignes fantômes pour sous-cat orphelines (présentes en N-1 mais plus en N).
+
+**Snapshots** (Phase 3) — manifest avec lock `fcntl.flock` non-bloquant + sauvegarde `.bak` à chaque écriture + cleanup défensif si génération HTML/PDF échoue à mi-chemin. 3 types — `manual` (POST), `auto_monthly` (job asyncio coopératif tick 1h dans `_livret_snapshots_monthly_loop`, fenêtre 1er-mois 02h-04h, idempotent via `has_auto_snapshot_for_period`), `cloture` (hook dans `check_envoi_service.validate_instance` quand `period == ANNUAL`). Stockage `data/livret_snapshots/{year}/{date}_{type}.{html,pdf}`. GED registered comme `type: rapport`, `source_module: livret`, `report_type: livret_snapshot`.
+
+**Charts** (Phase 5) — architecture commune `ChartConfig` Pydantic. 3 renderers consomment le même hex de couleur :
+- React Recharts : `<LivretChart config={c} />` dispatch `LivretChartDonut` (drill-down `CategoryDetailDrawer`) ou `LivretChartWaterfall` (technique stacked invisible+visible).
+- HTML autonome : `livret_html_charts.render_chart_svg(config)` → SVG inline pur, `<title>`/`<desc>` a11y, tooltip vanilla JS, fallback `<details><table>`.
+- PDF : `livret_pdf_charts.render_chart_png(config)` → matplotlib Agg headless PNG → `RLImage(width_mm=170, height_mm=85)`. Lazy import.
+
+Extension future = (a) builder dans `livret_charts_service` + (b) helper SVG + (c) helper matplotlib + (d) sous-composant Recharts. Aucun changement d'infrastructure.
+
 ## Gestion de l'état frontend
 
 **TanStack Query** gère tout l'état serveur, **Zustand** gère l'état client partagé (année globale) :

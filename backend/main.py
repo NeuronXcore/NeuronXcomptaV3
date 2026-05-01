@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.core.config import APP_NAME, APP_VERSION, ASSETS_DIR, LOGS_DIR, ensure_directories, migrate_imports_directory
 from backend.core.shutdown import shutdown_event
-from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots, liasse_scp, check_envoi, rappels
+from backend.routers import operations, categories, ml, analytics, settings, reports, queries, justificatifs, ocr, exports, rapprochement, lettrage, cloture, sandbox, alertes, ged, amortissements, simulation, templates, previsionnel, tasks, ventilation, email, charges_forfaitaires, snapshots, liasse_scp, check_envoi, rappels, livret
 from backend.services.sandbox_service import (
     scan_existing_sandbox_arrivals,
     seed_recent_events_from_disk,
@@ -82,6 +82,53 @@ _prev_task = None
 _sandbox_auto_task = None
 _check_envoi_task = None
 _manual_zips_cleanup_task = None
+_livret_snapshots_task = None
+
+
+# Background task — snapshot mensuel automatique du Livret comptable (Phase 3)
+async def _livret_snapshots_monthly_loop():
+    """Crée un snapshot `auto_monthly` pour toutes les années actives le 1er de
+    chaque mois (cible 02:00 locale).
+
+    Implémentation : tick coopératif toutes les heures. À chaque tick, on vérifie
+    si la fenêtre de tir [01-jour 02:00 → 01-jour 04:00] est atteinte ET si aucun
+    snapshot auto n'existe déjà pour le mois courant (idempotence après restart).
+
+    Le job est skippé pendant 5 min après boot (laisser le backend démarrer).
+
+    Sleep coopératif via shutdown_event — sortie sub-seconde au shutdown.
+    """
+    import datetime
+
+    try:
+        await asyncio.wait_for(shutdown_event.wait(), timeout=300)
+        return
+    except asyncio.TimeoutError:
+        pass
+
+    while not shutdown_event.is_set():
+        try:
+            now = datetime.datetime.now()
+            # Fenêtre de tir : 1er du mois entre 02:00 et 04:00 (donne 2h de marge si
+            # le tick arrive en retard) — idempotence garantie par `has_auto_snapshot_for_period`.
+            if now.day == 1 and 2 <= now.hour < 4:
+                from backend.services import livret_snapshot_service
+                result = livret_snapshot_service.auto_monthly_job_once()
+                logging.getLogger(__name__).info(
+                    "Livret snapshots monthly job: created=%d skipped=%d errors=%d",
+                    len(result.get("created", [])),
+                    len(result.get("skipped", [])),
+                    len(result.get("errors", [])),
+                )
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"Livret snapshots monthly loop error: {e}")
+
+        # Tick coopératif 1h
+        try:
+            await asyncio.wait_for(shutdown_event.wait(), timeout=3600)
+            break
+        except asyncio.TimeoutError:
+            pass
 
 
 # Background task — cleanup quotidien des ZIPs manuels non envoyés > 30j
@@ -609,6 +656,9 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning("sandbox_auto_processor: %s", e)
     # Démarrer la loop cleanup quotidien des ZIPs manuels (24h)
     _manual_zips_cleanup_task = asyncio.create_task(_manual_zips_cleanup_loop())
+    # Démarrer la loop snapshot mensuel du Livret (tick 1h, fire le 1er du mois 02:00-04:00)
+    global _livret_snapshots_task
+    _livret_snapshots_task = asyncio.create_task(_livret_snapshots_monthly_loop())
     yield
 
     # === SHUTDOWN ===
@@ -624,7 +674,7 @@ async def lifespan(app: FastAPI):
         log.warning("stop_sandbox_watchdog error: %s", e)
 
     # 3. Cancel + await tasks asyncio avec timeout global de 1.5s
-    tasks = [t for t in (_prev_task, _sandbox_auto_task, _check_envoi_task, _manual_zips_cleanup_task) if t is not None]
+    tasks = [t for t in (_prev_task, _sandbox_auto_task, _check_envoi_task, _manual_zips_cleanup_task, _livret_snapshots_task) if t is not None]
     for t in tasks:
         t.cancel()
     if tasks:
@@ -692,6 +742,7 @@ app.include_router(snapshots.router)
 app.include_router(liasse_scp.router)
 app.include_router(check_envoi.router)
 app.include_router(rappels.router)
+app.include_router(livret.router)
 
 # Servir les assets statiques (logos, images de marque) depuis backend/assets/
 app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")

@@ -48,6 +48,7 @@ export function useGenererOD() {
       qc.invalidateQueries({ queryKey: ['forfaits-generes', variables.year] })
       qc.invalidateQueries({ queryKey: ['operations'] })
       qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -96,6 +97,7 @@ export function useSupprimerForfait() {
       qc.invalidateQueries({ queryKey: ['forfaits-generes', variables.year] })
       qc.invalidateQueries({ queryKey: ['operations'] })
       qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
       toast.success('Forfait supprimé')
     },
   })
@@ -122,6 +124,7 @@ export function useAppliquerVehicule() {
       qc.invalidateQueries({ queryKey: ['ged'] })
       qc.invalidateQueries({ queryKey: ['ged-postes'] })
       qc.invalidateQueries({ queryKey: ['ged-stats'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -158,6 +161,7 @@ export function useSupprimerVehicule() {
       qc.invalidateQueries({ queryKey: ['charges-forfaitaires-config', variables.year] })
       qc.invalidateQueries({ queryKey: ['ged'] })
       qc.invalidateQueries({ queryKey: ['ged-postes'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -207,6 +211,7 @@ export function useSupprimerRepas() {
       qc.invalidateQueries({ queryKey: ['forfaits-generes', variables.year] })
       qc.invalidateQueries({ queryKey: ['operations'] })
       qc.invalidateQueries({ queryKey: ['ged'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
       toast.success('Forfait repas supprimé')
     },
   })

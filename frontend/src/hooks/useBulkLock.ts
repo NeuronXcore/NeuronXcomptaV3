@@ -33,6 +33,7 @@ export function useBulkLock() {
         queryClient.invalidateQueries({ queryKey: ['operations', f] })
       )
       queryClient.invalidateQueries({ queryKey: ['justificatifs'] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }

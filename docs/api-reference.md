@@ -3047,3 +3047,496 @@ Met à jour partiellement un snapshot (champs `name`, `description`, `color`, `o
 Supprime un snapshot. Retourne `{"deleted": true}`.
 
 **Note** : ne touche jamais aux fichiers d'opérations ni aux justificatifs — le snapshot est un simple conteneur de refs.
+
+---
+
+## Livret comptable (`/api/livret`)
+
+Synthèse narrative annuelle vivante, agrégateur sur les services existants (analytics, BNC, prévisionnel, amortissements, charges forfaitaires, liasse SCP). **Aucun nouveau stockage** en Phase 1 — tout est calculé à la volée.
+
+### `GET /{year}`
+Retourne le `Livret` complet pour l'exercice. Pour exercice clos (today.year > year), `as_of_date` est clampée au 31/12/year. Pour année future, au 01/01/year.
+
+**Query params** :
+- `as_of` (optionnel, ISO `YYYY-MM-DD`) — date d'arrêt YTD personnalisée. Défaut = today() en mode live.
+
+**Réponse** (forme abrégée) :
+```json
+{
+  "metadata": {
+    "year": 2026,
+    "generated_at": "2026-04-30T08:31:07.711763",
+    "as_of_date": "2026-04-30",
+    "months_elapsed": 3,
+    "months_remaining": 9,
+    "is_live": true,
+    "snapshot_id": null,
+    "data_sources": {
+      "liasse_scp": false,
+      "previsionnel": true,
+      "amortissements": true,
+      "forfaits": false
+    }
+  },
+  "chapters": {
+    "01": {
+      "number": "01",
+      "title": "Synthèse exécutive",
+      "tag": "YTD au 30 avr. 2026 · 3 mois clos",
+      "ventilation_mode": "none",
+      "total_ytd": 27252.92,
+      "total_projected_annual": 10572.89,
+      "subcategories": [],
+      "synthese": {
+        "metrics": [
+          { "label": "Recettes pro YTD", "value": 62730.15, "unit": "EUR", "is_projection": false },
+          { "label": "Charges pro YTD", "value": 32553.10, "unit": "EUR", "is_projection": false },
+          { "label": "BNC YTD", "value": 27252.92, "unit": "EUR", "is_projection": false },
+          { "label": "BNC projeté annuel", "value": 10572.89, "unit": "EUR", "is_projection": true }
+        ],
+        "cadence_mensuelle": [
+          { "month": 1, "label": "jan", "recettes": 34845, "charges": 9114.65, "is_past": true, "is_current": false, "is_projection": false }
+        ]
+      }
+    },
+    "02": {
+      "number": "02",
+      "title": "Recettes professionnelles",
+      "tag": "Ventilation groupée",
+      "ventilation_mode": "groupe",
+      "total_ytd": 62730.15,
+      "total_projected_annual": 412470.0,
+      "subcategories": [
+        {
+          "name": "Bloc",
+          "total_ytd": 332333.0,
+          "total_projected_annual": null,
+          "nb_operations": 14,
+          "nb_a_revoir": 0,
+          "nb_justif_manquant": 0,
+          "nb_mixte": 0,
+          "operations": [ /* LivretOperation[] */ ]
+        }
+      ]
+    },
+    "03": {
+      "number": "03",
+      "title": "Charges professionnelles",
+      "tag": "Ventilation éclatée",
+      "ventilation_mode": "eclate",
+      "total_ytd": 32553.10,
+      "total_projected_annual": 177271.22,
+      "subcategories": [ /* sous-cat éclatée par catégorie/sous-catégorie */ ]
+    }
+  },
+  "toc": [
+    { "number": "01", "title": "Synthèse exécutive" },
+    { "number": "02", "title": "Recettes professionnelles" },
+    { "number": "03", "title": "Charges professionnelles" },
+    { "number": "04", "title": "Charges forfaitaires" },
+    { "number": "05", "title": "Cotisations sociales" },
+    { "number": "06", "title": "Amortissements" },
+    { "number": "07", "title": "Provisions" },
+    { "number": "08", "title": "BNC fiscal" },
+    { "number": "09", "title": "Annexes" }
+  ]
+}
+```
+
+Une `LivretOperation` :
+```json
+{
+  "operation_file": "operations_merged_202601_*.json",
+  "operation_index": 42,
+  "ventilation_index": null,
+  "date": "2026-01-15",
+  "libelle": "VIRSEPARECU/FRMSCPANES",
+  "libelle_meta": null,
+  "montant": 24500,
+  "montant_brut": null,
+  "taux_pro": null,
+  "flags": {
+    "a_revoir": false,
+    "important": false,
+    "justificatif_manquant": false,
+    "locked": true,
+    "lettre": true,
+    "is_mixte": false
+  },
+  "sub_lines": null
+}
+```
+
+### `GET /{year}/metadata`
+Endpoint léger pour le live indicator (poll plus fréquent côté UI). Retourne uniquement le bloc `metadata` (sans recomposer les chapitres).
+
+**Réponse** : objet `LivretMetadata` (cf. ci-dessus).
+
+### `GET /{year}/projection`
+Expose la `ProjectionResult` brute pour debug / inspection.
+
+**Query params** :
+- `as_of` (optionnel, ISO `YYYY-MM-DD`).
+
+**Réponse** :
+```json
+{
+  "year": 2026,
+  "as_of_date": "2026-04-30",
+  "monthly_recettes": { "1": 34845.0, "2": 32651.0, /* ... */ },
+  "monthly_charges": { "1": 9114.65, /* ... */ },
+  "annual_recettes_projected": 412470.0,
+  "annual_charges_projected": 177271.22,
+  "bnc_projected_annual": 234499.47,
+  "source": "previsionnel",
+  "confidence": "high"
+}
+```
+
+**Sources** :
+- `previsionnel` — adaptateur sur `previsionnel_service.get_timeline(year)` (régression linéaire saisonnière + providers récurrents).
+- `fallback_ytd_extrapolation` — extrapolation `ytd_total / months_elapsed` si la timeline est vide.
+- `empty` — aucune donnée passée ni courante (ex. année future sans Prévisionnel saisi).
+
+**Confidence** : `high` (≥6 mois clos), `medium` (2-5 mois clos), `low` (<2 mois ou fallback).
+
+### Comparaison N-1 (Phase 4) — query param `compare_n1`
+
+`GET /{year}` accepte un paramètre supplémentaire `compare_n1` :
+
+- `compare_n1=ytd_comparable` — compare la période [01/01/N → as_of] avec [01/01/(N-1) → même date N-1]. Clamp 29 fév → 28 fév en N-1 non-bissextile.
+- `compare_n1=annee_pleine` — compare l'exercice complet N avec l'exercice complet (N-1). À utiliser à la clôture.
+
+Quand actif, la réponse inclut :
+- `metadata.compare_mode` (`"ytd_comparable" | "annee_pleine"`)
+- `metadata.as_of_date_n1` (ISO date)
+- `metadata.has_n1_data` (false si l'exercice N-1 n'a aucune donnée → encadré UI explicatif)
+- `metadata.is_year_partial` (true si mode `annee_pleine` sur exercice en cours)
+- Sur chaque `LivretMetric` (chap 01, sauf projection annuelle) : `delta_n1`
+- Sur chaque `LivretSubcategory` : `delta_n1` + `is_orphan_from_n1` (true si la sous-cat existe en N-1 mais plus en N — ligne fantôme avec `total_ytd=0`)
+- Sur chaque `LivretChapter` (sauf 09 Annexes) : `delta_n1` (sur `total_ytd`)
+- Sur chaque `LivretMonthPoint` de la cadence : `recettes_n1`, `charges_n1`
+
+**Forme `LivretDelta`** :
+```json
+{
+  "value_n1": 412470.0,
+  "value_diff": -349739.85,
+  "value_diff_pct": -84.79,
+  "direction": "down",
+  "is_favorable": false
+}
+```
+
+`value_diff_pct` est `null` si `value_n1 == 0` (évite ÷0). `direction` : `up`/`down`/`stable` (seuil `stable` à 0.5% du max abs). `is_favorable` : convention métier — favorable à la hausse pour recettes / BNC / provisions ; favorable à la baisse pour charges / charges sociales / amortissements.
+
+**Performance** : la double composition est mémoïsée TTL 60s sur `(year, as_of, snapshot_id)`. Cache-cold ~5-8s, cache-warm ~50ms.
+
+**Cas limites** :
+- Year-1 sans données : `has_n1_data=false`, le serveur retourne le livret N tel quel (pas de delta annoté). Le frontend affiche un banner `Pas de comparaison disponible`.
+- Mode `annee_pleine` sur exercice en cours : `is_year_partial=true`, frontend affiche un banner suggérant de basculer en `YTD comparable`.
+
+### Graphiques (Phase 5) — champ `chapter.charts`
+
+Chaque chapitre du livret peut exposer une liste de `ChartConfig` (champ `charts: ChartConfig[]`). Phase 5 MVP : 3 charts attachés (cadence chap 01, donut chap 03, waterfall chap 08).
+
+Forme `ChartConfig` :
+```json
+{
+  "id": "donut_charges_categories",
+  "type": "donut",
+  "title": "Répartition des charges professionnelles",
+  "subtitle": "9 catégories · total 171 632 €",
+  "x_label": null,
+  "y_label": null,
+  "series": [
+    {
+      "name": "Charges YTD",
+      "color": "#811971",
+      "data": [
+        { "x": "URSSAF", "y": 56803.0, "color": "#811971", "meta": { "category_name": "URSSAF" } },
+        { "x": "Autres", "y": 6154.0, "color": "#64748b", "meta": { "is_autres_aggregate": true, "categories": ["Cotisations sociales", "..."] } }
+      ],
+      "stack_id": null
+    }
+  ],
+  "total": 171632.0,
+  "annotations": null,
+  "drill_target": "category_detail"
+}
+```
+
+**Types** (`ChartType`) :
+- `donut` — répartition catégorielle. `meta.category_name` permet le drill-down côté React vers `CategoryDetailDrawer`. `meta.is_autres_aggregate=true` désactive le drill (pas de détail sur "Autres").
+- `waterfall` — barres cumulatives. `meta.operator ∈ {plus, minus, equals}` détermine le sens visuel et la couleur. `total` = valeur cumulée finale.
+- `cadence` — bar chart 12 mois. `meta.is_past`/`is_current`/`is_projection` sur chaque point + série optionnelle "Solde N-1" (Phase 4).
+- `bar`, `stacked` — réservés pour extensions futures.
+
+**Pipeline de rendu** :
+1. **React live** : composants Recharts dans [`frontend/src/components/livret/charts/`](frontend/src/components/livret/charts/) — dispatcher `LivretChart` + `LivretChartDonut` (drill-down au clic) + `LivretChartWaterfall`.
+2. **HTML autonome** (snapshot) : SVG inline pur via `backend/services/livret_html_charts.py:render_chart_svg(config)` — pas de lib JS bundlée, tooltip hover via vanilla JS embarqué.
+3. **PDF paginé** (snapshot) : matplotlib + Agg → PNG bytes via `backend/services/livret_pdf_charts.py:render_chart_png(config)` — embed `RLImage(width=170mm, height=85mm)`.
+
+Les 3 renderers consomment exactement le même `ChartConfig` (couleurs `hex string` directes, pas de CSS var) — cohérence visuelle mécanique entre les 3 vues.
+
+### Chapitres polymorphes (Phase 2)
+
+À partir de la Phase 2, `chapters[N]` peut être l'une des sous-classes spécialisées suivantes (toutes étendent `LivretChapter` — les champs supplémentaires sont sérialisés grâce à `SerializeAsAny[LivretChapter]` côté Pydantic v2). Côté frontend, le typage utilise une union discriminée par `number`.
+
+**`LivretForfaitairesChapter` (chapitre 04)**
+
+```json
+{
+  "number": "04",
+  "title": "Charges forfaitaires",
+  "tag": "Ventilation groupée",
+  "ventilation_mode": "groupe",
+  "total_ytd": 5010.7,
+  "total_projected_annual": null,
+  "subcategories": [ /* LivretSubcategory[] : Blanchissage / Repas / Véhicule */ ],
+  "decompositions": [
+    {
+      "type_forfait": "blanchissage",
+      "montant": 2367.4,
+      "date_ecriture": "2025-12-31",
+      "pdf_filename": "blanchissage_20251231_2367.40.pdf",
+      "ged_doc_id": "data/reports/blanchissage_20251231_2367.40.pdf",
+      "jours": 178,
+      "articles": [
+        { "type": "Blouse médicale", "tarif_pressing": 7.0, "quantite_jour": 1 }
+      ],
+      "forfait_jour": null,
+      "seuil_repas_maison": null,
+      "plafond_repas_restaurant": null,
+      "ratio_pro_pct": null,
+      "distance_km": null,
+      "km_supplementaires": null,
+      "km_totaux_compteur": null,
+      "reference_legale": "BOI-BNC-BASE-40-20"
+    }
+  ]
+}
+```
+
+**`LivretAmortissementsChapter` (chapitre 06)**
+
+```json
+{
+  "number": "06",
+  "title": "Amortissements",
+  "tag": "6 immobilisations actives",
+  "ventilation_mode": "groupe",
+  "total_ytd": 699.31,
+  "subcategories": [ /* groupé par poste comptable */ ],
+  "immobilisations": [
+    {
+      "nom": "MacBook Pro M3",
+      "poste": "informatique",
+      "valeur_origine": 2200.0,
+      "date_acquisition": "2025-03-15",
+      "duree_amortissement": 3,
+      "dotation_annuelle": 244.44,
+      "cumul_amortissement": 244.44,
+      "vnc": 1955.56,
+      "is_backfill": false
+    }
+  ],
+  "total_dotations_annuelles": 699.31
+}
+```
+
+**`LivretProvisionsChapter` (chapitre 07)**
+
+```json
+{
+  "number": "07",
+  "title": "Provisions & coussin",
+  "tag": "Ventilation éclatée",
+  "ventilation_mode": "eclate",
+  "total_ytd": 0.0,
+  "subcategories": [ /* 3 sous-cat : Provision IR / Provision Charges sociales / Coussin */ ],
+  "gauges": [
+    { "name": "Provision IR", "cumul_ytd": 0.0, "cible_estimee": 82669.24, "ratio": 0.0 },
+    { "name": "Provision Charges sociales", "cumul_ytd": 0.0, "cible_estimee": 64656.51, "ratio": 0.0 },
+    { "name": "Coussin", "cumul_ytd": 0.0, "cible_estimee": 23449.95, "ratio": 0.0 }
+  ]
+}
+```
+
+Cibles dérivées de la projection fiscale du chapitre 08 (`ir_estime` pour IR, somme URSSAF+CARMF+OdM pour charges sociales, BNC projeté × 0.10 pour Coussin).
+
+**`LivretBncChapter` (chapitre 08)**
+
+```json
+{
+  "number": "08",
+  "title": "BNC fiscal — synthèse",
+  "tag": "Source unique : bnc_service.compute_bnc",
+  "ventilation_mode": "none",
+  "total_ytd": 235007.20,
+  "total_projected_annual": 234499.47,
+  "subcategories": [],
+  "formula": [
+    { "label": "CA déclaré (liasse SCP)", "amount": 412977.73, "operator": "plus", "note": null },
+    { "label": "Charges professionnelles", "amount": 177271.22, "operator": "minus", "note": "Hors immobilisations/dotations/ventilations parentes." },
+    { "label": "Dotations aux amortissements", "amount": 699.31, "operator": "minus", "note": null },
+    { "label": "Charges forfaitaires (blanchissage + repas)", "amount": 0.0, "operator": "minus", "note": "OD déjà comptées en charges (Phase 1)." },
+    { "label": "BNC réalisé YTD", "amount": 235007.20, "operator": "equals", "note": null }
+  ],
+  "formula_comment": "BNC = Recettes − Charges − Dotations − Forfaits. Base de recettes : liasse. CA liasse SCP saisi. Bancaires année : 412,470.00 € (référence).",
+  "projection": {
+    "bnc_projete_annuel": 234499.47,
+    "ir_estime": 82669.24,
+    "urssaf_estime": 48256.29,
+    "carmf_estime": 15620.22,
+    "odm_estime": 780.0,
+    "total_charges_sociales_estime": 64656.51,
+    "revenu_net_apres_charges": 87173.72
+  },
+  "sources": {
+    "recettes": "liasse",
+    "charges": "operations",
+    "dotations": "amortissement_service",
+    "forfaits": "charges_forfaitaires_service",
+    "projection": "previsionnel"
+  }
+}
+```
+
+`projection` calculée via `fiscal_service.simulate_multi(bnc_actuel=bnc_projete, year, parts=1, leviers={})`.
+
+**`LivretAnnexeChapter` (chapitre 09)**
+
+```json
+{
+  "number": "09",
+  "title": "Annexes",
+  "tag": "471 justificatifs · 3 barèmes",
+  "ventilation_mode": "none",
+  "total_ytd": 0.0,
+  "subcategories": [],
+  "justificatifs_index": [
+    {
+      "filename": "amazon_20250109_16.99.pdf",
+      "montant": 16.99,
+      "date": "2025-01-09",
+      "fournisseur": null,
+      "operation_file": "operations_split_202501_*.json",
+      "operation_index": 12,
+      "libelle_op": "PRLVSEPAAMAZONPAYMENTSEUROPES C 16.99",
+      "is_facsimile": false
+    }
+  ],
+  "baremes_appliques": [
+    {
+      "nom": "URSSAF 2025",
+      "file": "urssaf_2025.json",
+      "last_updated": "2026-04-15T10:23:45.123456",
+      "summary": {
+        "pass": 46368,
+        "csg_crds_total_pct": 9.7,
+        "assiette_mode": "bnc_abattu"
+      }
+    }
+  ],
+  "glossaire": [
+    { "term": "BNC", "definition": "Bénéfices Non Commerciaux. Régime fiscal des professions libérales — assiette = recettes encaissées − charges payées." }
+  ],
+  "methodologie": "## Méthodologie de composition du livret\n\nCe livret est un **agrégateur vivant**..."
+}
+```
+
+Index justifs paginé côté frontend (50/page). Glossaire et méthodologie statiques (constantes Python `_GLOSSAIRE_DEFAUT` / `_METHODOLOGIE_DEFAULT` dans `livret_service`).
+
+**`LivretChapter` standard (chapitres 02, 03, 05)**
+
+Pas de champs supplémentaires — la sérialisation reste celle de la Phase 1 (`number`, `title`, `tag`, `ventilation_mode`, `total_ytd`, `total_projected_annual`, `subcategories[]`).
+
+### Snapshots (Phase 3 — `/api/livret/snapshots`)
+
+Snapshots du livret figés en 2 fichiers (HTML autonome + PDF paginé). 3 types : `manual` (POST utilisateur), `auto_monthly` (job mensuel asyncio coopératif), `cloture` (hook `check_envoi_service.validate_instance` quand `period == ANNUAL`). Stockage `data/livret_snapshots/{year}/` avec `manifest.json` (lock `fcntl.flock` + sauvegarde `.bak`).
+
+**Important — routes statiques avant routes dynamiques** : les routes `/snapshots/*` sont déclarées AVANT `/{year}` dans `backend/routers/livret.py` pour éviter que FastAPI ne tente de parser `"snapshots"` comme un int.
+
+#### `GET /snapshots`
+
+Liste les snapshots, triés par `snapshot_date` DESC.
+
+**Query params** : `year` (optionnel, filtre).
+
+**Réponse** :
+```json
+{
+  "snapshots": [
+    {
+      "id": "2025_2026-04-30_manual",
+      "year": 2025,
+      "snapshot_date": "2026-04-30",
+      "type": "manual",
+      "trigger": "manual_user",
+      "as_of_date": "2025-12-31",
+      "html_filename": "2026-04-30_manual.html",
+      "pdf_filename": "2026-04-30_manual.pdf",
+      "html_size": 813444,
+      "pdf_size": 95847,
+      "comment": "E2E test",
+      "data_sources": { "liasse_scp": true, "previsionnel": true, "amortissements": true, "forfaits": false },
+      "ytd_metrics": { "recettes": 412470.0, "charges": 177271.22, "bnc": 235007.20 },
+      "created_at": "2026-04-30T08:31:42",
+      "ged_document_ids": { "html": "data/livret_snapshots/2025/2026-04-30_manual.html", "pdf": "data/livret_snapshots/2025/2026-04-30_manual.pdf" },
+      "large": false
+    }
+  ]
+}
+```
+
+#### `POST /snapshots/{year}`
+
+Crée un snapshot manuel (par défaut). Génère HTML + PDF + register GED en 2-5 secondes.
+
+**Body** :
+```json
+{
+  "snapshot_type": "manual",
+  "as_of_date": "2026-04-29",
+  "comment": "Avant rendez-vous comptable",
+  "include_comparison": "ytd_comparable"
+}
+```
+
+`snapshot_type` (défaut `manual`), `as_of_date` (défaut hier — clampé à 31/12/year pour exercice clos), `comment` (optionnel), **Phase 4** `include_comparison` (`"ytd_comparable" | "annee_pleine" | null`) : si fourni, le livret est composé avec deltas N-1 (cf. paramètre `compare_n1` ci-dessus) et le HTML/PDF embarquent les pastilles delta. La métadonnée du snapshot expose `comparison_mode` pour traçabilité.
+
+**Réponse** : `LivretSnapshotMetadata` (cf. ci-dessus).
+
+**Codes** : 200 OK · 400 (année future / date invalide) · 423 (un autre snapshot est en cours pour cette année — lock `manifest.lock` non-bloquant) · 500 (erreur génération HTML/PDF — fichiers partiels nettoyés).
+
+#### `GET /snapshots/{snapshot_id}`
+
+Métadonnées d'un snapshot. 404 si inconnu.
+
+#### `GET /snapshots/{snapshot_id}/html`
+
+Sert le fichier HTML autonome **inline** (`Content-Disposition: inline`). À utiliser dans un `<iframe sandbox="allow-scripts">` côté frontend pour la consultation in-app. Le téléchargement forcé se fait côté frontend via fetch + blob URL (pattern `downloadSnapshotHtml`).
+
+**Codes** : 200 (avec `Content-Type: text/html`) · 404.
+
+#### `GET /snapshots/{snapshot_id}/pdf`
+
+Sert le fichier PDF **inline** (`Content-Disposition: inline`). À utiliser dans un `<object type="application/pdf">` (réutilisé via `PdfPreviewDrawer` étendu avec prop `pdfUrl`).
+
+**Codes** : 200 (avec `Content-Type: application/pdf`) · 404.
+
+#### `DELETE /snapshots/{snapshot_id}`
+
+Supprime un snapshot (fichiers HTML + PDF + entrée `manifest.json` + entrées GED).
+
+**Query params** : `force` (booléen, défaut `false`).
+
+**Codes** :
+- 200 OK : `{"deleted": true, "snapshot_id": "...", "files_removed": {"html": true, "pdf": true}}`.
+- 404 : snapshot inconnu.
+- 423 : snapshot de type `cloture` protégé. Renvoyer avec `?force=true` pour forcer la suppression.
+
+**Triggers automatiques** :
+- **Job mensuel** (`backend/main.py:_livret_snapshots_monthly_loop`) : tick coopératif 1h via `asyncio.wait_for(shutdown_event.wait(), timeout=3600)`. Quand la fenêtre `1er du mois 02:00-04:00` est atteinte, appelle `livret_snapshot_service.auto_monthly_job_once()` qui crée un snapshot `auto_monthly` pour toutes les `active_years()` n'en ayant pas déjà un dans le mois (idempotent via `has_auto_snapshot_for_period(year, "YYYY-MM")`).
+- **Hook clôture** (`backend/services/check_envoi_service.py:validate_instance`) : sur validation `period == ANNUAL`, appelle `create_snapshot(year, type=CLOTURE, comment="Clôture exercice — version définitive", as_of_date=31/12/year)` en best-effort. Échec n'invalide pas la clôture (logged en warning).

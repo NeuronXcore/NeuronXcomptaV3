@@ -236,6 +236,7 @@ export function useGenererDotation() {
       qc.invalidateQueries({ queryKey: ['analytics'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['tasks'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -253,6 +254,7 @@ export function useSupprimerDotation() {
       qc.invalidateQueries({ queryKey: ['ged-tree'] })
       qc.invalidateQueries({ queryKey: ['analytics'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }

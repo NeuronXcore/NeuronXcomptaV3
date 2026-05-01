@@ -53,6 +53,7 @@ export function useSaveLiasse() {
       qc.invalidateQueries({ queryKey: ['analytics'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['year-overview'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -66,6 +67,7 @@ export function useDeleteLiasse() {
       qc.invalidateQueries({ queryKey: ['analytics'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['year-overview'] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }

@@ -58,6 +58,10 @@ LIASSE_SCP_DIR = DATA_DIR / "liasse_scp"
 CHECK_ENVOI_DIR = DATA_DIR / "check_envoi"
 CHECK_ENVOI_REMINDERS_FILE = CHECK_ENVOI_DIR / "reminders.json"
 
+# Livret comptable — snapshots Phase 3 (Phase 1 : dossier seedé pour préparation)
+LIVRET_SNAPSHOTS_DIR = DATA_DIR / "livret_snapshots"
+LIVRET_SNAPSHOTS_MANIFEST = LIVRET_SNAPSHOTS_DIR / "manifest.json"
+
 # Templates justificatifs
 TEMPLATES_DIR = DATA_DIR / "templates"
 TEMPLATES_FILE = TEMPLATES_DIR / "justificatifs_templates.json"
@@ -166,9 +170,19 @@ def ensure_directories():
         PREVISIONNEL_DIR,
         LIASSE_SCP_DIR,
         CHECK_ENVOI_DIR,
+        LIVRET_SNAPSHOTS_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
+
+    # Seed manifest des snapshots Livret (Phase 3 — créé vide en Phase 1 pour anticipation)
+    if not LIVRET_SNAPSHOTS_MANIFEST.exists():
+        import json
+        try:
+            with open(LIVRET_SNAPSHOTS_MANIFEST, "w", encoding="utf-8") as f:
+                json.dump({"version": 1, "snapshots": []}, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
 
 
 def migrate_imports_directory():

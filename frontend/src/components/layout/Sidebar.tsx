@@ -5,7 +5,7 @@ import {
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
   Boxes, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
-  Send, Receipt, Camera, ClipboardCheck, Sparkles,
+  Send, Receipt, Camera, ClipboardCheck, Sparkles, BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -44,6 +44,7 @@ const NAV_SECTIONS = [
       { to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
       { to: '/previsionnel', label: 'Prévisionnel', icon: TrendingUp },
       { to: '/visualization', label: 'Compta Analytique', icon: BarChart3 },
+      { to: '/livret', label: 'Livret comptable', icon: BookOpen },
       { to: '/reports', label: 'Rapports', icon: FileText },
       { to: '/simulation', label: 'Simulation BNC', icon: Calculator },
     ],

@@ -18,6 +18,7 @@ export function useToggleLettrage() {
     onSuccess: (_, { filename }) => {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
       queryClient.invalidateQueries({ queryKey: ['lettrage-stats', filename] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -30,6 +31,7 @@ export function useBulkLettrage() {
     onSuccess: (_, { filename }) => {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
       queryClient.invalidateQueries({ queryKey: ['lettrage-stats', filename] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }

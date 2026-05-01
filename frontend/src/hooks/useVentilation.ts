@@ -11,6 +11,7 @@ export function useSetVentilation(filename: string | null) {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
       queryClient.invalidateQueries({ queryKey: ['operations'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -24,6 +25,7 @@ export function useRemoveVentilation(filename: string | null) {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
       queryClient.invalidateQueries({ queryKey: ['operations'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
@@ -44,6 +46,7 @@ export function useUpdateVentilationLine(filename: string | null) {
       queryClient.invalidateQueries({ queryKey: ['operations', filename] })
       queryClient.invalidateQueries({ queryKey: ['operations'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['livret'] })
     },
   })
 }
