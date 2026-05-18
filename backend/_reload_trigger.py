@@ -1,4 +1,4 @@
 """Fichier sentinel pour declencher un reload uvicorn.
-Touche par POST /api/settings/restart a 2026-04-28T17:03:43.789094.
+Touche par POST /api/settings/restart a 2026-05-18T11:43:40.885894.
 """
-RELOAD_TIMESTAMP = 1777388623.7891111
+RELOAD_TIMESTAMP = 1779097420.8859048

@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "templates": {
+    "sygnatures_marenco": {
+      "label": "Sygnatures Marenco — Montauban",
+      "comptes": {
+        "60630000": {
+          "label": "FOURNIT ENTRET ET PETIT EQUIPM",
+          "rubrique": "Petit outillage",
+          "categories": ["Matériel", "Fournitures"],
+          "sous_categories": []
+        },
+        "60640000": {
+          "label": "FOURNITURES ADMINISTRATIVES",
+          "rubrique": "Fournitures bureau, doc, PTT",
+          "categories": ["Fournitures"],
+          "sous_categories": []
+        },
+        "60641000": {
+          "label": "HP WORLD PAY",
+          "rubrique": "Fournitures bureau, doc, PTT",
+          "categories": ["Fournitures"],
+          "sous_categories": []
+        },
+        "60650000": {
+          "label": "CARBURANT",
+          "rubrique": "Fournitures bureau, doc, PTT",
+          "categories": ["Véhicule"],
+          "sous_categories": ["Essence", "Carburant"],
+          "apply_quote_part_vehicule": true
+        },
+        "61210000": {
+          "label": "CREDIT-BAIL FORD RANGER",
+          "rubrique": "Location matériel et outillage",
+          "categories": ["Véhicule"],
+          "sous_categories": ["Loyer", "Leasing"],
+          "apply_quote_part_vehicule": true
+        },
+        "61550000": {
+          "label": "ENTRETIEN TRANSPORT",
+          "rubrique": "Entretien et réparations",
+          "categories": ["Véhicule"],
+          "sous_categories": ["Entretien"],
+          "apply_quote_part_vehicule": true
+        },
+        "61560000": {
+          "label": "MAINTENANCE INFORMATIQUE",
+          "rubrique": "Entretien et réparations",
+          "categories": ["Logiciel", "Abonnements"],
+          "sous_categories": []
+        },
+        "61620000": {
+          "label": "ASSURANCE TRANSPORT",
+          "rubrique": "Primes d'assurance",
+          "categories": ["Véhicule"],
+          "sous_categories": ["Assurance"],
+          "apply_quote_part_vehicule": true
+        },
+        "61680000": {
+          "label": "AUTRES ASSURANCES",
+          "rubrique": "Primes d'assurance",
+          "categories": ["Assurance"],
+          "sous_categories": []
+        },
+        "61830000": {
+          "label": "FORMATION",
+          "rubrique": "Fournitures bureau, doc, PTT",
+          "categories": ["Formations"],
+          "sous_categories": []
+        },
+        "61850000": {
+          "label": "FRAIS DE COLLOQUES, SEMINAIRES, CONFEREN",
+          "rubrique": "Frais de réception, congrès",
+          "categories": ["Formations", "Repas pro"],
+          "sous_categories": []
+        },
+        "61860000": {
+          "label": "FORFAIT BLANCHISSAGE",
+          "rubrique": "Autres frais divers de gestion",
+          "categories": ["Blanchissage professionnel"],
+          "sous_categories": []
+        },
+        "62210000": {
+          "label": "HONORAIRE COMPTABLES",
+          "rubrique": "Honoraires non rétrocédés",
+          "categories": ["Comptable"],
+          "sous_categories": []
+        },
+        "62265000": {
+          "label": "HONORAIRES RETROCEDES",
+          "rubrique": "Honoraires non rétrocédés",
+          "categories": ["Remplaçant"],
+          "sous_categories": ["Honoraires"]
+        },
+        "62510000": {
+          "label": "FRAIS DEPLACEMENTS",
+          "rubrique": "Autres frais de déplacements",
+          "categories": ["Transport"],
+          "sous_categories": []
+        },
+        "62511000": {
+          "label": "FRAIS REPAS CLINIQUE",
+          "rubrique": "Autres frais de déplacements",
+          "categories": ["Repas pro"],
+          "sous_categories": []
+        },
+        "62600000": {
+          "label": "FRAIS POSTAUX",
+          "rubrique": "Fournitures bureau, doc, PTT",
+          "categories": ["Poste"],
+          "sous_categories": []
+        },
+        "62610000": {
+          "label": "TELEPHONE",
+          "rubrique": "Fournitures bureau, doc, PTT",
+          "categories": ["Telephone-Internet"],
+          "sous_categories": []
+        },
+        "62700000": {
+          "label": "FRAIS DE BANQUE",
+          "rubrique": "Autres frais divers de gestion",
+          "categories": ["Frais Bancaires"],
+          "sous_categories": []
+        },
+        "62810000": {
+          "label": "COTISATIONS DIVERSES",
+          "rubrique": "Cotisations syndicales et professionnelles",
+          "categories": ["Ordre des Médecins"],
+          "sous_categories": []
+        },
+        "63330000": {
+          "label": "PARTICIPATION FORMATION PROFESSIONNELLE",
+          "rubrique": "Autres impôts",
+          "categories": ["Formations"],
+          "sous_categories": []
+        },
+        "63781000": {
+          "label": "CSG DEDUCTIBLE",
+          "rubrique": "C.S.G. déductible",
+          "categories": ["URSSAF"],
+          "sous_categories": ["CSG déductible"],
+          "split_csg_deductible": true
+        },
+        "63782000": {
+          "label": "CONTRIB. UNIONS REGIONALES PROF. DE SANT",
+          "rubrique": "Autres impôts",
+          "categories": ["Ordre des Médecins"],
+          "sous_categories": []
+        },
+        "64610000": {
+          "label": "URSSAF",
+          "rubrique": "Charges sociales personnelles",
+          "categories": ["URSSAF"],
+          "sous_categories": [],
+          "split_urssaf_cotisations": true
+        },
+        "64630000": {
+          "label": "CARMF",
+          "rubrique": "Charges sociales personnelles",
+          "categories": ["CARMF"],
+          "sous_categories": []
+        },
+        "67120000": {
+          "label": "PENALITES AMENDES FISCALES",
+          "rubrique": "Pertes diverses",
+          "categories": ["Pénalités"],
+          "sous_categories": []
+        },
+        "21831000": {
+          "label": "MATERIEL INFORMATIQUE",
+          "rubrique": "Immobilisations corporelles",
+          "categories": ["Immobilisations"],
+          "sous_categories": [],
+          "is_bilan": true
+        },
+        "28183100": {
+          "label": "AMORT MATERIEL INFORMATIQUE",
+          "rubrique": "Dotation aux amortissements",
+          "categories": ["Dotations aux amortissements"],
+          "sous_categories": [],
+          "is_dotation": true
+        },
+        "70100000": {
+          "label": "ENCAISSEMENTS DE LA SCP",
+          "rubrique": "Recettes encaissées",
+          "categories": ["Honoraires"],
+          "sous_categories": [],
+          "is_recettes": true
+        }
+      }
+    }
+  }
+}

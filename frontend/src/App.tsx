@@ -32,6 +32,7 @@ import LivretArchivesPage from '@/components/livret/LivretArchivesPage'
 import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 import LiasseScpDrawer from '@/components/liasse/LiasseScpDrawer'
 import GlobalImmobilisationDrawer from '@/components/amortissements/GlobalImmobilisationDrawer'
+import PlaquetteCheckDrawer from '@/components/plaquette/PlaquetteCheckDrawer'
 
 export default function App() {
   const { data: settings } = useSettings()
@@ -97,6 +98,7 @@ export default function App() {
     <SendToAccountantDrawer />
     <LiasseScpDrawer />
     <GlobalImmobilisationDrawer />
+    <PlaquetteCheckDrawer />
     </>
   )
 }

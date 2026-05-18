@@ -8,6 +8,72 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-05-18) — Module Vérification Plaquette Comptable + Upload GED documents annuels (Session 38)
+
+Workflow itératif de validation/challenge de la **plaquette comptable annuelle** (déclaration 2035 détaillée reçue du cabinet comptable) avant édition de la déclaration d'impôt. Comparaison ligne à ligne des 27 postes PCG avec les agrégats NeuronX, génération de PDF rapport argumenté (synthèse BNC + anomalies + annexe juridique BOI/CGI + drill-down ops), envoi groupé au comptable avec pièces jointes, et workflow de réponse comptable.
+
+**Contexte métier** : utilisateur (médecin BNC) constate que son comptable ne passe pas toutes ses dépenses. Sans outil de comparaison automatisée, il manque potentiellement plusieurs milliers d'euros de charges déductibles chaque année. Analyse manuelle 2025 a identifié **~9 000 € de charges non passées** (forfait repas BOI-BNC-BASE-40-60 oublié, immobilisations 5 408 € non créées au bilan, honoraires rétrocédés à clarifier, etc.). Le module industrialise ce travail récurrent annuel.
+
+**Backend** :
+- **Modèles Pydantic** [`backend/models/plaquette_check.py`](backend/models/plaquette_check.py) (**NOUVEAU**) : `PlaquetteItem`, `JournalEntry`, `PlaquetteUpload`, `PlaquetteCheck`, `ComptableResponseRequest`, `ItemStatusUpdate`, `PlaquetteItemPatch`, `JournalEntryCreate`, `PlaquetteTotauxPatch`, `GenerateChallengeEmailResponse`, `PlaquetteCheckSetRefRequest`.
+- **Mapping PCG → catégories NeuronX** [`data/plaquette_pcg_mapping.json`](data/plaquette_pcg_mapping.json) (**NOUVEAU**) versionné, extensible multi-cabinets via `templates.{cabinet}.comptes`. Initialisation pour Sygnatures Marenco avec ~28 comptes incluant flags spéciaux : `is_bilan` (21831000 Matériel info), `is_dotation` (28183100 Amort), `is_recettes` (70100000 Encaissements SCP), `split_csg_deductible` (63781000), `split_urssaf_cotisations` (64610000), `apply_quote_part_vehicule` (61210000, 60650000, 61550000, 61620000).
+- **Services** : `plaquette_pcg_mapping_service` (`load_mapping`, `resolve`, `seed_items_from_template`), `plaquette_service` (CRUD items + agrégation NeuronX dispatcher selon flags, ~400 LOC), `plaquette_report_service` (PDF ReportLab A4 portrait avec 6 sections + auto-replace anciennes versions, ~700 LOC).
+- **Endpoints** (13 routes) sous `/api/plaquette` : `GET /templates`, `GET /mapping`, `GET /{year}/exists`, `GET /{year}`, `POST /{year}/items`, `PATCH /{year}/items/{item_id}`, `DELETE /{year}/items/{item_id}`, `GET /{year}/items/{item_id}/ops`, `PATCH /{year}/totaux`, `POST /{year}/set-ged-ref`, `POST /{year}/generate-challenge-email`, `POST /{year}/generate-pdf-report` (avec auto-replace + `replaced_count` dans réponse), `POST /{year}/prepare-email-bundle` (orchestre PDF + email + retourne attachments), `POST /{year}/log-comptable-response` (JournalEntry email_in + bascule items en batch avec préfixe `[YYYY-MM-DD réponse comptable]`), `POST /{year}/journal`, `GET /{year}/reports` (historique GED filtré), `DELETE /{year}/reports/{filename}`.
+- **Type GED `plaquette_comptable`** dans `DEFAULT_DOCUMENT_TYPES` (non-protégé).
+- **Storage** `data/plaquette_check/{year}.json` (1 fichier par exercice, écriture atomique via `tempfile.mkstemp + os.replace`).
+- **PDF rapport — 6 sections** : logo NeuronX + titre, synthèse BNC 3-colonnes (Plaquette / NeuronX / Écart / vs N-1) + callout pédagogique sur écart BNC, récap statuts colorés, anomalies à régulariser (statut `a_challenger`) avec top 10 ops drill-down par anomalie + argumentaire, points méthodologiques en discussion (statut `en_discussion`), tableau complet 28 lignes triées par PCG, **annexe juridique** (détection auto via regex sur commentaires : 8 références BOI/CGI/PCG — forfait_repas, immobilisations_seuil, honoraires_retrocedes, pieces_justificatives, quote_part_vehicule, csg_reforme_2025, dotations_amort, blanchissage — avec titre + extrait + URL BOFIP/Légifrance).
+- **Auto-replace** : chaque génération de PDF appelle `_delete_previous_reports(year)` qui scanne le metadata GED pour `type=rapport` + `source_module=plaquette` + même `year` et les supprime via `ged_service.delete_document` (GED + disque). La GED ne contient donc qu'**un seul rapport actif par exercice**, retourne `replaced_count` dans la réponse.
+
+**Frontend** :
+- **Store Zustand** [`frontend/src/stores/plaquetteCheckDrawerStore.ts`](frontend/src/stores/plaquetteCheckDrawerStore.ts) (**NOUVEAU**) calqué sur `liasseScpDrawerStore`.
+- **Hooks** [`frontend/src/hooks/usePlaquetteCheck.ts`](frontend/src/hooks/usePlaquetteCheck.ts) (**NOUVEAU**, ~14 hooks) : `usePlaquetteTemplates`, `usePlaquetteCheck(year)`, `usePatchPlaquetteItem`, `useCreatePlaquetteItem`, `useDeletePlaquetteItem`, `usePlaquetteItemOps`, `usePatchPlaquetteTotaux`, `useSetPlaquetteGedRef`, `useGenerateChallengeEmail`, `useAddJournalEntry`, `useGeneratePlaquetteReport`, `usePreparePlaquetteEmailBundle`, `usePlaquetteReportsHistory`, `useDeletePlaquetteReport`, `useLogComptableResponse`. Tous avec invalidations TanStack appropriées (`['plaquette-check', year]`, `['ged-documents']`, `['ged-tree']`).
+- **Drawer principal** [`frontend/src/components/plaquette/PlaquetteCheckDrawer.tsx`](frontend/src/components/plaquette/PlaquetteCheckDrawer.tsx) (**NOUVEAU**, ~1400 LOC), 1100px, monté global dans `App.tsx`. **5 onglets** :
+  1. **Comparatif** — bandeau synthèse BNC 3 `KpiCell` (Recettes/Charges/Bénéfice fiscal avec Plaquette/NeuronX/Écart/vs-N-1 + variation % N-1), pill écart BNC global avec libellé pédagogique selon signe et magnitude, stats statuts colorés, bouton "Générer email challenge (N)", table 9 colonnes avec **header sticky** (`border-separate` + `position: sticky` sur `<th>` + bordure via `shadow-[0_1px_0_0]`), édition inline montants/statut/commentaire, row expandable pour drill-down ops avec **bouton ExternalLink** par ligne (ferme drawer + navigate `/editor?...&from=plaquette`), `<tfoot>` sticky bottom orange avec total écarts à challenger.
+  2. **Saisie manuelle** — guide visuel + compteur progression.
+  3. **Email challenge** — card primaire "Workflow recommandé — Envoi groupé en 1 clic" (gradient primary) avec bouton plein qui appelle `prepare-email-bundle` puis `useSendDrawerStore.open({preselected, defaultSubject})` + log journal auto, card "Rapport PDF de vérification" avec bouton `Générer/Re-générer` + filename + taille + horodatage + toast `(remplace N ancienne(s) version(s))`, `<details>` "Workflow avancé" repliable pour édition texte mail.
+  4. **Archives** — table historique des PDF rapports archivés (Date / Filename / Taille / Actions Eye/Download/Trash2) avec suppression GED + disque.
+  5. **Journal** — timeline `JournalEntry` triable desc avec icônes différenciées (Mail bleue email_out / Mail verte sur fond emerald email_in / MessageSquare note), bouton "+ Loguer réponse comptable" → **modal `LogComptableResponseModal`** (640px centré z-[70]) avec date picker + objet + body textarea + liste pré-cochable des items concernés (filtre auto sur `a_challenger`/`en_discussion`) avec checkbox + dropdown nouveau statut + textarea ajout commentaire.
+- **Bouton drawer GED** dans [`GedDocumentDrawer.tsx`](frontend/src/components/ged/GedDocumentDrawer.tsx) : `isPlaquette = localDoc?.type === 'plaquette_comptable'` → bouton "Ouvrir vérification (N à challenger)" ambre/violet selon counts.
+- **Types TS** dans [`frontend/src/types/index.ts`](frontend/src/types/index.ts) : `PlaquetteItem`, `PlaquetteJournalEntry`, `PlaquetteUpload`, `PlaquetteCheck`, `PlaquetteItemPatch`, `PlaquetteItemCreatePayload`, `PlaquetteDrillDownOp`, `PlaquetteChallengeEmail`, `PlaquetteTemplate`, `PlaquetteItemStatut`, `PlaquetteParseStatut`, `PlaquetteJournalType`.
+- **Breadcrumb retour** dans `EditorPage.FROM_LABELS` : `plaquette: { label: 'Vérification plaquette', route: '/ged?type=plaquette_comptable' }`.
+
+**Upload GED — support documents annuels (fix UX)** :
+- **Backend** [`ged_service.upload_document`](backend/services/ged_service.py:1545) — détecte `is_annual = month_raw is None or '' or 0`, range dans `GED_DIR/{year}/annuel/` au lieu de `GED_DIR/{year}/{MM}/`, stocke `month: None` dans metadata (au lieu du fallback `month = request.get("month") or datetime.now().month` qui forçait toujours le mois courant — c'était le bug bloquant).
+- **DEFAULT_DOCUMENT_TYPES étendus** : 19 types totaux incluant 13 annuels (`liasse_fiscale_scp`, `plaquette_comptable`, `avis_imposition`, `declaration_2035`, `declaration_2042`, `declaration_das2`, `rapport`, `attestation`, `contrat`, `courrier fiscal`, `courrier social`, `bilan`, `registre`) + 6 mensuels/ponctuels (`relevé`, `justificatif`, `devis`, `divers`).
+- **Frontend** [`GedUploadZone.tsx`](frontend/src/components/ged/GedUploadZone.tsx) — state `month: number | null`, option `— Annuel (exercice complet)` en tête du dropdown, badge ambre `📅 Annuel` à côté du label si `month === null`, note explicative dynamique.
+- **Détection automatique** par 2 mécanismes : constante `ANNUAL_DOC_TYPES` (15 entrées explicites) + helper `isAnnualDocType(type)` avec fallback regex sur 13 mots-clés (`annuel`, `bilan`, `liasse`, `plaquette`, `registre`, `synthese`, `recap`, `avis`, `declaration`, `2035`, `2042`, `das2`, `attestation`, `compte de resultat`) — couvre les types custom tapés librement.
+- **Handler unifié `handleDocTypeChange`** appelé directement depuis `onChange` de l'input type (au lieu d'un `useEffect` qui causait un warning React StrictMode `useEffect changed size between renders`) : bascule auto dans les 2 sens (type annuel → mois `null`, retour à un type non-annuel → restaure mois courant).
+
+**Données de vérification 2025 réelles** (workflow exécuté) :
+- BNC plaquette comptable 252 279 € vs NeuronX 229 077 € → écart **-23 202 €** (favorable utilisateur si toutes anomalies régularisées).
+- **5 anomalies `a_challenger` identifiées** dans le PDF rapport : forfait repas BOI-BNC-BASE-40-60 (+2 643 €), bilan matériel informatique non mis à jour (-5 408 €), maintenance informatique 3 989 € pièce manquante, honoraires rétrocédés écart inverse +6 500 €, petit outillage Amazon/Boulanger refusés (+6 079 €).
+- **3 points `en_discussion`** : méthode CSG déductible (réforme 2025 vs CA brut), URSSAF cotisations, dotations amortissements (reprise historique).
+- **14 postes `ok`** : CARMF, blanchissage (BOI-BNC-BASE-40-20 match parfait 2 367 €), comptable, Tél-Internet, postes véhicule avec QP 51 % bien appliquée, etc.
+
+**Script seed** [`scripts/seed_plaquette_2025.py`](scripts/seed_plaquette_2025.py) (**NOUVEAU**) réutilisable pour repop si reset : 27 montants PDF + totaux + N-1 + statuts/commentaires des anomalies discutées.
+
+**Vérifications passées** :
+- Backend curl : POST `/generate-pdf-report` → PDF 37,4 Ko (6 sections incluant annexe juridique), GED register OK, `replaced_count` correct.
+- Frontend e2e via preview : 5 onglets visibles, sticky header table fonctionnel (PCG/Libellé/etc. restent collés en haut au scroll), drill-down ops avec bouton ExternalLink, modal `LogComptableResponseModal` 8 checkboxes pré-cochables, toast post-génération avec mention `replaced_count`.
+- Upload GED : sélection `plaquette_comptable` → mois auto bascule sur "Annuel" + badge + note ; sélection `Facture EDF` → mois restauré au mois courant. 11/11 tests passent (plaquette_comptable, liasse_fiscale_scp, Bilan 2025, avis_imposition, declaration_2035, courrier social, registre → annuel ; Facture EDF, justificatif, devis, relevé → mensuel).
+- Auto-replace : 4 anciens rapports → 1 seul après régénération, fichier disque + entrée GED supprimés.
+
+**Conventional Commits suggérés** :
+- `feat(plaquette): pydantic models + PCG mapping service + storage data/plaquette_check/{year}.json`
+- `feat(plaquette): plaquette_service with category aggregator + flag dispatcher (bilan/dotation/recettes/csg/urssaf/vehicule QP)`
+- `feat(plaquette): plaquette_report_service PDF ReportLab avec drill-down ops + annexe juridique BOI/CGI`
+- `feat(plaquette): auto-replace anciens rapports (1 seul actif par exercice)`
+- `feat(plaquette): router /api/plaquette (13 endpoints) + type GED plaquette_comptable`
+- `feat(plaquette): drawer 1100px avec 5 onglets (Comparatif/Saisie/Email/Archives/Journal)`
+- `feat(plaquette): synthèse BNC banner + sticky table header + drill-down ops + bouton Ouvrir éditeur`
+- `feat(plaquette): workflow réponse comptable (modal LogComptableResponseModal + endpoint log-comptable-response)`
+- `feat(plaquette): hooks usePlaquetteCheck + types TS + breadcrumb retour EditorPage`
+- `fix(ged): upload supporte month=null (range dans annuel/) + 13 types annuels détectés auto`
+- `chore(seed): scripts/seed_plaquette_2025.py pour pré-remplir l'exercice 2025`
+- `docs(plaquette): CLAUDE.md + CHANGELOG`
+
+---
+
 ### Added (2026-04-30) — Livret comptable Phase 5 — graphiques (interactifs HTML, statiques PDF)
 
 3 graphiques MVP ajoutés au Livret comptable, alimentés par une **architecture commune `ChartConfig`** Pydantic — calcul fait UNE seule fois côté backend, sérialisé identiquement pour les 3 vues (React Recharts · HTML SVG inline · PDF matplotlib PNG).

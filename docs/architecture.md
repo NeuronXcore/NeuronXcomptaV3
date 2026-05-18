@@ -1751,6 +1751,116 @@ LivretCadence (Brush)    SVG inline pur       matplotlib Agg PNG
 
 Extension future = (a) builder dans `livret_charts_service` + (b) helper SVG + (c) helper matplotlib + (d) sous-composant Recharts. Aucun changement d'infrastructure.
 
+### Vérification plaquette comptable (workflow itératif annuel)
+
+Workflow de validation/challenge de la plaquette annuelle reçue du comptable (déclaration 2035 détaillée) AVANT édition de la déclaration d'impôt. Industrialisation d'une analyse comparative qui était auparavant manuelle (script Python ad hoc) et permet d'identifier en moyenne ~9 000 € de charges non passées par le comptable (forfait repas BOI-BNC-BASE-40-60 oublié, immobilisations non créées au bilan, abonnements non déduits, etc.).
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  Drawer plaquette (1100px, 5 onglets)                                  │
+│                                                                        │
+│  Comparatif │ Saisie │ Email challenge │ Archives │ Journal            │
+│  ─────────────────────────────────────────────────────────────────     │
+│                                                                        │
+│  Bandeau synthèse BNC :                                                │
+│  ┌──────────────┬──────────────┬──────────────┐                        │
+│  │ Recettes pro │ Charges déd. │ BNC fiscal   │                        │
+│  │ Plaq/NeuronX │ Plaq/NeuronX │ Plaq/NeuronX │                        │
+│  │ Écart + N-1% │ Écart + N-1% │ Écart + N-1% │                        │
+│  └──────────────┴──────────────┴──────────────┘                        │
+│                                                                        │
+│  Tableau 28 lignes (header sticky)                                     │
+│  ───────────────────────────────────────────                           │
+│  PCG │ Libellé │ Plaquette │ NeuronX │ Écart │ Statut │ Commentaire    │
+│  21831000  Matériel info    16 379 €   5 408 €   −10 970 €  à challenger│
+│  62511000  Frais repas       1 673 €   3 933 €   +2 260 €   à challenger│
+│  ...                                                                   │
+│  Row expandable → drill-down top 10 ops NeuronX + bouton ExternalLink  │
+│  → ferme drawer + navigate /editor?file=&highlight=&from=plaquette     │
+└────────────────────────────────────────────────────────────────────────┘
+              │                                  │
+              ▼                                  ▼
+   PATCH item statut/commentaire     POST generate-pdf-report
+              │                                  │
+              ▼                                  ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│            data/plaquette_check/{year}.json (atomic write)           │
+│                                                                      │
+│  items[]: PlaquetteItem                                              │
+│    item_id (hash stable compte_pcg+rubrique+label)                   │
+│    compte_pcg, compte_label, rubrique_2035                           │
+│    montant_plaquette (saisi UI)                                      │
+│    montant_neuronx ← recalculé via mapping                           │
+│    ecart = neuronx − plaquette                                       │
+│    statut: non_revu|ok|a_challenger|refus_justifie|en_discussion|... │
+│    commentaire, categories_neuronx, nb_ops_neuronx                   │
+│                                                                      │
+│  journal[]: JournalEntry (email_out, email_in, note)                 │
+│  uploads[]: PlaquetteUpload (audit trail multi-versions)             │
+│  totaux_plaquette: {recettes, depenses, benefice, *_n1}              │
+└──────────────────────────────────────────────────────────────────────┘
+              ▲
+              │
+   plaquette_service._aggregate_neuronx_for_categories (flag dispatcher)
+              │
+              ├── is_dotation     → amortissement_service.get_dotations
+              ├── is_bilan        → sum acquisitions immo de l'année
+              ├── is_recettes     → liasse_scp_service.get_ca_for_bnc
+              ├── split_csg_ded   → fiscal_service réforme 2025 BNC×0,74×6,8%
+              ├── split_urssaf_c  → URSSAF total − CSG totale
+              ├── apply_QP_vehic. → multiplier par bareme/vehicule_{year}.json
+              │                     ratio_pro_applique / 100
+              └── (standard)      → analytics_service.get_category_detail
+                                    par catégorie filtré par sous-cat
+```
+
+**Pattern fondamental — comme le Livret, le service est un agrégateur** : il ne touche jamais aux JSON d'opérations directement, consomme uniquement les services métier existants (`analytics_service`, `bnc_service`, `amortissement_service`, `fiscal_service`, `liasse_scp_service`, `operation_service`). Le statut + commentaire utilisateur sont les SEULES données propres au module — les montants NeuronX sont recalculés à la volée à chaque GET pour rester en phase avec les ops.
+
+**Mapping PCG → catégories NeuronX** dans `data/plaquette_pcg_mapping.json`, versionné, structure :
+```json
+{
+  "templates": {
+    "sygnatures_marenco": {
+      "comptes": {
+        "60630000": {
+          "label": "FOURNIT ENTRET ET PETIT EQUIPM",
+          "rubrique": "Petit outillage",
+          "categories": ["Matériel", "Fournitures"],
+          "sous_categories": []
+        },
+        "61210000": {
+          "label": "CREDIT-BAIL FORD RANGER",
+          "categories": ["Véhicule"],
+          "sous_categories": ["Loyer", "Leasing"],
+          "apply_quote_part_vehicule": true
+        },
+        "21831000": { "is_bilan": true, ... },
+        "28183100": { "is_dotation": true, ... }
+      }
+    }
+  }
+}
+```
+
+Extensible multi-cabinets en ajoutant des clés sous `templates.{cabinet_key}`. Le frontend bascule via le store quand on change de cabinet (Phase 4, non implémentée).
+
+**PDF rapport** (`plaquette_report_service.py`) — 6 sections ReportLab A4 portrait :
+
+1. **Header** logo + titre + cabinet + date génération
+2. **Synthèse BNC** — tableau 3 cols × 4 cols (Plaquette / NeuronX / Écart / vs N-1) avec callout pédagogique adaptatif selon signe et magnitude de l'écart BNC (< 2 000 € = convergence, < 0 = NeuronX déduit plus, > 0 = comptable plus large) + récap statuts coloré
+3. **Anomalies à régulariser** (statut `a_challenger`) — 1 card par anomalie avec compte/libellé/rubrique + tableau 3 montants (Plaquette/NeuronX/Écart color-coded) + commentaire argumentaire + **drill-down top 10 ops NeuronX** correspondantes (date/libellé/montant/icônes 📎🔒) via `plaquette_service.list_drill_ops(year, item_id, limit=10)`
+4. **Points méthodologiques en discussion** (statut `en_discussion`) — 1 card par point, **sans drill-down ops** (gain de pages, sujet méthodologique)
+5. **Tableau complet** 28 lignes triées par PCG avec coloration statut
+6. **Annexe juridique** — détection automatique via regex sur commentaires items, 8 références `_BOI_CGI_REFERENCES` (forfait_repas BOI-BNC-BASE-40-60, immobilisations_seuil art. 38 sexies CGI, honoraires_retrocedes art. 240 CGI, pieces_justificatives art. 93 CGI, quote_part_vehicule BOI-BNC-BASE-40-60-40, csg_reforme_2025 décret 2024-688, dotations_amort art. 39-1-2° CGI, blanchissage BOI-BNC-BASE-40-20) avec titre + extrait intégral + URL BOFIP/Légifrance
+
+**Auto-replace** — `generate_and_register(year)` appelle `_delete_previous_reports(year)` AVANT de générer le nouveau PDF. Le helper scanne `ged_metadata.json` pour `type=rapport` + `source_module=plaquette` + même `year` et supprime via `ged_service.delete_document` (cascade GED + fichier disque). La GED ne contient donc qu'**un seul rapport actif par exercice** — la régénération replace toujours l'ancien. Retourne `replaced_count` dans la réponse pour feedback UI (toast `(remplace N ancienne(s) version(s))`).
+
+**Workflow réponse comptable** — endpoint `/log-comptable-response` crée un `JournalEntry` `email_in` puis applique en lot les `items_updates` (statut + ajout commentaire avec préfixe `[YYYY-MM-DD réponse comptable]`). Le frontend expose un modal centré 640px (`LogComptableResponseModal`) avec liste pré-cochable des items `a_challenger`/`en_discussion`, dropdown nouveau statut + textarea ajout commentaire par item.
+
+**Bundle email** — endpoint `/prepare-email-bundle` orchestre génération PDF + email texte + liste des attachments `[rapport.pdf, plaquette_originale.pdf]`. Le frontend appelle ensuite `useSendDrawerStore.open({preselected, defaultSubject})` qui pré-remplit le drawer global d'envoi comptable (SMTP Gmail ou mode manuel ZIP).
+
+**Headers de table sticky** — la table Comparatif a son `<thead>` `position: sticky top-0` qui reste collé au scroll. Pour fonctionner avec une table HTML, nécessite `border-collapse: separate` (au lieu du défaut `collapse`) + retrait de `overflow-hidden` sur le wrapper. Bordure inférieure du header simulée via `shadow-[0_1px_0_0_var(--color-border)]` sur chaque `<th>` (le `border-bottom` natif ne fonctionne pas avec `border-separate`).
+
 ## Gestion de l'état frontend
 
 **TanStack Query** gère tout l'état serveur, **Zustand** gère l'état client partagé (année globale) :

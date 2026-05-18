@@ -2018,6 +2018,120 @@ export interface CheckCoverage {
   [key: string]: boolean
 }
 
+// ─── Module Vérification Plaquette Comptable ───
+
+export type PlaquetteItemStatut =
+  | 'non_revu'
+  | 'ok'
+  | 'a_challenger'
+  | 'refus_justifie'
+  | 'en_discussion'
+  | 'resolu'
+
+export type PlaquetteParseStatut = 'pending' | 'parsed' | 'partial' | 'manual'
+export type PlaquetteJournalType = 'email_out' | 'email_in' | 'note'
+
+export interface PlaquetteItem {
+  item_id: string
+  compte_pcg: string | null
+  compte_label: string
+  rubrique_2035: string | null
+  montant_plaquette: number | null
+  montant_plaquette_n1: number | null
+  montant_neuronx: number | null
+  ecart: number | null
+  categories_neuronx: string[]
+  sous_categories_neuronx: string[]
+  statut: PlaquetteItemStatut
+  commentaire: string
+  nb_ops_neuronx: number
+  last_modified_at: string
+}
+
+export interface PlaquetteJournalEntry {
+  entry_id: string
+  timestamp: string
+  type: PlaquetteJournalType
+  subject: string | null
+  body_excerpt: string
+  related_item_ids: string[]
+  ged_email_history_id: string | null
+  author: string | null
+}
+
+export interface PlaquetteUpload {
+  upload_id: string
+  uploaded_at: string
+  ged_doc_id: string
+  cabinet_template: string
+  parse_status: PlaquetteParseStatut
+  parse_confidence: number
+  parse_warnings: string[]
+}
+
+export interface PlaquetteCheck {
+  version: number
+  year: number
+  cabinet_template: string
+  ged_doc_id: string | null
+  uploads: PlaquetteUpload[]
+  items: PlaquetteItem[]
+  journal: PlaquetteJournalEntry[]
+  totaux_plaquette: {
+    recettes?: number
+    depenses?: number
+    benefice?: number
+    recettes_n1?: number
+    depenses_n1?: number
+    benefice_n1?: number
+  }
+  created_at: string
+  updated_at: string
+}
+
+export interface PlaquetteItemPatch {
+  montant_plaquette?: number | null
+  montant_plaquette_n1?: number | null
+  compte_pcg?: string | null
+  compte_label?: string
+  rubrique_2035?: string | null
+  statut?: PlaquetteItemStatut
+  commentaire?: string
+}
+
+export interface PlaquetteItemCreatePayload {
+  compte_pcg?: string | null
+  compte_label: string
+  rubrique_2035?: string | null
+  montant_plaquette?: number | null
+  montant_plaquette_n1?: number | null
+}
+
+export interface PlaquetteDrillDownOp {
+  file: string
+  index: number
+  date: string | null
+  libelle: string
+  debit: number
+  credit: number
+  categorie: string | null
+  sous_categorie: string | null
+  justificatif: string | null
+  locked: boolean
+}
+
+export interface PlaquetteChallengeEmail {
+  subject: string
+  body: string
+  related_item_ids: string[]
+  nb_items: number
+}
+
+export interface PlaquetteTemplate {
+  key: string
+  label: string
+}
+
 export interface CheckReminderState {
   should_show: boolean
   level?: 1 | 2 | 3

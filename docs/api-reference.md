@@ -3540,3 +3540,289 @@ Supprime un snapshot (fichiers HTML + PDF + entrée `manifest.json` + entrées G
 **Triggers automatiques** :
 - **Job mensuel** (`backend/main.py:_livret_snapshots_monthly_loop`) : tick coopératif 1h via `asyncio.wait_for(shutdown_event.wait(), timeout=3600)`. Quand la fenêtre `1er du mois 02:00-04:00` est atteinte, appelle `livret_snapshot_service.auto_monthly_job_once()` qui crée un snapshot `auto_monthly` pour toutes les `active_years()` n'en ayant pas déjà un dans le mois (idempotent via `has_auto_snapshot_for_period(year, "YYYY-MM")`).
 - **Hook clôture** (`backend/services/check_envoi_service.py:validate_instance`) : sur validation `period == ANNUAL`, appelle `create_snapshot(year, type=CLOTURE, comment="Clôture exercice — version définitive", as_of_date=31/12/year)` en best-effort. Échec n'invalide pas la clôture (logged en warning).
+
+---
+
+## Plaquette comptable (`/api/plaquette`)
+
+Workflow itératif de validation/challenge de la plaquette annuelle reçue du comptable (déclaration 2035 détaillée) AVANT édition de la déclaration d'impôt. Comparaison ligne à ligne des 27 postes PCG avec les agrégats NeuronX, statuts par item, génération de PDF rapport argumenté avec annexe juridique BOI/CGI, envoi groupé au comptable.
+
+**Stockage** : `data/plaquette_check/{year}.json` (un fichier par exercice, écriture atomique).
+**Mapping PCG** : `data/plaquette_pcg_mapping.json` (versionné, extensible multi-cabinets via `templates.{cabinet_key}.comptes`).
+
+### `GET /templates`
+
+Liste les cabinets comptables disponibles dans le mapping PCG.
+
+**Réponse** : `{"templates": [{"key": "sygnatures_marenco", "label": "Sygnatures Marenco — Montauban"}]}`
+
+### `GET /mapping`
+
+Retourne le mapping PCG complet (lecture seule). Utile pour debug ou frontend custom.
+
+### `GET /{year}/exists`
+
+Retourne `{"exists": bool, "year": int}` sans créer le fichier. Utile pour décider d'afficher le bouton "Ouvrir vérification" ou "Démarrer une vérification".
+
+### `GET /{year}`
+
+Charge ou crée le `PlaquetteCheck` pour l'exercice. À chaque appel, **recalcule à la volée** `montant_neuronx` + `ecart` + `nb_ops_neuronx` pour chaque item via `_aggregate_neuronx_for_categories` (qui dispatch selon les flags du mapping). Les statuts/commentaires/montants_plaquette sont persistés.
+
+**Query params** : `template` (défaut `sygnatures_marenco`).
+
+**Réponse** (extrait) :
+```json
+{
+  "version": 1,
+  "year": 2025,
+  "cabinet_template": "sygnatures_marenco",
+  "ged_doc_id": "data/ged/2025/12/PLAQUETTE CECCOLI 2025.pdf",
+  "uploads": [],
+  "items": [
+    {
+      "item_id": "it_bb6e8813e7",
+      "compte_pcg": "60630000",
+      "compte_label": "FOURNIT ENTRET ET PETIT EQUIPM",
+      "rubrique_2035": "Petit outillage",
+      "montant_plaquette": 11433.00,
+      "montant_plaquette_n1": 12326.00,
+      "montant_neuronx": 17512.13,
+      "ecart": 6079.13,
+      "categories_neuronx": ["Matériel", "Fournitures"],
+      "sous_categories_neuronx": [],
+      "statut": "a_challenger",
+      "commentaire": "Écart probable : Amazon Marketplace + Boulanger refusés…",
+      "nb_ops_neuronx": 113,
+      "last_modified_at": "2026-05-18T10:24:27.580449"
+    }
+  ],
+  "journal": [...],
+  "totaux_plaquette": {
+    "recettes": 412470.0, "depenses": 154722.0, "benefice": 252279.0,
+    "recettes_n1": 409784.0, "depenses_n1": 139676.0, "benefice_n1": 288817.0
+  },
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+### `POST /{year}/items`
+
+Ajout d'un item manuel (utile si l'utilisateur veut tracer une rubrique custom hors mapping).
+
+**Body** : `PlaquetteItemCreate` — `{compte_pcg?, compte_label, rubrique_2035?, montant_plaquette?, montant_plaquette_n1?}`
+
+Dedup automatique sur `item_id = hash(compte_pcg + rubrique + label)` — si déjà présent, met à jour au lieu de dupliquer.
+
+### `PATCH /{year}/items/{item_id}`
+
+Édition partielle d'un item.
+
+**Body** : `PlaquetteItemPatch` — tous les champs optionnels :
+- `montant_plaquette: number | null`
+- `montant_plaquette_n1: number | null`
+- `compte_pcg: string | null` — si modifié, **re-résout** les catégories NeuronX depuis le mapping
+- `compte_label, rubrique_2035: string | null`
+- `statut: "non_revu"|"ok"|"a_challenger"|"refus_justifie"|"en_discussion"|"resolu"`
+- `commentaire: string`
+
+Recalcule `montant_neuronx` + `ecart` après update.
+
+**Codes** : 200 OK · 404 si item introuvable.
+
+### `DELETE /{year}/items/{item_id}`
+
+Supprime un item. Retour `{status: "deleted", item_id}`.
+
+### `GET /{year}/items/{item_id}/ops`
+
+Drill-down : retourne les opérations NeuronX correspondant aux catégories/sous-catégories du mapping de cet item. Triées par débit décroissant, limit configurable.
+
+**Query params** : `limit` (défaut 100, max 500).
+
+**Réponse** :
+```json
+{
+  "item_id": "it_bb6e8813e7",
+  "nb_ops": 50,
+  "operations": [
+    {
+      "file": "operations_merged_202508_20260414_234739.json",
+      "index": 42,
+      "date": "2025-08-25",
+      "libelle": "VIRSCTINSTEMIS/MOTIFORDINATEUR 999,00",
+      "debit": 999.0,
+      "credit": 0.0,
+      "categorie": "Fournitures",
+      "sous_categorie": null,
+      "justificatif": "facture_2025-08-25.pdf",
+      "locked": false
+    }
+  ]
+}
+```
+
+Le frontend rend ces ops dans une mini-table extensible dans le drawer Comparatif avec un bouton `ExternalLink` par ligne qui navigate `/editor?file=X&highlight=Y&from=plaquette`.
+
+### `PATCH /{year}/totaux`
+
+Édition des totaux 2035 (cadre haut de la plaquette).
+
+**Body** : `PlaquetteTotauxPatch` — tous optionnels :
+- `recettes, depenses, benefice` (exercice N)
+- `recettes_n1, depenses_n1, benefice_n1` (exercice N-1)
+
+Retour : `{totaux_plaquette: {...}}`.
+
+### `POST /{year}/set-ged-ref`
+
+Lie le `PlaquetteCheck` à un document GED existant (le PDF original de la plaquette du comptable). Permet au drawer GED de proposer le bouton "Ouvrir vérification".
+
+**Body** : `PlaquetteCheckSetRefRequest` — `{ged_doc_id: string, cabinet_template?: string}`.
+
+### `POST /{year}/generate-challenge-email`
+
+Construit subject + body texte agrégeant les items en statut `a_challenger`. Retourne un objet pour pré-remplir un mail manuel ou orchestrer un bundle.
+
+**Query params** : `nom` (signature, défaut `"Dr Ceccoli"`).
+
+**Réponse** : `GenerateChallengeEmailResponse`
+```json
+{
+  "subject": "Plaquette comptable 2025 — 5 point(s) à challenger",
+  "body": "Bonjour,\n\nAprès revue de la plaquette comptable...",
+  "related_item_ids": ["it_bb6e8813e7", "it_7214018199", ...],
+  "nb_items": 5
+}
+```
+
+### `POST /{year}/generate-pdf-report`
+
+**Auto-replace** activé. Avant la génération, `_delete_previous_reports(year)` scanne le metadata GED pour `type=rapport` + `source_module=plaquette` + même `year` et supprime les anciens (GED + disque). Puis génère un PDF A4 portrait via ReportLab avec 6 sections :
+
+1. Logo + titre + cabinet + date génération
+2. Synthèse BNC (3 cols × 4 cols Plaquette/NeuronX/Écart/vs-N-1) + callout pédagogique adaptatif
+3. Anomalies à régulariser (statut `a_challenger`) avec drill-down top 10 ops par item
+4. Points méthodologiques en discussion (statut `en_discussion`)
+5. Tableau complet 28 lignes triées par PCG avec coloration statut
+6. Annexe juridique — 8 références BOI/CGI/PCG détectées automatiquement via regex sur commentaires items
+
+Enregistre le PDF dans `data/reports/verification_plaquette_{year}_{timestamp}.pdf` et register en GED comme `type=rapport`, `rapport_meta.source_module=plaquette`, `rapport_meta.report_type=plaquette_check`.
+
+**Réponse** :
+```json
+{
+  "filename": "verification_plaquette_2025_20260518_114345.pdf",
+  "ged_doc_id": "data/reports/verification_plaquette_2025_20260518_114345.pdf",
+  "size_bytes": 37447,
+  "generated_at": "2026-05-18T11:43:45.981062",
+  "year": 2025,
+  "replaced_count": 4
+}
+```
+
+### `POST /{year}/prepare-email-bundle`
+
+Orchestre la préparation complète de l'envoi au comptable en 1 appel :
+1. Génère (ou re-génère via auto-replace) le PDF rapport.
+2. Construit subject + body via `generate_challenge_email`.
+3. Retourne la liste des `attachments` recommandés : `[{type:"rapport", filename:rapport.pdf}, {type:"ged", filename:plaquette_originale.pdf}]`.
+
+Le frontend utilise ce retour pour appeler `useSendDrawerStore.open({preselected, defaultSubject})` qui ouvre le drawer global Email avec les 2 pièces jointes pré-cochées.
+
+**Réponse** :
+```json
+{
+  "subject": "Plaquette comptable 2025 — 5 point(s) à challenger",
+  "body": "Bonjour,\n\n...",
+  "related_item_ids": [...],
+  "nb_items": 5,
+  "attachments": [
+    {"type": "rapport", "filename": "verification_plaquette_2025_20260518_114345.pdf"},
+    {"type": "ged", "filename": "PLAQUETTE CECCOLI 2025.pdf"}
+  ],
+  "rapport_filename": "...",
+  "rapport_ged_doc_id": "data/reports/...",
+  "rapport_size_bytes": 37447,
+  "plaquette_ged_doc_id": "data/ged/2025/12/PLAQUETTE CECCOLI 2025.pdf"
+}
+```
+
+### `POST /{year}/log-comptable-response`
+
+Logue une réponse reçue du comptable (mail, note, courrier) et bascule N items en lot. Crée un `JournalEntry` `email_in` puis applique chaque `ItemStatusUpdate` via `patch_item` (statut + ajout commentaire avec préfixe `[YYYY-MM-DD réponse comptable] :` pour traçabilité).
+
+**Body** : `ComptableResponseRequest`
+```json
+{
+  "subject": "RE: Plaquette 2025",
+  "body_excerpt": "Bonjour, j'accepte le forfait repas BNC...",
+  "received_at": "2026-05-20T14:30:00",
+  "items_updates": [
+    {
+      "item_id": "it_7214018199",
+      "new_statut": "resolu",
+      "appended_comment": "Accepté par le comptable pour régularisation"
+    },
+    {
+      "item_id": "it_09e1e54b25",
+      "new_statut": "refus_justifie",
+      "appended_comment": "Refus motivé par absence de DAS2 pour le bénéficiaire"
+    }
+  ]
+}
+```
+
+**Réponse** : `ComptableResponseResult`
+```json
+{
+  "journal_entry_id": "j_ZPehhAF3",
+  "updated_items_count": 2,
+  "updated_item_ids": ["it_7214018199", "it_09e1e54b25"]
+}
+```
+
+### `POST /{year}/journal`
+
+Ajoute une entrée manuelle au journal (note libre ou log d'un échange hors workflow standard).
+
+**Body** : `JournalEntryCreate`
+```json
+{
+  "type": "note",
+  "subject": "Appel téléphonique du 20/05",
+  "body_excerpt": "Le comptable demande à voir les factures Boulanger",
+  "related_item_ids": ["it_bb6e8813e7"],
+  "author": "user"
+}
+```
+
+`type ∈ {"email_out", "email_in", "note"}`. Les `email_out` sont créés automatiquement par `prepare-email-bundle`. Les `email_in` sont créés par `log-comptable-response`. Les `note` sont manuelles.
+
+### `GET /{year}/reports`
+
+Liste les PDF rapports archivés en GED pour cette année. Filtre sur `type=rapport` + `source_module=plaquette` + même `year`. Trié par date de génération décroissante.
+
+**Réponse** :
+```json
+{
+  "count": 1,
+  "reports": [
+    {
+      "filename": "verification_plaquette_2025_20260518_114345.pdf",
+      "doc_id": "data/reports/verification_plaquette_2025_20260518_114345.pdf",
+      "generated_at": "2026-05-18T11:43:45.981062",
+      "size_bytes": 37447,
+      "preview_url": "/api/ged/documents/data%2Freports%2Fverification_plaquette_2025_20260518_114345.pdf/preview"
+    }
+  ]
+}
+```
+
+**Note** — l'auto-replace activé sur `generate-pdf-report` fait que `count` est typiquement **1 seul** par exercice. Si l'utilisateur a manuellement réimporté un ancien rapport en GED, ils s'accumuleront ici.
+
+### `DELETE /{year}/reports/{filename}`
+
+Supprime un rapport archivé (GED + fichier disque) via `ged_service.delete_document`. Utilisé par le bouton 🗑 dans l'onglet Archives du drawer.
+
+**Codes** : 200 OK (`{status: "deleted", filename, doc_id}`) · 404 si filename introuvable · 500 si suppression échoue.

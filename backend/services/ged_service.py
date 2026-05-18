@@ -1310,9 +1310,20 @@ def _resolve_poste_for_doc(doc: dict, postes_map: dict[str, dict]) -> Optional[s
 # ─── Distinct types ───
 
 DEFAULT_DOCUMENT_TYPES: set[str] = {
-    "relevé", "justificatif", "rapport", "contrat", "courrier fiscal",
-    "courrier social", "attestation", "devis", "divers",
+    # Mensuels typiques
+    "relevé", "justificatif",
+    # Ponctuels / mixtes
+    "devis", "divers",
+    # Annuels typiques (cf. ANNUAL_DOC_TYPES côté frontend)
+    "rapport", "contrat", "courrier fiscal", "courrier social", "attestation",
     "liasse_fiscale_scp",
+    "plaquette_comptable",
+    "avis_imposition",
+    "declaration_2035",
+    "declaration_2042",
+    "declaration_das2",
+    "bilan",
+    "registre",
 }
 
 
@@ -1542,12 +1553,25 @@ def get_documents(
 # ─── Upload ───
 
 def upload_document(file_content: bytes, filename: str, request: dict) -> dict:
+    """Upload un document dans la GED.
+
+    Si `month` est fourni → range dans `GED_DIR/{year}/{MM}/`.
+    Si `month` est None ou explicitement vide → document annuel, range dans
+    `GED_DIR/{year}/annuel/` et metadata `month=None` (utile pour liasse fiscale,
+    plaquette comptable, contrats annuels, rapports annuels, etc.).
+    """
     ensure_ged_directories()
 
     year = request.get("year") or datetime.now().year
-    month = request.get("month") or datetime.now().month
+    # Mois explicitement None ou absent → document annuel
+    month_raw = request.get("month")
+    is_annual = month_raw is None or month_raw == "" or month_raw == 0
+    month: Optional[int] = None if is_annual else int(month_raw)
 
-    dest_dir = GED_DIR / str(year) / str(month).zfill(2)
+    if is_annual:
+        dest_dir = GED_DIR / str(year) / "annuel"
+    else:
+        dest_dir = GED_DIR / str(year) / str(month).zfill(2)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     # Gestion doublons

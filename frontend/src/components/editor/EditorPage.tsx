@@ -1696,6 +1696,7 @@ export default function EditorPage() {
     'compta-analytique': { label: 'Compta Analytique', route: '/visualization' },
     visualization: { label: 'Compta Analytique', route: '/visualization' },
     ged: { label: 'GED', route: '/ged' },
+    plaquette: { label: 'Vérification plaquette', route: '/ged?type=plaquette_comptable' },
   }
   const fromInfo = fromParam ? FROM_LABELS[fromParam] : null
 

@@ -62,6 +62,10 @@ CHECK_ENVOI_REMINDERS_FILE = CHECK_ENVOI_DIR / "reminders.json"
 LIVRET_SNAPSHOTS_DIR = DATA_DIR / "livret_snapshots"
 LIVRET_SNAPSHOTS_MANIFEST = LIVRET_SNAPSHOTS_DIR / "manifest.json"
 
+# Vérification plaquette comptable — workflow itératif comptable/utilisateur
+PLAQUETTE_CHECK_DIR = DATA_DIR / "plaquette_check"
+PLAQUETTE_PCG_MAPPING_FILE = DATA_DIR / "plaquette_pcg_mapping.json"
+
 # Templates justificatifs
 TEMPLATES_DIR = DATA_DIR / "templates"
 TEMPLATES_FILE = TEMPLATES_DIR / "justificatifs_templates.json"
@@ -171,6 +175,7 @@ def ensure_directories():
         LIASSE_SCP_DIR,
         CHECK_ENVOI_DIR,
         LIVRET_SNAPSHOTS_DIR,
+        PLAQUETTE_CHECK_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)

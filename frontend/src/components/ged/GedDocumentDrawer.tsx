@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil, Expand, Link2, LockOpen, Unlink, Landmark,
+  X, FileText, ExternalLink, Download, Save, Trash2, Loader2, Receipt, Pencil, Expand, Link2, LockOpen, Unlink, Landmark, FileSpreadsheet,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,6 +17,8 @@ import { useDeleteJustificatif, useDissociate } from '@/hooks/useJustificatifs'
 import { useToggleLock } from '@/hooks/useToggleLock'
 import { useLiasseScp } from '@/hooks/useLiasseScp'
 import { useLiasseScpDrawerStore } from '@/stores/liasseScpDrawerStore'
+import { usePlaquetteCheckDrawerStore } from '@/stores/plaquetteCheckDrawerStore'
+import { usePlaquetteCheck } from '@/hooks/usePlaquetteCheck'
 import { resolveLiasseYear } from '@/lib/liasse-year-resolver'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { UnlockConfirmModal } from '@/components/UnlockConfirmModal'
@@ -148,6 +150,7 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
   const basename = docId?.split('/').pop() ?? ''
   const isJustificatif = localDoc?.type === 'justificatif'
   const isLiasse = localDoc?.type === 'liasse_fiscale_scp'
+  const isPlaquette = localDoc?.type === 'plaquette_comptable'
   const isImage = /\.(jpe?g|png)$/i.test(name)
 
   // Résolution de l'année liasse (cascade ged_year > ged_date > ged_filename > fiscal_store)
@@ -174,6 +177,27 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
       gedDocumentId: docId,
       yearSource: liasseYearResolution?.source ?? 'fiscal_store',
     })
+  }
+
+  // Résolution année plaquette comptable (réutilise le helper résolveLiasseYear, même cascade)
+  const plaquetteYearResolution = useMemo(() => {
+    if (!isPlaquette || !localDoc) return null
+    return resolveLiasseYear(
+      { year: localDoc.year ?? null, date: localDoc.date_document ?? null, filename: basename },
+      fiscalYear,
+    )
+  }, [isPlaquette, localDoc, basename, fiscalYear])
+  const resolvedPlaquetteYear = plaquetteYearResolution?.year ?? null
+  const { data: plaquetteCheck } = usePlaquetteCheck(resolvedPlaquetteYear)
+  const openPlaquetteDrawer = usePlaquetteCheckDrawerStore((s) => s.open)
+  const plaquetteEcartsCount = useMemo(() => {
+    if (!plaquetteCheck) return 0
+    return plaquetteCheck.items.filter((i) => i.statut === 'a_challenger').length
+  }, [plaquetteCheck])
+
+  const handleOpenPlaquetteDrawer = () => {
+    if (resolvedPlaquetteYear === null || !docId) return
+    openPlaquetteDrawer({ year: resolvedPlaquetteYear, gedDocumentId: docId })
   }
 
   // Item OCR pour OcrEditDrawer (fallback synthétique si pas trouvé dans l'historique)
@@ -472,6 +496,23 @@ export default function GedDocumentDrawer({ docId, postes, onClose }: GedDocumen
               >
                 <Landmark size={14} />
                 {savedLiasse ? `Modifier le CA (${formatCurrency(savedLiasse.ca_declare)})` : `Saisir le CA · ${resolvedLiasseYear}`}
+              </button>
+            )}
+            {isPlaquette && resolvedPlaquetteYear !== null && (
+              <button
+                onClick={handleOpenPlaquetteDrawer}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors"
+                style={{
+                  background: plaquetteEcartsCount > 0 ? '#FAEEDA' : '#EEEDFE',
+                  borderColor: plaquetteEcartsCount > 0 ? '#FAC775' : '#CECBF6',
+                  color: plaquetteEcartsCount > 0 ? '#854F0B' : '#3C3489',
+                }}
+                title={`Vérifier la plaquette ${resolvedPlaquetteYear} — comparer poste par poste avec NeuronX`}
+              >
+                <FileSpreadsheet size={14} />
+                {plaquetteEcartsCount > 0
+                  ? `Ouvrir vérification (${plaquetteEcartsCount} à challenger)`
+                  : `Ouvrir vérification · ${resolvedPlaquetteYear}`}
               </button>
             )}
             <button

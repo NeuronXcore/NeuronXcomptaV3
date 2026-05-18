@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, X, FileText, Loader2 } from 'lucide-react'
+import { Upload, X, FileText, Loader2, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useGedUpload, useGedPostes, useGedTypes } from '@/hooks/useGed'
 import { useCategories } from '@/hooks/useApi'
@@ -10,6 +10,45 @@ interface GedUploadZoneProps {
   onClose: () => void
 }
 
+// Types pour lesquels le document est par nature annuel (exercice complet, pas un mois précis).
+// Quand l'utilisateur choisit l'un de ces types, le mois bascule auto sur `null` (= annuel).
+const ANNUAL_DOC_TYPES = new Set([
+  // Documents fiscaux annuels
+  'liasse_fiscale_scp',     // déclaration 2035 annuelle
+  'plaquette_comptable',    // bilan / comptes annuels
+  'avis_imposition',        // avis IR annuel
+  'declaration_2035',       // déclaration BNC annuelle
+  'declaration_2042',       // déclaration de revenus annuelle
+  'declaration_das2',       // DAS2 honoraires annuelle
+  // Documents administratifs annuels
+  'rapport',                // rapports synthétiques (registre immo, ventilation annuelle, etc.)
+  'attestation',            // attestations URSSAF / CARMF / Ordre / mutuelle annuelles
+  'contrat',                // RCP, bail, assurance, Madelin retraite/prévoyance (annuel)
+  'courrier fiscal',        // courriers administration fiscale (avis, RAR)
+  'courrier social',        // régul URSSAF annuelle, bilan CARMF, courriers sociaux
+  // Documents synthétiques
+  'bilan',                  // bilan comptable
+  'registre',               // registre immo, registre comptes
+  'liasse',                 // alias liasse_fiscale_scp tapé librement
+  'synthese',
+  'recapitulatif',
+])
+
+// Mots-clés indiquant qu'un type custom (saisie libre) est annuel.
+// Permet de couvrir les types tapés librement qui ne sont pas dans la liste ci-dessus.
+const ANNUAL_KEYWORDS = [
+  'annuel', 'annual', 'bilan', 'liasse', 'plaquette', 'registre',
+  'synthese', 'synthèse', 'recap', 'récap', 'avis', 'declaration', 'déclaration',
+  '2035', '2042', 'das2', 'attestation', 'compte de resultat', 'compte de résultat',
+]
+
+function isAnnualDocType(type: string): boolean {
+  if (!type) return false
+  if (ANNUAL_DOC_TYPES.has(type)) return true
+  const lower = type.toLowerCase().replace(/[_-]/g, ' ')
+  return ANNUAL_KEYWORDS.some(kw => lower.includes(kw.toLowerCase()))
+}
+
 export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
   const [file, setFile] = useState<File | null>(null)
   const [docType, setDocType] = useState('document_libre')
@@ -17,7 +56,8 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
   const [categorie, setCategorie] = useState('')
   const [sousCategorie, setSousCategorie] = useState('')
   const [year, setYear] = useState(new Date().getFullYear())
-  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  // month = null → document annuel (range dans GED/{year}/annuel/)
+  const [month, setMonth] = useState<number | null>(new Date().getMonth() + 1)
   const [tagInput, setTagInput] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [notes, setNotes] = useState('')
@@ -34,6 +74,20 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
     return cat?.subcategories?.map(s => s.name) ?? []
   }, [categorie, categories])
 
+  const isAnnualType = isAnnualDocType(docType)
+
+  // Handler unifié : change le type ET bascule le mois (annuel ↔ mois courant) en une seule passe.
+  // Évite un useEffect avec deps variable qui déclenche l'avertissement React StrictMode.
+  const handleDocTypeChange = (newType: string) => {
+    setDocType(newType)
+    const willBeAnnual = isAnnualDocType(newType)
+    setMonth(prev => {
+      if (willBeAnnual) return null
+      if (prev === null) return new Date().getMonth() + 1
+      return prev
+    })
+  }
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: files => { if (files[0]) setFile(files[0]) },
     accept: { 'application/pdf': ['.pdf'], 'image/jpeg': ['.jpg', '.jpeg'], 'image/png': ['.png'] },
@@ -48,7 +102,7 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
         metadata: {
           type: docType,
           year,
-          month,
+          month, // null = annuel (backend range dans GED/{year}/annuel/)
           poste_comptable: poste || null,
           categorie: categorie || null,
           sous_categorie: sousCategorie || null,
@@ -127,7 +181,7 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
                 type="text"
                 list="ged-type-suggestions"
                 value={docType}
-                onChange={e => setDocType(e.target.value)}
+                onChange={e => handleDocTypeChange(e.target.value)}
                 placeholder="Ex: courrier CARMF, devis..."
                 className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:outline-none focus:border-primary"
               />
@@ -195,18 +249,36 @@ export default function GedUploadZone({ open, onClose }: GedUploadZoneProps) {
               />
             </div>
             <div>
-              <label className="text-[10px] text-text-muted block mb-1">Mois</label>
+              <label className="text-[10px] text-text-muted block mb-1 flex items-center gap-1">
+                Mois
+                {month === null && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-px rounded-full"
+                    style={{ background: '#FAEEDA', color: '#854F0B' }}
+                    title="Document annuel — rangé dans GED/{année}/annuel/"
+                  >
+                    <Calendar size={8} />
+                    Annuel
+                  </span>
+                )}
+              </label>
               <select
-                value={month}
-                onChange={e => setMonth(parseInt(e.target.value))}
+                value={month === null ? '' : month}
+                onChange={e => setMonth(e.target.value === '' ? null : parseInt(e.target.value))}
                 className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
               >
+                <option value="">— Annuel (exercice complet)</option>
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>
                     {new Date(2024, i).toLocaleDateString('fr-FR', { month: 'long' })}
                   </option>
                 ))}
               </select>
+              {isAnnualType && month === null && (
+                <p className="text-[10px] text-text-muted italic mt-1">
+                  Type "{docType}" — couvre l'exercice complet, pas un mois spécifique.
+                </p>
+              )}
             </div>
           </div>
 
