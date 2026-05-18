@@ -1,6 +1,6 @@
 # NeuronXcompta — API reference
 
-> Snapshot des endpoints **post-Session 39 P1**. La source de vérité reste les routers FastAPI (`backend/routers/*.py`). Ce document complète la table générale dans [CLAUDE.md](CLAUDE.md#backend-api-endpoints) en détaillant les payloads et codes HTTP des modules sensibles.
+> Snapshot des endpoints **post-Session 39 P3**. La source de vérité reste les routers FastAPI (`backend/routers/*.py`). Ce document complète la table générale dans [CLAUDE.md](CLAUDE.md#backend-api-endpoints) en détaillant les payloads et codes HTTP des modules sensibles.
 
 ---
 
@@ -247,6 +247,76 @@ Top N items triés par niveau desc puis montant_neuronx desc. Exclut le niveau `
   "risque_score_global": 0.39
 }
 ```
+
+---
+
+## Entrée sidebar + badge (Session 39 P3)
+
+Le drawer `PlaquetteCheckDrawer` (Session 38 + P1 + P2) gagne une entrée bouton-drawer dans la sidebar (groupe **CLÔTURE**, après `Check d'envoi`, icône `FileSearch`) qui l'ouvre directement sur `selectedYear` (`useFiscalYearStore`). Bénéfice : anticiper la vérification avant réception de la plaquette du comptable.
+
+### `GET /api/plaquette/{year}/summary`
+
+Résumé léger consommé par le badge sidebar. **Ne déclenche PAS** de recalcul des montants NeuronX (contrairement à `GET /{year}` qui itère `_refresh_item_neuronx` + `evaluate_all_items`) — lit uniquement le JSON déjà persisté via `_load_year` + `_backfill_p1_fields`. Polling sidebar potentiel → doit être rapide.
+
+**Headers de réponse** : `Cache-Control: private, max-age=10` (limite le poll côté client).
+
+**Réponse 200 (plaquette existante)** :
+```json
+{
+  "year": 2025,
+  "exists": true,
+  "status": "en_cours",
+  "has_plaquette_upload": true,
+  "n_items_total": 28,
+  "n_a_challenger": 5,
+  "n_en_discussion": 3,
+  "n_resolu": 0,
+  "n_risque_critique": 0,
+  "n_risque_eleve": 1,
+  "risque_score_global": 0.39,
+  "declared_at": null,
+  "declaration_ref": null
+}
+```
+
+**Réponse 200 (plaquette absente)** :
+```json
+{ "year": 2030, "exists": false }
+```
+
+**Pas de 404** : la sidebar interroge gracieusement l'année courante même si rien n'existe — le badge frontend retourne simplement `null` quand `exists=false`.
+
+**Ordre FastAPI** : déclaré entre `/{year}/exists` et `/{year}` (routes statiques avant dynamiques avec préfixe identique).
+
+### Badge sidebar — tableau de priorités
+
+Composant [`PlaquetteSidebarBadge`](frontend/src/components/layout/PlaquetteSidebarBadge.tsx) — premier match gagne :
+
+| Condition | Badge | Palette | Tooltip |
+|-----------|-------|---------|---------|
+| `status === 'declare'` | icône `Lock` | `bg-emerald-500/15 text-emerald-400` | `Déclaré le JJ/MM/AA` |
+| `n_risque_critique > 0` | `{n}!` | `bg-red-500/15 text-red-400` | `{n} risque(s) critique(s) à traiter` |
+| `n_risque_eleve > 0` | `{n}!` | `bg-orange-500/15 text-orange-400` | `{n} risque(s) élevé(s) à traiter` |
+| `n_a_challenger > 0` | `{n}` | `bg-amber-500/15 text-amber-400` | `{n} item(s) à challenger` |
+| sinon | — (pas de badge) | — | — |
+
+Style aligné sur les autres badges sidebar (`ml-auto min-w-[18px] h-[18px] rounded-full px-1.5 text-[10px] font-bold`).
+
+### Invalidations TanStack
+
+Le hook `usePlaquetteSummary(year)` ([frontend/src/hooks/usePlaquetteCheck.ts](frontend/src/hooks/usePlaquetteCheck.ts)) utilise `queryKey: ['plaquette-summary', year]` avec `staleTime: 30_000` + `refetchOnWindowFocus: true`. **Invalidation prefix-match** `['plaquette-summary']` câblée sur 10 mutations clé :
+
+- `usePatchPlaquetteItem` / `useCreatePlaquetteItem` / `useDeletePlaquetteItem`
+- `useSetPlaquetteGedRef`
+- `useLogComptableResponse`
+- `usePatchPlaquetteStatus` (P1) / `useFinalizePlaquette` (P1)
+- `useRecomputeRisque` (P2) / `usePatchItemRisque` (P2) / `useResetItemRisque` (P2)
+
+→ Toute mutation qui change un compteur ou un statut rafraîchit immédiatement le badge sans attendre le staleTime.
+
+### Card info "Aucune plaquette téléversée"
+
+Quand `!checkData?.ged_doc_id`, l'onglet Comparatif affiche en haut une card ambre `border-amber-500/40 bg-amber-500/10` (icône `AlertTriangle`) avec message pédagogique + bouton « Téléverser la plaquette » qui ferme le drawer + `navigate('/ged?type=plaquette_comptable&year={year}')`. Permet la pré-réception (consultation des agrégats NeuronX + saisie manuelle) avant qu'un PDF ne soit lié.
 
 ---
 

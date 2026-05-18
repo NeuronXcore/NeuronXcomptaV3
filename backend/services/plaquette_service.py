@@ -405,6 +405,57 @@ def get(year: int) -> Optional[dict]:
     return data
 
 
+def get_summary(year: int) -> dict:
+    """Résumé léger pour le badge sidebar (Session 39 P3).
+
+    Ne déclenche PAS de recalcul des montants NeuronX (vs `get_or_create`).
+    Lit uniquement le JSON déjà persisté + agrège des compteurs par statut/risque.
+    Retourne `{year, exists: false}` quand aucune plaquette n'a été créée
+    (200 OK depuis le router — la sidebar interroge gracieusement l'année courante).
+    """
+    data = _load_year(year)
+    if data is None:
+        return {"year": year, "exists": False}
+
+    _backfill_p1_fields(data)
+    items = data.get("items") or []
+
+    counts_statut = {
+        "non_revu": 0, "ok": 0, "a_challenger": 0,
+        "refus_justifie": 0, "en_discussion": 0, "resolu": 0,
+    }
+    n_risque_critique = 0
+    n_risque_eleve = 0
+
+    for item in items:
+        statut = item.get("statut") or "non_revu"
+        if statut in counts_statut:
+            counts_statut[statut] += 1
+        rf = item.get("risque_fiscal")
+        if rf and isinstance(rf, dict):
+            niveau = rf.get("niveau")
+            if niveau == "critique":
+                n_risque_critique += 1
+            elif niveau == "eleve":
+                n_risque_eleve += 1
+
+    return {
+        "year": year,
+        "exists": True,
+        "status": data.get("status") or "en_cours",
+        "has_plaquette_upload": bool(data.get("ged_doc_id")),
+        "n_items_total": len(items),
+        "n_a_challenger": counts_statut["a_challenger"],
+        "n_en_discussion": counts_statut["en_discussion"],
+        "n_resolu": counts_statut["resolu"],
+        "n_risque_critique": n_risque_critique,
+        "n_risque_eleve": n_risque_eleve,
+        "risque_score_global": data.get("risque_score_global"),
+        "declared_at": data.get("declared_at"),
+        "declaration_ref": data.get("declaration_ref"),
+    }
+
+
 def patch_item(year: int, item_id: str, patch: PlaquetteItemPatch) -> dict:
     """Met à jour partiellement un item. Recalcule l'écart.
 

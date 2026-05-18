@@ -557,6 +557,10 @@ function ComparatifTab(props: {
       })
     : null
 
+  // Session 39 P3 — handlers pour la card "Aucune plaquette téléversée"
+  const navigate = useNavigate()
+  const closeDrawer = usePlaquetteCheckDrawerStore((s) => s.close)
+
   // Session 39 P2 — filtrage + tri par risque
   const filteredItems = useMemo(() => {
     if (!riskFilter) return items
@@ -570,6 +574,36 @@ function ComparatifTab(props: {
 
   return (
     <div className="p-5">
+      {/* Session 39 P3 — Card info quand aucune plaquette téléversée */}
+      {!checkData?.ged_doc_id && (
+        <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={16} className="text-amber-400 flex-none mt-0.5" />
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-amber-400 mb-1">
+                Aucune plaquette comptable {year} n'est encore téléversée.
+              </div>
+              <div className="text-xs text-amber-400/80 mb-3 leading-relaxed">
+                Vous pouvez quand même préparer la vérification en consultant vos agrégats
+                NeuronX ci-dessous. Saisissez les montants plaquette manuellement, ou
+                téléversez le PDF dès réception du comptable.
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  closeDrawer()
+                  navigate(`/ged?type=plaquette_comptable&year=${year}`)
+                }}
+                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 rounded border border-amber-500/40 text-amber-400 font-medium"
+              >
+                Téléverser la plaquette
+                <ExternalLink size={12} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Session 39 P1 — bandeau statut éditorial */}
       {readOnly && (
         <div

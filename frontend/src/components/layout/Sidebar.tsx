@@ -5,7 +5,7 @@ import {
   Settings, Bot, FileText, Paperclip, ScanLine, PackageCheck,
   CalendarCheck, AlertTriangle, TrendingUp,
   Boxes, Landmark, Calculator, ListChecks, ChevronLeft, ChevronRight, CheckSquare,
-  Send, Receipt, Camera, ClipboardCheck, Sparkles, BookOpen,
+  Send, Receipt, Camera, ClipboardCheck, Sparkles, BookOpen, FileSearch,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAlertesSummary } from '@/hooks/useAlertes'
@@ -14,12 +14,14 @@ import { useOperationFiles } from '@/hooks/useOperations'
 import { useFiscalYearStore } from '@/stores/useFiscalYearStore'
 import { useTasks } from '@/hooks/useTasks'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
+import { usePlaquetteCheckDrawerStore } from '@/stores/plaquetteCheckDrawerStore'
 import { useMLModel } from '@/hooks/useApi'
 import { useEmailHistory } from '@/hooks/useEmail'
 import { useJustificatifStats } from '@/hooks/useJustificatifs'
 import { useGedStats } from '@/hooks/useGed'
 import SidebarLogo from './SidebarLogo'
 import CheckEnvoiBadge from './CheckEnvoiBadge'
+import PlaquetteSidebarBadge from './PlaquetteSidebarBadge'
 
 const NAV_SECTIONS = [
   {
@@ -273,6 +275,23 @@ export default function Sidebar() {
                 {to === '/check-envoi' && <CheckEnvoiBadge />}
               </NavLink>
             ))}
+            {section.label === 'Clôture' && (
+              <button
+                type="button"
+                onClick={() =>
+                  usePlaquetteCheckDrawerStore.getState().open({
+                    year: selectedYear,
+                    gedDocumentId: null,
+                  })
+                }
+                className="flex items-center gap-3 px-6 py-2 w-full text-sm transition-colors text-text-muted hover:text-text hover:bg-surface-hover text-left"
+                title="Ouvrir la vérification de plaquette"
+              >
+                <FileSearch size={18} />
+                <span className="flex-1">Vérification plaquette</span>
+                <PlaquetteSidebarBadge year={selectedYear} />
+              </button>
+            )}
           </div>
         ))}
       </nav>

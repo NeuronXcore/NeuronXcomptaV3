@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from backend.models.plaquette_check import (
@@ -80,6 +80,18 @@ def year_exists(year: int) -> dict:
     """Retourne True si une plaquette_check existe pour cette année (sans création)."""
     data = plaquette_service.get(year)
     return {"exists": data is not None, "year": year}
+
+
+@router.get("/{year}/summary")
+def year_summary(year: int, response: Response) -> dict:
+    """Résumé léger pour le badge sidebar (Session 39 P3).
+
+    Ne déclenche PAS de recalcul des montants NeuronX (lit le cache via _load_year).
+    Retourne `{year, exists: false}` si aucune plaquette n'a été créée pour cette année
+    (200 OK, PAS 404 — la sidebar interroge gracieusement l'année courante).
+    """
+    response.headers["Cache-Control"] = "private, max-age=10"
+    return plaquette_service.get_summary(year)
 
 
 @router.get("/{year}")

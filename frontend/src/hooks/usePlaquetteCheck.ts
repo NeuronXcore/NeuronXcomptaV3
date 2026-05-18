@@ -10,6 +10,7 @@ import type {
   PlaquetteTemplate,
   PlaquetteCheckStatus,
   PlaquetteStatusUpdatePayload,
+  PlaquetteSummary,
   FinalizePlaquettePayload,
   FinalizePlaquetteResult,
   JournalAttachment,
@@ -36,6 +37,20 @@ export function usePlaquetteCheck(year: number | null, template: string = 'sygna
   })
 }
 
+/**
+ * Session 39 P3 — Résumé léger pour le badge sidebar.
+ * Ne déclenche PAS de recalcul backend (lit le cache via _load_year).
+ * staleTime 30s + refetchOnWindowFocus pour rester live sans matraquer l'API.
+ */
+export function usePlaquetteSummary(year: number) {
+  return useQuery<PlaquetteSummary>({
+    queryKey: ['plaquette-summary', year],
+    queryFn: () => api.get(`/plaquette/${year}/summary`),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  })
+}
+
 export function usePatchPlaquetteItem(year: number | null) {
   const qc = useQueryClient()
   return useMutation<
@@ -47,6 +62,7 @@ export function usePatchPlaquetteItem(year: number | null) {
       api.patch(`/plaquette/${year}/items/${item_id}`, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -57,6 +73,7 @@ export function useCreatePlaquetteItem(year: number | null) {
     mutationFn: (payload) => api.post(`/plaquette/${year}/items`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -67,6 +84,7 @@ export function useDeletePlaquetteItem(year: number | null) {
     mutationFn: (item_id) => api.delete(`/plaquette/${year}/items/${item_id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -100,6 +118,7 @@ export function useSetPlaquetteGedRef(year: number | null) {
     mutationFn: (payload) => api.post(`/plaquette/${year}/set-ged-ref`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -232,6 +251,7 @@ export function useLogComptableResponse(year: number | null) {
     mutationFn: (payload) => api.post(`/plaquette/${year}/log-comptable-response`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -248,6 +268,7 @@ export function usePatchPlaquetteStatus(year: number | null) {
     mutationFn: (payload) => api.patch(`/plaquette/${year}/status`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -262,6 +283,7 @@ export function useFinalizePlaquette(year: number | null) {
     mutationFn: (payload) => api.post(`/plaquette/${year}/finalize`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
       qc.invalidateQueries({ queryKey: ['ged-documents'] })
       qc.invalidateQueries({ queryKey: ['ged-tree'] })
       qc.invalidateQueries({ queryKey: ['ged-stats'] })
@@ -382,6 +404,7 @@ export function useRecomputeRisque(year: number | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
       qc.invalidateQueries({ queryKey: ['plaquette-top-risques', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -398,6 +421,7 @@ export function usePatchItemRisque(year: number | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
       qc.invalidateQueries({ queryKey: ['plaquette-top-risques', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }
@@ -414,6 +438,7 @@ export function useResetItemRisque(year: number | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
       qc.invalidateQueries({ queryKey: ['plaquette-top-risques', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-summary'] })
     },
   })
 }

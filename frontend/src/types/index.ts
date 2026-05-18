@@ -2132,6 +2132,23 @@ export interface PlaquetteCheck {
   updated_at: string
 }
 
+// Session 39 P3 — résumé léger pour badge sidebar
+export interface PlaquetteSummary {
+  year: number
+  exists: boolean
+  status?: PlaquetteCheckStatus | null
+  has_plaquette_upload?: boolean
+  n_items_total?: number
+  n_a_challenger?: number
+  n_en_discussion?: number
+  n_resolu?: number
+  n_risque_critique?: number
+  n_risque_eleve?: number
+  risque_score_global?: number | null
+  declared_at?: string | null
+  declaration_ref?: string | null
+}
+
 // Session 39 P2 — payloads risque
 export interface RisqueOverridePayload {
   niveau: RisqueNiveau

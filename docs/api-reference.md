@@ -3564,6 +3564,33 @@ Retourne le mapping PCG complet (lecture seule). Utile pour debug ou frontend cu
 
 Retourne `{"exists": bool, "year": int}` sans créer le fichier. Utile pour décider d'afficher le bouton "Ouvrir vérification" ou "Démarrer une vérification".
 
+### `GET /{year}/summary`
+
+**Session 39 P3** — Résumé léger consommé par le badge sidebar « Vérification plaquette ». Ne déclenche **PAS** de recalcul des montants NeuronX (vs `GET /{year}` qui itère `_refresh_item_neuronx`) — lit uniquement le JSON déjà persisté + agrège les compteurs par statut et niveau risque. Polling sidebar potentiel → doit être rapide.
+
+**Réponse (200, plaquette présente)** :
+```json
+{
+  "year": 2025,
+  "exists": true,
+  "status": "en_cours",
+  "has_plaquette_upload": false,
+  "n_items_total": 28,
+  "n_a_challenger": 5,
+  "n_en_discussion": 2,
+  "n_resolu": 8,
+  "n_risque_critique": 1,
+  "n_risque_eleve": 3,
+  "risque_score_global": 1.8,
+  "declared_at": null,
+  "declaration_ref": null
+}
+```
+
+**Réponse (200, plaquette absente)** : `{"year": 2030, "exists": false}` (jamais 404 — la sidebar interroge gracieusement l'année courante même quand rien n'existe).
+
+**Header** : `Cache-Control: private, max-age=10` pour limiter le poll côté client.
+
 ### `GET /{year}`
 
 Charge ou crée le `PlaquetteCheck` pour l'exercice. À chaque appel, **recalcule à la volée** `montant_neuronx` + `ecart` + `nb_ops_neuronx` pour chaque item via `_aggregate_neuronx_for_categories` (qui dispatch selon les flags du mapping). Les statuts/commentaires/montants_plaquette sont persistés.

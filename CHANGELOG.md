@@ -8,6 +8,38 @@ Format base sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-05-18) — Plaquette : entrée sidebar + badge dynamique (Session 39 — P3)
+
+Le drawer `PlaquetteCheckDrawer` (Session 38 + P1 + P2) n'est plus accessible uniquement depuis la GED — une entrée bouton-drawer dans la sidebar (groupe **CLÔTURE**, après `Check d'envoi`, icône `FileSearch`) ouvre désormais le drawer directement sur l'année sélectionnée. Bénéfice : anticiper la vérification (consultation agrégats NeuronX, saisie manuelle) avant réception de la plaquette du comptable.
+
+**Backend** :
+- **Endpoint léger** `GET /api/plaquette/{year}/summary` ([`backend/routers/plaquette.py`](backend/routers/plaquette.py)) — déclaré entre `/{year}/exists` et `/{year}` (ordre FastAPI strict). Retourne `{year, exists, status, has_plaquette_upload, n_items_total, n_a_challenger, n_en_discussion, n_resolu, n_risque_critique, n_risque_eleve, risque_score_global, declared_at, declaration_ref}` ou `{year, exists: false}` (200 OK, jamais 404) — la sidebar peut interroger l'année courante sans 404 si rien n'existe encore. Header `Cache-Control: private, max-age=10` pour limiter le poll.
+- **Service** `plaquette_service.get_summary(year)` ([`backend/services/plaquette_service.py`](backend/services/plaquette_service.py)) — ne déclenche **PAS** de recalcul des montants NeuronX (contrairement à `get_or_create` qui itère `_refresh_item_neuronx` + `evaluate_all_items`). Lit directement le JSON via `_load_year` + `_backfill_p1_fields`, agrège les compteurs par `statut` et `niveau` risque.
+
+**Frontend** :
+- **Type** `PlaquetteSummary` ajouté dans `types/index.ts`.
+- **Hook** `usePlaquetteSummary(year)` ([`frontend/src/hooks/usePlaquetteCheck.ts`](frontend/src/hooks/usePlaquetteCheck.ts)) — `staleTime: 30_000` + `refetchOnWindowFocus: true` + queryKey `['plaquette-summary', year]`. **Invalidation prefix-match** `['plaquette-summary']` ajoutée à 10 mutations clé : `usePatchPlaquetteItem`, `useCreatePlaquetteItem`, `useDeletePlaquetteItem`, `useSetPlaquetteGedRef`, `useLogComptableResponse`, `usePatchPlaquetteStatus`, `useFinalizePlaquette`, `useRecomputeRisque`, `usePatchItemRisque`, `useResetItemRisque`.
+- **Composant** `PlaquetteSidebarBadge` ([`frontend/src/components/layout/PlaquetteSidebarBadge.tsx`](frontend/src/components/layout/PlaquetteSidebarBadge.tsx)) **NOUVEAU** — tableau de priorités (premier match gagne) :
+  - `status === 'declare'` → pill **emerald** + icône `Lock` (tooltip `Déclaré le JJ/MM/AA`)
+  - `n_risque_critique > 0` → pill **rouge** `{n}!`
+  - `n_risque_eleve > 0` → pill **orange** `{n}!`
+  - `n_a_challenger > 0` → pill **ambre** `{n}`
+  - sinon → `return null` (pas de badge)
+
+  Style aligné sur les badges sidebar existants (`min-w-[18px] h-[18px] rounded-full px-1.5 text-[10px] font-bold`).
+- **Sidebar** ([`frontend/src/components/layout/Sidebar.tsx`](frontend/src/components/layout/Sidebar.tsx)) — entrée bouton-drawer injectée dans la boucle `NAV_SECTIONS.map` via cas spécial `section.label === 'Clôture'` (pattern miroir des cas `to === '/alertes'`/`/check-envoi`). Clic → `usePlaquetteCheckDrawerStore.getState().open({ year: selectedYear, gedDocumentId: null })`. Style aligné sur les `NavLink` non-actifs du même groupe (pas de fond bleu type « Envoi comptable » car ici on est dans une section régulière).
+- **Card info « Aucune plaquette téléversée »** ([`frontend/src/components/plaquette/PlaquetteCheckDrawer.tsx`](frontend/src/components/plaquette/PlaquetteCheckDrawer.tsx)) — injectée tout en haut du `ComparatifTab` (avant le bandeau read-only) quand `!checkData?.ged_doc_id` : bordure + fond `bg-amber-500/10`, icône `AlertTriangle`, message pédagogique, bouton « Téléverser la plaquette » qui ferme le drawer + `navigate('/ged?type=plaquette_comptable&year={year}')`.
+
+**Préservation des points d'entrée existants** : la card « Ouvrir vérification » dans `GedDocumentDrawer` (Session 38) reste fonctionnelle et identique. Aucun changement du flow GED.
+
+**Vérification** :
+- `GET /api/plaquette/2025/summary` → 200 avec compteurs.
+- `GET /api/plaquette/2030/summary` (inexistante) → 200 `{year: 2030, exists: false}` (PAS 404).
+- Header `Cache-Control: private, max-age=10` présent.
+- Badge dynamique : 5 `a_challenger` → ambre `5` ; override 1 item `critique` → rouge `1!` ; finalisation → vert + `Lock`.
+- Switch année sidebar → badge se met à jour < 30s (staleTime).
+- Mutation statut/risque → invalidation `['plaquette-summary']` câblée → refresh immédiat.
+
 ### Added (2026-05-18) — Plaquette : évaluation risque fiscal + section préparation contrôle (Session 39 — P2)
 
 Ajoute une dimension défensive au module Plaquette (Session 38 + P1) : chaque item de la 2035 est noté avec un niveau de risque fiscal calculé automatiquement par règles métier BNC SCP (catégories sensibles, forfaits, taux justificatifs, écarts N-1), surchargeable manuellement avec motif obligatoire. Le PDF rapport gagne une section 7 « Préparation contrôle fiscal » avec top 5 risques argumentés et une annexe juridique enrichie de 4 nouvelles références (prescription, conservation, DAS-2, plafonds véhicule).
