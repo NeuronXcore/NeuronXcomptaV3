@@ -170,6 +170,9 @@ export function useGeneratePlaquetteReport(year: number | null) {
       qc.invalidateQueries({ queryKey: ['ged-documents'] })
       qc.invalidateQueries({ queryKey: ['ged-tree'] })
       qc.invalidateQueries({ queryKey: ['ged-stats'] })
+      // L'auto-replace backend supprime l'ancienne version → l'historique Archives
+      // doit être rafraîchi sinon le bouton Eye/Open pointe vers un PDF disparu.
+      qc.invalidateQueries({ queryKey: ['plaquette-reports', year] })
     },
   })
 }
@@ -192,6 +195,11 @@ export function usePreparePlaquetteEmailBundle(year: number | null) {
     mutationFn: () => api.post(`/plaquette/${year}/prepare-email-bundle`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['ged-stats'] })
+      // Le bundle déclenche `generate_and_register` côté backend → idem auto-replace,
+      // l'historique Archives doit être invalidé.
+      qc.invalidateQueries({ queryKey: ['plaquette-reports', year] })
     },
   })
 }

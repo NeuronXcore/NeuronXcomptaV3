@@ -25,6 +25,7 @@ import {
 } from '@/hooks/usePlaquetteCheck'
 import { useDashboard } from '@/hooks/useApi'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
+import { api } from '@/api/client'
 import { formatCurrency, cn } from '@/lib/utils'
 import type { PlaquetteItem, PlaquetteItemStatut, PlaquetteJournalEntry, RisqueNiveau } from '@/types'
 import { PlaquetteStatusBadge } from './PlaquetteStatusBadge'
@@ -106,7 +107,23 @@ export default function PlaquetteCheckDrawer() {
   const prepareBundleMutation = usePreparePlaquetteEmailBundle(year)
   const addJournalMutation = useAddJournalEntry(year)
   const openSendDrawer = useSendDrawerStore((s) => s.open)
-  const [lastReport, setLastReport] = useState<{ filename: string; size: number; generated_at: string } | null>(null)
+  const [lastReport, setLastReport] = useState<{ filename: string; size: number; generated_at: string; ged_doc_id: string | null } | null>(null)
+
+  // Session 39 P3 — Hydrate `lastReport` depuis l'historique GED si non encore généré
+  // dans la session courante. Permet d'exposer le bouton « Ouvrir avec Aperçu » dans
+  // l'onglet Email challenge même quand le drawer est ouvert sans regénération.
+  const { data: reportsHistory } = usePlaquetteReportsHistory(year)
+  useEffect(() => {
+    if (lastReport !== null) return
+    const latest = reportsHistory?.reports?.[0]
+    if (!latest) return
+    setLastReport({
+      filename: latest.filename,
+      size: latest.size_bytes ?? 0,
+      generated_at: latest.generated_at ?? new Date().toISOString(),
+      ged_doc_id: latest.doc_id,
+    })
+  }, [reportsHistory, lastReport])
 
   // Session 39 P1 — Note : le reset au mount est délégué au parent `PlaquetteCheckDrawerHost`
   // (App.tsx) qui démonte/remonte via `key={year}` à chaque ouverture. Le state interne
@@ -210,6 +227,7 @@ export default function PlaquetteCheckDrawer() {
         filename: result.filename,
         size: result.size_bytes,
         generated_at: result.generated_at,
+        ged_doc_id: result.ged_doc_id,
       })
       const replacedNote = result.replaced_count && result.replaced_count > 0
         ? ` (remplace ${result.replaced_count} ancienne(s) version(s))`
@@ -228,6 +246,7 @@ export default function PlaquetteCheckDrawer() {
         filename: bundle.rapport_filename,
         size: bundle.rapport_size_bytes,
         generated_at: new Date().toISOString(),
+        ged_doc_id: bundle.rapport_ged_doc_id,
       })
       setEmailSubjectEdit(bundle.subject)
       setEmailBodyEdit(bundle.body)
@@ -1148,7 +1167,7 @@ function EmailTab(props: {
   isGeneratingReport: boolean
   isPreparingBundle: boolean
   hasGedDoc: boolean
-  lastReport: { filename: string; size: number; generated_at: string } | null
+  lastReport: { filename: string; size: number; generated_at: string; ged_doc_id: string | null } | null
   nbChallenger: number
   // Session 39 P1
   isDeclared: boolean
@@ -1266,7 +1285,7 @@ function EmailTab(props: {
           </button>
         </div>
         {lastReport ? (
-          <div className="text-[11px] space-y-1">
+          <div className="text-[11px] space-y-2">
             <div className="flex items-center gap-2 text-text-muted">
               <CheckCircle2 size={11} className="text-emerald-400" />
               <span className="font-mono text-text">{lastReport.filename}</span>
@@ -1275,6 +1294,22 @@ function EmailTab(props: {
             <div className="text-[10px] text-text-muted">
               Généré le {new Date(lastReport.generated_at).toLocaleString('fr-FR')} · Enregistré dans la GED comme rapport.
             </div>
+            {lastReport.ged_doc_id && (
+              <button
+                type="button"
+                onClick={() => {
+                  const docId = lastReport.ged_doc_id!
+                  api.post(`/ged/documents/${encodeURIComponent(docId)}/open-native`).catch(() => {
+                    window.open(`/api/ged/documents/${encodeURIComponent(docId)}/preview`, '_blank', 'noopener,noreferrer')
+                  })
+                }}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded border border-border bg-surface-hover hover:bg-surface text-[10px] text-text"
+                title="Ouvrir le PDF avec Aperçu (macOS)"
+              >
+                <ExternalLink size={11} />
+                Ouvrir avec Aperçu
+              </button>
+            )}
           </div>
         ) : (
           <p className="text-[11px] text-text-muted italic">
@@ -1369,6 +1404,13 @@ function ArchivesTab({ year }: { year: number }) {
     window.open(preview_url, '_blank', 'noopener,noreferrer')
   }
 
+  const handleOpenNative = (doc_id: string, preview_url: string) => {
+    api.post(`/ged/documents/${encodeURIComponent(doc_id)}/open-native`).catch(() => {
+      // Fallback navigateur si l'open-native échoue (ex. pas macOS, doc bougé)
+      window.open(preview_url, '_blank', 'noopener,noreferrer')
+    })
+  }
+
   const handleDownload = (filename: string, preview_url: string) => {
     const link = document.createElement('a')
     link.href = preview_url
@@ -1457,6 +1499,13 @@ function ArchivesTab({ year }: { year: number }) {
                       title="Voir le PDF dans un nouvel onglet"
                     >
                       <Eye size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleOpenNative(r.doc_id, r.preview_url)}
+                      className="p-1.5 rounded hover:bg-primary/15 text-text-muted hover:text-primary"
+                      title="Ouvrir avec Aperçu (macOS)"
+                    >
+                      <ExternalLink size={13} />
                     </button>
                     <button
                       onClick={() => handleDownload(r.filename, r.preview_url)}
