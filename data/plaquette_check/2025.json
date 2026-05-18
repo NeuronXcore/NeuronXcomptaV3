@@ -641,18 +641,16 @@
       "rubrique_2035": "Honoraires non rétrocédés",
       "montant_plaquette": 38793.0,
       "montant_plaquette_n1": 35800.0,
-      "montant_neuronx": 32293.0,
-      "ecart": -6500.0,
+      "montant_neuronx": 33018.76,
+      "ecart": -5774.24,
       "categories_neuronx": [
         "Remplaçant"
       ],
-      "sous_categories_neuronx": [
-        "Honoraires"
-      ],
+      "sous_categories_neuronx": [],
       "statut": "a_challenger",
       "commentaire": "Écart +6 500 € côté comptable (NeuronX 32 293 €). Aucune piste évidente — demander le détail des bénéficiaires/dates pour identifier les rétrocessions manquantes côté NeuronX (compensations directes en SCP ? OD comptables ?).",
-      "nb_ops_neuronx": 15,
-      "last_modified_at": "2026-05-18T10:40:16.667203",
+      "nb_ops_neuronx": 22,
+      "last_modified_at": "2026-05-18T22:34:20.799323",
       "risque_fiscal": {
         "niveau": "faible",
         "score": 1,
@@ -670,18 +668,18 @@
         "auto_calcule": true,
         "overridden_niveau": null,
         "overridden_motif": null,
-        "last_evaluated_at": "2026-05-18T16:43:14.726539"
+        "last_evaluated_at": "2026-05-18T22:34:35.989165"
       },
       "concession": {
         "pct_maintenu": 100.0,
-        "montant_maintenu": 32293.0,
+        "montant_maintenu": 33018.76,
         "montant_concede": -0.0,
         "source": "auto",
         "tone": "ferme",
         "force_score": 0.85,
-        "argumentation": "Sur **HONORAIRES RETROCEDES** (−6 500,00 €), les honoraires rétrocédés sont déductibles dès lors qu'ils sont déclarés DAS-2 conformément à l'article 240 CGI + BOI-BNC-DECLA-10-30 (seuil 1 200 € par bénéficiaire). Les bénéficiaires sont documentés (7 justifs sur 22 ops · 31 %). **Je maintiens 100 % soit 32 293,00 €**.",
-        "auto_argumentation": "Sur **HONORAIRES RETROCEDES** (−6 500,00 €), les honoraires rétrocédés sont déductibles dès lors qu'ils sont déclarés DAS-2 conformément à l'article 240 CGI + BOI-BNC-DECLA-10-30 (seuil 1 200 € par bénéficiaire). Les bénéficiaires sont documentés (7 justifs sur 22 ops · 31 %). **Je maintiens 100 % soit 32 293,00 €**.",
-        "last_updated_at": "2026-05-18T18:44:40.795351",
+        "argumentation": "Sur **HONORAIRES RETROCEDES** (−5 774,24 €), les honoraires rétrocédés sont déductibles dès lors qu'ils sont déclarés DAS-2 conformément à l'article 240 CGI + BOI-BNC-DECLA-10-30 (seuil 1 200 € par bénéficiaire). Les bénéficiaires sont documentés (7 justifs sur 22 ops · 31 %). **Je maintiens 100 % soit 33 018,76 €**.",
+        "auto_argumentation": "Sur **HONORAIRES RETROCEDES** (−5 774,24 €), les honoraires rétrocédés sont déductibles dès lors qu'ils sont déclarés DAS-2 conformément à l'article 240 CGI + BOI-BNC-DECLA-10-30 (seuil 1 200 € par bénéficiaire). Les bénéficiaires sont documentés (7 justifs sur 22 ops · 31 %). **Je maintiens 100 % soit 33 018,76 €**.",
+        "last_updated_at": "2026-05-18T22:34:35.989312",
         "drivers_used": [
           "risque_faible",
           "boi_pieces_justificatives",
@@ -716,6 +714,37 @@
         "overridden_niveau": null,
         "overridden_motif": null,
         "last_evaluated_at": "2026-05-18T16:43:14.726663"
+      }
+    },
+    {
+      "item_id": "it_4d1719402d",
+      "compte_pcg": "62510001",
+      "compte_label": "FRAIS DEPLACEMENTS VEHICULE",
+      "rubrique_2035": "Autres frais de déplacements",
+      "montant_plaquette": null,
+      "montant_plaquette_n1": null,
+      "montant_neuronx": 98.69,
+      "ecart": null,
+      "categories_neuronx": [
+        "Véhicule"
+      ],
+      "sous_categories_neuronx": [
+        "Péage",
+        "Parking"
+      ],
+      "statut": "non_revu",
+      "commentaire": "Compte virtuel NeuronX — capte Véhicule.Péage/Parking. Plaquette à saisir (probablement consolidé dans 62510000 chez le cabinet).",
+      "nb_ops_neuronx": 37,
+      "last_modified_at": "2026-05-18T22:32:57.998288",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T22:32:57.998299"
       }
     },
     {
@@ -1171,7 +1200,7 @@
     "benefice_n1": 288817.0
   },
   "created_at": "2026-05-18T10:39:54.381377",
-  "updated_at": "2026-05-18T22:05:39.418162",
+  "updated_at": "2026-05-18T22:34:35.989317",
   "status": "en_cours",
   "validated_at": "2026-05-18T16:35:37.640204",
   "declared_at": null,

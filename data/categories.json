@@ -163,5 +163,20 @@
     "Catégorie": "Dotations aux amortissements",
     "Sous-catégorie": null,
     "Couleur": "#3C3489"
+  },
+  {
+    "Catégorie": "Transport",
+    "Sous-catégorie": null,
+    "Couleur": "#95A5A6"
+  },
+  {
+    "Catégorie": "Assurance",
+    "Sous-catégorie": null,
+    "Couleur": "#e8acad"
+  },
+  {
+    "Catégorie": "Pénalités",
+    "Sous-catégorie": null,
+    "Couleur": "#dc2626"
   }
 ]

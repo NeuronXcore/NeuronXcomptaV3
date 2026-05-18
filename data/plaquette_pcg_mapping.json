@@ -8,7 +8,8 @@
           "label": "FOURNIT ENTRET ET PETIT EQUIPM",
           "rubrique": "Petit outillage",
           "categories": ["Matériel", "Fournitures"],
-          "sous_categories": []
+          "sous_categories": [],
+          "note": "Compte partagé : agrège Matériel + Fournitures"
         },
         "60640000": {
           "label": "FOURNITURES ADMINISTRATIVES",
@@ -47,7 +48,8 @@
           "label": "MAINTENANCE INFORMATIQUE",
           "rubrique": "Entretien et réparations",
           "categories": ["Logiciel", "Abonnements"],
-          "sous_categories": []
+          "sous_categories": [],
+          "note": "Compte partagé : agrège Logiciel + Abonnements"
         },
         "61620000": {
           "label": "ASSURANCE TRANSPORT",
@@ -72,7 +74,8 @@
           "label": "FRAIS DE COLLOQUES, SEMINAIRES, CONFEREN",
           "rubrique": "Frais de réception, congrès",
           "categories": ["Formations", "Repas pro"],
-          "sous_categories": []
+          "sous_categories": [],
+          "note": "Compte partagé : agrège Formations + Repas pro (frais congrès/colloque inclut repas pendant événement)"
         },
         "61860000": {
           "label": "FORFAIT BLANCHISSAGE",
@@ -90,13 +93,22 @@
           "label": "HONORAIRES RETROCEDES",
           "rubrique": "Honoraires non rétrocédés",
           "categories": ["Remplaçant"],
-          "sous_categories": ["Honoraires"]
+          "sous_categories": [],
+          "note": "Inclut toutes les sous-cat Remplaçant (Honoraires, Hébergement, vide) — à valider avec le cabinet si compte dédié hébergement existe"
         },
         "62510000": {
           "label": "FRAIS DEPLACEMENTS",
           "rubrique": "Autres frais de déplacements",
           "categories": ["Transport"],
           "sous_categories": []
+        },
+        "62510001": {
+          "label": "FRAIS DEPLACEMENTS VEHICULE",
+          "rubrique": "Autres frais de déplacements",
+          "categories": ["Véhicule"],
+          "sous_categories": ["Péage", "Parking"],
+          "apply_quote_part_vehicule": true,
+          "note": "Compte virtuel NeuronX — capture Véhicule.Péage/Parking. À mapper au vrai code PCG du cabinet (ex. 62510000 si consolidé) lors de la prochaine validation."
         },
         "62511000": {
           "label": "FRAIS REPAS CLINIQUE",
@@ -145,7 +157,8 @@
           "label": "CONTRIB. UNIONS REGIONALES PROF. DE SANT",
           "rubrique": "Autres impôts",
           "categories": ["Ordre des Médecins"],
-          "sous_categories": []
+          "sous_categories": [],
+          "note": "Doublon Ordre des Médecins avec 62810000 — vérifier ventilation si besoin de scinder (URPS vs syndicats)"
         },
         "64610000": {
           "label": "URSSAF",
