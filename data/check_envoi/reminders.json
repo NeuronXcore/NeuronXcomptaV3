@@ -50,5 +50,9 @@
   "2025-annual": {
     "level": 3,
     "period_key": "2025-annual"
+  },
+  "2026-04": {
+    "level": 2,
+    "period_key": "2026-04"
   }
 }

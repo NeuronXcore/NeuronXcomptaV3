@@ -21443,7 +21443,7 @@
       "deductible_pct_override": null,
       "tags": [],
       "notes": "",
-      "added_at": "2026-04-30T07:08:40.365367",
+      "added_at": "2026-05-18T10:41:28.497213",
       "original_name": "quote_part_vehicule_2025.pdf",
       "ocr_file": null,
       "fournisseur": "Véhicule",
@@ -21468,7 +21468,7 @@
         },
         "format": "pdf",
         "favorite": false,
-        "generated_at": "2026-04-30T07:08:40.365367",
+        "generated_at": "2026-05-18T10:41:28.497213",
         "can_regenerate": false,
         "can_compare": false
       }
@@ -21513,52 +21513,6 @@
         "favorite": false,
         "generated_at": "2026-04-30T07:00:42.950738",
         "can_regenerate": false,
-        "can_compare": false
-      }
-    },
-    "data/reports/rapport_tableau_dotations_2025_20260430_071648.pdf": {
-      "doc_id": "data/reports/rapport_tableau_dotations_2025_20260430_071648.pdf",
-      "type": "rapport",
-      "filename": "rapport_tableau_dotations_2025_20260430_071648.pdf",
-      "year": 2025,
-      "month": 12,
-      "poste_comptable": null,
-      "categorie": "Dotations aux amortissements",
-      "sous_categorie": null,
-      "montant_brut": null,
-      "deductible_pct_override": null,
-      "tags": [],
-      "notes": "",
-      "added_at": "2026-04-30T07:16:48.436369",
-      "original_name": "rapport_tableau_dotations_2025_20260430_071648.pdf",
-      "ocr_file": null,
-      "fournisseur": null,
-      "date_document": "2025-12-31",
-      "date_operation": "2025-12-31",
-      "period": {
-        "year": 2025,
-        "month": 12,
-        "quarter": 4
-      },
-      "montant": 699.31,
-      "ventilation_index": null,
-      "is_reconstitue": false,
-      "operation_ref": "operations_merged_202512_20260414_234739.json:87",
-      "source_module": "amortissements",
-      "rapport_meta": {
-        "template_id": null,
-        "report_type": "amortissement",
-        "title": "État des amortissements 2025",
-        "description": "Dotation déductible 699.31 € — 4 immo(s) active(s) — art. 39-1-2° CGI",
-        "filters": {
-          "year": 2025,
-          "month": 12,
-          "report_type": "amortissement"
-        },
-        "format": "pdf",
-        "favorite": false,
-        "generated_at": "2026-04-30T07:16:48.436369",
-        "can_regenerate": true,
         "can_compare": false
       }
     },
@@ -22608,6 +22562,113 @@
         "generated_at": "2026-04-30T07:19:14.598099",
         "can_regenerate": true,
         "can_compare": true
+      }
+    },
+    "data/ged/2025/12/PLAQUETTE CECCOLI 2025.pdf": {
+      "doc_id": "data/ged/2025/12/PLAQUETTE CECCOLI 2025.pdf",
+      "type": "plaquette_comptable",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-05-18T09:15:57.452343",
+      "original_name": "PLAQUETTE CECCOLI 2025.pdf",
+      "ocr_file": "data/ged/2025/12/PLAQUETTE CECCOLI 2025.ocr.json"
+    },
+    "data/reports/rapport_tableau_dotations_2025_20260518_094008.pdf": {
+      "doc_id": "data/reports/rapport_tableau_dotations_2025_20260518_094008.pdf",
+      "type": "rapport",
+      "filename": "rapport_tableau_dotations_2025_20260518_094008.pdf",
+      "year": 2025,
+      "month": 12,
+      "poste_comptable": null,
+      "categorie": "Dotations aux amortissements",
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-05-18T09:40:08.569452",
+      "original_name": "rapport_tableau_dotations_2025_20260518_094008.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": "2025-12-31",
+      "date_operation": "2025-12-31",
+      "period": {
+        "year": 2025,
+        "month": 12,
+        "quarter": 4
+      },
+      "montant": 6629.55,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": "operations_merged_202512_20260414_234739.json:87",
+      "source_module": "amortissements",
+      "rapport_meta": {
+        "template_id": null,
+        "report_type": "amortissement",
+        "title": "État des amortissements 2025",
+        "description": "Dotation déductible 6629.55 € — 5 immo(s) active(s) — art. 39-1-2° CGI",
+        "filters": {
+          "year": 2025,
+          "month": 12,
+          "report_type": "amortissement"
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-05-18T09:40:08.569452",
+        "can_regenerate": true,
+        "can_compare": false
+      }
+    },
+    "data/reports/verification_plaquette_2025_20260518_115620.pdf": {
+      "doc_id": "data/reports/verification_plaquette_2025_20260518_115620.pdf",
+      "type": "rapport",
+      "filename": "verification_plaquette_2025_20260518_115620.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-05-18T11:56:20.765374",
+      "original_name": "verification_plaquette_2025_20260518_115620.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": "plaquette_check",
+        "title": "Vérification plaquette comptable — 2025",
+        "description": "Rapport de vérification de la plaquette comptable 2025 (synthèse BNC + anomalies argumentées)",
+        "filters": {
+          "year": 2025,
+          "module": "plaquette_check"
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-05-18T11:56:20.765374",
+        "can_regenerate": true,
+        "can_compare": true,
+        "source_module": "plaquette",
+        "report_type": "plaquette_check"
       }
     }
   }

@@ -23,7 +23,8 @@
     "taux_non_deductible": 0.029,
     "assiette_mode": "bnc_abattu",
     "assiette_abattement": 0.26,
-    "note": "Réforme assiette sociale 2025 (décret 2024-688). Assiette unifiée = BNC × 74%. Effective pour régularisation 2025 traitée en 2026."
+    "note": "Réforme assiette sociale 2025 (décret 2024-688). Assiette unifiée = BNC × 74%. Effective pour régularisation 2025 traitée en 2026.",
+    "note_divergence_plaquette_2025": "DIVERGENCE OBSERVÉE avec plaquette Sygnatures Marenco 2025 : NeuronX calcule csg_non_deductible ≈ 4 913 € (mode prévisionnel : BNC × 0,74 × 2,9 %). Le comptable retient 12 462 € (= URSSAF total 56 803 − URSSAF 64610000 15 951 − CSG déductible 63781000 28 390), correspondant à la ventilation réelle des bulletins URSSAF. L'écart de ~7 549 € résulte d'une différence méthodologique (estimation prévisionnelle vs réel comptabilisé), pas d'une erreur de NeuronX. Pour aligner précisément : récupérer les bulletins URSSAF 2025 du client et saisir manuellement le champ `csg_non_deductible` sur chaque opération URSSAF (priorité sur le calcul automatique). Le total annuel cible devra correspondre à la part CSG ND + CRDS effectivement non déductible des bulletins."
   },
   "indemnites_journalieres": {
     "taux": 0.003,
