@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   X, FileSpreadsheet, AlertTriangle, MessageSquare, Mail, BookOpen,
   ChevronRight, ChevronDown, Send, Save, Loader2, ExternalLink, Trash2,
   CheckCircle2, AlertCircle, HelpCircle, Clock, RefreshCw, Archive, Download, Eye,
-  Lock,
+  Lock, Handshake, Sparkles,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
@@ -21,6 +21,8 @@ import {
   useDeletePlaquetteReport,
   useLogComptableResponse,
   isPlaquetteEditable,
+  useNegociationSynthesis,
+  useComputeNegociation,
   type ItemStatusUpdate,
 } from '@/hooks/usePlaquetteCheck'
 import { useDashboard } from '@/hooks/useApi'
@@ -36,6 +38,7 @@ import { JournalByItemView } from './JournalByItemView'
 import { PlaquetteRisqueChip } from './PlaquetteRisqueChip'
 import { PlaquetteRisqueOverrideModal } from './PlaquetteRisqueOverrideModal'
 import { PlaquetteRisqueDrawerSummary } from './PlaquetteRisqueDrawerSummary'
+import { PlaquetteNegociationDrawer } from './PlaquetteNegociationDrawer'
 
 type Tab = 'comparatif' | 'saisie' | 'email' | 'archives' | 'journal'
 
@@ -84,6 +87,8 @@ function fmtEcart(n: number | null | undefined): { text: string; color: string }
 export default function PlaquetteCheckDrawer() {
   const { isOpen, year, gedDocumentId, close, journalView, setJournalView } =
     usePlaquetteCheckDrawerStore()
+  const openNegociationDrawer = usePlaquetteCheckDrawerStore((s) => s.openNegociationDrawer)
+  const closeNegociationDrawer = usePlaquetteCheckDrawerStore((s) => s.closeNegociationDrawer)
   const [tab, setTab] = useState<Tab>('comparatif')
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const [editingMontant, setEditingMontant] = useState<{ id: string; value: string } | null>(null)
@@ -98,6 +103,51 @@ export default function PlaquetteCheckDrawer() {
   // Session 39 P2 — filtre niveau risque (null = tous)
   const [riskFilter, setRiskFilter] = useState<RisqueNiveau | 'overridden' | null>(null)
 
+  // ─── Resize (Session 40 P1.2) — handle drag bord gauche + persistance localStorage ───
+  const DRAWER_MIN_WIDTH = 800
+  const DRAWER_DEFAULT_WIDTH = 1100
+  const DRAWER_WIDTH_KEY = 'plaquette-drawer-width'
+  const [drawerWidth, setDrawerWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return DRAWER_DEFAULT_WIDTH
+    const saved = window.localStorage.getItem(DRAWER_WIDTH_KEY)
+    const parsed = saved ? parseInt(saved, 10) : NaN
+    return !isNaN(parsed) && parsed >= DRAWER_MIN_WIDTH ? parsed : DRAWER_DEFAULT_WIDTH
+  })
+  const isResizing = useRef(false)
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizing.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const startX = e.clientX
+    const startWidth = drawerWidth
+    const maxWidth = window.innerWidth * 0.95
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return
+      const delta = startX - ev.clientX
+      const newWidth = Math.min(maxWidth, Math.max(DRAWER_MIN_WIDTH, startWidth + delta))
+      setDrawerWidth(newWidth)
+    }
+    const handleMouseUp = () => {
+      isResizing.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }, [drawerWidth])
+
+  // Persist à chaque changement (cheap localStorage write d'un nombre)
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(DRAWER_WIDTH_KEY, String(Math.round(drawerWidth)))
+    } catch {
+      /* ignore */
+    }
+  }, [drawerWidth])
+
   const { data, isLoading, refetch } = usePlaquetteCheck(year)
   const { data: dashboard } = useDashboard(year ?? undefined)
   const patchMutation = usePatchPlaquetteItem(year)
@@ -106,6 +156,9 @@ export default function PlaquetteCheckDrawer() {
   const generateReportMutation = useGeneratePlaquetteReport(year)
   const prepareBundleMutation = usePreparePlaquetteEmailBundle(year)
   const addJournalMutation = useAddJournalEntry(year)
+  // Session 40 P1 — position de repli
+  const { data: negociationSynth } = useNegociationSynthesis(year)
+  const computeNegociationMutation = useComputeNegociation(year)
   const openSendDrawer = useSendDrawerStore((s) => s.open)
   const [lastReport, setLastReport] = useState<{ filename: string; size: number; generated_at: string; ged_doc_id: string | null } | null>(null)
 
@@ -278,6 +331,39 @@ export default function PlaquetteCheckDrawer() {
     }
   }
 
+  // Session 40 P1 — handlers position de repli
+  const handleOpenNegociation = async () => {
+    const nbConcessions = negociationSynth?.nb_items_total ?? 0
+    if (nbConcessions === 0) {
+      // Première ouverture : compute auto avant d'ouvrir le drawer
+      try {
+        await computeNegociationMutation.mutateAsync({ force_recompute: false })
+        toast.success('Position de repli calculée')
+      } catch (e) {
+        toast.error(`Erreur calcul : ${(e as Error).message}`)
+        return
+      }
+    }
+    openNegociationDrawer()
+  }
+
+  const handleResetAllConcessions = async () => {
+    if (!window.confirm('Réinitialiser toutes les positions de repli en mode auto (efface les overrides manuels) ?')) {
+      return
+    }
+    try {
+      await computeNegociationMutation.mutateAsync({ force_recompute: true })
+      toast.success('Positions de repli réinitialisées')
+    } catch (e) {
+      toast.error(`Erreur : ${(e as Error).message}`)
+    }
+  }
+
+  const handleInjectIntoEmail = async () => {
+    closeNegociationDrawer()
+    await handleSendGrouped()
+  }
+
   const handleSendToAccountant = async () => {
     // Legacy : on garde le bouton "Préparer envoi" simple pour les cas où on ne veut pas régénérer le PDF
     if (!generatedEmail || !gedDocumentId) {
@@ -322,14 +408,25 @@ export default function PlaquetteCheckDrawer() {
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/40 z-40" onClick={close} />
 
-      {/* Drawer */}
+      {/* Drawer (resizable via handle drag, persisté en localStorage) */}
       <div
         className={cn(
-          'fixed top-0 right-0 h-full w-[1100px] max-w-[98vw] bg-background border-l border-border z-50',
-          'transform transition-transform duration-300 ease-out flex flex-col',
-          'translate-x-0',
+          'fixed top-0 right-0 h-full max-w-[95vw] bg-background border-l border-border z-50',
+          'flex flex-col',
         )}
+        style={{
+          width: `${drawerWidth}px`,
+          transition: isResizing.current ? 'none' : 'width 200ms ease-out',
+        }}
       >
+        {/* Resize handle bord gauche */}
+        <div
+          onMouseDown={handleResizeMouseDown}
+          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group hover:bg-primary/30 active:bg-primary/50 transition-colors"
+          title="Glisser pour redimensionner"
+        >
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 rounded-full bg-border group-hover:bg-primary transition-colors" />
+        </div>
         {/* Header */}
         <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -478,6 +575,11 @@ export default function PlaquetteCheckDrawer() {
                 it.risque_fiscal && ['eleve', 'critique'].includes(it.risque_fiscal.niveau)
                 && it.statut !== 'resolu' && it.statut !== 'refus_justifie'
               ).length}
+              nbConcessions={negociationSynth?.nb_items_total ?? 0}
+              bncSimule={negociationSynth?.bnc_simule ?? null}
+              isPreparingConcessions={computeNegociationMutation.isPending}
+              onOpenNegociation={handleOpenNegociation}
+              onResetAllConcessions={handleResetAllConcessions}
             />
           )}
 
@@ -516,6 +618,11 @@ export default function PlaquetteCheckDrawer() {
           />
         )
       })()}
+      {/* Session 40 P1 — sous-drawer Position de repli. Le drawer gère lui-même sa visibilité via le store. */}
+      <PlaquetteNegociationDrawer
+        onInjectIntoEmail={handleInjectIntoEmail}
+        injectingBundle={prepareBundleMutation.isPending}
+      />
     </>
   )
 }
@@ -1174,6 +1281,12 @@ function EmailTab(props: {
   declaredAt: string | null
   // Session 39 P2
   nbRisqueEleveOuCritique: number
+  // Session 40 P1 — position de repli
+  nbConcessions: number
+  bncSimule: number | null
+  isPreparingConcessions: boolean
+  onOpenNegociation: () => void
+  onResetAllConcessions: () => void
 }) {
   const {
     generated, subjectEdit, bodyEdit, onSubjectChange, onBodyChange,
@@ -1181,6 +1294,8 @@ function EmailTab(props: {
     isGenerating, isGeneratingReport, isPreparingBundle, hasGedDoc,
     lastReport, nbChallenger, isDeclared, declaredAt,
     nbRisqueEleveOuCritique,
+    nbConcessions, bncSimule, isPreparingConcessions,
+    onOpenNegociation, onResetAllConcessions,
   } = props
 
   const declaredDateFr = declaredAt
@@ -1266,6 +1381,76 @@ function EmailTab(props: {
           </div>
         )}
       </div>
+
+      {/* Session 40 P1 — Position de repli (optionnel, alternatif au challenge 100 %) */}
+      {nbChallenger > 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="rounded-full p-2 shrink-0 bg-amber-500/20">
+              <Handshake size={18} className="text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-text flex items-center gap-2 mb-1">
+                Position de repli
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-text-muted/15 text-text-muted">
+                  Optionnel
+                </span>
+              </h3>
+              <p className="text-[11px] text-text-muted leading-relaxed">
+                Plutôt que challenger 100 % de chaque écart, calibre une position de
+                négociation item par item avec <strong>% à céder</strong>, <strong>ton adaptatif</strong>{' '}
+                et <strong>argumentation rédigée</strong>. Le moteur propose une recommandation auto basée sur
+                le risque fiscal, les pièces et les références BOI/CGI.
+              </p>
+            </div>
+          </div>
+          {nbConcessions === 0 ? (
+            <button
+              onClick={onOpenNegociation}
+              disabled={isDeclared || isPreparingConcessions || nbChallenger === 0}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isDeclared ? 'Exercice déclaré — édition désactivée' : undefined}
+            >
+              {isPreparingConcessions ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {isPreparingConcessions ? 'Calcul des positions…' : 'Préparer la position de repli'}
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                <CheckCircle2 size={11} className="text-emerald-400" />
+                <strong className="text-text">{nbConcessions} item{nbConcessions > 1 ? 's' : ''}</strong> configuré{nbConcessions > 1 ? 's' : ''}
+                {bncSimule !== null && (
+                  <>
+                    <span className="text-text-muted">·</span>
+                    <span className="text-text-muted">
+                      BNC simulé <strong className="text-text tabular-nums">{formatCurrency(bncSimule)}</strong>
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={onOpenNegociation}
+                  disabled={isDeclared}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300 text-[11px] hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Handshake size={12} />
+                  Ajuster
+                </button>
+                <button
+                  onClick={onResetAllConcessions}
+                  disabled={isDeclared || isPreparingConcessions}
+                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded border border-border bg-surface hover:bg-surface-hover text-[11px] text-text-muted hover:text-text disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Réinitialise toutes les positions en mode auto"
+                >
+                  {isPreparingConcessions ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                  Réinitialiser
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Section "Rapport PDF" */}
       <div className="rounded-lg border border-border bg-surface/20 p-4">

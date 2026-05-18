@@ -378,6 +378,12 @@ def get_or_create(year: int, template: str = "sygnatures_marenco") -> dict:
         plaquette_risque_service.evaluate_all_items(data)
     except Exception as e:
         logger.warning("evaluate_all_items failed for year %s: %s", year, e)
+    # Session 40 P1 — évaluation position de repli (skip si declare ou source=manual)
+    try:
+        from backend.services import plaquette_negociation_service
+        plaquette_negociation_service.evaluate_all_concessions(data)
+    except Exception as e:
+        logger.warning("evaluate_all_concessions failed for year %s: %s", year, e)
     data["updated_at"] = _now_iso()
     _save_atomic(_year_file(year), data)
     return data
@@ -402,6 +408,12 @@ def get(year: int) -> Optional[dict]:
         plaquette_risque_service.evaluate_all_items(data)
     except Exception as e:
         logger.warning("evaluate_all_items failed for year %s: %s", year, e)
+    # Session 40 P1 — évaluation position de repli (skip si declare ou source=manual)
+    try:
+        from backend.services import plaquette_negociation_service
+        plaquette_negociation_service.evaluate_all_concessions(data)
+    except Exception as e:
+        logger.warning("evaluate_all_concessions failed for year %s: %s", year, e)
     return data
 
 
@@ -858,8 +870,18 @@ def _format_eur(amount: Optional[float]) -> str:
     return f"{sign}{s} €"
 
 
-def generate_challenge_email(year: int, nom: Optional[str] = None) -> GenerateChallengeEmailResponse:
-    """Construit subject + body texte agrégeant les items en statut a_challenger."""
+def generate_challenge_email(
+    year: int,
+    nom: Optional[str] = None,
+    include_concessions: bool = True,
+) -> GenerateChallengeEmailResponse:
+    """Construit subject + body texte agrégeant les items en statut a_challenger.
+
+    Session 40 P1 : si au moins un item a une `concession` configurée (et
+    `include_concessions=True`), le corps bascule en format 4 sections
+    (SYNTHÈSE / MAINTENUS / EN DISCUSSION / CONCÉDÉS) via le helper
+    `_build_email_with_concessions`. Sinon, format legacy challenge 100 %.
+    """
     data = _load_year(year)
     if data is None:
         return GenerateChallengeEmailResponse(
@@ -871,6 +893,11 @@ def generate_challenge_email(year: int, nom: Optional[str] = None) -> GenerateCh
             subject=f"Plaquette {year} — points à challenger", body="(aucun item marqué à challenger)", related_item_ids=[], nb_items=0
         )
 
+    # Session 40 P1 — branche enrichie si concessions présentes
+    if include_concessions and any(i.get("concession") for i in items):
+        return _build_email_with_concessions(year, items, nom)
+
+    # Branche legacy : challenge 100 %
     subject = f"Plaquette comptable {year} — {len(items)} point(s) à challenger"
     lines: list[str] = []
     lines.append(f"Bonjour,")
@@ -893,6 +920,126 @@ def generate_challenge_email(year: int, nom: Optional[str] = None) -> GenerateCh
         lines.append("")
 
     lines.append("Je reste à votre disposition pour vous transmettre les justificatifs détaillés.")
+    lines.append("")
+    lines.append("Bien cordialement,")
+    lines.append("")
+    lines.append(nom or "Dr Ceccoli")
+
+    return GenerateChallengeEmailResponse(
+        subject=subject,
+        body="\n".join(lines),
+        related_item_ids=[i.get("item_id") for i in items if i.get("item_id")],
+        nb_items=len(items),
+    )
+
+
+def _build_email_with_concessions(
+    year: int,
+    items: list[dict],
+    nom: Optional[str],
+) -> GenerateChallengeEmailResponse:
+    """Compose le corps mail enrichi avec position de repli (Session 40 P1).
+
+    Format 4 sections : SYNTHÈSE, MAINTENUS (pct=100), EN DISCUSSION (0<pct<100),
+    CONCÉDÉS (pct=0). La synthèse vient de
+    `plaquette_negociation_service.compute_synthesis`.
+    """
+    from backend.services import plaquette_negociation_service
+
+    # Chargement complet pour la synthèse (besoin de `cabinet_template` + mapping)
+    data = _load_year(year) or {}
+    try:
+        synth = plaquette_negociation_service.compute_synthesis(data)
+    except Exception as e:
+        logger.warning("compute_synthesis failed: %s", e)
+        synth = {}
+
+    # Bucketing
+    maintenus: list[dict] = []
+    en_discussion: list[dict] = []
+    concedes: list[dict] = []
+    items_with_c: list[dict] = []
+    for item in items:
+        c = item.get("concession")
+        if not c:
+            # Items sans concession explicite tombent en "en discussion" (challenge 100 % implicite)
+            en_discussion.append(item)
+            continue
+        items_with_c.append(item)
+        pct = float(c.get("pct_maintenu", 0.0))
+        if pct >= 100.0:
+            maintenus.append(item)
+        elif pct <= 0.0:
+            concedes.append(item)
+        else:
+            en_discussion.append(item)
+
+    subject = f"Plaquette comptable {year} — position de repli ({len(items)} points)"
+    lines: list[str] = []
+    lines.append("Bonjour,")
+    lines.append("")
+    lines.append(
+        f"Après revue détaillée de la plaquette comptable de l'exercice {year}, voici "
+        f"ma position consolidée sur les {len(items)} écart(s) identifié(s)."
+    )
+    lines.append("")
+
+    # ─── SYNTHÈSE ───
+    if synth:
+        bnc_init = _format_eur(synth.get("bnc_neuronx_initial"))
+        concession_totale = _format_eur(synth.get("concession_totale"))
+        bnc_simule = _format_eur(synth.get("bnc_simule"))
+        ir_act = synth.get("ir_projete_actuel")
+        ir_sim = synth.get("ir_projete_simule")
+        eco_ir = synth.get("economie_ir")
+        lines.append("─── SYNTHÈSE ───")
+        lines.append(f"• BNC actuel NeuronX        : {bnc_init}")
+        lines.append(f"• Concession totale         : {concession_totale}")
+        lines.append(f"• BNC après concession      : {bnc_simule}")
+        if eco_ir is not None and ir_act is not None and ir_act > 0:
+            # eco_ir > 0 = vraie économie d'IR ; eco_ir < 0 = surcoût (BNC augmente)
+            tmi_eff = (
+                (abs(float(eco_ir)) / float(synth.get("concession_totale") or 1.0)) * 100
+                if synth.get("concession_totale")
+                else 0.0
+            )
+            label = "Économie d'IR estimée" if eco_ir > 0 else "Surcoût IR estimé"
+            lines.append(
+                f"• {label:<26}: ~{_format_eur(abs(eco_ir))}"
+                + (f" (TMI effectif ~{tmi_eff:.0f} %)" if tmi_eff > 0 else "")
+            )
+        lines.append("")
+
+    def _render_section(title: str, group: list[dict], pct_label: str) -> None:
+        if not group:
+            return
+        total = 0.0
+        for it in group:
+            c = it.get("concession") or {}
+            total += abs(float(c.get("montant_maintenu", 0.0)))
+        lines.append(f"─── {title} ({len(group)} item{'s' if len(group) > 1 else ''} · {_format_eur(total)}) ───")
+        lines.append("")
+        for i, item in enumerate(group, 1):
+            pcg = item.get("compte_pcg") or "—"
+            label = item.get("compte_label") or "—"
+            ecart = item.get("ecart")
+            c = item.get("concession") or {}
+            argumentation = (c.get("argumentation") or "").strip()
+            if not argumentation:
+                # Fallback : item sans concession (challenge 100 %)
+                argumentation = (item.get("commentaire") or "").strip() or "(à argumenter)"
+            ecart_str = _format_eur(ecart) if ecart is not None else ""
+            lines.append(f"{i}. Compte {pcg} — {label} ({ecart_str})")
+            for argline in argumentation.split("\n"):
+                lines.append(f"   {argline}")
+            lines.append("")
+
+    _render_section("ITEMS MAINTENUS", maintenus, "100 %")
+    _render_section("EN DISCUSSION", en_discussion, "partielle")
+    _render_section("CONCÉDÉS", concedes, "0 %")
+
+    lines.append("Je reste à votre disposition pour vous transmettre les justificatifs détaillés")
+    lines.append("et pour échanger sur les points en discussion.")
     lines.append("")
     lines.append("Bien cordialement,")
     lines.append("")

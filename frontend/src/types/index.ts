@@ -2080,6 +2080,8 @@ export interface PlaquetteItem {
   last_modified_at: string
   // Session 39 P2 — évaluation risque fiscal (null tant que jamais évaluée)
   risque_fiscal?: RisqueFiscalEvaluation | null
+  // Session 40 P1 — position de repli (null tant que jamais calculée)
+  concession?: ConcessionEvaluation | null
 }
 
 export interface PlaquetteJournalEntry {
@@ -2167,6 +2169,49 @@ export interface RecomputeRisqueResult {
   year: number
   nb_items_evaluated: number
   risque_score_global: number | null
+}
+
+// Session 40 P1 — Position de repli (concession)
+export type ConcessionSource = 'auto' | 'manual'
+export type ConcessionTone = 'ferme' | 'equilibre' | 'conciliant'
+
+export interface ConcessionEvaluation {
+  pct_maintenu: number
+  montant_maintenu: number
+  montant_concede: number
+  source: ConcessionSource
+  tone: ConcessionTone
+  force_score: number
+  argumentation: string
+  auto_argumentation: string
+  last_updated_at: string
+  drivers_used: string[]
+}
+
+export interface NegociationSynthesis {
+  year: number
+  nb_items_total: number
+  nb_items_maintenus: number
+  nb_items_en_discussion: number
+  nb_items_concedes: number
+  concession_totale: number
+  bnc_neuronx_initial: number
+  bnc_simule: number
+  ir_projete_actuel: number | null
+  ir_projete_simule: number | null
+  economie_ir: number | null
+}
+
+export interface ConcessionOverridePayload {
+  pct_maintenu?: number | null
+  tone?: ConcessionTone | null
+  argumentation?: string | null
+}
+
+export interface ComputeNegociationResult {
+  status: string
+  year: number
+  nb_items_concessions: number
 }
 
 // Session 39 P1 — payloads transition

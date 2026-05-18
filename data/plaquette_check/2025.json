@@ -21,7 +21,36 @@
       "statut": "a_challenger",
       "commentaire": "⚠️ ANOMALIE MAJEURE : 5 408 € d'acquisitions 2025 (LDLC 2 600 €, Amazon 790 €, PayPal 1 479 €, LDLC 540 €) NON immobilisées (variation actif = -1 € seulement). Probablement noyées dans 60630000 Petit outillage. La LDLC 2 600 € (serveur) doit être immobilisée selon PCG (seuil 500 €).",
       "nb_ops_neuronx": 4,
-      "last_modified_at": "2026-05-18T10:40:16.940297"
+      "last_modified_at": "2026-05-18T10:40:16.940297",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "4 justifs sur 4 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.723809"
+      },
+      "concession": {
+        "pct_maintenu": 50.0,
+        "montant_maintenu": 10893.74,
+        "montant_concede": -5485.26,
+        "source": "manual",
+        "tone": "ferme",
+        "force_score": 0.9,
+        "argumentation": "Sur **MATERIEL INFORMATIQUE** (−10 970,51 €), je rappelle que le seuil d'immobilisation est fixé à 500 € HT par bien (art. 38 sexies annexe III CGI + BOI-BIC-CHG-20-30-30-§40). Les acquisitions concernées sont individuellement sous ce seuil et donc déductibles en charges immédiates. **Je maintiens 50 % soit 10 893,74 €** (4 justifs sur 4 ops · 100 %).",
+        "auto_argumentation": "Sur **MATERIEL INFORMATIQUE** (−10 970,51 €), je rappelle que le seuil d'immobilisation est fixé à 500 € HT par bien (art. 38 sexies annexe III CGI + BOI-BIC-CHG-20-30-30-§40). Les acquisitions concernées sont individuellement sous ce seuil et donc déductibles en charges immédiates. **Je maintiens 100 % soit 5 408,49 €** (4 justifs sur 4 ops · 100 %).",
+        "last_updated_at": "2026-05-18T19:38:07.585730",
+        "drivers_used": [
+          "risque_faible",
+          "boi_pieces_justificatives",
+          "pieces",
+          "category_immobilisations"
+        ]
+      }
     },
     {
       "item_id": "it_add8f72261",
@@ -39,7 +68,19 @@
       "statut": "en_discussion",
       "commentaire": "NeuronX 6 630 € (avec reprise historique matériel info pré-2025 base 16 380 €) vs comptable 5 468 €. Écart méthodologique acceptable (durées proches). À aligner si registre N-1 complet fourni par le comptable.",
       "nb_ops_neuronx": 5,
-      "last_modified_at": "2026-05-18T10:40:16.945309"
+      "last_modified_at": "2026-05-18T10:40:16.945309",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "1 justifs sur 1 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.724190"
+      }
     },
     {
       "item_id": "it_bb6e8813e7",
@@ -58,7 +99,36 @@
       "statut": "a_challenger",
       "commentaire": "Écart probable : Amazon Marketplace (1 922 €) + Boulanger 5 ops (1 987 €) refusés faute de description pro explicite. 100 % des 92 factures sont disponibles dans NeuronX. À fournir au comptable pour réintégration.",
       "nb_ops_neuronx": 113,
-      "last_modified_at": "2026-05-18T10:40:16.422637"
+      "last_modified_at": "2026-05-18T10:40:16.422637",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "113 justifs sur 113 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.724449"
+      },
+      "concession": {
+        "pct_maintenu": 100.0,
+        "montant_maintenu": 17512.13,
+        "montant_concede": 0.0,
+        "source": "auto",
+        "tone": "ferme",
+        "force_score": 0.9,
+        "argumentation": "L'écart sur **FOURNIT ENTRET ET PETIT EQUIPM** (+6 079,13 €) est documenté par 113 justifs sur 113 ops · 100 % et reste pleinement déductible au titre de l'article 93 CGI (charge professionnelle nécessaire à l'exercice). **Je maintiens 100 % soit 17 512,13 €**.",
+        "auto_argumentation": "L'écart sur **FOURNIT ENTRET ET PETIT EQUIPM** (+6 079,13 €) est documenté par 113 justifs sur 113 ops · 100 % et reste pleinement déductible au titre de l'article 93 CGI (charge professionnelle nécessaire à l'exercice). **Je maintiens 100 % soit 17 512,13 €**.",
+        "last_updated_at": "2026-05-18T18:44:40.794162",
+        "drivers_used": [
+          "risque_faible",
+          "boi_pieces_justificatives",
+          "pieces",
+          "category__fallback"
+        ]
+      }
     },
     {
       "item_id": "it_dbba0d903e",
@@ -76,7 +146,26 @@
       "statut": "ok",
       "commentaire": "",
       "nb_ops_neuronx": 71,
-      "last_modified_at": "2026-05-18T10:40:16.447426"
+      "last_modified_at": "2026-05-18T10:40:16.447426",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 1,
+        "drivers": [
+          {
+            "code": "ecart_n1_anormal",
+            "label": "Écart N-1 anormal non documenté",
+            "delta_score": 1,
+            "detail": "+108.8 % vs N-1"
+          }
+        ],
+        "pieces_disponibles": [
+          "71 justifs sur 71 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.724899"
+      }
     },
     {
       "item_id": "it_0599704ad2",
@@ -94,7 +183,19 @@
       "statut": "non_revu",
       "commentaire": "",
       "nb_ops_neuronx": 71,
-      "last_modified_at": "2026-05-18T10:40:16.464843"
+      "last_modified_at": "2026-05-18T10:40:16.464843",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "71 justifs sur 71 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.725048"
+      }
     },
     {
       "item_id": "it_1161f73f82",
@@ -115,7 +216,32 @@
       "statut": "ok",
       "commentaire": "Quote-part véhicule 51 % bien appliquée (NeuronX brut Véhicule>Essence 2 162 € × 51 % ≈ 1 103 €, écart marginal +87 €).",
       "nb_ops_neuronx": 26,
-      "last_modified_at": "2026-05-18T10:40:16.484480"
+      "last_modified_at": "2026-05-18T10:40:16.484480",
+      "risque_fiscal": {
+        "niveau": "modere",
+        "score": 2,
+        "drivers": [
+          {
+            "code": "categorie_sensible",
+            "label": "Catégorie sensible",
+            "delta_score": 1,
+            "detail": "Véhicule"
+          },
+          {
+            "code": "forfait_applique",
+            "label": "Forfait / quote-part appliqué",
+            "delta_score": 1,
+            "detail": "quote-part véhicule"
+          }
+        ],
+        "pieces_disponibles": [
+          "82 justifs sur 82 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.725222"
+      }
     },
     {
       "item_id": "it_b3de69f26a",
@@ -136,7 +262,38 @@
       "statut": "ok",
       "commentaire": "Crédit-bail Ford Ranger 17 286 € × 51 % = 8 816 € — quote-part véhicule correctement appliquée.",
       "nb_ops_neuronx": 12,
-      "last_modified_at": "2026-05-18T10:40:16.502212"
+      "last_modified_at": "2026-05-18T10:40:16.502212",
+      "risque_fiscal": {
+        "niveau": "eleve",
+        "score": 3,
+        "drivers": [
+          {
+            "code": "categorie_sensible",
+            "label": "Catégorie sensible",
+            "delta_score": 1,
+            "detail": "Véhicule"
+          },
+          {
+            "code": "forfait_applique",
+            "label": "Forfait / quote-part appliqué",
+            "delta_score": 1,
+            "detail": "quote-part véhicule"
+          },
+          {
+            "code": "montant_eleve_sensible",
+            "label": "Montant élevé sur catégorie sensible",
+            "delta_score": 1,
+            "detail": "8 816 € (> 5 000 €)"
+          }
+        ],
+        "pieces_disponibles": [
+          "82 justifs sur 82 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.725379"
+      }
     },
     {
       "item_id": "it_cbc1955693",
@@ -156,7 +313,32 @@
       "statut": "ok",
       "commentaire": "QP véhicule 51 % OK",
       "nb_ops_neuronx": 2,
-      "last_modified_at": "2026-05-18T10:40:16.519725"
+      "last_modified_at": "2026-05-18T10:40:16.519725",
+      "risque_fiscal": {
+        "niveau": "modere",
+        "score": 2,
+        "drivers": [
+          {
+            "code": "categorie_sensible",
+            "label": "Catégorie sensible",
+            "delta_score": 1,
+            "detail": "Véhicule"
+          },
+          {
+            "code": "forfait_applique",
+            "label": "Forfait / quote-part appliqué",
+            "delta_score": 1,
+            "detail": "quote-part véhicule"
+          }
+        ],
+        "pieces_disponibles": [
+          "82 justifs sur 82 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.725506"
+      }
     },
     {
       "item_id": "it_b4c114986e",
@@ -175,7 +357,43 @@
       "statut": "a_challenger",
       "commentaire": "Aucune correspondance NeuronX. Probablement reclassement Logiciel + Abonnements (Claude/OpenAI/Microsoft = 3 507 €) ou facture de maintenance externe. Demander pièce justificative au comptable.",
       "nb_ops_neuronx": 75,
-      "last_modified_at": "2026-05-18T10:40:16.537128"
+      "last_modified_at": "2026-05-18T10:40:16.537128",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 1,
+        "drivers": [
+          {
+            "code": "categorie_sensible",
+            "label": "Catégorie sensible",
+            "delta_score": 1,
+            "detail": "Logiciel, Abonnements"
+          }
+        ],
+        "pieces_disponibles": [
+          "75 justifs sur 75 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.725633"
+      },
+      "concession": {
+        "pct_maintenu": 100.0,
+        "montant_maintenu": 3506.89,
+        "montant_concede": -0.0,
+        "source": "auto",
+        "tone": "ferme",
+        "force_score": 0.9,
+        "argumentation": "Sur **MAINTENANCE INFORMATIQUE** (−482,11 €), la quote-part professionnelle appliquée au prorata du m² pro / m² total est documentée. **Je maintiens 100 % soit 3 506,89 €** (75 justifs sur 75 ops · 100 %).",
+        "auto_argumentation": "Sur **MAINTENANCE INFORMATIQUE** (−482,11 €), la quote-part professionnelle appliquée au prorata du m² pro / m² total est documentée. **Je maintiens 100 % soit 3 506,89 €** (75 justifs sur 75 ops · 100 %).",
+        "last_updated_at": "2026-05-18T18:44:40.794557",
+        "drivers_used": [
+          "risque_faible",
+          "boi_quote_part_vehicule",
+          "pieces",
+          "category_energie_abonnements"
+        ]
+      }
     },
     {
       "item_id": "it_4cc6207680",
@@ -195,7 +413,32 @@
       "statut": "ok",
       "commentaire": "QP véhicule 51 % OK",
       "nb_ops_neuronx": 1,
-      "last_modified_at": "2026-05-18T10:40:16.560169"
+      "last_modified_at": "2026-05-18T10:40:16.560169",
+      "risque_fiscal": {
+        "niveau": "modere",
+        "score": 2,
+        "drivers": [
+          {
+            "code": "categorie_sensible",
+            "label": "Catégorie sensible",
+            "delta_score": 1,
+            "detail": "Véhicule"
+          },
+          {
+            "code": "forfait_applique",
+            "label": "Forfait / quote-part appliqué",
+            "delta_score": 1,
+            "detail": "quote-part véhicule"
+          }
+        ],
+        "pieces_disponibles": [
+          "82 justifs sur 82 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.725753"
+      }
     },
     {
       "item_id": "it_930d612bdc",
@@ -213,7 +456,24 @@
       "statut": "non_revu",
       "commentaire": "",
       "nb_ops_neuronx": 0,
-      "last_modified_at": "2026-05-18T10:40:16.579671"
+      "last_modified_at": "2026-05-18T10:40:16.579671",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 1,
+        "drivers": [
+          {
+            "code": "ecart_n1_anormal",
+            "label": "Écart N-1 anormal non documenté",
+            "delta_score": 1,
+            "detail": "-77.8 % vs N-1"
+          }
+        ],
+        "pieces_disponibles": [],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.725900"
+      }
     },
     {
       "item_id": "it_311a72f662",
@@ -231,7 +491,19 @@
       "statut": "ok",
       "commentaire": "Le comptable a +223 € de plus que NeuronX (7 734 €). Probablement formation hors flux bancaire ou ajustement. À confirmer.",
       "nb_ops_neuronx": 35,
-      "last_modified_at": "2026-05-18T10:40:16.592857"
+      "last_modified_at": "2026-05-18T10:40:16.592857",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "35 justifs sur 35 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726043"
+      }
     },
     {
       "item_id": "it_09e18c5d8e",
@@ -247,10 +519,52 @@
         "Repas pro"
       ],
       "sous_categories_neuronx": [],
-      "statut": "non_revu",
+      "statut": "a_challenger",
       "commentaire": "",
       "nb_ops_neuronx": 112,
-      "last_modified_at": "2026-05-18T10:40:16.610636"
+      "last_modified_at": "2026-05-18T16:11:51.839488",
+      "risque_fiscal": {
+        "niveau": "modere",
+        "score": 2,
+        "drivers": [
+          {
+            "code": "categorie_sensible",
+            "label": "Catégorie sensible",
+            "delta_score": 1,
+            "detail": "Formations, Repas pro"
+          },
+          {
+            "code": "montant_eleve_sensible",
+            "label": "Montant élevé sur catégorie sensible",
+            "delta_score": 1,
+            "detail": "11 691 € (> 5 000 €)"
+          }
+        ],
+        "pieces_disponibles": [
+          "112 justifs sur 112 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726179"
+      },
+      "concession": {
+        "pct_maintenu": 50.0,
+        "montant_maintenu": 5845.72,
+        "montant_concede": 5845.72,
+        "source": "auto",
+        "tone": "equilibre",
+        "force_score": 0.55,
+        "argumentation": "Concernant **FRAIS DE COLLOQUES, SEMINAIRES, CONFEREN** (+11 691,44 €), je propose de maintenir **50 %** soit **5 845,72 €** et de concéder **5 845,72 €**. Le forfait BOI-BNC-BASE-40-60 s'applique par défaut sur les jours travaillés mais je peux affiner si tu as un décompte différent.",
+        "auto_argumentation": "Concernant **FRAIS DE COLLOQUES, SEMINAIRES, CONFEREN** (+11 691,44 €), je propose de maintenir **50 %** soit **5 845,72 €** et de concéder **5 845,72 €**. Le forfait BOI-BNC-BASE-40-60 s'applique par défaut sur les jours travaillés mais je peux affiner si tu as un décompte différent.",
+        "last_updated_at": "2026-05-18T18:44:40.795007",
+        "drivers_used": [
+          "risque_modere",
+          "boi_art_39_4_CGI",
+          "pieces",
+          "category_forfait_repas"
+        ]
+      }
     },
     {
       "item_id": "it_d8d5417af6",
@@ -268,7 +582,27 @@
       "statut": "ok",
       "commentaire": "Forfait blanchissage BOI-BNC-BASE-40-20 — match parfait avec NeuronX.",
       "nb_ops_neuronx": 1,
-      "last_modified_at": "2026-05-18T10:40:16.633593"
+      "last_modified_at": "2026-05-18T10:40:16.633593",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": -1,
+        "drivers": [
+          {
+            "code": "boi_cgi_cite",
+            "label": "Référence légale citée",
+            "delta_score": -1,
+            "detail": "BOI-BNC-BASE-40-20"
+          }
+        ],
+        "pieces_disponibles": [
+          "1 justifs sur 1 ops · 100 %",
+          "BOI/CGI cité : BOI-BNC-BASE-40-20"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726301"
+      }
     },
     {
       "item_id": "it_2b639a19e3",
@@ -286,7 +620,19 @@
       "statut": "ok",
       "commentaire": "Match parfait NeuronX.",
       "nb_ops_neuronx": 1,
-      "last_modified_at": "2026-05-18T10:40:16.650656"
+      "last_modified_at": "2026-05-18T10:40:16.650656",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "1 justifs sur 1 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726415"
+      }
     },
     {
       "item_id": "it_09e1e54b25",
@@ -306,7 +652,43 @@
       "statut": "a_challenger",
       "commentaire": "Écart +6 500 € côté comptable (NeuronX 32 293 €). Aucune piste évidente — demander le détail des bénéficiaires/dates pour identifier les rétrocessions manquantes côté NeuronX (compensations directes en SCP ? OD comptables ?).",
       "nb_ops_neuronx": 15,
-      "last_modified_at": "2026-05-18T10:40:16.667203"
+      "last_modified_at": "2026-05-18T10:40:16.667203",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 1,
+        "drivers": [
+          {
+            "code": "taux_justif_bas",
+            "label": "Taux de justificatifs faible",
+            "delta_score": 1,
+            "detail": "31 % (< 80 %)"
+          }
+        ],
+        "pieces_disponibles": [
+          "7 justifs sur 22 ops · 31 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726539"
+      },
+      "concession": {
+        "pct_maintenu": 100.0,
+        "montant_maintenu": 32293.0,
+        "montant_concede": -0.0,
+        "source": "auto",
+        "tone": "ferme",
+        "force_score": 0.85,
+        "argumentation": "Sur **HONORAIRES RETROCEDES** (−6 500,00 €), les honoraires rétrocédés sont déductibles dès lors qu'ils sont déclarés DAS-2 conformément à l'article 240 CGI + BOI-BNC-DECLA-10-30 (seuil 1 200 € par bénéficiaire). Les bénéficiaires sont documentés (7 justifs sur 22 ops · 31 %). **Je maintiens 100 % soit 32 293,00 €**.",
+        "auto_argumentation": "Sur **HONORAIRES RETROCEDES** (−6 500,00 €), les honoraires rétrocédés sont déductibles dès lors qu'ils sont déclarés DAS-2 conformément à l'article 240 CGI + BOI-BNC-DECLA-10-30 (seuil 1 200 € par bénéficiaire). Les bénéficiaires sont documentés (7 justifs sur 22 ops · 31 %). **Je maintiens 100 % soit 32 293,00 €**.",
+        "last_updated_at": "2026-05-18T18:44:40.795351",
+        "drivers_used": [
+          "risque_faible",
+          "boi_pieces_justificatives",
+          "pieces",
+          "category_honoraires_retrocedes"
+        ]
+      }
     },
     {
       "item_id": "it_926b8dae4c",
@@ -324,7 +706,17 @@
       "statut": "non_revu",
       "commentaire": "",
       "nb_ops_neuronx": 0,
-      "last_modified_at": "2026-05-18T10:40:16.684362"
+      "last_modified_at": "2026-05-18T16:12:29.784629",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726663"
+      }
     },
     {
       "item_id": "it_7214018199",
@@ -342,7 +734,51 @@
       "statut": "a_challenger",
       "commentaire": "⚠️ ANOMALIE MAJEURE : Forfait repas BOI-BNC-BASE-40-60 NON déduit. Calcul théorique 178 jours × 14,85 € = 2 643 €. Manque ~660 € IR + 770 € URSSAF. Demander régularisation via OD compte 62511000.",
       "nb_ops_neuronx": 77,
-      "last_modified_at": "2026-05-18T10:40:16.696458"
+      "last_modified_at": "2026-05-18T10:40:16.696458",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [
+          {
+            "code": "categorie_sensible",
+            "label": "Catégorie sensible",
+            "delta_score": 1,
+            "detail": "Repas pro"
+          },
+          {
+            "code": "boi_cgi_cite",
+            "label": "Référence légale citée",
+            "delta_score": -1,
+            "detail": "BOI-BNC-BASE-40-60"
+          }
+        ],
+        "pieces_disponibles": [
+          "77 justifs sur 77 ops · 100 %",
+          "BOI/CGI cité : BOI-BNC-BASE-40-60"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726819"
+      },
+      "concession": {
+        "pct_maintenu": 50.0,
+        "montant_maintenu": 2802.97,
+        "montant_concede": 1129.96,
+        "source": "manual",
+        "tone": "equilibre",
+        "force_score": 1.0,
+        "argumentation": "Concernant **FRAIS REPAS CLINIQUE** (+2 259,93 €), je propose de maintenir **50 %** soit **2 802,97 €** et de concéder **1 129,96 €**. Le forfait BOI-BNC-BASE-40-60 s'applique par défaut sur les jours travaillés mais je peux affiner si tu as un décompte différent.",
+        "auto_argumentation": "Sur la ligne **FRAIS REPAS CLINIQUE** (écart +2 259,93 €), je maintiens **100 %** soit **3 932,93 €**. Le forfait BOI-BNC-BASE-40-60-§50 (plafond restaurant 20,20 € − seuil maison 5,35 € = 14,85 €/jour en 2025) s'applique sur les jours travaillés effectifs et est documenté dans le rapport joint. L'éloignement domicile-cabinet justifie la déduction (77 justifs sur 77 ops · 100 %).",
+        "last_updated_at": "2026-05-18T20:02:27.081892",
+        "drivers_used": [
+          "risque_faible",
+          "boi_forfait_repas",
+          "boi_cite_comment",
+          "pieces",
+          "category_forfait_repas"
+        ]
+      }
     },
     {
       "item_id": "it_f1edb2c7a8",
@@ -360,7 +796,19 @@
       "statut": "ok",
       "commentaire": "Match parfait.",
       "nb_ops_neuronx": 1,
-      "last_modified_at": "2026-05-18T10:40:16.713451"
+      "last_modified_at": "2026-05-18T10:40:16.713451",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "1 justifs sur 1 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.726970"
+      }
     },
     {
       "item_id": "it_9f3eaf70bb",
@@ -378,7 +826,19 @@
       "statut": "ok",
       "commentaire": "Match parfait.",
       "nb_ops_neuronx": 23,
-      "last_modified_at": "2026-05-18T10:40:16.729295"
+      "last_modified_at": "2026-05-18T10:40:16.729295",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "23 justifs sur 23 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.727137"
+      }
     },
     {
       "item_id": "it_8ef3ea7a7b",
@@ -396,7 +856,26 @@
       "statut": "ok",
       "commentaire": "Écart +275 € côté comptable (NeuronX 523 €) probablement frais BNP du nouveau compte non tracés. À vérifier.",
       "nb_ops_neuronx": 13,
-      "last_modified_at": "2026-05-18T10:40:16.745365"
+      "last_modified_at": "2026-05-18T10:40:16.745365",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 1,
+        "drivers": [
+          {
+            "code": "taux_justif_bas",
+            "label": "Taux de justificatifs faible",
+            "delta_score": 1,
+            "detail": "7 % (< 80 %)"
+          }
+        ],
+        "pieces_disponibles": [
+          "1 justifs sur 13 ops · 7 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.727284"
+      }
     },
     {
       "item_id": "it_1bd9cabf9e",
@@ -414,7 +893,19 @@
       "statut": "ok",
       "commentaire": "Match parfait.",
       "nb_ops_neuronx": 1,
-      "last_modified_at": "2026-05-18T10:40:16.760858"
+      "last_modified_at": "2026-05-18T10:40:16.760858",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "1 justifs sur 1 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.727421"
+      }
     },
     {
       "item_id": "it_efdb4d2349",
@@ -432,7 +923,19 @@
       "statut": "ok",
       "commentaire": "Participation formation pro — petit montant OK.",
       "nb_ops_neuronx": 35,
-      "last_modified_at": "2026-05-18T10:40:16.776714"
+      "last_modified_at": "2026-05-18T10:40:16.776714",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "35 justifs sur 35 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.727557"
+      }
     },
     {
       "item_id": "it_17bc3618de",
@@ -452,7 +955,32 @@
       "statut": "en_discussion",
       "commentaire": "Divergence méthodologique URSSAF/CSG : comptable applique 2,9 % × CA brut (= 11 962 €+) sur la ventilation réelle des bulletins. NeuronX calcule réforme 2025 (BNC × 0,74). Récupérer les bulletins URSSAF 2025 pour aligner.",
       "nb_ops_neuronx": 0,
-      "last_modified_at": "2026-05-18T10:40:16.866019"
+      "last_modified_at": "2026-05-18T10:40:16.866019",
+      "risque_fiscal": {
+        "niveau": "modere",
+        "score": 2,
+        "drivers": [
+          {
+            "code": "forfait_applique",
+            "label": "Forfait / quote-part appliqué",
+            "delta_score": 1,
+            "detail": "CSG déductible"
+          },
+          {
+            "code": "taux_justif_bas",
+            "label": "Taux de justificatifs faible",
+            "delta_score": 1,
+            "detail": "0 % (< 80 %)"
+          }
+        ],
+        "pieces_disponibles": [
+          "0 justifs sur 12 ops · 0 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.727708"
+      }
     },
     {
       "item_id": "it_60c22eb5a4",
@@ -467,10 +995,39 @@
         "Ordre des Médecins"
       ],
       "sous_categories_neuronx": [],
-      "statut": "non_revu",
+      "statut": "a_challenger",
       "commentaire": "Contribution unions régionales — petit montant",
       "nb_ops_neuronx": 1,
-      "last_modified_at": "2026-05-18T10:40:16.878332"
+      "last_modified_at": "2026-05-18T20:45:12.255077",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [
+          "1 justifs sur 1 ops · 100 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T20:45:12.624801"
+      },
+      "concession": {
+        "pct_maintenu": 100.0,
+        "montant_maintenu": 364.0,
+        "montant_concede": 0.0,
+        "source": "auto",
+        "tone": "ferme",
+        "force_score": 0.9,
+        "argumentation": "L'écart sur **CONTRIB. UNIONS REGIONALES PROF. DE SANT** (+128,00 €) est documenté par 1 justifs sur 1 ops · 100 % et reste pleinement déductible au titre de l'article 93 CGI (charge professionnelle nécessaire à l'exercice). **Je maintiens 100 % soit 364,00 €**.",
+        "auto_argumentation": "L'écart sur **CONTRIB. UNIONS REGIONALES PROF. DE SANT** (+128,00 €) est documenté par 1 justifs sur 1 ops · 100 % et reste pleinement déductible au titre de l'article 93 CGI (charge professionnelle nécessaire à l'exercice). **Je maintiens 100 % soit 364,00 €**.",
+        "last_updated_at": "2026-05-18T20:45:12.625037",
+        "drivers_used": [
+          "risque_faible",
+          "boi_pieces_justificatives",
+          "pieces",
+          "category__fallback"
+        ]
+      }
     },
     {
       "item_id": "it_4125ea7651",
@@ -488,7 +1045,32 @@
       "statut": "en_discussion",
       "commentaire": "Idem CSG — méthode différente. URSSAF total 56 803 € se décompose chez le comptable en : 15 951 € (cotisations) + 28 390 € (CSG déduc) + 12 462 € (CSG ND + CRDS non déduc).",
       "nb_ops_neuronx": 0,
-      "last_modified_at": "2026-05-18T10:40:16.893469"
+      "last_modified_at": "2026-05-18T10:40:16.893469",
+      "risque_fiscal": {
+        "niveau": "modere",
+        "score": 2,
+        "drivers": [
+          {
+            "code": "forfait_applique",
+            "label": "Forfait / quote-part appliqué",
+            "delta_score": 1,
+            "detail": "URSSAF cotisations"
+          },
+          {
+            "code": "taux_justif_bas",
+            "label": "Taux de justificatifs faible",
+            "delta_score": 1,
+            "detail": "0 % (< 80 %)"
+          }
+        ],
+        "pieces_disponibles": [
+          "0 justifs sur 12 ops · 0 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.728131"
+      }
     },
     {
       "item_id": "it_7209c4e28c",
@@ -506,7 +1088,26 @@
       "statut": "ok",
       "commentaire": "Match parfait CARMF — montant identique NeuronX.",
       "nb_ops_neuronx": 12,
-      "last_modified_at": "2026-05-18T10:40:16.912419"
+      "last_modified_at": "2026-05-18T10:40:16.912419",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 1,
+        "drivers": [
+          {
+            "code": "taux_justif_bas",
+            "label": "Taux de justificatifs faible",
+            "delta_score": 1,
+            "detail": "0 % (< 80 %)"
+          }
+        ],
+        "pieces_disponibles": [
+          "0 justifs sur 12 ops · 0 %"
+        ],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.728308"
+      }
     },
     {
       "item_id": "it_8411ba8c2b",
@@ -524,7 +1125,17 @@
       "statut": "non_revu",
       "commentaire": "",
       "nb_ops_neuronx": 0,
-      "last_modified_at": "2026-05-18T10:40:16.927935"
+      "last_modified_at": "2026-05-18T10:40:16.927935",
+      "risque_fiscal": {
+        "niveau": "faible",
+        "score": 0,
+        "drivers": [],
+        "pieces_disponibles": [],
+        "auto_calcule": true,
+        "overridden_niveau": null,
+        "overridden_motif": null,
+        "last_evaluated_at": "2026-05-18T16:43:14.728512"
+      }
     }
   ],
   "journal": [
@@ -536,7 +1147,19 @@
       "body_excerpt": "Test : le comptable accepte le forfait repas.",
       "related_item_ids": [],
       "ged_email_history_id": null,
-      "author": "comptable"
+      "author": "comptable",
+      "attachments": []
+    },
+    {
+      "entry_id": "j_wd2fqLRW",
+      "timestamp": "2026-05-18T14:44:41.406445",
+      "type": "note",
+      "subject": null,
+      "body_excerpt": "test post-validation_finale",
+      "related_item_ids": [],
+      "ged_email_history_id": null,
+      "author": null,
+      "attachments": []
     }
   ],
   "totaux_plaquette": {
@@ -548,5 +1171,11 @@
     "benefice_n1": 288817.0
   },
   "created_at": "2026-05-18T10:39:54.381377",
-  "updated_at": "2026-05-18T11:55:21.943616"
+  "updated_at": "2026-05-18T22:05:39.418162",
+  "status": "en_cours",
+  "validated_at": "2026-05-18T16:35:37.640204",
+  "declared_at": null,
+  "declaration_ref": null,
+  "final_snapshot_ged_doc_id": null,
+  "risque_score_global": 0.39
 }

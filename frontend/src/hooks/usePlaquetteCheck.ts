@@ -18,6 +18,9 @@ import type {
   RisqueOverridePayload,
   TopRisquesResult,
   RecomputeRisqueResult,
+  ConcessionOverridePayload,
+  ComputeNegociationResult,
+  NegociationSynthesis,
 } from '@/types'
 
 export function usePlaquetteTemplates() {
@@ -460,5 +463,109 @@ export function useTopRisques(year: number | null, limit: number = 5) {
     queryFn: () => api.get(`/plaquette/${year}/risque/top?limit=${limit}`),
     enabled: year !== null,
     staleTime: 30 * 1000,
+  })
+}
+
+// ─── Session 40 P1 : position de repli (concession) ───
+
+/**
+ * Synthèse globale de la position de repli (BNC initial/simulé + IR + compteurs).
+ * Lecture seule, autorisée en DECLARE.
+ */
+export function useNegociationSynthesis(year: number | null) {
+  return useQuery<NegociationSynthesis>({
+    queryKey: ['plaquette-negociation-synthesis', year],
+    queryFn: () => api.get(`/plaquette/${year}/negociation/synthesis`),
+    enabled: year !== null,
+    staleTime: 30 * 1000,
+  })
+}
+
+/**
+ * Recalc auto des concessions pour tous les items à challenger.
+ * `force_recompute=true` écrase aussi les overrides manuels. 423 si DECLARE.
+ */
+export function useComputeNegociation(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<ComputeNegociationResult, Error, { force_recompute?: boolean } | void>({
+    mutationFn: (body) => {
+      const force = body && 'force_recompute' in body ? Boolean(body.force_recompute) : false
+      return api.post(`/plaquette/${year}/negociation/compute?force_recompute=${force}`)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-negociation-synthesis', year] })
+    },
+  })
+}
+
+/**
+ * Override manuel d'un ou plusieurs champs de concession (pct/tone/argumentation).
+ * Fige `source=manual`. Régénère auto l'argumentation si pct/tone change sans
+ * argumentation explicite. HTTP 423 si DECLARE.
+ */
+export function usePatchItemConcession(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<PlaquetteItem, Error, { item_id: string; payload: ConcessionOverridePayload }>({
+    mutationFn: ({ item_id, payload }) =>
+      api.patch(`/plaquette/${year}/items/${item_id}/concession`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-negociation-synthesis', year] })
+    },
+  })
+}
+
+/**
+ * Repasse l'item en mode auto + recalcule la concession.
+ * HTTP 423 si DECLARE.
+ */
+export function useResetItemConcession(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<PlaquetteItem, Error, string>({
+    mutationFn: (item_id) =>
+      api.delete(`/plaquette/${year}/items/${item_id}/concession/override`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-negociation-synthesis', year] })
+    },
+  })
+}
+
+/**
+ * Génère le PDF de réconciliation (positions de repli + ajustements demandés).
+ * Auto-replace en GED, retourne metadata du fichier.
+ */
+export function useGenerateReconciliationPdf(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<
+    { filename: string; ged_doc_id: string | null; size_bytes: number; generated_at: string; year: number; replaced_count: number },
+    Error,
+    void
+  >({
+    mutationFn: () => api.post(`/plaquette/${year}/reconciliation-pdf`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['ged-stats'] })
+      qc.invalidateQueries({ queryKey: ['plaquette-reports', year] })
+    },
+  })
+}
+
+/**
+ * Régénère uniquement le texte d'argumentation (garde pct/tone/source actuels).
+ * Utile après slider move sans changement de pct (re-roll du texte).
+ * HTTP 423 si DECLARE.
+ */
+export function useRegenerateArgumentation(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<PlaquetteItem, Error, string>({
+    mutationFn: (item_id) =>
+      api.post(`/plaquette/${year}/items/${item_id}/concession/regenerate-argumentation`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-negociation-synthesis', year] })
+    },
   })
 }

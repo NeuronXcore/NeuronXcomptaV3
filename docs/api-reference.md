@@ -3853,3 +3853,75 @@ Liste les PDF rapports archivés en GED pour cette année. Filtre sur `type=rapp
 Supprime un rapport archivé (GED + fichier disque) via `ged_service.delete_document`. Utilisé par le bouton 🗑 dans l'onglet Archives du drawer.
 
 **Codes** : 200 OK (`{status: "deleted", filename, doc_id}`) · 404 si filename introuvable · 500 si suppression échoue.
+
+---
+
+## Plaquette — Position de repli (Session 40 P1)
+
+Module de négociation calibrée par item avec sliders, ton adaptatif et argumentation auto-générée. Endpoints sous `/api/plaquette`. Tous gardés contre la finalisation (HTTP 423 si `status == declare`) sauf `GET /negociation/synthesis` (lecture seule). Voir `backend/services/plaquette_negociation_service.py`.
+
+### `POST /{year}/negociation/compute`
+
+Recalc auto des concessions pour tous les items en statut `a_challenger`. Skip items `concession.source == "manual"` sauf si `force_recompute=true`. Cleanup `concession=null` si statut passe à `ok` / `resolu` / `refus_justifie`.
+
+**Query** : `?force_recompute=bool` (défaut `false`)
+**Response** : `{status: "computed", year, nb_items_concessions}`
+**Codes** : 423 si DECLARE.
+
+### `PATCH /{year}/items/{item_id}/concession`
+
+Override manuel d'un ou plusieurs champs (`pct_maintenu` / `tone` / `argumentation`). Fige `source = "manual"`. Si `pct_maintenu` ou `tone` change SANS `argumentation` fournie → régénère automatiquement le texte via le template approprié. Recalcule `montant_maintenu` et `montant_concede` si `pct` change.
+
+**Body** `ConcessionOverridePayload` — au moins un champ requis :
+- `pct_maintenu?: float` (0..100)
+- `tone?: "ferme" | "equilibre" | "conciliant"`
+- `argumentation?: str` (max 800 chars)
+
+**Response** : `PlaquetteItem` à jour
+**Codes** : 400 si tous les champs sont null · 404 si `item_id` introuvable · 423 si DECLARE.
+
+### `DELETE /{year}/items/{item_id}/concession/override`
+
+Repasse l'item en mode auto + recalcule via `compute_concession_for_item`. Idempotent.
+
+**Codes** : 404 / 423 (idem).
+
+### `POST /{year}/items/{item_id}/concession/regenerate-argumentation`
+
+Régénère uniquement le texte d'argumentation avec `pct_maintenu` + `tone` courants — utile pour "re-roll" le texte sans toucher au calibrage. Source inchangée.
+
+**Codes** : 404 / 423 (idem).
+
+### `GET /{year}/negociation/synthesis`
+
+Vue agrégée (lecture seule, autorisée en DECLARE).
+
+**Response** : `NegociationSynthesis` :
+```json
+{
+  "year": 2025,
+  "nb_items_total": 6,
+  "nb_items_maintenus": 4,
+  "nb_items_en_discussion": 2,
+  "nb_items_concedes": 0,
+  "concession_totale": 6975.68,
+  "bnc_neuronx_initial": 229076.96,
+  "bnc_simule": 236052.64,
+  "ir_projete_actuel": 80229.11,
+  "ir_projete_simule": 82859.69,
+  "economie_ir": -2630.58
+}
+```
+
+Calculs : BNC simulé via `bnc_service.compute_bnc(year)` + ajustement par les `montant_concede` signés (charges only par défaut, recettes négatives via `mapping_flags.is_recettes`). `economie_ir` calculé via 2 appels à `fiscal_service.simulate_multi(bnc, year, parts=1.0, leviers={})` (un sur bnc_initial, un sur bnc_simule). Négatif = surcoût IR (BNC monte avec la concession sur charges).
+
+### `POST /{year}/reconciliation-pdf`
+
+Génère un PDF de réconciliation Plaquette ↔ NeuronX avec colonne **Ajustements demandés** par poste comptable. Document compact orienté négociation, distinct du rapport de vérification (`generate-pdf-report`).
+
+**Contenu** : bandeau synthèse 6 KPIs (Plaquette / NeuronX / Contre-proposition / Ajustement / BNC initial / BNC simulé) + tableau par catégorie NeuronX (tri par ampleur d'ajustement) + tableau exhaustif par poste PCG (28 lignes) avec colonnes `Plaquette / NeuronX / % maintenu / Contre-proposition / Ajustement / Statut`. **Auto-replace** GED (template_id `plaquette_reconciliation`) — un seul rapport actif par exercice.
+
+**Response** : `{filename, ged_doc_id, size_bytes, generated_at, year, replaced_count}`
+**Codes** : 404 si plaquette absente · 500 si génération échoue.
+
+Voir `backend/services/plaquette_reconciliation_pdf_service.py`. Le PDF est en paysage A4, ~27 Ko, 4 pages typique. `generate_reconciliation_pdf(year)` retourne le `Path`, `generate_and_register(year)` orchestre + GED.

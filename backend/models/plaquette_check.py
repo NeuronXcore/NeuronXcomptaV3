@@ -96,6 +96,9 @@ class PlaquetteItem(BaseModel):
     # Session 39 P2 — évaluation risque fiscal (None tant que jamais évalué)
     risque_fiscal: Optional[RisqueFiscalEvaluation] = None
 
+    # Session 40 P1 — position de repli (None tant que jamais calculée)
+    concession: Optional[ConcessionEvaluation] = None
+
 
 class RisqueDriver(BaseModel):
     """Un facteur contributif au score de risque fiscal d'un item.
@@ -126,6 +129,60 @@ class RisqueFiscalEvaluation(BaseModel):
     overridden_niveau: Optional[RisqueNiveau] = None
     overridden_motif: Optional[str] = None
     last_evaluated_at: str  # ISO datetime
+
+
+# ─── Session 40 P1 : position de repli (concession) ───
+
+ConcessionSource = Literal["auto", "manual"]
+ConcessionTone = Literal["ferme", "equilibre", "conciliant"]
+
+
+class ConcessionEvaluation(BaseModel):
+    """Position de repli calibrée par item : % maintenu + ton + argumentation.
+
+    `montant_maintenu` et `montant_concede` sont des valeurs absolues calculées à
+    partir de `ecart_signed = montant_neuronx − montant_plaquette` :
+      - `montant_maintenu = montant_plaquette + ecart_signed * pct_maintenu / 100`
+      - `montant_concede  = ecart_signed * (1 − pct_maintenu / 100)`
+
+    `source == "manual"` fige les valeurs (slider/tone/argumentation édités) et
+    empêche `evaluate_all_concessions` de les écraser au prochain refresh.
+    """
+
+    pct_maintenu: float = Field(ge=0.0, le=100.0)
+    montant_maintenu: float
+    montant_concede: float
+    source: ConcessionSource = "auto"
+    tone: ConcessionTone
+    force_score: float = Field(ge=0.0, le=1.0)
+    argumentation: str
+    auto_argumentation: str  # texte avant override (preview reset)
+    last_updated_at: str  # ISO datetime
+    drivers_used: list[str] = Field(default_factory=list)
+
+
+class NegociationSynthesis(BaseModel):
+    """Vue agrégée de la position de repli pour le bandeau du sous-drawer."""
+
+    year: int
+    nb_items_total: int  # items à challenger ayant `concession`
+    nb_items_maintenus: int  # pct == 100
+    nb_items_en_discussion: int  # 0 < pct < 100
+    nb_items_concedes: int  # pct == 0
+    concession_totale: float  # € en valeur absolue
+    bnc_neuronx_initial: float
+    bnc_simule: float
+    ir_projete_actuel: Optional[float] = None
+    ir_projete_simule: Optional[float] = None
+    economie_ir: Optional[float] = None
+
+
+class ConcessionOverridePayload(BaseModel):
+    """Body PATCH /items/{item_id}/concession — au moins un champ requis."""
+
+    pct_maintenu: Optional[float] = Field(default=None, ge=0.0, le=100.0)
+    tone: Optional[ConcessionTone] = None
+    argumentation: Optional[str] = Field(default=None, max_length=800)
 
 
 class JournalAttachment(BaseModel):

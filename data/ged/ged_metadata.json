@@ -22626,10 +22626,10 @@
         "can_compare": false
       }
     },
-    "data/reports/verification_plaquette_2025_20260518_115620.pdf": {
-      "doc_id": "data/reports/verification_plaquette_2025_20260518_115620.pdf",
+    "data/reports/verification_plaquette_2025_20260518_163727.pdf": {
+      "doc_id": "data/reports/verification_plaquette_2025_20260518_163727.pdf",
       "type": "rapport",
-      "filename": "verification_plaquette_2025_20260518_115620.pdf",
+      "filename": "verification_plaquette_2025_20260518_163727.pdf",
       "year": 2025,
       "month": null,
       "poste_comptable": null,
@@ -22639,8 +22639,8 @@
       "deductible_pct_override": null,
       "tags": [],
       "notes": "",
-      "added_at": "2026-05-18T11:56:20.765374",
-      "original_name": "verification_plaquette_2025_20260518_115620.pdf",
+      "added_at": "2026-05-18T16:37:27.668433",
+      "original_name": "verification_plaquette_2025_20260518_163727.pdf",
       "ocr_file": null,
       "fournisseur": null,
       "date_document": null,
@@ -22664,12 +22664,59 @@
         },
         "format": "pdf",
         "favorite": false,
-        "generated_at": "2026-05-18T11:56:20.765374",
+        "generated_at": "2026-05-18T16:37:27.668433",
         "can_regenerate": true,
         "can_compare": true,
         "source_module": "plaquette",
         "report_type": "plaquette_check"
-      }
+      },
+      "protected": false
+    },
+    "data/reports/reconciliation_plaquette_2025_20260518_204433.pdf": {
+      "doc_id": "data/reports/reconciliation_plaquette_2025_20260518_204433.pdf",
+      "type": "rapport",
+      "filename": "reconciliation_plaquette_2025_20260518_204433.pdf",
+      "year": 2025,
+      "month": null,
+      "poste_comptable": null,
+      "categorie": null,
+      "sous_categorie": null,
+      "montant_brut": null,
+      "deductible_pct_override": null,
+      "tags": [],
+      "notes": "",
+      "added_at": "2026-05-18T20:44:33.153033",
+      "original_name": "reconciliation_plaquette_2025_20260518_204433.pdf",
+      "ocr_file": null,
+      "fournisseur": null,
+      "date_document": null,
+      "date_operation": null,
+      "period": {
+        "year": 2025,
+        "month": null,
+        "quarter": null
+      },
+      "montant": null,
+      "ventilation_index": null,
+      "is_reconstitue": false,
+      "operation_ref": null,
+      "rapport_meta": {
+        "template_id": "plaquette_reconciliation",
+        "title": "Réconciliation plaquette comptable — 2025",
+        "description": "Document de négociation : position de repli par poste comptable avec ajustements demandés au comptable (exercice 2025)",
+        "filters": {
+          "year": 2025,
+          "module": "plaquette_reconciliation"
+        },
+        "format": "pdf",
+        "favorite": false,
+        "generated_at": "2026-05-18T20:44:33.153033",
+        "can_regenerate": true,
+        "can_compare": true,
+        "source_module": "plaquette",
+        "report_type": "plaquette_reconciliation"
+      },
+      "protected": false
     }
   }
 }

@@ -33,9 +33,11 @@ from fastapi.responses import FileResponse
 from backend.models.plaquette_check import (
     ComptableResponseRequest,
     ComptableResponseResult,
+    ConcessionOverridePayload,
     FinalizePlaquetteRequest,
     GenerateChallengeEmailResponse,
     JournalEntryCreate,
+    NegociationSynthesis,
     PlaquetteCheckSetRefRequest,
     PlaquetteCheckStatus,
     PlaquetteItemCreate,
@@ -46,7 +48,9 @@ from backend.models.plaquette_check import (
 )
 from backend.services import (
     plaquette_finalization_service,
+    plaquette_negociation_service,
     plaquette_pcg_mapping_service,
+    plaquette_reconciliation_pdf_service,
     plaquette_report_service,
     plaquette_risque_service,
     plaquette_service,
@@ -416,6 +420,126 @@ def get_top_risques(year: int, limit: int = Query(5, ge=1, le=50)) -> dict:
         "items": top,
         "risque_score_global": data.get("risque_score_global"),
     }
+
+
+# ─── Session 40 P1 : position de repli (concession) ───
+
+
+@router.post("/{year}/negociation/compute")
+def compute_negociation(
+    year: int,
+    force_recompute: bool = Query(False, description="Forcer le recalcul même sur overrides manuels"),
+) -> dict:
+    """Recalc auto des concessions pour tous les items à challenger.
+
+    - Skip items avec `concession.source == "manual"` sauf si `force_recompute=true`.
+    - 423 si plaquette en DECLARE.
+    """
+    data = _guard_not_declared(year)
+    plaquette_negociation_service.evaluate_all_concessions(data, force_recompute=force_recompute)
+    data["updated_at"] = plaquette_service._now_iso()
+    plaquette_service._save_atomic(plaquette_service._year_file(year), data)
+    nb = sum(1 for i in data.get("items", []) if i.get("concession"))
+    return {"status": "computed", "year": year, "nb_items_concessions": nb}
+
+
+@router.patch("/{year}/items/{item_id}/concession")
+def override_item_concession(
+    year: int,
+    item_id: str,
+    payload: ConcessionOverridePayload,
+) -> dict:
+    """Override manuel d'un ou plusieurs champs de concession (pct/tone/argumentation).
+
+    Au moins un champ doit être fourni. Fige `source="manual"`.
+    Régénère auto l'argumentation si pct/tone change sans argumentation explicite.
+    Skip 423 si DECLARE.
+    """
+    if (
+        payload.pct_maintenu is None
+        and payload.tone is None
+        and payload.argumentation is None
+    ):
+        raise HTTPException(status_code=400, detail="Au moins un champ requis (pct_maintenu / tone / argumentation)")
+    data = _guard_not_declared(year)
+    try:
+        item = plaquette_negociation_service.override_item_concession(
+            data,
+            item_id,
+            pct_maintenu=payload.pct_maintenu,
+            tone=payload.tone,
+            argumentation=payload.argumentation,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    data["updated_at"] = plaquette_service._now_iso()
+    plaquette_service._save_atomic(plaquette_service._year_file(year), data)
+    return item
+
+
+@router.delete("/{year}/items/{item_id}/concession/override")
+def reset_item_concession(year: int, item_id: str) -> dict:
+    """Repasse l'item en mode auto + recalcule la concession.
+
+    Skip 423 si DECLARE.
+    """
+    data = _guard_not_declared(year)
+    try:
+        item = plaquette_negociation_service.reset_item_concession_auto(data, item_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    data["updated_at"] = plaquette_service._now_iso()
+    plaquette_service._save_atomic(plaquette_service._year_file(year), data)
+    return item
+
+
+@router.post("/{year}/items/{item_id}/concession/regenerate-argumentation")
+def regenerate_concession_argumentation(year: int, item_id: str) -> dict:
+    """Régénère le texte d'argumentation avec pct/tone actuels (utile après slider move).
+
+    Skip 423 si DECLARE.
+    """
+    data = _guard_not_declared(year)
+    try:
+        item = plaquette_negociation_service.regenerate_argumentation_for_item(data, item_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    data["updated_at"] = plaquette_service._now_iso()
+    plaquette_service._save_atomic(plaquette_service._year_file(year), data)
+    return item
+
+
+@router.post("/{year}/reconciliation-pdf")
+def generate_reconciliation_pdf(year: int) -> dict:
+    """Génère un PDF de réconciliation Plaquette ↔ NeuronX avec colonne ajustements demandés.
+
+    Document compact orienté négociation : par poste comptable, affiche
+    Plaquette / NeuronX / Position de repli % / Contre-proposition / Ajustement vs comptable.
+    Auto-replace : supprime les anciennes versions non-protégées pour ce year.
+
+    Returns: `{filename, ged_doc_id, size_bytes, generated_at, year, replaced_count}`
+    """
+    try:
+        result = plaquette_reconciliation_pdf_service.generate_and_register(year)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.exception("Erreur génération PDF réconciliation %s", year)
+        raise HTTPException(status_code=500, detail=f"Erreur génération : {e}")
+
+
+@router.get("/{year}/negociation/synthesis")
+def get_negociation_synthesis(year: int) -> NegociationSynthesis:
+    """Vue agrégée (BNC initial/simulé + IR projeté + compteurs par bucket).
+
+    Lecture seule, autorisé en DECLARE.
+    """
+    data = plaquette_service.get(year)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"PlaquetteCheck {year} introuvable")
+    synth_dict = plaquette_negociation_service.compute_synthesis(data)
+    return NegociationSynthesis(**synth_dict)
 
 
 @router.post("/{year}/log-comptable-response")
