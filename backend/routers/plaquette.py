@@ -13,25 +13,44 @@ Endpoints sous /api/plaquette :
   - POST /{year}/set-ged-ref             → lier la plaquette à un doc GED
   - POST /{year}/generate-challenge-email → texte email items "a_challenger"
   - POST /{year}/journal                 → ajout entrée journal
+
+Session 39 P1 — Cycle de vie + snapshot + attachements :
+  - PATCH /{year}/status                                          → transition statut (hors →DECLARE)
+  - POST  /{year}/finalize                                        → transition atomique →DECLARE
+  - POST  /{year}/journal/{entry_id}/attachments                  → upload attachement
+  - GET   /{year}/journal/{entry_id}/attachments/{filename}       → preview/download inline
+  - DELETE /{year}/journal/{entry_id}/attachments/{filename}      → suppression attachement
+  - GET   /{year}/journal/grouped-by-item                         → vue groupée
 """
 from __future__ import annotations
 
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from backend.models.plaquette_check import (
     ComptableResponseRequest,
     ComptableResponseResult,
+    FinalizePlaquetteRequest,
     GenerateChallengeEmailResponse,
     JournalEntryCreate,
     PlaquetteCheckSetRefRequest,
+    PlaquetteCheckStatus,
     PlaquetteItemCreate,
     PlaquetteItemPatch,
+    PlaquetteStatusUpdate,
     PlaquetteTotauxPatch,
+    RisqueOverrideRequest,
 )
-from backend.services import plaquette_pcg_mapping_service, plaquette_report_service, plaquette_service
+from backend.services import (
+    plaquette_finalization_service,
+    plaquette_pcg_mapping_service,
+    plaquette_report_service,
+    plaquette_risque_service,
+    plaquette_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,22 +93,37 @@ def get_year(
 
 @router.post("/{year}/items")
 def create_item(year: int, payload: PlaquetteItemCreate) -> dict:
-    """Ajout d'un item manuel."""
-    return plaquette_service.add_item(year, payload)
+    """Ajout d'un item manuel.
+
+    Session 39 P1 : refus 423 si plaquette gelée (validation_finale / declare).
+    """
+    try:
+        return plaquette_service.add_item(year, payload)
+    except PermissionError as e:
+        raise HTTPException(status_code=423, detail=str(e))
 
 
 @router.patch("/{year}/items/{item_id}")
 def update_item(year: int, item_id: str, patch: PlaquetteItemPatch) -> dict:
-    """Édition d'un item (montant_plaquette, statut, commentaire, ...)."""
+    """Édition d'un item (montant_plaquette, statut, commentaire, ...).
+
+    Session 39 P1 : refus 423 si plaquette gelée (validation_finale / declare).
+    """
     try:
         return plaquette_service.patch_item(year, item_id, patch)
+    except PermissionError as e:
+        raise HTTPException(status_code=423, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.delete("/{year}/items/{item_id}")
 def remove_item(year: int, item_id: str) -> dict:
-    ok = plaquette_service.delete_item(year, item_id)
+    """Session 39 P1 : refus 423 si plaquette gelée (validation_finale / declare)."""
+    try:
+        ok = plaquette_service.delete_item(year, item_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=423, detail=str(e))
     if not ok:
         raise HTTPException(status_code=404, detail="Item introuvable")
     return {"status": "deleted", "item_id": item_id}
@@ -104,15 +138,27 @@ def drill_down(year: int, item_id: str, limit: int = Query(100, ge=1, le=500)) -
 
 @router.patch("/{year}/totaux")
 def update_totaux(year: int, patch: PlaquetteTotauxPatch) -> dict:
-    """Édition des totaux (recettes / dépenses / bénéfice + N-1)."""
-    totaux = plaquette_service.patch_totaux(year, patch)
+    """Édition des totaux (recettes / dépenses / bénéfice + N-1).
+
+    Session 39 P1 : refus 423 si plaquette gelée (validation_finale / declare).
+    """
+    try:
+        totaux = plaquette_service.patch_totaux(year, patch)
+    except PermissionError as e:
+        raise HTTPException(status_code=423, detail=str(e))
     return {"totaux_plaquette": totaux}
 
 
 @router.post("/{year}/set-ged-ref")
 def set_ged_ref(year: int, payload: PlaquetteCheckSetRefRequest) -> dict:
-    """Lie la plaquette à un document GED existant (sans upload)."""
-    return plaquette_service.set_ged_ref(year, payload.ged_doc_id, payload.cabinet_template)
+    """Lie la plaquette à un document GED existant (sans upload).
+
+    Session 39 P1 : refus 423 si plaquette gelée (validation_finale / declare).
+    """
+    try:
+        return plaquette_service.set_ged_ref(year, payload.ged_doc_id, payload.cabinet_template)
+    except PermissionError as e:
+        raise HTTPException(status_code=423, detail=str(e))
 
 
 @router.post("/{year}/generate-challenge-email")
@@ -126,8 +172,238 @@ def generate_email(
 
 @router.post("/{year}/journal")
 def add_journal(year: int, payload: JournalEntryCreate) -> dict:
-    """Ajoute une entrée au journal d'échanges."""
+    """Ajoute une entrée au journal d'échanges.
+
+    NON guarded — toujours autorisé (même post-DECLARE) pour logger
+    les questions fiscalistes post-déclaration.
+    """
     return plaquette_service.add_journal_entry(year, payload)
+
+
+# ─── Session 39 P1 : cycle de vie + attachements ───
+
+# CRITIQUE : routes statiques DOIVENT être déclarées AVANT les routes dynamiques
+# /journal/{entry_id}/... pour éviter le pattern matching ambigu de FastAPI.
+
+
+@router.get("/{year}/journal/grouped-by-item")
+def get_journal_grouped_by_item(year: int) -> dict:
+    """Vue alternative du journal groupée par item (Session 39 P1)."""
+    return plaquette_service.get_journal_grouped_by_item(year)
+
+
+@router.patch("/{year}/status")
+def patch_status(year: int, payload: PlaquetteStatusUpdate) -> dict:
+    """Transition de statut (hors →DECLARE, utiliser /finalize).
+
+    Codes :
+      - 400 : transition invalide ou tentative →DECLARE sans finalize
+      - 404 : année introuvable
+    """
+    try:
+        return plaquette_finalization_service.transition_status(
+            year,
+            payload.new_status,
+            payload.declaration_ref,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "introuvable" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+
+
+@router.post("/{year}/finalize")
+def finalize_plaquette(year: int, payload: FinalizePlaquetteRequest) -> dict:
+    """Transition atomique →DECLARE : PDF watermarké + snapshot JSON + GED protégé.
+
+    Codes :
+      - 400 : status courant ≠ validation_finale OU declaration_ref vide
+      - 404 : année introuvable
+    """
+    try:
+        return plaquette_finalization_service.finalize(
+            year,
+            payload.declaration_ref,
+            payload.declared_at,
+        )
+    except ValueError as e:
+        msg = str(e)
+        if "introuvable" in msg:
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as e:
+        logger.exception("Erreur finalize plaquette %s", year)
+        raise HTTPException(status_code=500, detail=f"Erreur finalisation : {e}")
+
+
+@router.post("/{year}/journal/{entry_id}/attachments")
+async def upload_journal_attachment(
+    year: int,
+    entry_id: str,
+    file: UploadFile = File(...),
+) -> dict:
+    """Upload d'une pièce jointe sur une entrée journal.
+
+    Codes :
+      - 400 : fichier vide / payload invalide
+      - 404 : année ou entry_id introuvable
+      - 413 : > 10 Mo
+      - 415 : mime non whitelisté
+    """
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Fichier vide")
+    try:
+        attachment = plaquette_service.add_journal_attachment(
+            year=year,
+            entry_id=entry_id,
+            filename=file.filename or "file",
+            content_bytes=content,
+            mime_type=file.content_type or "application/octet-stream",
+        )
+        return attachment
+    except ValueError as e:
+        code = str(e)
+        if code == "file_too_large":
+            raise HTTPException(status_code=413, detail="Fichier > 10 Mo")
+        if code == "unsupported_mime":
+            raise HTTPException(
+                status_code=415,
+                detail="Type de fichier non autorisé (PDF, PNG, JPG, WEBP, EML, ZIP uniquement)",
+            )
+        if code in ("plaquette_not_found", "entry_not_found"):
+            raise HTTPException(status_code=404, detail=code)
+        if code == "empty_file":
+            raise HTTPException(status_code=400, detail="Fichier vide")
+        raise HTTPException(status_code=400, detail=code)
+
+
+@router.get("/{year}/journal/{entry_id}/attachments/{filename}")
+def get_journal_attachment(year: int, entry_id: str, filename: str):
+    """Téléchargement/preview inline d'un attachement."""
+    fpath = plaquette_service.get_journal_attachment_path(year, entry_id, filename)
+    if fpath is None:
+        raise HTTPException(status_code=404, detail="Attachement introuvable")
+    # Lookup mime depuis le JSON (préserve eml/zip)
+    data = plaquette_service._load_year(year) or {}
+    mime = "application/octet-stream"
+    for entry in data.get("journal", []) or []:
+        if entry.get("entry_id") == entry_id:
+            for att in entry.get("attachments") or []:
+                if att.get("filename") == filename:
+                    mime = att.get("mime_type") or mime
+                    break
+            break
+    return FileResponse(
+        str(fpath),
+        media_type=mime,
+        filename=filename,
+        content_disposition_type="inline",
+    )
+
+
+@router.delete("/{year}/journal/{entry_id}/attachments/{filename}")
+def delete_journal_attachment(year: int, entry_id: str, filename: str) -> dict:
+    """Suppression d'un attachement (JSON + disque)."""
+    ok = plaquette_service.remove_journal_attachment(year, entry_id, filename)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Attachement introuvable")
+    return {"status": "deleted", "filename": filename}
+
+
+# ─── Session 39 P2 : évaluation risque fiscal ───
+
+
+def _guard_not_declared(year: int) -> dict:
+    """Charge la plaquette et lève HTTP 423 si status==DECLARE (snapshot figé).
+
+    Pour les endpoints qui modifient le risque (override / reset / recompute).
+    Le GET /top reste autorisé en DECLARE (lecture seule).
+    """
+    data = plaquette_service._load_year(year)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"PlaquetteCheck {year} introuvable")
+    if data.get("status") == PlaquetteCheckStatus.DECLARE.value:
+        raise HTTPException(status_code=423, detail=f"plaquette frozen status={data.get('status')}")
+    return data
+
+
+@router.post("/{year}/risque/recompute")
+def recompute_risque(year: int) -> dict:
+    """Force le recalcul du risque de tous les items (ignore le cache `last_evaluated_at`).
+
+    Préserve les overrides manuels. Skip 423 si status==DECLARE.
+    """
+    data = _guard_not_declared(year)
+    plaquette_risque_service.evaluate_all_items(data, force_recompute=True)
+    data["updated_at"] = plaquette_service._now_iso()
+    plaquette_service._save_atomic(plaquette_service._year_file(year), data)
+    nb_evaluated = sum(1 for i in data.get("items", []) if i.get("risque_fiscal"))
+    return {
+        "status": "recomputed",
+        "year": year,
+        "nb_items_evaluated": nb_evaluated,
+        "risque_score_global": data.get("risque_score_global"),
+    }
+
+
+@router.patch("/{year}/items/{item_id}/risque")
+def override_item_risque(year: int, item_id: str, payload: RisqueOverrideRequest) -> dict:
+    """Override manuel du niveau de risque d'un item (motif obligatoire pour traçabilité).
+
+    Skip 423 si status==DECLARE.
+    """
+    data = _guard_not_declared(year)
+    if not payload.motif.strip():
+        raise HTTPException(status_code=400, detail="Le motif d'override est obligatoire")
+    try:
+        item = plaquette_risque_service.override_item_risque(
+            data, item_id, payload.niveau, payload.motif.strip(),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    # Recalcule le score global pondéré après override
+    data["risque_score_global"] = plaquette_risque_service.compute_global_score(data.get("items", []))
+    data["updated_at"] = plaquette_service._now_iso()
+    plaquette_service._save_atomic(plaquette_service._year_file(year), data)
+    return item
+
+
+@router.delete("/{year}/items/{item_id}/risque/override")
+def reset_item_risque(year: int, item_id: str) -> dict:
+    """Repasse un item en mode auto (efface l'override). Skip 423 si DECLARE.
+
+    Le prochain GET /{year} recalculera le niveau automatiquement.
+    """
+    data = _guard_not_declared(year)
+    try:
+        item = plaquette_risque_service.reset_item_risque_auto(data, item_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    # Re-évalue immédiatement (force_recompute pour ne pas hitter le cache)
+    plaquette_risque_service.evaluate_all_items(data, force_recompute=True)
+    data["updated_at"] = plaquette_service._now_iso()
+    plaquette_service._save_atomic(plaquette_service._year_file(year), data)
+    return item
+
+
+@router.get("/{year}/risque/top")
+def get_top_risques(year: int, limit: int = Query(5, ge=1, le=50)) -> dict:
+    """Top N items triés par niveau desc puis montant_neuronx desc.
+
+    Autorisé en DECLARE (lecture seule de la photo figée).
+    """
+    data = plaquette_service.get(year)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"PlaquetteCheck {year} introuvable")
+    top = plaquette_risque_service.get_top_risques(data, limit=limit)
+    return {
+        "year": year,
+        "nb_items": len(top),
+        "items": top,
+        "risque_score_global": data.get("risque_score_global"),
+    }
 
 
 @router.post("/{year}/log-comptable-response")

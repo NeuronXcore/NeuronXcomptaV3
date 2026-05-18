@@ -2031,6 +2031,38 @@ export type PlaquetteItemStatut =
 export type PlaquetteParseStatut = 'pending' | 'parsed' | 'partial' | 'manual'
 export type PlaquetteJournalType = 'email_out' | 'email_in' | 'note'
 
+// Session 39 P1 — Cycle de vie de la vérification plaquette
+export type PlaquetteCheckStatus = 'en_cours' | 'validation_finale' | 'declare'
+
+export interface JournalAttachment {
+  filename: string
+  storage_path: string
+  size_bytes: number
+  mime_type: string
+  uploaded_at: string
+}
+
+// Session 39 P2 — Évaluation risque fiscal
+export type RisqueNiveau = 'faible' | 'modere' | 'eleve' | 'critique'
+
+export interface RisqueDriver {
+  code: string
+  label: string
+  delta_score: number  // +1 (aggravant) / -1 (atténuant)
+  detail?: string | null
+}
+
+export interface RisqueFiscalEvaluation {
+  niveau: RisqueNiveau
+  score: number
+  drivers: RisqueDriver[]
+  pieces_disponibles: string[]
+  auto_calcule: boolean
+  overridden_niveau: RisqueNiveau | null
+  overridden_motif: string | null
+  last_evaluated_at: string
+}
+
 export interface PlaquetteItem {
   item_id: string
   compte_pcg: string | null
@@ -2046,6 +2078,8 @@ export interface PlaquetteItem {
   commentaire: string
   nb_ops_neuronx: number
   last_modified_at: string
+  // Session 39 P2 — évaluation risque fiscal (null tant que jamais évaluée)
+  risque_fiscal?: RisqueFiscalEvaluation | null
 }
 
 export interface PlaquetteJournalEntry {
@@ -2057,6 +2091,7 @@ export interface PlaquetteJournalEntry {
   related_item_ids: string[]
   ged_email_history_id: string | null
   author: string | null
+  attachments: JournalAttachment[]  // Session 39 P1
 }
 
 export interface PlaquetteUpload {
@@ -2085,8 +2120,63 @@ export interface PlaquetteCheck {
     depenses_n1?: number
     benefice_n1?: number
   }
+  // Session 39 P1 — cycle de vie
+  status: PlaquetteCheckStatus
+  validated_at: string | null
+  declared_at: string | null
+  declaration_ref: string | null
+  final_snapshot_ged_doc_id: string | null
+  // Session 39 P2 — score global pondéré sur 3.0 (null tant que jamais évalué)
+  risque_score_global?: number | null
   created_at: string
   updated_at: string
+}
+
+// Session 39 P2 — payloads risque
+export interface RisqueOverridePayload {
+  niveau: RisqueNiveau
+  motif: string
+}
+
+export interface TopRisquesResult {
+  year: number
+  nb_items: number
+  items: PlaquetteItem[]
+  risque_score_global: number | null
+}
+
+export interface RecomputeRisqueResult {
+  status: string
+  year: number
+  nb_items_evaluated: number
+  risque_score_global: number | null
+}
+
+// Session 39 P1 — payloads transition
+export interface PlaquetteStatusUpdatePayload {
+  new_status: PlaquetteCheckStatus
+  declaration_ref?: string | null
+}
+
+export interface FinalizePlaquettePayload {
+  declaration_ref: string
+  declared_at?: string | null
+}
+
+export interface FinalizePlaquetteResult {
+  plaquette_check: PlaquetteCheck
+  snapshot_ged_doc_id: string
+  snapshot_path: string
+}
+
+export interface JournalGroupedByItem {
+  [item_id: string]: {
+    item_id: string
+    compte_pcg: string | null
+    compte_label: string
+    rubrique_2035: string | null
+    entries: PlaquetteJournalEntry[]
+  }
 }
 
 export interface PlaquetteItemPatch {

@@ -3,6 +3,7 @@ import {
   X, FileSpreadsheet, AlertTriangle, MessageSquare, Mail, BookOpen,
   ChevronRight, ChevronDown, Send, Save, Loader2, ExternalLink, Trash2,
   CheckCircle2, AlertCircle, HelpCircle, Clock, RefreshCw, Archive, Download, Eye,
+  Lock,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
@@ -19,12 +20,21 @@ import {
   usePlaquetteReportsHistory,
   useDeletePlaquetteReport,
   useLogComptableResponse,
+  isPlaquetteEditable,
   type ItemStatusUpdate,
 } from '@/hooks/usePlaquetteCheck'
 import { useDashboard } from '@/hooks/useApi'
 import { useSendDrawerStore } from '@/stores/sendDrawerStore'
 import { formatCurrency, cn } from '@/lib/utils'
-import type { PlaquetteItem, PlaquetteItemStatut } from '@/types'
+import type { PlaquetteItem, PlaquetteItemStatut, PlaquetteJournalEntry, RisqueNiveau } from '@/types'
+import { PlaquetteStatusBadge } from './PlaquetteStatusBadge'
+import { PlaquetteStatusActionsMenu } from './PlaquetteStatusActionsMenu'
+import { PlaquetteFinalizationModal } from './PlaquetteFinalizationModal'
+import { JournalAttachmentList } from './JournalAttachmentList'
+import { JournalByItemView } from './JournalByItemView'
+import { PlaquetteRisqueChip } from './PlaquetteRisqueChip'
+import { PlaquetteRisqueOverrideModal } from './PlaquetteRisqueOverrideModal'
+import { PlaquetteRisqueDrawerSummary } from './PlaquetteRisqueDrawerSummary'
 
 type Tab = 'comparatif' | 'saisie' | 'email' | 'archives' | 'journal'
 
@@ -71,7 +81,8 @@ function fmtEcart(n: number | null | undefined): { text: string; color: string }
 }
 
 export default function PlaquetteCheckDrawer() {
-  const { isOpen, year, gedDocumentId, close } = usePlaquetteCheckDrawerStore()
+  const { isOpen, year, gedDocumentId, close, journalView, setJournalView } =
+    usePlaquetteCheckDrawerStore()
   const [tab, setTab] = useState<Tab>('comparatif')
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const [editingMontant, setEditingMontant] = useState<{ id: string; value: string } | null>(null)
@@ -79,6 +90,12 @@ export default function PlaquetteCheckDrawer() {
   const [generatedEmail, setGeneratedEmail] = useState<{ subject: string; body: string; nb_items: number; related_item_ids: string[] } | null>(null)
   const [emailSubjectEdit, setEmailSubjectEdit] = useState('')
   const [emailBodyEdit, setEmailBodyEdit] = useState('')
+  // Session 39 P1 — wizard finalisation
+  const [finalizeOpen, setFinalizeOpen] = useState(false)
+  // Session 39 P2 — modal override risque (null = fermé)
+  const [riskOverrideItemId, setRiskOverrideItemId] = useState<string | null>(null)
+  // Session 39 P2 — filtre niveau risque (null = tous)
+  const [riskFilter, setRiskFilter] = useState<RisqueNiveau | 'overridden' | null>(null)
 
   const { data, isLoading, refetch } = usePlaquetteCheck(year)
   const { data: dashboard } = useDashboard(year ?? undefined)
@@ -91,19 +108,9 @@ export default function PlaquetteCheckDrawer() {
   const openSendDrawer = useSendDrawerStore((s) => s.open)
   const [lastReport, setLastReport] = useState<{ filename: string; size: number; generated_at: string } | null>(null)
 
-  // Reset state when closing
-  useEffect(() => {
-    if (!isOpen) {
-      setTab('comparatif')
-      setExpandedItem(null)
-      setEditingMontant(null)
-      setEditingComment(null)
-      setGeneratedEmail(null)
-      setEmailSubjectEdit('')
-      setEmailBodyEdit('')
-      setLastReport(null)
-    }
-  }, [isOpen])
+  // Session 39 P1 — Note : le reset au mount est délégué au parent `PlaquetteCheckDrawerHost`
+  // (App.tsx) qui démonte/remonte via `key={year}` à chaque ouverture. Le state interne
+  // s'initialise naturellement → pas de useEffect de reset (anti-pattern set-state-in-effect).
 
   // Esc to close
   useEffect(() => {
@@ -307,7 +314,7 @@ export default function PlaquetteCheckDrawer() {
         {/* Header */}
         <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-0.5">
+            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
               <span
                 className="inline-block text-[10px] font-medium px-2 py-0.5 rounded"
                 style={{ background: '#EEEDFE', color: '#3C3489' }}
@@ -317,6 +324,13 @@ export default function PlaquetteCheckDrawer() {
               <span className="text-[10px] text-text-muted">
                 {data?.cabinet_template === 'sygnatures_marenco' ? 'Sygnatures Marenco' : data?.cabinet_template}
               </span>
+              {data?.status && (
+                <PlaquetteStatusBadge
+                  status={data.status}
+                  declaredAt={data.declared_at}
+                  declarationRef={data.declaration_ref}
+                />
+              )}
             </div>
             <h2 className="text-lg font-semibold text-text">Vérification — Exercice {year}</h2>
             {data?.updated_at && (
@@ -325,6 +339,12 @@ export default function PlaquetteCheckDrawer() {
               </p>
             )}
           </div>
+          {data && (
+            <PlaquetteStatusActionsMenu
+              check={data}
+              onOpenFinalize={() => setFinalizeOpen(true)}
+            />
+          )}
           <button
             onClick={() => refetch()}
             className="p-1.5 rounded hover:bg-surface-hover shrink-0"
@@ -401,6 +421,13 @@ export default function PlaquetteCheckDrawer() {
               bncNeuronx={dashboard?.bnc?.solde_bnc}
               chargesProNeuronx={dashboard?.bnc?.charges_pro}
               recettesNeuronx={dashboard?.bnc?.recettes_pro}
+              readOnly={!isPlaquetteEditable(data)}
+              status={data?.status ?? 'en_cours'}
+              declaredAt={data?.declared_at ?? null}
+              checkData={data}
+              riskFilter={riskFilter}
+              onRiskFilterChange={setRiskFilter}
+              onOpenRiskOverride={setRiskOverrideItemId}
             />
           )}
 
@@ -426,6 +453,12 @@ export default function PlaquetteCheckDrawer() {
               hasGedDoc={!!gedDocumentId}
               lastReport={lastReport}
               nbChallenger={counts.a_challenger}
+              isDeclared={data?.status === 'declare'}
+              declaredAt={data?.declared_at ?? null}
+              nbRisqueEleveOuCritique={items.filter(it =>
+                it.risque_fiscal && ['eleve', 'critique'].includes(it.risque_fiscal.niveau)
+                && it.statut !== 'resolu' && it.statut !== 'refus_justifie'
+              ).length}
             />
           )}
 
@@ -434,10 +467,36 @@ export default function PlaquetteCheckDrawer() {
           )}
 
           {!isLoading && tab === 'journal' && (
-            <JournalTab journal={data?.journal || []} year={year} items={items} />
+            <JournalTab
+              journal={data?.journal || []}
+              year={year}
+              items={items}
+              journalView={journalView}
+              onJournalViewChange={setJournalView}
+            />
           )}
         </div>
       </div>
+      {/* Session 39 P1 — wizard finalisation. Mount conditionnel pour state frais. */}
+      {finalizeOpen && data && (
+        <PlaquetteFinalizationModal
+          check={data}
+          onClose={() => setFinalizeOpen(false)}
+          onFinalized={() => refetch()}
+        />
+      )}
+      {/* Session 39 P2 — modal override risque. Mount conditionnel. */}
+      {riskOverrideItemId && data && year !== null && (() => {
+        const item = data.items.find((i) => i.item_id === riskOverrideItemId)
+        if (!item) return null
+        return (
+          <PlaquetteRisqueOverrideModal
+            year={year}
+            item={item}
+            onClose={() => setRiskOverrideItemId(null)}
+          />
+        )
+      })()}
     </>
   )
 }
@@ -465,6 +524,15 @@ function ComparatifTab(props: {
   bncNeuronx?: number
   chargesProNeuronx?: number
   recettesNeuronx?: number
+  // Session 39 P1 — read-only quand status != en_cours
+  readOnly: boolean
+  status: 'en_cours' | 'validation_finale' | 'declare'
+  declaredAt: string | null
+  // Session 39 P2 — risque fiscal
+  checkData: import('@/types').PlaquetteCheck | undefined
+  riskFilter: RisqueNiveau | 'overridden' | null
+  onRiskFilterChange: (f: RisqueNiveau | 'overridden' | null) => void
+  onOpenRiskOverride: (itemId: string) => void
 }) {
   const {
     items, counts, totalEcartChallenger, expandedItem, setExpandedItem,
@@ -472,6 +540,8 @@ function ComparatifTab(props: {
     year, onCommitMontant, onCommitComment, onStatutChange, onDeleteItem,
     onGenerateEmail, isGenerating, totauxPlaquette,
     bncNeuronx, chargesProNeuronx, recettesNeuronx,
+    readOnly, status, declaredAt,
+    checkData, riskFilter, onRiskFilterChange, onOpenRiskOverride,
   } = props
 
   const ecartBnc = useMemo(() => {
@@ -479,8 +549,83 @@ function ComparatifTab(props: {
     return bncNeuronx - totauxPlaquette.benefice
   }, [bncNeuronx, totauxPlaquette.benefice])
 
+  const declaredDateFr = declaredAt
+    ? new Date(declaredAt).toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : null
+
+  // Session 39 P2 — filtrage + tri par risque
+  const filteredItems = useMemo(() => {
+    if (!riskFilter) return items
+    return items.filter((it) => {
+      const r = it.risque_fiscal
+      if (!r) return false
+      if (riskFilter === 'overridden') return !r.auto_calcule
+      return r.niveau === riskFilter
+    })
+  }, [items, riskFilter])
+
   return (
     <div className="p-5">
+      {/* Session 39 P1 — bandeau statut éditorial */}
+      {readOnly && (
+        <div
+          className={cn(
+            'mb-3 flex items-center gap-2 rounded-md border px-3 py-2 text-xs',
+            status === 'declare'
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+              : 'border-sky-500/40 bg-sky-500/10 text-sky-400',
+          )}
+        >
+          <Lock size={13} className="flex-none" />
+          <span>
+            {status === 'declare' && declaredDateFr
+              ? `Exercice déclaré le ${declaredDateFr} — items verrouillés jusqu'à prescription (art. L169 LPF, 4 ans)`
+              : status === 'validation_finale'
+              ? 'Items verrouillés (validation finale) — utilise « Revenir en cours » dans le header pour modifier'
+              : 'Items verrouillés'}
+          </span>
+        </div>
+      )}
+
+      {/* Session 39 P2 — Summary risque fiscal */}
+      {checkData && (
+        <PlaquetteRisqueDrawerSummary check={checkData} readOnly={readOnly} />
+      )}
+
+      {/* Session 39 P2 — Chips filtre par niveau risque */}
+      <div className="mb-3 flex items-center gap-1.5 flex-wrap text-[11px]">
+        <span className="text-text-muted">Filtrer par risque :</span>
+        {[
+          { value: null as RisqueNiveau | 'overridden' | null, label: 'Tous', classes: 'border-border text-text-muted hover:bg-surface' },
+          { value: 'critique' as const, label: 'Critique', classes: 'border-red-500/40 text-red-400 hover:bg-red-500/10' },
+          { value: 'eleve' as const, label: 'Élevé', classes: 'border-orange-500/40 text-orange-400 hover:bg-orange-500/10' },
+          { value: 'modere' as const, label: 'Modéré', classes: 'border-amber-500/40 text-amber-400 hover:bg-amber-500/10' },
+          { value: 'faible' as const, label: 'Faible', classes: 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10' },
+          { value: 'overridden' as const, label: 'M (manuel)', classes: 'border-purple-500/40 text-purple-400 hover:bg-purple-500/10' },
+        ].map((opt) => (
+          <button
+            key={String(opt.value)}
+            type="button"
+            onClick={() => onRiskFilterChange(opt.value)}
+            className={cn(
+              'px-2 py-0.5 rounded-full border transition-colors',
+              opt.classes,
+              riskFilter === opt.value && 'ring-2 ring-offset-1 ring-offset-background',
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+        {riskFilter !== null && (
+          <span className="text-[10px] text-text-muted ml-2 italic">
+            {filteredItems.length} / {items.length} affichés
+          </span>
+        )}
+      </div>
       {/* Bandeau synthèse BNC */}
       {totauxPlaquette.benefice !== undefined && (
         <div className="mb-4 rounded-lg border border-primary/30 bg-gradient-to-br from-primary/5 to-primary/0 p-4">
@@ -564,12 +709,13 @@ function ComparatifTab(props: {
               <th className="sticky top-0 z-20 bg-surface px-2 py-2 text-right font-medium text-text-muted shadow-[0_1px_0_0_var(--color-border)]">NeuronX</th>
               <th className="sticky top-0 z-20 bg-surface px-2 py-2 text-right font-medium text-text-muted shadow-[0_1px_0_0_var(--color-border)]">Écart</th>
               <th className="sticky top-0 z-20 bg-surface px-2 py-2 text-left font-medium text-text-muted shadow-[0_1px_0_0_var(--color-border)]">Statut</th>
+              <th className="sticky top-0 z-20 bg-surface px-2 py-2 text-left font-medium text-text-muted shadow-[0_1px_0_0_var(--color-border)]">Risque</th>
               <th className="sticky top-0 z-20 bg-surface px-2 py-2 text-left font-medium text-text-muted shadow-[0_1px_0_0_var(--color-border)]">Commentaire</th>
               <th className="sticky top-0 z-20 bg-surface px-2 py-2 w-8 shadow-[0_1px_0_0_var(--color-border)]"></th>
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => {
+            {filteredItems.map((item) => {
               const expanded = expandedItem === item.item_id
               const ecart = fmtEcart(item.ecart)
               const statutStyle = STATUT_STYLES[item.statut]
@@ -590,6 +736,8 @@ function ComparatifTab(props: {
                   onDelete={onDeleteItem}
                   ecart={ecart}
                   statutStyle={statutStyle}
+                  readOnly={readOnly}
+                  onOpenRiskOverride={onOpenRiskOverride}
                 />
               )
             })}
@@ -603,7 +751,7 @@ function ComparatifTab(props: {
                 <td className={cn('px-2 py-2 text-right tabular-nums', totalEcartChallenger >= 0 ? 'text-emerald-400' : 'text-danger')}>
                   {totalEcartChallenger >= 0 ? '+' : ''}{formatCurrency(totalEcartChallenger)}
                 </td>
-                <td colSpan={3}></td>
+                <td colSpan={4}></td>
               </tr>
             </tfoot>
           )}
@@ -685,13 +833,15 @@ function Row(props: {
   onDelete: (id: string) => void
   ecart: { text: string; color: string }
   statutStyle: { bg: string; text: string; border: string; icon: typeof CheckCircle2 }
+  readOnly?: boolean  // Session 39 P1
+  onOpenRiskOverride?: (itemId: string) => void  // Session 39 P2
 }) {
   const {
     item, expanded, setExpanded, year,
     editingMontant, setEditingMontant, editingComment, setEditingComment,
     onCommitMontant, onCommitComment, onStatutChange, onDelete, ecart, statutStyle,
+    readOnly = false, onOpenRiskOverride,
   } = props
-  const StatutIcon = statutStyle.icon
 
   return (
     <>
@@ -722,7 +872,7 @@ function Row(props: {
           )}
         </td>
         <td className="px-2 py-1.5 text-right tabular-nums">
-          {editingMontant?.id === item.item_id ? (
+          {editingMontant?.id === item.item_id && !readOnly ? (
             <input
               type="text"
               value={editingMontant.value}
@@ -738,13 +888,21 @@ function Row(props: {
             />
           ) : (
             <button
-              onClick={() => setEditingMontant({
-                id: item.item_id,
-                value: item.montant_plaquette !== null
-                  ? item.montant_plaquette.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : '',
-              })}
-              className="hover:bg-surface-hover px-1 py-0.5 rounded text-xs"
+              disabled={readOnly}
+              onClick={() => {
+                if (readOnly) return
+                setEditingMontant({
+                  id: item.item_id,
+                  value: item.montant_plaquette !== null
+                    ? item.montant_plaquette.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '',
+                })
+              }}
+              className={cn(
+                'px-1 py-0.5 rounded text-xs',
+                readOnly ? 'cursor-default text-text-muted' : 'hover:bg-surface-hover',
+              )}
+              title={readOnly ? 'Plaquette verrouillée' : 'Cliquer pour éditer'}
             >
               {fmtMontant(item.montant_plaquette)}
             </button>
@@ -763,18 +921,30 @@ function Row(props: {
           <select
             value={item.statut}
             onChange={(e) => onStatutChange(item.item_id, e.target.value as PlaquetteItemStatut)}
+            disabled={readOnly}
             className={cn(
               'text-[10px] px-1.5 py-0.5 rounded border bg-background',
               statutStyle.text, statutStyle.border,
+              readOnly && 'cursor-not-allowed opacity-70',
             )}
+            title={readOnly ? 'Plaquette verrouillée' : undefined}
           >
             {Object.entries(STATUT_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </td>
+        {/* Session 39 P2 — Cellule risque */}
+        <td className="px-2 py-1.5">
+          <PlaquetteRisqueChip
+            risque={item.risque_fiscal}
+            onClick={onOpenRiskOverride ? () => onOpenRiskOverride(item.item_id) : undefined}
+            readOnly={readOnly}
+            compact
+          />
+        </td>
         <td className="px-2 py-1.5 max-w-[280px]">
-          {editingComment?.id === item.item_id ? (
+          {editingComment?.id === item.item_id && !readOnly ? (
             <textarea
               value={editingComment.value}
               onChange={(e) => setEditingComment({ id: item.item_id, value: e.target.value })}
@@ -790,27 +960,37 @@ function Row(props: {
             />
           ) : (
             <button
-              onClick={() => setEditingComment({ id: item.item_id, value: item.commentaire || '' })}
-              className="text-left w-full hover:bg-surface-hover px-1 py-0.5 rounded text-text-muted italic text-[11px]"
+              disabled={readOnly}
+              onClick={() => {
+                if (readOnly) return
+                setEditingComment({ id: item.item_id, value: item.commentaire || '' })
+              }}
+              className={cn(
+                'text-left w-full px-1 py-0.5 rounded text-text-muted italic text-[11px]',
+                readOnly ? 'cursor-default' : 'hover:bg-surface-hover',
+              )}
+              title={readOnly ? 'Plaquette verrouillée' : undefined}
             >
-              {item.commentaire || '+ ajouter'}
+              {item.commentaire || (readOnly ? '—' : '+ ajouter')}
             </button>
           )}
         </td>
         <td className="px-1 py-1.5">
-          <button
-            onClick={() => onDelete(item.item_id)}
-            className="p-0.5 rounded hover:bg-danger/10 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="Supprimer"
-            title="Supprimer cet item"
-          >
-            <Trash2 size={11} />
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => onDelete(item.item_id)}
+              className="p-0.5 rounded hover:bg-danger/10 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label="Supprimer"
+              title="Supprimer cet item"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
         </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} className="bg-surface/20 px-4 py-3 border-b border-border">
+          <td colSpan={10} className="bg-surface/20 px-4 py-3 border-b border-border">
             <DrillDownOps year={year} itemId={item.item_id} />
           </td>
         </tr>
@@ -936,21 +1116,52 @@ function EmailTab(props: {
   hasGedDoc: boolean
   lastReport: { filename: string; size: number; generated_at: string } | null
   nbChallenger: number
+  // Session 39 P1
+  isDeclared: boolean
+  declaredAt: string | null
+  // Session 39 P2
+  nbRisqueEleveOuCritique: number
 }) {
   const {
     generated, subjectEdit, bodyEdit, onSubjectChange, onBodyChange,
     onGenerate, onSend, onCopy, onGenerateReport, onSendGrouped,
     isGenerating, isGeneratingReport, isPreparingBundle, hasGedDoc,
-    lastReport, nbChallenger,
+    lastReport, nbChallenger, isDeclared, declaredAt,
+    nbRisqueEleveOuCritique,
   } = props
+
+  const declaredDateFr = declaredAt
+    ? new Date(declaredAt).toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : null
 
   return (
     <div className="p-5 space-y-4">
+      {/* Session 39 P1 — bannière declare en lecture seule */}
+      {isDeclared && (
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3">
+          <div className="flex items-start gap-2">
+            <Lock size={14} className="mt-0.5 flex-none text-emerald-400" />
+            <p className="text-xs text-emerald-400">
+              <strong>Exercice déclaré{declaredDateFr ? ` le ${declaredDateFr}` : ''}.</strong>{' '}
+              Les rapports et envois restent consultables en lecture seule. Le journal
+              reste appendable pour logger les questions fiscalistes ultérieures.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* WORKFLOW RECOMMANDÉ : envoi groupé en 1 clic */}
-      <div className="rounded-lg border border-primary/40 bg-gradient-to-br from-primary/10 to-primary/0 p-4">
+      <div className={cn(
+        'rounded-lg border bg-gradient-to-br p-4',
+        isDeclared ? 'border-border/50 from-surface/40 to-surface/0' : 'border-primary/40 from-primary/10 to-primary/0',
+      )}>
         <div className="flex items-start gap-3 mb-3">
-          <div className="rounded-full bg-primary/20 p-2 shrink-0">
-            <Send size={18} className="text-primary" />
+          <div className={cn('rounded-full p-2 shrink-0', isDeclared ? 'bg-text-muted/20' : 'bg-primary/20')}>
+            <Send size={18} className={isDeclared ? 'text-text-muted' : 'text-primary'} />
           </div>
           <div className="flex-1">
             <h3 className="text-sm font-semibold text-text mb-1">Workflow recommandé — Envoi groupé en 1 clic</h3>
@@ -963,10 +1174,12 @@ function EmailTab(props: {
         </div>
         <button
           onClick={onSendGrouped}
-          disabled={isPreparingBundle || nbChallenger === 0 || !hasGedDoc}
+          disabled={isPreparingBundle || nbChallenger === 0 || !hasGedDoc || isDeclared}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           title={
-            nbChallenger === 0
+            isDeclared
+              ? 'Exercice déclaré — envoi désactivé (consulte les archives)'
+              : nbChallenger === 0
               ? 'Aucun item marqué "à challenger"'
               : !hasGedDoc
               ? 'Le drawer plaquette n\'est pas lié à un doc GED'
@@ -988,6 +1201,17 @@ function EmailTab(props: {
             Marque d'abord des items en <strong>"À challenger"</strong> dans l'onglet Comparatif.
           </p>
         )}
+        {/* Session 39 P2 — bandeau alerte risque fiscal élevé/critique */}
+        {nbRisqueEleveOuCritique > 0 && (
+          <div className="mt-2 rounded-md border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-[11px] text-orange-300 flex items-start gap-2">
+            <span className="flex-none">⚠</span>
+            <span>
+              <strong>{nbRisqueEleveOuCritique} item(s)</strong> avec risque fiscal{' '}
+              <strong>élevé ou critique</strong> non résolu(s).{' '}
+              Le rapport PDF inclura une section <em>Préparation contrôle fiscal</em> avec le top 5 et les références juridiques applicables.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Section "Rapport PDF" */}
@@ -999,8 +1223,9 @@ function EmailTab(props: {
           </h3>
           <button
             onClick={onGenerateReport}
-            disabled={isGeneratingReport}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] bg-surface-hover hover:bg-surface border border-border disabled:opacity-50"
+            disabled={isGeneratingReport || isDeclared}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] bg-surface-hover hover:bg-surface border border-border disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isDeclared ? 'Exercice déclaré — re-génération désactivée' : undefined}
           >
             {isGeneratingReport ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
             {lastReport ? 'Re-générer' : 'Générer'}
@@ -1234,19 +1459,52 @@ function ArchivesTab({ year }: { year: number }) {
 // ─── Onglet Journal ───
 
 function JournalTab({
-  journal, year, items,
+  journal, year, items, journalView, onJournalViewChange,
 }: {
-  journal: { entry_id: string; timestamp: string; type: string; subject: string | null; body_excerpt: string; author: string | null }[]
+  journal: PlaquetteJournalEntry[]
   year: number
   items: PlaquetteItem[]
+  journalView: 'timeline' | 'by-item'
+  onJournalViewChange: (v: 'timeline' | 'by-item') => void
 }) {
   const [showResponseModal, setShowResponseModal] = useState(false)
 
   return (
     <div className="p-5 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-xs text-text-muted">
-          <strong>{journal.length}</strong> entrée(s) journal
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-text-muted">
+            <strong>{journal.length}</strong> entrée(s) journal
+          </div>
+          {/* Session 39 P1 — segmented control Timeline / Par item */}
+          <div className="inline-flex rounded-md border border-border bg-surface/40 p-0.5">
+            <button
+              type="button"
+              onClick={() => onJournalViewChange('timeline')}
+              className={cn(
+                'flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors',
+                journalView === 'timeline'
+                  ? 'bg-primary text-white'
+                  : 'text-text-muted hover:text-text',
+              )}
+            >
+              <Clock size={11} />
+              Timeline
+            </button>
+            <button
+              type="button"
+              onClick={() => onJournalViewChange('by-item')}
+              className={cn(
+                'flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors',
+                journalView === 'by-item'
+                  ? 'bg-primary text-white'
+                  : 'text-text-muted hover:text-text',
+              )}
+            >
+              <BookOpen size={11} />
+              Par item
+            </button>
+          </div>
         </div>
         <button
           onClick={() => setShowResponseModal(true)}
@@ -1258,7 +1516,9 @@ function JournalTab({
         </button>
       </div>
 
-      {journal.length === 0 ? (
+      {journalView === 'by-item' ? (
+        <JournalByItemView year={year} />
+      ) : journal.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface/20 p-6 text-center">
           <BookOpen size={32} className="mx-auto text-text-muted mb-3" />
           <p className="text-sm text-text-muted">
@@ -1291,6 +1551,12 @@ function JournalTab({
                 {e.author && (
                   <p className="text-[9px] text-text-muted mt-1 italic">par {e.author}</p>
                 )}
+                {/* Session 39 P1 — attachements */}
+                <JournalAttachmentList
+                  year={year}
+                  entryId={e.entry_id}
+                  attachments={e.attachments || []}
+                />
               </div>
             )
           })}
@@ -1321,13 +1587,10 @@ function LogComptableResponseModal({
   const [body, setBody] = useState('')
   const [receivedAt, setReceivedAt] = useState(new Date().toISOString().slice(0, 10))
   // Map item_id → { selected, new_statut, appended_comment }
-  const [itemUpdates, setItemUpdates] = useState<Record<string, { selected: boolean; new_statut: PlaquetteItemStatut; appended_comment: string }>>({})
-
-  const logMutation = useLogComptableResponse(year)
-
-  // Pré-remplir avec les items a_challenger + en_discussion
-  useEffect(() => {
-    const initial: typeof itemUpdates = {}
+  // Lazy init depuis `items` (prop stable au mount — le modal est conditionné par `{showResponseModal && ...}`
+  // côté parent, donc remonté à chaque ouverture). Évite l'anti-pattern set-state-in-effect.
+  const [itemUpdates, setItemUpdates] = useState<Record<string, { selected: boolean; new_statut: PlaquetteItemStatut; appended_comment: string }>>(() => {
+    const initial: Record<string, { selected: boolean; new_statut: PlaquetteItemStatut; appended_comment: string }> = {}
     for (const i of items) {
       if (i.statut === 'a_challenger' || i.statut === 'en_discussion') {
         initial[i.item_id] = {
@@ -1337,8 +1600,10 @@ function LogComptableResponseModal({
         }
       }
     }
-    setItemUpdates(initial)
-  }, [items])
+    return initial
+  })
+
+  const logMutation = useLogComptableResponse(year)
 
   const handleToggle = (item_id: string) => {
     setItemUpdates(s => ({ ...s, [item_id]: { ...s[item_id], selected: !s[item_id]?.selected } }))
@@ -1352,7 +1617,7 @@ function LogComptableResponseModal({
 
   const selectedUpdates: ItemStatusUpdate[] = useMemo(() => {
     return Object.entries(itemUpdates)
-      .filter(([_, v]) => v.selected)
+      .filter(([, v]) => v.selected)
       .map(([item_id, v]) => ({
         item_id,
         new_statut: v.new_statut,

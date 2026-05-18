@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import tempfile
 from datetime import datetime
@@ -24,6 +25,7 @@ from backend.models.plaquette_check import (
     ComptableResponseRequest,
     ComptableResponseResult,
     GenerateChallengeEmailResponse,
+    JournalAttachment,
     JournalEntry,
     JournalEntryCreate,
     PlaquetteCheck,
@@ -35,6 +37,43 @@ from backend.models.plaquette_check import (
 from backend.services import plaquette_pcg_mapping_service
 
 logger = logging.getLogger(__name__)
+
+
+# ─── Session 39 P1 : attachements journal ───
+
+ALLOWED_ATTACHMENT_MIMES = {
+    "application/pdf",
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "message/rfc822",
+    "application/zip",
+}
+MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 Mo
+
+
+def _guard_modifiable(data: dict) -> None:
+    """Lève PermissionError si la plaquette est verrouillée (validation_finale / declare).
+
+    Le router traduit en HTTP 423 Locked.
+    """
+    from backend.services.plaquette_finalization_service import is_item_modifiable
+    if not is_item_modifiable(data):
+        raise PermissionError(f"plaquette frozen status={data.get('status', 'unknown')}")
+
+
+def _slug_filename(name: str) -> str:
+    """Slugifie un basename de fichier : minuscule, ASCII safe, garde l'extension."""
+    base = Path(name).stem
+    ext = Path(name).suffix.lower()
+    base = re.sub(r"[^a-zA-Z0-9._-]+", "_", base).strip("._-").lower()
+    base = base[:60] or "file"
+    return f"{base}{ext}"
+
+
+def _journal_attachments_dir(year: int) -> Path:
+    return PLAQUETTE_CHECK_DIR / str(year) / "journal_attachments"
 
 
 # ─── Helpers I/O ───
@@ -117,9 +156,33 @@ def _new_plaquette_check(year: int, template: str = "sygnatures_marenco") -> dic
         "items": _bootstrap_items(template),
         "journal": [],
         "totaux_plaquette": {},
+        # Session 39 P1 — cycle de vie
+        "status": "en_cours",
+        "validated_at": None,
+        "declared_at": None,
+        "declaration_ref": None,
+        "final_snapshot_ged_doc_id": None,
         "created_at": now,
         "updated_at": now,
     }
+
+
+def _backfill_p1_fields(data: dict) -> dict:
+    """Injecte les champs cycle de vie Session 39 P1 sur les JSON pré-P1.
+
+    Migration douce — appliquée à la lecture pour rétrocompat sans script ad-hoc.
+    `data` est muté + retourné pour chainage.
+    """
+    if data.get("status") is None:
+        data["status"] = "en_cours"
+    data.setdefault("validated_at", None)
+    data.setdefault("declared_at", None)
+    data.setdefault("declaration_ref", None)
+    data.setdefault("final_snapshot_ged_doc_id", None)
+    # Assure attachments[] sur chaque entrée journal existante
+    for entry in data.get("journal", []) or []:
+        entry.setdefault("attachments", [])
+    return data
 
 
 # ─── Calcul montant_neuronx via analytics ───
@@ -294,35 +357,63 @@ def _refresh_item_neuronx(item: dict, year: int, template: str) -> None:
 
 
 def get_or_create(year: int, template: str = "sygnatures_marenco") -> dict:
-    """Récupère le PlaquetteCheck de l'année, le crée si absent. Recalcule les montants NeuronX."""
+    """Récupère le PlaquetteCheck de l'année, le crée si absent. Recalcule les montants NeuronX.
+
+    Session 39 P2 : évalue automatiquement le risque fiscal de chaque item
+    à la volée (cache implicite via `last_evaluated_at >= last_modified_at`).
+    Skip silencieux si `status == DECLARE` (snapshot figé).
+    """
     data = _load_year(year)
     if data is None:
         data = _new_plaquette_check(year, template)
+    # Session 39 P1 — backfill cycle de vie sur les JSON pré-P1
+    _backfill_p1_fields(data)
     # Recalcule montants NeuronX à la volée
     template_eff = data.get("cabinet_template") or template
     for item in data.get("items", []):
         _refresh_item_neuronx(item, year, template_eff)
+    # Session 39 P2 — évaluation risque fiscal (skip si declare)
+    try:
+        from backend.services import plaquette_risque_service
+        plaquette_risque_service.evaluate_all_items(data)
+    except Exception as e:
+        logger.warning("evaluate_all_items failed for year %s: %s", year, e)
     data["updated_at"] = _now_iso()
     _save_atomic(_year_file(year), data)
     return data
 
 
 def get(year: int) -> Optional[dict]:
-    """Récupère sans créer."""
+    """Récupère sans créer.
+
+    Session 39 P2 : évalue le risque fiscal à la volée (non persisté ici).
+    """
     data = _load_year(year)
     if data is None:
         return None
+    # Session 39 P1 — backfill cycle de vie (lecture seule, pas persisté ici)
+    _backfill_p1_fields(data)
     template_eff = data.get("cabinet_template") or "sygnatures_marenco"
     for item in data.get("items", []):
         _refresh_item_neuronx(item, year, template_eff)
+    # Session 39 P2 — évaluation risque fiscal (skip si declare)
+    try:
+        from backend.services import plaquette_risque_service
+        plaquette_risque_service.evaluate_all_items(data)
+    except Exception as e:
+        logger.warning("evaluate_all_items failed for year %s: %s", year, e)
     return data
 
 
 def patch_item(year: int, item_id: str, patch: PlaquetteItemPatch) -> dict:
-    """Met à jour partiellement un item. Recalcule l'écart."""
+    """Met à jour partiellement un item. Recalcule l'écart.
+
+    Garde modifiabilité Session 39 P1 : lève PermissionError si plaquette gelée.
+    """
     data = _load_year(year)
     if data is None:
         raise ValueError(f"PlaquetteCheck {year} introuvable")
+    _guard_modifiable(data)
     items = data.get("items", [])
     for item in items:
         if item.get("item_id") != item_id:
@@ -357,10 +448,14 @@ def patch_item(year: int, item_id: str, patch: PlaquetteItemPatch) -> dict:
 
 
 def add_item(year: int, payload: PlaquetteItemCreate) -> dict:
-    """Ajoute un item manuel (cas saisie sans template ou rubrique custom)."""
+    """Ajoute un item manuel (cas saisie sans template ou rubrique custom).
+
+    Garde modifiabilité Session 39 P1 : lève PermissionError si plaquette gelée.
+    """
     data = _load_year(year)
     if data is None:
         data = _new_plaquette_check(year)
+    _guard_modifiable(data)
     cats, subs, _ = plaquette_pcg_mapping_service.resolve(
         payload.compte_pcg, data.get("cabinet_template", "sygnatures_marenco")
     )
@@ -398,10 +493,14 @@ def add_item(year: int, payload: PlaquetteItemCreate) -> dict:
 
 
 def delete_item(year: int, item_id: str) -> bool:
-    """Supprime un item."""
+    """Supprime un item.
+
+    Garde modifiabilité Session 39 P1 : lève PermissionError si plaquette gelée.
+    """
     data = _load_year(year)
     if data is None:
         return False
+    _guard_modifiable(data)
     before = len(data.get("items", []))
     data["items"] = [i for i in data.get("items", []) if i.get("item_id") != item_id]
     if len(data["items"]) == before:
@@ -412,10 +511,14 @@ def delete_item(year: int, item_id: str) -> bool:
 
 
 def patch_totaux(year: int, patch: PlaquetteTotauxPatch) -> dict:
-    """Met à jour les totaux (recettes/dépenses/bénéfice + N-1)."""
+    """Met à jour les totaux (recettes/dépenses/bénéfice + N-1).
+
+    Garde modifiabilité Session 39 P1 : lève PermissionError si plaquette gelée.
+    """
     data = _load_year(year)
     if data is None:
         data = _new_plaquette_check(year)
+    _guard_modifiable(data)
     totaux = data.get("totaux_plaquette") or {}
     for field in ("recettes", "depenses", "benefice", "recettes_n1", "depenses_n1", "benefice_n1"):
         v = getattr(patch, field, None)
@@ -428,10 +531,14 @@ def patch_totaux(year: int, patch: PlaquetteTotauxPatch) -> dict:
 
 
 def set_ged_ref(year: int, ged_doc_id: str, cabinet_template: Optional[str] = None) -> dict:
-    """Lie la plaquette à un document GED existant."""
+    """Lie la plaquette à un document GED existant.
+
+    Garde modifiabilité Session 39 P1 : lève PermissionError si plaquette gelée.
+    """
     data = _load_year(year)
     if data is None:
         data = _new_plaquette_check(year, cabinet_template or "sygnatures_marenco")
+    _guard_modifiable(data)
     data["ged_doc_id"] = ged_doc_id
     if cabinet_template:
         data["cabinet_template"] = cabinet_template
@@ -441,7 +548,11 @@ def set_ged_ref(year: int, ged_doc_id: str, cabinet_template: Optional[str] = No
 
 
 def add_journal_entry(year: int, payload: JournalEntryCreate) -> dict:
-    """Ajoute une entrée au journal."""
+    """Ajoute une entrée au journal.
+
+    NON guarded — le journal reste appendable même en validation_finale / declare
+    (cas d'usage : logger les questions fisc post-déclaration).
+    """
     data = _load_year(year)
     if data is None:
         data = _new_plaquette_check(year)
@@ -454,11 +565,190 @@ def add_journal_entry(year: int, payload: JournalEntryCreate) -> dict:
         "related_item_ids": payload.related_item_ids,
         "ged_email_history_id": payload.ged_email_history_id,
         "author": payload.author,
+        "attachments": [],
     }
     data["journal"].append(entry)
     data["updated_at"] = _now_iso()
     _save_atomic(_year_file(year), data)
     return entry
+
+
+# ─── Session 39 P1 : attachements journal ───
+
+
+def _find_journal_entry(data: dict, entry_id: str) -> Optional[dict]:
+    """Retourne la référence vivante (mutable) de l'entry, ou None."""
+    for entry in data.get("journal", []) or []:
+        if entry.get("entry_id") == entry_id:
+            return entry
+    return None
+
+
+def add_journal_attachment(
+    year: int,
+    entry_id: str,
+    filename: str,
+    content_bytes: bytes,
+    mime_type: str,
+) -> dict:
+    """Ajoute une pièce jointe à une entrée journal (toujours autorisé).
+
+    Validation : whitelist mime + taille max 10 Mo.
+
+    Raises:
+        ValueError("plaquette_not_found") : année introuvable
+        ValueError("entry_not_found") : entry_id inconnu
+        ValueError("file_too_large") : > MAX_ATTACHMENT_SIZE → router 413
+        ValueError("unsupported_mime") : mime hors whitelist → router 415
+
+    Returns:
+        dict JournalAttachment ajouté
+    """
+    if not content_bytes:
+        raise ValueError("empty_file")
+    size = len(content_bytes)
+    if size > MAX_ATTACHMENT_SIZE:
+        raise ValueError("file_too_large")
+    mime_lc = (mime_type or "").lower().split(";")[0].strip()
+    if mime_lc not in ALLOWED_ATTACHMENT_MIMES:
+        raise ValueError("unsupported_mime")
+
+    data = _load_year(year)
+    if data is None:
+        raise ValueError("plaquette_not_found")
+    entry = _find_journal_entry(data, entry_id)
+    if entry is None:
+        raise ValueError("entry_not_found")
+
+    # Filename safe + anti-collision via token
+    safe_basename = _slug_filename(filename or "file")
+    stem = Path(safe_basename).stem
+    ext = Path(safe_basename).suffix
+    final_name = f"{stem}_{secrets.token_hex(4)}{ext}"
+
+    target_dir = _journal_attachments_dir(year)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / final_name
+
+    # Écriture atomique : tempfile dans le même dir puis os.replace
+    fd, tmp = tempfile.mkstemp(dir=str(target_dir), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(content_bytes)
+        os.replace(tmp, str(target_path))
+    except Exception:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+    storage_rel = f"data/plaquette_check/{year}/journal_attachments/{final_name}"
+    attachment = {
+        "filename": final_name,
+        "storage_path": storage_rel,
+        "size_bytes": size,
+        "mime_type": mime_lc,
+        "uploaded_at": _now_iso(),
+    }
+    entry.setdefault("attachments", []).append(attachment)
+    data["updated_at"] = _now_iso()
+    _save_atomic(_year_file(year), data)
+    logger.info(
+        "plaquette %s journal entry %s : attachment %s (%d bytes) ajouté",
+        year, entry_id, final_name, size,
+    )
+    return attachment
+
+
+def remove_journal_attachment(year: int, entry_id: str, filename: str) -> bool:
+    """Supprime un attachement (JSON + fichier disque)."""
+    data = _load_year(year)
+    if data is None:
+        return False
+    entry = _find_journal_entry(data, entry_id)
+    if entry is None:
+        return False
+    attachments = entry.get("attachments") or []
+    new_list = [a for a in attachments if a.get("filename") != filename]
+    if len(new_list) == len(attachments):
+        return False  # filename introuvable
+    entry["attachments"] = new_list
+    data["updated_at"] = _now_iso()
+    _save_atomic(_year_file(year), data)
+
+    # Best-effort suppression disque
+    fpath = _journal_attachments_dir(year) / filename
+    try:
+        if fpath.exists():
+            fpath.unlink()
+    except Exception as e:
+        logger.warning(
+            "plaquette %s journal %s : suppression disque %s échouée: %s",
+            year, entry_id, filename, e,
+        )
+    return True
+
+
+def get_journal_attachment_path(year: int, entry_id: str, filename: str) -> Optional[Path]:
+    """Retourne le path local d'un attachement (pour FileResponse)."""
+    data = _load_year(year)
+    if data is None:
+        return None
+    entry = _find_journal_entry(data, entry_id)
+    if entry is None:
+        return None
+    if not any(a.get("filename") == filename for a in entry.get("attachments") or []):
+        return None
+    fpath = _journal_attachments_dir(year) / filename
+    if not fpath.exists():
+        return None
+    return fpath
+
+
+def get_journal_grouped_by_item(year: int) -> dict:
+    """Vue alternative du journal groupée par item.
+
+    Returns:
+        {
+          item_id: {
+            "item_id": str,
+            "compte_pcg": str,
+            "compte_label": str,
+            "entries": [JournalEntry, ...]  # tri chronologique desc
+          },
+          ...
+        }
+        Items sans entry → entries=[] (présents quand même pour l'UI).
+    """
+    data = _load_year(year)
+    if data is None:
+        return {}
+    items = data.get("items", []) or []
+    journal = data.get("journal", []) or []
+
+    # Tri du journal par timestamp desc (plus récent en premier)
+    sorted_journal = sorted(
+        journal,
+        key=lambda e: e.get("timestamp") or "",
+        reverse=True,
+    )
+
+    grouped: dict = {}
+    for item in items:
+        item_id = item.get("item_id")
+        if not item_id:
+            continue
+        related = [
+            e for e in sorted_journal
+            if item_id in (e.get("related_item_ids") or [])
+        ]
+        grouped[item_id] = {
+            "item_id": item_id,
+            "compte_pcg": item.get("compte_pcg"),
+            "compte_label": item.get("compte_label"),
+            "rubrique_2035": item.get("rubrique_2035"),
+            "entries": related,
+        }
+    return grouped
 
 
 def list_drill_ops(year: int, item_id: str, limit: int = 100) -> list[dict]:

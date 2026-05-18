@@ -8,6 +8,15 @@ import type {
   PlaquetteDrillDownOp,
   PlaquetteChallengeEmail,
   PlaquetteTemplate,
+  PlaquetteCheckStatus,
+  PlaquetteStatusUpdatePayload,
+  FinalizePlaquettePayload,
+  FinalizePlaquetteResult,
+  JournalAttachment,
+  JournalGroupedByItem,
+  RisqueOverridePayload,
+  TopRisquesResult,
+  RecomputeRisqueResult,
 } from '@/types'
 
 export function usePlaquetteTemplates() {
@@ -224,5 +233,199 @@ export function useLogComptableResponse(year: number | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
     },
+  })
+}
+
+// ─── Session 39 P1 : cycle de vie + attachements journal ───
+
+/**
+ * Transition de statut (en_cours ↔ validation_finale).
+ * Pour →DECLARE, utiliser useFinalizePlaquette (snapshot atomique).
+ */
+export function usePatchPlaquetteStatus(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<PlaquetteCheck, Error, PlaquetteStatusUpdatePayload>({
+    mutationFn: (payload) => api.patch(`/plaquette/${year}/status`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+    },
+  })
+}
+
+/**
+ * Transition atomique →DECLARE : PDF watermarké + snapshot JSON + GED protégé.
+ * Invalide aussi ['livret'] car le snapshot impacte la cohérence livret.
+ */
+export function useFinalizePlaquette(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<FinalizePlaquetteResult, Error, FinalizePlaquettePayload>({
+    mutationFn: (payload) => api.post(`/plaquette/${year}/finalize`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['ged-documents'] })
+      qc.invalidateQueries({ queryKey: ['ged-tree'] })
+      qc.invalidateQueries({ queryKey: ['ged-stats'] })
+      qc.invalidateQueries({ queryKey: ['plaquette-reports', year] })
+      qc.invalidateQueries({ queryKey: ['livret'] })
+    },
+  })
+}
+
+/**
+ * Upload d'une pièce jointe sur une entrée journal (multipart).
+ * Codes d'erreur :
+ *   - 413 : > 10 Mo
+ *   - 415 : mime non whitelisté (PDF, PNG, JPG, WEBP, EML, ZIP uniquement)
+ */
+export function useUploadJournalAttachment(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<
+    JournalAttachment,
+    Error,
+    { entryId: string; file: File }
+  >({
+    mutationFn: async ({ entryId, file }) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      // Multipart : pas via api.post (qui force Content-Type JSON), via fetch direct
+      const res = await fetch(
+        `/api/plaquette/${year}/journal/${encodeURIComponent(entryId)}/attachments`,
+        { method: 'POST', body: formData },
+      )
+      if (!res.ok) {
+        const text = await res.text()
+        let detail = text
+        try {
+          const parsed = JSON.parse(text)
+          detail = parsed.detail || text
+        } catch {
+          /* keep raw */
+        }
+        const err = new Error(detail) as Error & { status?: number }
+        err.status = res.status
+        throw err
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-journal-grouped', year] })
+    },
+  })
+}
+
+export function useDeleteJournalAttachment(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<
+    { status: string; filename: string },
+    Error,
+    { entryId: string; filename: string }
+  >({
+    mutationFn: ({ entryId, filename }) =>
+      api.delete(
+        `/plaquette/${year}/journal/${encodeURIComponent(entryId)}/attachments/${encodeURIComponent(filename)}`,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-journal-grouped', year] })
+    },
+  })
+}
+
+export function useJournalGroupedByItem(year: number | null) {
+  return useQuery<JournalGroupedByItem>({
+    queryKey: ['plaquette-journal-grouped', year],
+    queryFn: () => api.get(`/plaquette/${year}/journal/grouped-by-item`),
+    enabled: year !== null,
+    staleTime: 30 * 1000,
+  })
+}
+
+/**
+ * Helper URL pour preview/download inline d'un attachement journal.
+ * Utiliser dans des <a target="_blank" href={...}> ou comme src d'iframe.
+ */
+export function journalAttachmentUrl(
+  year: number,
+  entryId: string,
+  filename: string,
+): string {
+  return `/api/plaquette/${year}/journal/${encodeURIComponent(entryId)}/attachments/${encodeURIComponent(filename)}`
+}
+
+/**
+ * Mirror frontend des gardes backend : items éditables UNIQUEMENT si status === 'en_cours'.
+ * Le journal reste toujours appendable (cf. is_journal_appendable backend).
+ */
+export function isPlaquetteEditable(check: PlaquetteCheck | undefined | null): boolean {
+  return check?.status === 'en_cours'
+}
+
+export function isPlaquetteStatusRevertable(
+  check: PlaquetteCheck | undefined | null,
+): boolean {
+  return check?.status !== 'declare'
+}
+
+export type { PlaquetteCheckStatus }
+
+// ─── Session 39 P2 : évaluation risque fiscal ───
+
+/**
+ * Force le recalcul du risque de tous les items (ignore le cache `last_evaluated_at`).
+ * Préserve les overrides manuels. HTTP 423 si status==DECLARE.
+ */
+export function useRecomputeRisque(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<RecomputeRisqueResult, Error>({
+    mutationFn: () => api.post(`/plaquette/${year}/risque/recompute`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-top-risques', year] })
+    },
+  })
+}
+
+/**
+ * Override manuel du niveau de risque d'un item. Motif obligatoire pour traçabilité.
+ * HTTP 423 si status==DECLARE.
+ */
+export function usePatchItemRisque(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<PlaquetteItem, Error, { item_id: string; payload: RisqueOverridePayload }>({
+    mutationFn: ({ item_id, payload }) =>
+      api.patch(`/plaquette/${year}/items/${item_id}/risque`, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-top-risques', year] })
+    },
+  })
+}
+
+/**
+ * Repasse un item en mode auto (efface l'override).
+ * Le prochain GET /{year} recalculera le niveau automatiquement.
+ */
+export function useResetItemRisque(year: number | null) {
+  const qc = useQueryClient()
+  return useMutation<PlaquetteItem, Error, string>({
+    mutationFn: (item_id) =>
+      api.delete(`/plaquette/${year}/items/${item_id}/risque/override`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plaquette-check', year] })
+      qc.invalidateQueries({ queryKey: ['plaquette-top-risques', year] })
+    },
+  })
+}
+
+/**
+ * Top N items triés par niveau desc puis montant desc. Autorisé en DECLARE.
+ */
+export function useTopRisques(year: number | null, limit: number = 5) {
+  return useQuery<TopRisquesResult>({
+    queryKey: ['plaquette-top-risques', year, limit],
+    queryFn: () => api.get(`/plaquette/${year}/risque/top?limit=${limit}`),
+    enabled: year !== null,
+    staleTime: 30 * 1000,
   })
 }

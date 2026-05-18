@@ -145,6 +145,53 @@ _BOI_CGI_REFERENCES: dict[str, dict] = {
         "url": "https://bofip.impots.gouv.fr/bofip/3186-PGP.html/identifiant=BOI-BNC-BASE-40-20",
         "keywords": ["BOI-BNC-BASE-40-20", "blanchissage", "décote domicile"],
     },
+    # ─── Session 39 P2 : références utilisées par la section 7 (Préparation contrôle fiscal) ───
+    "art_L169_LPF": {
+        "title": "Article L169 LPF — Prescription fiscale (droit commun)",
+        "extrait": (
+            "Le droit de reprise de l'administration s'exerce jusqu'à la fin de la 3e année qui "
+            "suit celle au titre de laquelle l'imposition est due. En cas de soupçon de fraude "
+            "(activité occulte, manœuvres frauduleuses), ce délai est porté à 10 ans. "
+            "Pour les BNC, le délai standard de reprise reste de 3 ans + l'année en cours, "
+            "soit ~4 ans de conservation effective des justificatifs."
+        ),
+        "url": "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000044981842/",
+        "keywords": ["L169 LPF", "L. 169 LPF", "prescription fiscale", "droit de reprise"],
+    },
+    "art_L102_B_LPF": {
+        "title": "Article L102 B LPF — Obligation de conservation des pièces (6 ans)",
+        "extrait": (
+            "Les livres, registres, documents ou pièces sur lesquels peuvent s'exercer les droits "
+            "de communication, d'enquête et de contrôle de l'administration doivent être conservés "
+            "pendant un délai de six ans à compter de la date de la dernière opération mentionnée "
+            "sur les livres ou registres, ou de la date à laquelle les documents ou pièces ont été établis."
+        ),
+        "url": "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000033817650/",
+        "keywords": ["L102 B LPF", "L. 102 B LPF", "conservation pièces", "six ans"],
+    },
+    "art_240_CGI_DAS2": {
+        "title": "Article 240 CGI — Obligation déclarative DAS-2 honoraires rétrocédés",
+        "extrait": (
+            "Les personnes versant des honoraires, vacations, commissions, courtages, ristournes "
+            "et autres rémunérations à des tiers doivent les déclarer (formulaire DAS-2) dès lors "
+            "qu'elles atteignent 1 200 € par bénéficiaire et par année. Le défaut de déclaration "
+            "est sanctionné par une amende de 50 % des sommes non déclarées (article 1736-I CGI)."
+        ),
+        "url": "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000044990073/",
+        "keywords": ["article 240 CGI", "240 CGI", "DAS-2", "1 200 €", "honoraires rétrocédés"],
+    },
+    "art_39_4_CGI": {
+        "title": "Article 39-4° CGI — Plafonds d'amortissement véhicule selon classe CO2",
+        "extrait": (
+            "Les amortissements des véhicules de tourisme sont déductibles dans la limite de "
+            "plafonds fixés par classe CO2 : 30 000 € (≤ 20 g/km), 20 300 € (≤ 49 g/km), "
+            "18 300 € (≤ 165 g/km en 2024, abaissé annuellement) et 9 900 € (> seuil). "
+            "La fraction excédant le plafond doit être réintégrée extra-comptablement chaque année. "
+            "La quote-part professionnelle s'applique ensuite sur l'amortissement plafonné."
+        ),
+        "url": "https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000044990028/",
+        "keywords": ["article 39-4", "39-4 CGI", "plafond véhicule", "classe CO2", "39 4 CGI"],
+    },
 }
 
 
@@ -173,8 +220,14 @@ _STATUT_COLORS = {
 # ─── Generation principale ───
 
 
-def generate_report(year: int, output_path: Optional[Path] = None) -> Path:
+def generate_report(year: int, output_path: Optional[Path] = None, final: bool = False) -> Path:
     """Génère le PDF de vérification plaquette pour l'année donnée.
+
+    Args:
+        year: exercice fiscal
+        output_path: chemin de sortie (défaut REPORTS_DIR/{filename})
+        final: si True, ajoute un watermark "VERSION DÉFINITIVE" diagonal sur chaque page
+               et utilise le préfixe filename `plaquette_check_final_*` (Session 39 P1)
 
     Retourne le chemin du PDF généré (dans REPORTS_DIR par défaut).
     """
@@ -187,14 +240,19 @@ def generate_report(year: int, output_path: Optional[Path] = None) -> Path:
     if output_path is None:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = REPORTS_DIR / f"verification_plaquette_{year}_{ts}.pdf"
+        prefix = "plaquette_check_final" if final else "verification_plaquette"
+        output_path = REPORTS_DIR / f"{prefix}_{year}_{ts}.pdf"
 
-    _render_pdf(data, year, output_path)
+    _render_pdf(data, year, output_path, final=final)
     return output_path
 
 
-def _render_pdf(data: dict, year: int, output_path: Path) -> None:
-    """Rend le PDF avec ReportLab."""
+def _render_pdf(data: dict, year: int, output_path: Path, final: bool = False) -> None:
+    """Rend le PDF avec ReportLab.
+
+    Si `final=True`, ajoute un watermark diagonal "VERSION DÉFINITIVE — Déclarée le {date}"
+    sur chaque page (calque léger gris-violet).
+    """
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -485,28 +543,99 @@ def _render_pdf(data: dict, year: int, output_path: Path) -> None:
         style_small,
     ))
 
-    # ─── Section 5 : Annexe juridique (références BOI/CGI/PCG) ───
+    # ─── Section 7 : Préparation contrôle fiscal (Session 39 P2) ───
+    risque_global = data.get("risque_score_global")
+    top_risques = _get_top_risques_from_data(data, limit=5)
+    if top_risques:
+        story.append(PageBreak())
+        story.append(Paragraph("7. Préparation contrôle fiscal", style_h2))
+        _render_risque_section(
+            story=story,
+            top_risques=top_risques,
+            risque_score_global=risque_global,
+            style_h3=style_h3,
+            style_body=style_body,
+            style_comment=style_comment,
+            style_small=style_small,
+            style_callout_info=style_callout_info,
+            mm=mm,
+            colors=colors,
+            Table=Table,
+            TableStyle=TableStyle,
+            Paragraph=Paragraph,
+            Spacer=Spacer,
+            KeepTogether=KeepTogether,
+        )
+
+    # ─── Section 8 : Annexe juridique (références BOI/CGI/PCG) ───
+    # Session 39 P2 : inject auto des refs déclenchées par les drivers risque (top_risques)
     cited_refs = _detect_cited_references(items)
-    if cited_refs:
+    auto_refs_p2 = _refs_from_top_risques(top_risques)
+    # Préserve l'ordre + dédup
+    seen: set[str] = set()
+    all_refs: list[str] = []
+    for r in cited_refs + auto_refs_p2:
+        if r not in seen:
+            seen.add(r)
+            all_refs.append(r)
+    if all_refs:
         story.append(PageBreak())
         story.append(Paragraph(
-            f"5. Annexe — Références juridiques ({len(cited_refs)})", style_h2
+            f"8. Annexe — Références juridiques ({len(all_refs)})", style_h2
         ))
         story.append(Paragraph(
-            "Textes officiels invoqués dans l'argumentaire ci-dessus. Ces références sont "
-            "extraites automatiquement des commentaires des items à challenger et en discussion. "
-            "Elles permettent au comptable de vérifier la doctrine applicable.",
+            "Textes officiels invoqués dans l'argumentaire ci-dessus + références "
+            "déclenchées automatiquement par la section 7 (catégories sensibles, "
+            "forfaits, DAS-2, prescription).",
             style_callout_info,
         ))
 
-        for ref_key in cited_refs:
+        for ref_key in all_refs:
             ref = _BOI_CGI_REFERENCES[ref_key]
             story.append(_render_legal_card(
                 ref, style_h3, style_body, style_comment, style_small,
                 mm, colors, Table, TableStyle, Paragraph, Spacer, KeepTogether,
             ))
 
-    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    # Callback de page : footer toujours + watermark si final
+    if final:
+        declared_fr = datetime.now().strftime("%d/%m/%Y")
+
+        def _on_page(canvas, doc):  # noqa: ARG001 — signature ReportLab fixe
+            _footer(canvas, doc)
+            _draw_watermark(canvas, doc, declared_fr)
+        doc.build(story, onFirstPage=_on_page, onLaterPages=_on_page)
+    else:
+        doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+
+
+def _draw_watermark(canvas_obj, doc, declared_at: str) -> None:  # noqa: ARG001 — doc unused (taille fixe A4)
+    """Dessine un watermark diagonal "VERSION DÉFINITIVE — Déclarée le {date}".
+
+    Calque léger gris-violet (alpha 0.15) au centre de chaque page, rotation 45°.
+    Session 39 P1 — figé sur les snapshots de déclaration plaquette.
+    """
+    from reportlab.lib.pagesizes import A4
+    canvas_obj.saveState()
+    try:
+        canvas_obj.setFont("Helvetica-Bold", 48)
+        # setFillColorRGB(r, g, b, alpha) — alpha requiert le module rl_config.invariant ou Canvas.setFillAlpha
+        try:
+            canvas_obj.setFillColorRGB(0.85, 0.85, 0.9, alpha=0.18)
+        except TypeError:
+            # Fallback si alpha non supporté par la version ReportLab installée
+            canvas_obj.setFillColorRGB(0.85, 0.85, 0.9)
+            try:
+                canvas_obj.setFillAlpha(0.18)
+            except Exception:
+                pass
+        canvas_obj.translate(A4[0] / 2, A4[1] / 2)
+        canvas_obj.rotate(45)
+        canvas_obj.drawCentredString(0, 0, "VERSION DÉFINITIVE")
+        canvas_obj.setFont("Helvetica", 14)
+        canvas_obj.drawCentredString(0, -30, f"Déclarée le {declared_at}")
+    finally:
+        canvas_obj.restoreState()
 
 
 def _detect_cited_references(items: list[dict]) -> list[str]:
@@ -712,6 +841,228 @@ def _footer(canvas, doc):
     canvas.restoreState()
 
 
+# ─── Session 39 P2 : helpers section 7 (Préparation contrôle fiscal) ───
+
+
+_RISQUE_COLORS_HEX: dict[str, str] = {
+    "critique": "#dc2626",  # rouge
+    "eleve": "#ea580c",     # orange
+    "modere": "#eab308",    # ambre
+    "faible": "#16a34a",    # vert
+}
+
+_RISQUE_LABELS: dict[str, str] = {
+    "critique": "CRITIQUE",
+    "eleve": "ÉLEVÉ",
+    "modere": "MODÉRÉ",
+    "faible": "FAIBLE",
+}
+
+_NIVEAU_FROM_GLOBAL_SCORE: list[tuple[float, str]] = [
+    (0.5, "faible"),
+    (1.5, "modere"),
+    (2.5, "eleve"),
+    (999.0, "critique"),
+]
+
+# Mapping driver code → ref clé `_BOI_CGI_REFERENCES` à auto-injecter en annexe
+_DRIVER_TO_REF: dict[str, str] = {
+    "categorie_sensible": "quote_part_vehicule",  # via véhicule, repas, etc.
+    "forfait_applique": "csg_reforme_2025",       # via CSG/URSSAF splits
+    "montant_eleve_sensible": "art_39_4_CGI",     # véhicule plafond CO2
+    "boi_cgi_cite": "pieces_justificatives",      # rappel exigence pièces
+}
+
+
+def _get_top_risques_from_data(data: dict, limit: int = 5) -> list[dict]:
+    """Wrapper local pour appeler `plaquette_risque_service.get_top_risques` sans cycle import."""
+    try:
+        from backend.services import plaquette_risque_service
+        return plaquette_risque_service.get_top_risques(data, limit=limit)
+    except Exception as e:
+        logger.warning("get_top_risques failed: %s", e)
+        return []
+
+
+def _refs_from_top_risques(top_risques: list[dict]) -> list[str]:
+    """Pour chaque item top risque, mappe ses drivers → refs juridiques à injecter en annexe.
+
+    Tous les items non-faibles déclenchent aussi `art_L169_LPF` (rappel prescription)
+    et `art_L102_B_LPF` (conservation 6 ans) — utile en cas de contrôle.
+    """
+    if not top_risques:
+        return []
+    refs: list[str] = ["art_L169_LPF", "art_L102_B_LPF"]
+    seen: set[str] = set(refs)
+    for item in top_risques:
+        risque = item.get("risque_fiscal") or {}
+        for driver in risque.get("drivers") or []:
+            code = driver.get("code")
+            ref = _DRIVER_TO_REF.get(code)
+            if ref and ref not in seen:
+                seen.add(ref)
+                refs.append(ref)
+    return refs
+
+
+def _format_score_global(score: Optional[float]) -> tuple[str, str]:
+    """Retourne (texte_affiché, niveau_dominant_hex) pour le score global."""
+    if score is None:
+        return ("—", "#6B7280")
+    niveau = "faible"
+    for seuil, n in _NIVEAU_FROM_GLOBAL_SCORE:
+        if score >= seuil:
+            niveau = n
+        else:
+            break
+    return (f"{score:.1f} / 3.0 ({_RISQUE_LABELS[niveau]})", _RISQUE_COLORS_HEX[niveau])
+
+
+def _render_risque_section(
+    story: list,
+    top_risques: list[dict],
+    risque_score_global: Optional[float],
+    style_h3,
+    style_body,
+    style_comment,
+    style_small,
+    style_callout_info,
+    mm,
+    colors,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    KeepTogether,
+) -> None:
+    """Rend la section 7 « Préparation contrôle fiscal » avec :
+      - score global + niveau dominant
+      - top N items en card colorée par niveau
+      - note méthodologique + prescription L169 LPF / L102 B LPF
+    """
+    score_text, score_hex = _format_score_global(risque_score_global)
+    # Bandeau score global
+    story.append(Paragraph(
+        f"<b>Score de risque global de l'exercice :</b> "
+        f"<font color='{score_hex}'><b>{score_text}</b></font>",
+        style_body,
+    ))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        f"Top {len(top_risques)} des risques de l'exercice — items prioritaires "
+        "à documenter avant transmission de la déclaration.",
+        style_callout_info,
+    ))
+    story.append(Spacer(1, 6))
+
+    for item in top_risques:
+        story.append(_render_risque_card(
+            item=item,
+            style_h3=style_h3,
+            style_body=style_body,
+            style_comment=style_comment,
+            style_small=style_small,
+            mm=mm,
+            colors=colors,
+            Table=Table,
+            TableStyle=TableStyle,
+            Paragraph=Paragraph,
+            Spacer=Spacer,
+            KeepTogether=KeepTogether,
+        ))
+
+    # Note méthodologique
+    story.append(Spacer(1, 8))
+    story.append(Paragraph("Note méthodologique", style_h3))
+    story.append(Paragraph(
+        "Le score est calculé automatiquement à partir de règles paramétrées dans "
+        "<i>plaquette_risque_service.py</i>. Il signale les zones d'exposition typiques "
+        "en cas de contrôle d'un médecin BNC SCP (charges mixtes, forfaits, taux "
+        "justificatifs, écarts N-1). Il ne préjuge pas de la régularité fiscale des "
+        "déductions — il guide la documentation défensive à constituer.",
+        style_body,
+    ))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(
+        "<b>Prescription :</b> 3 ans (droit commun, art. L169 LPF), 10 ans en cas de "
+        "soupçon de fraude. <b>Conservation des justificatifs :</b> 6 ans à compter "
+        "de la dernière opération (art. L102 B LPF).",
+        style_small,
+    ))
+
+
+def _render_risque_card(
+    item: dict,
+    style_h3,
+    style_body,
+    style_comment,
+    style_small,
+    mm,
+    colors,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    KeepTogether,
+):
+    """Card d'un item à risque : header coloré + drivers + pièces + montant."""
+    risque = item.get("risque_fiscal") or {}
+    niveau_str = risque.get("niveau") or "faible"
+    color_hex = _RISQUE_COLORS_HEX.get(niveau_str, "#6B7280")
+    label = _RISQUE_LABELS.get(niveau_str, niveau_str.upper())
+    pcg = item.get("compte_pcg") or "—"
+    compte_label = item.get("compte_label") or "—"
+    rubrique = item.get("rubrique_2035") or ""
+    montant = float(item.get("montant_neuronx") or 0.0)
+    cats = ", ".join((item.get("categories_neuronx") or [])[:3]) or "—"
+
+    drivers = risque.get("drivers") or []
+    pieces = risque.get("pieces_disponibles") or []
+    overridden = bool(risque.get("overridden_niveau"))
+    motif = risque.get("overridden_motif") or ""
+
+    # Header : niveau + compte + montant
+    montant_fr = f"{montant:,.0f} €".replace(",", " ")
+    header_html = (
+        f"<font color='{color_hex}'><b>● {label}</b></font> | "
+        f"<font face='Helvetica-Bold'>{pcg}</font> — {compte_label}"
+        f"{('  ·  ' + rubrique) if rubrique else ''}"
+        f"  <font color='#6B7280'>({cats})</font>"
+        f"<br/><b>{montant_fr} NeuronX</b>"
+    )
+
+    rows = [[Paragraph(header_html, style_body)]]
+    if drivers:
+        drivers_text = "<br/>".join([
+            f"<b>{'+' if d.get('delta_score', 0) >= 0 else '−'}</b> "
+            f"{d.get('label', '')}"
+            f"{(' (' + d.get('detail') + ')') if d.get('detail') else ''}"
+            for d in drivers
+        ])
+        rows.append([Paragraph(f"<b>Drivers :</b><br/>{drivers_text}", style_comment)])
+    if pieces:
+        pieces_text = "<br/>".join([f"• {p}" for p in pieces])
+        rows.append([Paragraph(f"<b>Pièces disponibles :</b><br/>{pieces_text}", style_comment)])
+    if overridden and motif:
+        rows.append([Paragraph(
+            f"<b>Override manuel :</b> <i>{motif}</i>",
+            style_small,
+        )])
+
+    t = Table(rows, colWidths=[180 * mm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(color_hex)),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor(color_hex)),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    return KeepTogether([t, Spacer(1, 6)])
+
+
 # ─── Helpers BNC (réutilisent les services existants) ───
 
 
@@ -762,8 +1113,14 @@ def _delete_previous_reports(year: int) -> int:
     for doc_id, doc in docs.items():
         if doc.get("type") != "rapport":
             continue
+        # Session 39 P1 : ne JAMAIS toucher aux snapshots protégés (DECLARE figé)
+        if doc.get("protected"):
+            continue
         rapport_meta = doc.get("rapport_meta") or {}
         if rapport_meta.get("source_module") != "plaquette":
+            continue
+        # Skip aussi si le rapport est déjà un snapshot final (sécurité belt-and-suspenders)
+        if rapport_meta.get("report_type") == "plaquette_check_final":
             continue
         doc_year = (rapport_meta.get("filters") or {}).get("year") or doc.get("year")
         if doc_year == year:
@@ -781,46 +1138,65 @@ def _delete_previous_reports(year: int) -> int:
     return deleted
 
 
-def generate_and_register(year: int) -> dict:
+def generate_and_register(year: int, final: bool = False) -> dict:
     """Génère le PDF + enregistre en GED + retourne les métadonnées.
 
-    **Auto-replace** : supprime les anciennes versions du rapport plaquette pour cette
-    année AVANT de générer la nouvelle. La GED ne contient donc qu'un seul rapport
-    actif par exercice (le plus récent). Voir `_delete_previous_reports`.
+    **Auto-replace** : supprime les anciennes versions du rapport plaquette NON protégées
+    pour cette année AVANT de générer la nouvelle. La GED ne contient donc qu'un seul
+    rapport standard actif par exercice (le plus récent). Les snapshots finaux protégés
+    sont préservés indéfiniment. Voir `_delete_previous_reports`.
+
+    Args:
+        year: exercice fiscal
+        final: si True, génère un snapshot de déclaration (watermark + protected=True
+               + template_id="plaquette_check_final"). Session 39 P1.
 
     Returns:
-        {filename, ged_doc_id, size_bytes, generated_at, year, replaced_count}
+        {filename, ged_doc_id, size_bytes, generated_at, year, replaced_count, final}
     """
     from backend.services import ged_service
 
-    # 1. Supprimer les anciennes versions (auto-replace)
+    # 1. Supprimer les anciennes versions non-protégées (auto-replace)
     replaced_count = _delete_previous_reports(year)
 
-    # 2. Générer le nouveau PDF
-    pdf_path = generate_report(year)
+    # 2. Générer le nouveau PDF (avec ou sans watermark)
+    pdf_path = generate_report(year, final=final)
     filename = pdf_path.name
     size = pdf_path.stat().st_size
 
-    # Register en GED comme rapport
+    # 3. Register en GED comme rapport (protected=True si final)
+    template_id = "plaquette_check_final" if final else "plaquette_check"
+    title = (
+        f"Plaquette comptable {year} — VERSION DÉFINITIVE déclarée"
+        if final
+        else f"Vérification plaquette comptable — {year}"
+    )
+    description = (
+        f"Snapshot immuable de la plaquette {year} au moment de la déclaration 2042. "
+        f"Conservation durée prescription (art. L169 LPF, 4 ans)."
+        if final
+        else f"Rapport de vérification de la plaquette comptable {year} (synthèse BNC + anomalies argumentées)"
+    )
+
     try:
         ged_service.register_rapport(
             filename=filename,
             path=str(pdf_path),
-            title=f"Vérification plaquette comptable — {year}",
-            description=f"Rapport de vérification de la plaquette comptable {year} (synthèse BNC + anomalies argumentées)",
+            title=title,
+            description=description,
             filters={"year": year, "module": "plaquette_check"},
             format_type="pdf",
-            template_id="plaquette_check",
+            template_id=template_id,
+            protected=final,
         )
-        # Enrichir rapport_meta avec source_module
+        # Enrichir rapport_meta avec source_module + report_type
         from backend.services.ged_service import load_metadata, save_metadata
         metadata = load_metadata()
-        # Reconstituer le doc_id comme dans register_rapport
         rel_path = pdf_path.relative_to(Path.cwd()) if pdf_path.is_absolute() else pdf_path
         doc_id = str(rel_path)
         if doc_id in metadata.get("documents", {}):
             metadata["documents"][doc_id]["rapport_meta"]["source_module"] = "plaquette"
-            metadata["documents"][doc_id]["rapport_meta"]["report_type"] = "plaquette_check"
+            metadata["documents"][doc_id]["rapport_meta"]["report_type"] = template_id
             save_metadata(metadata)
         ged_doc_id = doc_id
     except Exception as e:
@@ -834,4 +1210,5 @@ def generate_and_register(year: int) -> dict:
         "generated_at": datetime.now().isoformat(),
         "year": year,
         "replaced_count": replaced_count,
+        "final": final,
     }

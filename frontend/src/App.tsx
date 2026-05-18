@@ -33,6 +33,7 @@ import SendToAccountantDrawer from '@/components/email/SendToAccountantDrawer'
 import LiasseScpDrawer from '@/components/liasse/LiasseScpDrawer'
 import GlobalImmobilisationDrawer from '@/components/amortissements/GlobalImmobilisationDrawer'
 import PlaquetteCheckDrawer from '@/components/plaquette/PlaquetteCheckDrawer'
+import { usePlaquetteCheckDrawerStore } from '@/stores/plaquetteCheckDrawerStore'
 
 export default function App() {
   const { data: settings } = useSettings()
@@ -98,7 +99,19 @@ export default function App() {
     <SendToAccountantDrawer />
     <LiasseScpDrawer />
     <GlobalImmobilisationDrawer />
-    <PlaquetteCheckDrawer />
+    <PlaquetteCheckDrawerHost />
     </>
   )
+}
+
+/**
+ * Wrapper qui démonte/remonte PlaquetteCheckDrawer à chaque ouverture.
+ * Le pattern `key` force un mount frais → state interne initialisé naturellement
+ * (pas besoin de `useEffect` de reset, évite l'anti-pattern react-hooks/set-state-in-effect).
+ */
+function PlaquetteCheckDrawerHost() {
+  const isOpen = usePlaquetteCheckDrawerStore((s) => s.isOpen)
+  const year = usePlaquetteCheckDrawerStore((s) => s.year)
+  if (!isOpen || year === null) return null
+  return <PlaquetteCheckDrawer key={year} />
 }

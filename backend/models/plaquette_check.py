@@ -4,6 +4,7 @@ Stockage : data/plaquette_check/{year}.json
 """
 from __future__ import annotations
 
+from enum import Enum
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -21,6 +22,35 @@ PlaquetteItemStatut = Literal[
 
 ParseStatut = Literal["pending", "parsed", "partial", "manual"]
 JournalType = Literal["email_out", "email_in", "note"]
+
+
+class PlaquetteCheckStatus(str, Enum):
+    """Cycle de vie de la vérification plaquette pour un exercice.
+
+    en_cours          : édition libre (items modifiables, journal appendable)
+    validation_finale : items verrouillés (read-only), journal appendable, statut réversible
+    declare           : exercice figé jusqu'à prescription fiscale (art. L169 LPF, 4 ans)
+                        Journal appendable (questions fisc post-déclaration). Statut IRRÉVERSIBLE.
+    """
+
+    EN_COURS = "en_cours"
+    VALIDATION_FINALE = "validation_finale"
+    DECLARE = "declare"
+
+
+class RisqueNiveau(str, Enum):
+    """Niveau de risque fiscal d'un item de la plaquette (Session 39 P2).
+
+    faible   : déduction documentée, pas de catégorie sensible.
+    modere   : 1-2 drivers de risque (catégorie sensible OU forfait OU taux justif bas).
+    eleve    : 3 drivers OU montant élevé sur catégorie sensible.
+    critique : ≥ 4 drivers cumulés.
+    """
+
+    FAIBLE = "faible"
+    MODERE = "modere"
+    ELEVE = "eleve"
+    CRITIQUE = "critique"
 
 
 class OperationRef(BaseModel):
@@ -63,6 +93,54 @@ class PlaquetteItem(BaseModel):
     # Audit
     last_modified_at: str = ""
 
+    # Session 39 P2 — évaluation risque fiscal (None tant que jamais évalué)
+    risque_fiscal: Optional[RisqueFiscalEvaluation] = None
+
+
+class RisqueDriver(BaseModel):
+    """Un facteur contributif au score de risque fiscal d'un item.
+
+    `delta_score` peut être positif (aggravant) ou négatif (atténuant : référence
+    BOI/CGI citée, statut résolu, etc.). Voir `plaquette_risque_service.evaluate_item`.
+    """
+
+    code: str  # ex: "categorie_sensible", "forfait_applique", "boi_cgi_cite"
+    label: str  # libellé humain pour l'UI
+    delta_score: int  # +1 (aggravant) / -1 (atténuant)
+    detail: Optional[str] = None  # contexte affichable (ex: "Taux justif Véhicule = 62 %")
+
+
+class RisqueFiscalEvaluation(BaseModel):
+    """Évaluation complète du risque fiscal d'un item (Session 39 P2).
+
+    `score` est le score brut (peut être négatif via drivers atténuants).
+    `niveau` est dérivé du score via `SCORE_THRESHOLDS`.
+    `overridden_niveau` non-null = override manuel utilisateur (figé jusqu'à reset).
+    """
+
+    niveau: RisqueNiveau
+    score: int
+    drivers: list[RisqueDriver] = Field(default_factory=list)
+    pieces_disponibles: list[str] = Field(default_factory=list)  # ex: "13 justifs sur 21 ops"
+    auto_calcule: bool = True
+    overridden_niveau: Optional[RisqueNiveau] = None
+    overridden_motif: Optional[str] = None
+    last_evaluated_at: str  # ISO datetime
+
+
+class JournalAttachment(BaseModel):
+    """Pièce jointe attachée à une entrée du journal d'échanges.
+
+    Stockage physique : data/plaquette_check/{year}/journal_attachments/{filename}
+    Validation mime (whitelist) et taille (≤ 10 Mo) côté service.
+    """
+
+    filename: str
+    storage_path: str  # relatif à data/plaquette_check/{year}/journal_attachments/
+    size_bytes: int
+    mime_type: str
+    uploaded_at: str  # ISO datetime
+
 
 class JournalEntry(BaseModel):
     """Une entrée du journal d'échanges plaquette ↔ comptable."""
@@ -75,6 +153,7 @@ class JournalEntry(BaseModel):
     related_item_ids: list[str] = Field(default_factory=list)
     ged_email_history_id: Optional[str] = None
     author: Optional[str] = None  # "user" | "comptable" | None
+    attachments: list[JournalAttachment] = Field(default_factory=list)
 
 
 class PlaquetteUpload(BaseModel):
@@ -106,6 +185,18 @@ class PlaquetteCheck(BaseModel):
     totaux_plaquette: dict = Field(default_factory=dict)
     # ex: {"recettes": 412470, "depenses": 154722, "benefice": 252279,
     #      "recettes_n1": 409784, "depenses_n1": 139676, "benefice_n1": 288817}
+
+    # ─── Cycle de vie (Session 39 P1) ───
+    status: PlaquetteCheckStatus = PlaquetteCheckStatus.EN_COURS
+    validated_at: Optional[str] = None  # ISO, timestamp passage en validation_finale
+    declared_at: Optional[str] = None  # ISO, timestamp passage en declare
+    declaration_ref: Optional[str] = None  # ex. "2042 N° 0123456789012 télédéclaré le 15/04/2026"
+    final_snapshot_ged_doc_id: Optional[str] = None  # doc_id du PDF figé en GED
+
+    # ─── Évaluation risque fiscal (Session 39 P2) ───
+    # Moyenne pondérée par montant_neuronx, niveau → poids (faible=0, modere=1, eleve=2, critique=3).
+    # Score normalisé sur 3. None tant que jamais évalué.
+    risque_score_global: Optional[float] = None
 
     created_at: str = ""
     updated_at: str = ""
@@ -187,3 +278,27 @@ class PlaquetteCheckSetRefRequest(BaseModel):
     """Lier la plaquette à un doc GED existant (sans upload)."""
     ged_doc_id: str
     cabinet_template: Optional[str] = None
+
+
+# ─── Session 39 P1 : cycle de vie ───
+
+
+class PlaquetteStatusUpdate(BaseModel):
+    """Transition de statut (hors finalisation — passer par /finalize pour →DECLARE)."""
+    new_status: PlaquetteCheckStatus
+    declaration_ref: Optional[str] = None  # ignoré si new_status != DECLARE
+
+
+class FinalizePlaquetteRequest(BaseModel):
+    """Payload pour finaliser et déclarer la plaquette (transition atomique →DECLARE)."""
+    declaration_ref: str  # obligatoire — référence officielle de la 2042
+    declared_at: Optional[str] = None  # ISO, défaut = now()
+
+
+# ─── Session 39 P2 : override manuel du niveau de risque ───
+
+
+class RisqueOverrideRequest(BaseModel):
+    """Forcer le niveau de risque d'un item avec un motif obligatoire (traçabilité)."""
+    niveau: RisqueNiveau
+    motif: str  # obligatoire — pourquoi l'utilisateur override le calcul auto

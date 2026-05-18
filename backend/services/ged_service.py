@@ -271,6 +271,7 @@ def register_rapport(
     template_id: Optional[str] = None,
     replaced_filename: Optional[str] = None,
     linked_justifs: Optional[list[str]] = None,
+    protected: bool = False,
 ) -> None:
     """Enregistre un rapport dans le metadata GED.
 
@@ -278,6 +279,11 @@ def register_rapport(
     liste des basenames de justifs liés aux immos en scope (via transitivité
     op). Gelée au moment de la génération, consommée par `email_service` pour
     construire le sous-dossier `Justificatifs_immobilisations/` du ZIP envoyé.
+
+    `protected` (bool, défaut False) : verrou logique pour snapshot immuable
+    (Session 39 P1 — plaquette finalisée). Si True, `delete_document(doc_id)`
+    retourne False sans rien faire. À utiliser pour les snapshots de
+    déclaration (durée prescription L169 LPF).
     """
     metadata = load_metadata()
     docs = metadata.get("documents", {})
@@ -350,6 +356,7 @@ def register_rapport(
         "is_reconstitue": False,
         "operation_ref": None,
         "rapport_meta": rapport_meta,
+        "protected": bool(protected),
     }
 
     metadata["documents"] = docs
@@ -1686,6 +1693,13 @@ def delete_document(doc_id: str) -> bool:
         return False
 
     doc = docs[doc_id]
+
+    # Protégé (Session 39 P1) : snapshot immuable de déclaration plaquette → refus silencieux
+    if doc.get("protected"):
+        logger.warning(
+            "GED: tentative de suppression d'un document protégé refusée → %s", doc_id
+        )
+        return False
 
     # Rapports : déléguer à report_service puis nettoyer GED
     if doc["type"] == "rapport":
